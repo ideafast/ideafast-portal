@@ -5007,7 +5007,7 @@ bytes@3.0.0:
   resolved "https://registry.yarnpkg.com/bytes/-/bytes-3.0.0.tgz#d32815404d689699f85a4ea4fa8755dd13a96048"
   integrity sha1-0ygVQE1olpn4Wk6k+odV3ROpYEg=
 
-bytes@3.1.0:
+bytes@3.1.0, bytes@^3.1.0:
   version "3.1.0"
   resolved "https://registry.yarnpkg.com/bytes/-/bytes-3.1.0.tgz#f6cf7933a360e0588fa9fde85651cdc7f805d1f6"
   integrity sha512-zauLjrfCG+xvoyaqLoV8bLVXXNGC4JqlxFCutSDWA6fJrTo2ZuvLYTqZ7aHBLZSMOopbzwv8f+wZcVzfVTI2Dg==
@@ -8351,6 +8351,11 @@ has-flag@^4.0.0:
   resolved "https://registry.yarnpkg.com/has-flag/-/has-flag-4.0.0.tgz#944771fd9c81c81265c4d6941860da06bb59479b"
   integrity sha512-EykJT/Q1KjTWctppgIAgfSO0tKVuZUjhgMr17kqTumMl6Afv3EISleU7qZUzoXDFTAHTDC4NOoG/ZxU3EvlMPQ==
 
+has-own-property@^1.0.0:
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/has-own-property/-/has-own-property-1.0.0.tgz#3e98cc1d2b5f3da80d3eafd28cc65fcadda965da"
+  integrity sha1-PpjMHStfPagNPq/SjMZfyt2pZdo=
+
 has-symbols@^1.0.0, has-symbols@^1.0.1:
   version "1.0.1"
   resolved "https://registry.yarnpkg.com/has-symbols/-/has-symbols-1.0.1.tgz#9f5214758a44196c406d9bd76cebf81ec2dd31e8"
@@ -11422,16 +11427,18 @@ ms@^2.0.0, ms@^2.1.1:
   resolved "https://registry.yarnpkg.com/ms/-/ms-2.1.2.tgz#d09d1f357b443f493382a8eb3ccd183872ae6009"
   integrity sha512-sGkPx+VjMtmA6MX27oA4FBFELFCZZ4S4XqeGOXCv68tT+jb3vk/RyaKWP0PTKyWtmLSM0b+adUTEvbs1PEaH2w==
 
-multer@2.0.0-beta.1:
-  version "2.0.0-beta.1"
-  resolved "https://registry.yarnpkg.com/multer/-/multer-2.0.0-beta.1.tgz#d9eaf52888b5180ad075ffb6867e417f465e8f75"
-  integrity sha512-Rs+nvJwKuPtbLDjOe9AidjfipIvWf7xw8kmts6Ri3h9EC66AzHV1zV1+Ch0avPdPbjzDriHFeo4G7UAQaqPyPA==
+multer@2.0.0-rc.2:
+  version "2.0.0-rc.2"
+  resolved "https://registry.yarnpkg.com/multer/-/multer-2.0.0-rc.2.tgz#52cdf94b67e69636c30bc2a67bb95676f17ad445"
+  integrity sha512-IjQe1wZoANXrZ0A7cED1dxUny3BFezp6jajZ2FDjP6Rjfxib20WPbWYIPe2mjq0enipuIqz7XLdAkbqO6+oqzQ==
   dependencies:
     append-field "^1.0.0"
     busboy "^0.3.1"
+    bytes "^3.1.0"
     fs-temp "^1.1.1"
+    has-own-property "^1.0.0"
     on-finished "^2.3.0"
-    pify "^4.0.1"
+    pify "^5.0.0"
     pump "^3.0.0"
     stream-file-type "^0.4.0"
     type-is "^1.6.18"
@@ -12534,6 +12541,11 @@ pify@^4.0.1:
   version "4.0.1"
   resolved "https://registry.yarnpkg.com/pify/-/pify-4.0.1.tgz#4b2cd25c50d598735c50292224fd8c6df41e3231"
   integrity sha512-uB80kBFb/tfd68bVleG9T5GGsGPjJrLAUpR5PZIrhBnIaRTQRjqdJSsIKkOP6OAIFbj7GOrcudc5pNjZ+geV2g==
+
+pify@^5.0.0:
+  version "5.0.0"
+  resolved "https://registry.yarnpkg.com/pify/-/pify-5.0.0.tgz#1f5eca3f5e87ebec28cc6d54a0e4aaf00acc127f"
+  integrity sha512-eW/gHNMlxdSP6dmG6uJip6FXN0EQBwm2clYYd8Wul42Cwu/DK8HEftzsapcNdYe2MfLiIwZqsDk2RDEsTE79hA==
 
 pinkie-promise@^2.0.0:
   version "2.0.1"
