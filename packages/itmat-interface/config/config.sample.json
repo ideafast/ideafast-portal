@@ -12,7 +12,8 @@
             "data_collection": "DATA_COLLECTION",
             "roles_collection": "ROLE_COLLECTION",
             "field_dictionary_collection": "FIELD_COLLECTION",
-            "files_collection": "FILES_COLLECTION"
+            "files_collection": "FILES_COLLECTION",
+            "sessions_collection": "SESSIONS_COLLECTION"
         }
     },
     "server": {
@@ -36,7 +37,7 @@
         "service": "Outlook365",
         "auth": {
             "user": "user",
-            "pass": "password" 
+            "pass": "password"
         }
     }
 }
