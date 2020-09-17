@@ -4,7 +4,7 @@ import { onError } from '@apollo/client/link/error';
 import { createUploadLink } from 'apollo-upload-client';
 
 const uploadLink = createUploadLink({
-    uri: `${window.location.origin}/graphql`,
+    uri: `${window.location.origin}/api/v2`,
     credentials: 'include'
 }) as any as ApolloLink;
 

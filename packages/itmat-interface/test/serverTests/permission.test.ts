@@ -19,6 +19,7 @@ let admin;
 let user;
 let mongoConnection;
 let mongoClient;
+let apiPath;
 
 afterAll(async () => {
     await db.closeConnection();
@@ -27,6 +28,9 @@ afterAll(async () => {
 });
 
 beforeAll(async () => { // eslint-disable-line no-undef
+    /* Choose API version used in this test file */
+    apiPath = '/api/'.concat(config.apiVersions[config.apiVersions.length - 1]);
+
     /* Creating a in-memory MongoDB instance for testing */
     mongodb = new MongoMemoryServer();
     const connectionString = await mongodb.getUri();
@@ -119,7 +123,7 @@ describe('ROLE API', () => {
 
         test('Creating a new role for study (admin)', async () => {
             const roleName = uuid();
-            const res = await admin.post('/graphql').send({
+            const res = await admin.post(apiPath).send({
                 query: print(ADD_NEW_ROLE),
                 variables: {
                     roleName,
@@ -157,7 +161,7 @@ describe('ROLE API', () => {
 
         test('Creating a new role for study (user without privilege) (should fail)', async () => {
             const roleName = uuid();
-            const res = await user.post('/graphql').send({
+            const res = await user.post(apiPath).send({
                 query: print(ADD_NEW_ROLE),
                 variables: {
                     roleName,
@@ -192,7 +196,7 @@ describe('ROLE API', () => {
 
             /* test */
             const roleName = uuid();
-            const res = await authorisedUser.post('/graphql').send({
+            const res = await authorisedUser.post(apiPath).send({
                 query: print(ADD_NEW_ROLE),
                 variables: {
                     roleName,
@@ -230,7 +234,7 @@ describe('ROLE API', () => {
 
         test('Creating a new role for project (admin)', async () => {
             const roleName = uuid();
-            const res = await admin.post('/graphql').send({
+            const res = await admin.post(apiPath).send({
                 query: print(ADD_NEW_ROLE),
                 variables: {
                     roleName,
@@ -299,7 +303,7 @@ describe('ROLE API', () => {
 
             /* test */
             const roleName = uuid();
-            const res = await authorisedUser.post('/graphql').send({
+            const res = await authorisedUser.post(apiPath).send({
                 query: print(ADD_NEW_ROLE),
                 variables: {
                     roleName,
@@ -334,7 +338,7 @@ describe('ROLE API', () => {
 
             /* test */
             const roleName = uuid();
-            const res = await authorisedUser.post('/graphql').send({
+            const res = await authorisedUser.post(apiPath).send({
                 query: print(ADD_NEW_ROLE),
                 variables: {
                     roleName,
@@ -388,7 +392,7 @@ describe('ROLE API', () => {
 
             /* test */
             const roleName = uuid();
-            const res = await authorisedUser.post('/graphql').send({
+            const res = await authorisedUser.post(apiPath).send({
                 query: print(ADD_NEW_ROLE),
                 variables: {
                     roleName,
@@ -426,7 +430,7 @@ describe('ROLE API', () => {
 
         test('Creating a new role for project (user without privilege) (should fail)', async () => {
             const roleName = uuid();
-            const res = await user.post('/graphql').send({
+            const res = await user.post(apiPath).send({
                 query: print(ADD_NEW_ROLE),
                 variables: {
                     roleName,
@@ -514,7 +518,7 @@ describe('ROLE API', () => {
 
             test('Edit a non-existent role (admin)', async () => {
                 const newRoleName = uuid();
-                const res = await admin.post('/graphql').send({
+                const res = await admin.post(apiPath).send({
                     query: print(EDIT_ROLE),
                     variables: {
                         roleId: 'fake role id',
@@ -541,7 +545,7 @@ describe('ROLE API', () => {
 
             test('Edit a non-existent role (user)', async () => {
                 const newRoleName = uuid();
-                const res = await user.post('/graphql').send({
+                const res = await user.post(apiPath).send({
                     query: print(EDIT_ROLE),
                     variables: {
                         roleId: 'fake role id',
@@ -568,7 +572,7 @@ describe('ROLE API', () => {
 
             test('Change role name (admin)', async () => {
                 const newRoleName = uuid();
-                const res = await admin.post('/graphql').send({
+                const res = await admin.post(apiPath).send({
                     query: print(EDIT_ROLE),
                     variables: {
                         roleId: setupRole.id,
@@ -601,7 +605,7 @@ describe('ROLE API', () => {
 
             test('Change role name (privileged user)', async () => {
                 const newRoleName = uuid();
-                const res = await authorisedUser.post('/graphql').send({
+                const res = await authorisedUser.post(apiPath).send({
                     query: print(EDIT_ROLE),
                     variables: {
                         roleId: setupRole.id,
@@ -635,7 +639,7 @@ describe('ROLE API', () => {
             test('Change role name (user without privilege) (should fail)', async () => {
                 const newRoleName = uuid();
                 const oldName = setupRole.name;
-                const res = await user.post('/graphql').send({
+                const res = await user.post(apiPath).send({
                     query: print(EDIT_ROLE),
                     variables: {
                         roleId: setupRole.id,
@@ -679,7 +683,7 @@ describe('ROLE API', () => {
                 });
 
                 /* test */
-                const res = await admin.post('/graphql').send({
+                const res = await admin.post(apiPath).send({
                     query: print(EDIT_ROLE),
                     variables: {
                         roleId: setupRole.id,
@@ -727,7 +731,7 @@ describe('ROLE API', () => {
                 await mongoClient.collection(config.database.collections.users_collection).insertOne(newUser);
 
                 /* test */
-                const res = await admin.post('/graphql').send({
+                const res = await admin.post(apiPath).send({
                     query: print(EDIT_ROLE),
                     variables: {
                         roleId: setupRole.id,
@@ -786,7 +790,7 @@ describe('ROLE API', () => {
                 await mongoClient.collection(config.database.collections.users_collection).insertOne(newUser);
 
                 /* test */
-                const res = await authorisedUser.post('/graphql').send({
+                const res = await authorisedUser.post(apiPath).send({
                     query: print(EDIT_ROLE),
                     variables: {
                         roleId: setupRole.id,
@@ -845,7 +849,7 @@ describe('ROLE API', () => {
                 await mongoClient.collection(config.database.collections.users_collection).insertOne(newUser);
 
                 /* test */
-                const res = await user.post('/graphql').send({
+                const res = await user.post(apiPath).send({
                     query: print(EDIT_ROLE),
                     variables: {
                         roleId: setupRole.id,
@@ -902,7 +906,7 @@ describe('ROLE API', () => {
                 expect(updatedRole.value.users).toEqual([newUser.id]);
 
                 /* test */
-                const res = await admin.post('/graphql').send({
+                const res = await admin.post(apiPath).send({
                     query: print(EDIT_ROLE),
                     variables: {
                         roleId: setupRole.id,
@@ -955,7 +959,7 @@ describe('ROLE API', () => {
                 });
 
                 /* test */
-                const res = await admin.post('/graphql').send({
+                const res = await admin.post(apiPath).send({
                     query: print(EDIT_ROLE),
                     variables: {
                         roleId: setupRole.id,
@@ -1017,7 +1021,7 @@ describe('ROLE API', () => {
                 });
 
                 /* test */
-                const res = await admin.post('/graphql').send({
+                const res = await admin.post(apiPath).send({
                     query: print(EDIT_ROLE),
                     variables: {
                         roleId: setupRole.id,
@@ -1076,7 +1080,7 @@ describe('ROLE API', () => {
                 });
 
                 /* test */
-                const res = await admin.post('/graphql').send({
+                const res = await admin.post(apiPath).send({
                     query: print(EDIT_ROLE),
                     variables: {
                         roleId: setupRole.id,
@@ -1136,7 +1140,7 @@ describe('ROLE API', () => {
                 });
 
                 /* test */
-                const res = await admin.post('/graphql').send({
+                const res = await admin.post(apiPath).send({
                     query: print(EDIT_ROLE),
                     variables: {
                         roleId: setupRole.id,
@@ -1185,7 +1189,7 @@ describe('ROLE API', () => {
                 });
 
                 /* test */
-                const res = await admin.post('/graphql').send({
+                const res = await admin.post(apiPath).send({
                     query: print(EDIT_ROLE),
                     variables: {
                         roleId: setupRole.id,
@@ -1234,7 +1238,7 @@ describe('ROLE API', () => {
                 });
 
                 /* test */
-                const res = await admin.post('/graphql').send({
+                const res = await admin.post(apiPath).send({
                     query: print(EDIT_ROLE),
                     variables: {
                         roleId: setupRole.id,
@@ -1289,7 +1293,7 @@ describe('ROLE API', () => {
                 });
 
                 /* test */
-                const res = await admin.post('/graphql').send({
+                const res = await admin.post(apiPath).send({
                     query: print(EDIT_ROLE),
                     variables: {
                         roleId: setupRole.id,
@@ -1362,7 +1366,7 @@ describe('ROLE API', () => {
                 });
 
                 /* test */
-                const res = await admin.post('/graphql').send({
+                const res = await admin.post(apiPath).send({
                     query: print(EDIT_ROLE),
                     variables: {
                         roleId: setupRole.id,
@@ -1501,7 +1505,7 @@ describe('ROLE API', () => {
 
             test('Change role name (admin)', async () => {
                 const newRoleName = uuid();
-                const res = await admin.post('/graphql').send({
+                const res = await admin.post(apiPath).send({
                     query: print(EDIT_ROLE),
                     variables: {
                         roleId: setupRole.id,
@@ -1534,7 +1538,7 @@ describe('ROLE API', () => {
 
             test('Change role name (privileged user)', async () => {
                 const newRoleName = uuid();
-                const res = await authorisedUser.post('/graphql').send({
+                const res = await authorisedUser.post(apiPath).send({
                     query: print(EDIT_ROLE),
                     variables: {
                         roleId: setupRole.id,
@@ -1568,7 +1572,7 @@ describe('ROLE API', () => {
             test('Change role name (user without privilege) (should fail)', async () => {
                 const newRoleName = uuid();
                 const oldName = setupRole.name;
-                const res = await user.post('/graphql').send({
+                const res = await user.post(apiPath).send({
                     query: print(EDIT_ROLE),
                     variables: {
                         roleId: setupRole.id,
@@ -1612,7 +1616,7 @@ describe('ROLE API', () => {
                 });
 
                 /* test */
-                const res = await admin.post('/graphql').send({
+                const res = await admin.post(apiPath).send({
                     query: print(EDIT_ROLE),
                     variables: {
                         roleId: setupRole.id,
@@ -1660,7 +1664,7 @@ describe('ROLE API', () => {
                 await mongoClient.collection(config.database.collections.users_collection).insertOne(newUser);
 
                 /* test */
-                const res = await authorisedUser.post('/graphql').send({
+                const res = await authorisedUser.post(apiPath).send({
                     query: print(EDIT_ROLE),
                     variables: {
                         roleId: setupRole.id,
@@ -1719,7 +1723,7 @@ describe('ROLE API', () => {
                 await mongoClient.collection(config.database.collections.users_collection).insertOne(newUser);
 
                 /* test */
-                const res = await user.post('/graphql').send({
+                const res = await user.post(apiPath).send({
                     query: print(EDIT_ROLE),
                     variables: {
                         roleId: setupRole.id,
@@ -1766,7 +1770,7 @@ describe('ROLE API', () => {
                 });
 
                 /* test */
-                const res = await admin.post('/graphql').send({
+                const res = await admin.post(apiPath).send({
                     query: print(EDIT_ROLE),
                     variables: {
                         roleId: setupRole.id,
@@ -1867,7 +1871,7 @@ describe('ROLE API', () => {
             });
 
             test('delete a study role (admin)', async () => {
-                const res = await admin.post('/graphql').send({
+                const res = await admin.post(apiPath).send({
                     query: print(REMOVE_ROLE),
                     variables: {
                         roleId: setupRole.id
@@ -1881,7 +1885,7 @@ describe('ROLE API', () => {
             });
 
             test('delete a study role (privileged user)', async () => {
-                const res = await authorisedUser.post('/graphql').send({
+                const res = await authorisedUser.post(apiPath).send({
                     query: print(REMOVE_ROLE),
                     variables: {
                         roleId: setupRole.id
@@ -1895,7 +1899,7 @@ describe('ROLE API', () => {
             });
 
             test('delete a study role (user with no privilege) (should fail)', async () => {
-                const res = await user.post('/graphql').send({
+                const res = await user.post(apiPath).send({
                     query: print(REMOVE_ROLE),
                     variables: {
                         roleId: setupRole.id
@@ -1910,7 +1914,7 @@ describe('ROLE API', () => {
             });
 
             test('delete a non-existent role (admin)', async () => {
-                const res = await admin.post('/graphql').send({
+                const res = await admin.post(apiPath).send({
                     query: print(REMOVE_ROLE),
                     variables: {
                         roleId: 'iamafakerole!'
@@ -2010,7 +2014,7 @@ describe('ROLE API', () => {
             });
 
             test('delete a project role (admin)', async () => {
-                const res = await admin.post('/graphql').send({
+                const res = await admin.post(apiPath).send({
                     query: print(REMOVE_ROLE),
                     variables: {
                         roleId: setupRole.id
@@ -2024,7 +2028,7 @@ describe('ROLE API', () => {
             });
 
             test('delete a project role (privileged user)', async () => {
-                const res = await authorisedUser.post('/graphql').send({
+                const res = await authorisedUser.post(apiPath).send({
                     query: print(REMOVE_ROLE),
                     variables: {
                         roleId: setupRole.id

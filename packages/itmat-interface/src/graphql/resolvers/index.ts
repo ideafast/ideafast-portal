@@ -11,7 +11,17 @@ import { errorCodes } from '../errors';
 import { IUser } from 'itmat-commons';
 import { logResolvers } from './logResolvers';
 
-const modules = [
+const modulesV1 = [
+    studyResolvers,
+    userResolvers,
+    queryResolvers,
+    permissionResolvers,
+    jobResolvers,
+    fileResolvers,
+    organisationResolvers
+];
+
+const modulesV2 = [
     studyResolvers,
     userResolvers,
     queryResolvers,
@@ -21,6 +31,7 @@ const modules = [
     organisationResolvers,
     logResolvers
 ];
+
 
 // const loggingDecorator = (reducerFunction: Function) => {
 //     return async (parent: any, args: any, context: any, info: any) => {
@@ -43,8 +54,8 @@ const bounceNotLoggedInDecorator = (reducerFunction: any) => {
 };
 
 
-const reduceInit: any = { JSON: GraphQLJSON };
-export const resolvers = modules.reduce((a, e) => {
+const reduceInitV1: any = { JSON: GraphQLJSON };
+export const resolversV1 = modulesV1.reduce((a, e) => {
     const types = Object.keys(e);
     for (const each of types) {  // types can be Subscription | Query | Mutation | {{TYPE}}
         if (a[each] === undefined) {  // if a doesnt have types then create a empty obj
@@ -59,4 +70,22 @@ export const resolvers = modules.reduce((a, e) => {
         }
     }
     return a;
-}, reduceInit);
+}, reduceInitV1);
+
+const reduceInitV2: any = { JSON: GraphQLJSON };
+export const resolversV2 = modulesV2.reduce((a, e) => {
+    const types = Object.keys(e);
+    for (const each of types) {  // types can be Subscription | Query | Mutation | {{TYPE}}
+        if (a[each] === undefined) {  // if a doesnt have types then create a empty obj
+            a[each] = {};
+        }
+        for (const funcName of Object.keys((e as any)[each])) {
+            if (each === 'Subscription') {
+                (a as any)[each][funcName] = (e as any)[each][funcName];
+            } else {
+                (a as any)[each][funcName] = bounceNotLoggedInDecorator((e as any)[each][funcName]);
+            }
+        }
+    }
+    return a;
+}, reduceInitV2);

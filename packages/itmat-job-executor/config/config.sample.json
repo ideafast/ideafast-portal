@@ -27,5 +27,6 @@
         "bucketRegion": "region",
         "useSSL": false
     },
-    "pollingInterval": 10000
+    "pollingInterval": 10000,
+    "apiVersions": ["v1", "v2"]
 }

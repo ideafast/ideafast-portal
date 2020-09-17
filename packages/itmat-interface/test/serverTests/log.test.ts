@@ -26,6 +26,7 @@ let admin;
 let user;
 let mongoConnection;
 let mongoClient;
+let apiPath;
 
 // const SEED_STANDARD_USER_USERNAME = 'standardUser';
 // const SEED_STANDARD_USER_EMAIL = 'standard@example.com';
@@ -43,6 +44,9 @@ afterAll(async () => {
 });
 
 beforeAll(async () => { // eslint-disable-line no-undef
+    /* Choose API version used in this test file */
+    apiPath = '/api/'.concat(config.apiVersions[config.apiVersions.length - 1]);
+
     /* Creating a in-memory MongoDB instance for testing */
     mongodb = new MongoMemoryServer();
     const connectionString = await mongodb.getUri();
@@ -97,7 +101,7 @@ describe('LOG API', () => {
             await mongoClient.collection(config.database.collections.users_collection).insertOne(newUser);
             const newloggedoutuser = request.agent(app);
             const otp = mfa.generateTOTP(userSecret).toString();
-            const res = await newloggedoutuser.post('/graphql').set('Content-type', 'application/json').send({
+            const res = await newloggedoutuser.post(apiPath).set('Content-type', 'application/json').send({
                 query: print(LOGIN),
                 variables: {
                     username: 'test_user',
@@ -120,7 +124,7 @@ describe('LOG API', () => {
             expect(lastLog.status).toEqual(LOG_STATUS.SUCCESS);
             expect(lastLog.error).toEqual('');
 
-            await admin.post('/graphql').send(
+            await admin.post(apiPath).send(
                 {
                     query: print(DELETE_USER),
                     variables: {
@@ -153,7 +157,7 @@ describe('LOG API', () => {
         });
 
         test('GET log (admin)', async () => {
-            const res = await admin.post('/graphql').send({
+            const res = await admin.post(apiPath).send({
                 query: print(GET_LOGS),
                 variables: {
                 }
@@ -164,7 +168,7 @@ describe('LOG API', () => {
         }, 30000);
 
         test('GET log (user) should fail', async () => {
-            const res = await user.post('/graphql').send({
+            const res = await user.post(apiPath).send({
                 query: print(GET_LOGS),
                 variables: {
                     requesterId: 'test_id1'

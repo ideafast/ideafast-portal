@@ -27,6 +27,7 @@ if (global.hasMinio) {
     let user;
     let mongoConnection;
     let mongoClient;
+    let apiPath;
 
     afterAll(async () => {
         await db.closeConnection();
@@ -35,6 +36,8 @@ if (global.hasMinio) {
     });
 
     beforeAll(async () => { // eslint-disable-line no-undef
+        /* Choose API version used in this test file */
+        apiPath = '/api/'.concat(config.apiVersions[config.apiVersions.length - 1]);
 
         /* Creating a in-memory MongoDB instance for testing */
         mongodb = new MongoMemoryServer();
@@ -83,7 +86,7 @@ if (global.hasMinio) {
                 beforeEach(async () => {
                     /* setup: create a study to upload file to */
                     const studyname = uuid();
-                    const createStudyRes = await admin.post('/graphql').send({
+                    const createStudyRes = await admin.post(apiPath).send({
                         query: print(CREATE_STUDY),
                         variables: { name: studyname }
                     });
@@ -135,7 +138,7 @@ if (global.hasMinio) {
 
                 test('Upload file to study (admin)', async () => {
                     /* test: upload file */
-                    const res = await admin.post('/graphql')
+                    const res = await admin.post(apiPath)
                         .field('operations', JSON.stringify({
                             query: print(UPLOAD_FILE),
                             variables: {
@@ -165,7 +168,7 @@ if (global.hasMinio) {
 
                 test('Upload file to study (user with no privilege) (should fail)', async () => {
                     /* test: upload file */
-                    const res = await user.post('/graphql')
+                    const res = await user.post(apiPath)
                         .field('operations', JSON.stringify({
                             query: print(UPLOAD_FILE),
                             variables: {
@@ -186,7 +189,7 @@ if (global.hasMinio) {
 
                 test('Upload file to study (user with privilege)', async () => {
                     /* test: upload file */
-                    const res = await authorisedUser.post('/graphql')
+                    const res = await authorisedUser.post(apiPath)
                         .field('operations', JSON.stringify({
                             query: print(UPLOAD_FILE),
                             variables: {
@@ -216,7 +219,7 @@ if (global.hasMinio) {
 
                 test('Upload a empty file (admin)', async () => {
                     /* test: upload file */
-                    const res = await admin.post('/graphql')
+                    const res = await admin.post(apiPath)
                         .field('operations', JSON.stringify({
                             query: print(UPLOAD_FILE),
                             variables: {
@@ -255,7 +258,7 @@ if (global.hasMinio) {
                 beforeEach(async () => {
                     /* setup: create a study to upload file to */
                     const studyname = uuid();
-                    const createStudyRes = await admin.post('/graphql').send({
+                    const createStudyRes = await admin.post(apiPath).send({
                         query: print(CREATE_STUDY),
                         variables: { name: studyname }
                     });
@@ -270,7 +273,7 @@ if (global.hasMinio) {
                     });
 
                     /* setup: upload file (would be better to upload not via app api but will do for now) */
-                    await admin.post('/graphql')
+                    await admin.post(apiPath)
                         .field('operations', JSON.stringify({
                             query: print(UPLOAD_FILE),
                             variables: {
@@ -385,7 +388,7 @@ if (global.hasMinio) {
                 beforeEach(async () => {
                     /* setup: create a study to upload file to */
                     const studyname = uuid();
-                    const createStudyRes = await admin.post('/graphql').send({
+                    const createStudyRes = await admin.post(apiPath).send({
                         query: print(CREATE_STUDY),
                         variables: { name: studyname }
                     });
@@ -400,7 +403,7 @@ if (global.hasMinio) {
                     });
 
                     /* setup: upload file (would be better to upload not via app api but will do for now) */
-                    await admin.post('/graphql')
+                    await admin.post(apiPath)
                         .field('operations', JSON.stringify({
                             query: print(UPLOAD_FILE),
                             variables: {
@@ -463,7 +466,7 @@ if (global.hasMinio) {
                 });
 
                 test('Delete file from study (admin)', async () => {
-                    const res = await admin.post('/graphql').send({
+                    const res = await admin.post(apiPath).send({
                         query: print(DELETE_FILE),
                         variables: { fileId: createdFile.id }
                     });
@@ -477,7 +480,7 @@ if (global.hasMinio) {
                 });
 
                 test('Delete file from study (user with privilege)', async () => {
-                    const res = await authorisedUser.post('/graphql').send({
+                    const res = await authorisedUser.post(apiPath).send({
                         query: print(DELETE_FILE),
                         variables: { fileId: createdFile.id }
                     });
@@ -491,7 +494,7 @@ if (global.hasMinio) {
                 });
 
                 test('Delete file from study (user with no privilege) (should fail)', async () => {
-                    const res = await user.post('/graphql').send({
+                    const res = await user.post(apiPath).send({
                         query: print(DELETE_FILE),
                         variables: { fileId: createdFile.id }
                     });
@@ -508,7 +511,7 @@ if (global.hasMinio) {
                 });
 
                 test('Delete an non-existent file from study (admin)', async () => {
-                    const res = await admin.post('/graphql').send({
+                    const res = await admin.post(apiPath).send({
                         query: print(DELETE_FILE),
                         variables: { fileId: 'nosuchfile' }
                     });
@@ -519,7 +522,7 @@ if (global.hasMinio) {
                 });
 
                 test('Delete an non-existent file from study (user with privilege)', async () => {
-                    const res = await authorisedUser.post('/graphql').send({
+                    const res = await authorisedUser.post(apiPath).send({
                         query: print(DELETE_FILE),
                         variables: { fileId: 'nosuchfile' }
                     });
@@ -530,7 +533,7 @@ if (global.hasMinio) {
                 });
 
                 test('Delete an non-existent file from study (user with no privilege)', async () => {
-                    const res = await user.post('/graphql').send({
+                    const res = await user.post(apiPath).send({
                         query: print(DELETE_FILE),
                         variables: { fileId: 'nosuchfile' }
                     });
