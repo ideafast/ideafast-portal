@@ -11,7 +11,7 @@ import { errorCodes } from '../errors';
 import { IUser } from 'itmat-commons';
 import { logResolvers } from './logResolvers';
 
-const modulesV1 = [
+const modulesV0 = [
     studyResolvers,
     userResolvers,
     queryResolvers,
@@ -21,7 +21,7 @@ const modulesV1 = [
     organisationResolvers
 ];
 
-const modulesV2 = [
+const modulesV1 = [
     studyResolvers,
     userResolvers,
     queryResolvers,
@@ -53,39 +53,26 @@ const bounceNotLoggedInDecorator = (reducerFunction: any) => {
     };
 };
 
-
-const reduceInitV1: any = { JSON: GraphQLJSON };
-export const resolversV1 = modulesV1.reduce((a, e) => {
-    const types = Object.keys(e);
-    for (const each of types) {  // types can be Subscription | Query | Mutation | {{TYPE}}
-        if (a[each] === undefined) {  // if a doesnt have types then create a empty obj
-            a[each] = {};
-        }
-        for (const funcName of Object.keys((e as any)[each])) {
-            if (each === 'Subscription') {
-                (a as any)[each][funcName] = (e as any)[each][funcName];
-            } else {
-                (a as any)[each][funcName] = bounceNotLoggedInDecorator((e as any)[each][funcName]);
+function constructResolvers(modules: any) {
+    const reduceInit: any = { JSON: GraphQLJSON };
+    const resolvers = modules.reduce((a, e) => {
+        const types = Object.keys(e);
+        for (const each of types) {  // types can be Subscription | Query | Mutation | {{TYPE}}
+            if (a[each] === undefined) {  // if a doesnt have types then create a empty obj
+                a[each] = {};
+            }
+            for (const funcName of Object.keys((e as any)[each])) {
+                if (each === 'Subscription') {
+                    (a as any)[each][funcName] = (e as any)[each][funcName];
+                } else {
+                    (a as any)[each][funcName] = bounceNotLoggedInDecorator((e as any)[each][funcName]);
+                }
             }
         }
-    }
-    return a;
-}, reduceInitV1);
+        return a;
+    }, reduceInit);
+    return resolvers;
+}
 
-const reduceInitV2: any = { JSON: GraphQLJSON };
-export const resolversV2 = modulesV2.reduce((a, e) => {
-    const types = Object.keys(e);
-    for (const each of types) {  // types can be Subscription | Query | Mutation | {{TYPE}}
-        if (a[each] === undefined) {  // if a doesnt have types then create a empty obj
-            a[each] = {};
-        }
-        for (const funcName of Object.keys((e as any)[each])) {
-            if (each === 'Subscription') {
-                (a as any)[each][funcName] = (e as any)[each][funcName];
-            } else {
-                (a as any)[each][funcName] = bounceNotLoggedInDecorator((e as any)[each][funcName]);
-            }
-        }
-    }
-    return a;
-}, reduceInitV2);
+export const resolversV0 = constructResolvers(modulesV0);
+export const resolversV1 = constructResolvers(modulesV1);

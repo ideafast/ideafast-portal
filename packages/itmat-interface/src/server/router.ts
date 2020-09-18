@@ -8,9 +8,9 @@ import session from 'express-session';
 import http from 'http';
 import passport from 'passport';
 // import { db } from '../database/database';
-import { resolversV1, resolversV2 } from '../graphql/resolvers';
+import { resolversV0, resolversV1 } from '../graphql/resolvers';
+import { schemaV0 } from '../graphql/schemaV0';
 import { schemaV1 } from '../graphql/schemaV1';
-import { schemaV2 } from '../graphql/schemaV2';
 import { fileDownloadController } from '../rest/fileDownload';
 import { userLoginUtils } from '../utils/userLoginUtils';
 import { IConfiguration } from '../utils/configManager';
@@ -50,97 +50,9 @@ export class Router {
 
 
         /* register apolloserver for graphql requests */
-        const gqlServer = new ApolloServer({
-            typeDefs: schemaV1,
-            resolvers: resolversV1,
-            plugins: [
-                {
-                    serverWillStart() {
-                        logPlugin.serverWillStartLogPlugin();
-                    }
-                },
-                {
-                    requestDidStart() {
-                        return {
-                            executionDidStart(requestContext) {
-                                const operation = requestContext.operationName;
-                                const actionData = requestContext.request.variables;
-                                (requestContext as any).request.variables = spaceFixing(operation, actionData);
-                            },
-                            willSendResponse(requestContext) {
-                                logPlugin.requestDidStartLogPlugin(requestContext);
-                            }
-                        };
-                    },
-                }
-            ],
-            context: ({ req, res }) => {
-                /* Bounce all unauthenticated graphql requests */
-                // if (req.user === undefined && req.body.operationName !== 'login' && req.body.operationName !== 'IntrospectionQuery' ) {  // login and schema introspection doesn't need authentication
-                //     throw new ForbiddenError('not logged in');
-                // }
-                return ({ req, res });
-            },
-            formatError: (error) => {
-                // TO_DO: generate a ref uuid for errors so the clients can contact admin
-                // TO_DO: check if the error is not thrown my me manually then switch to generic error to client and log
-                // Logger().error(error);
-                return error;
-            }
-        });
-
-        gqlServer.applyMiddleware({ app: this.app, cors: { credentials: true }, path: '/api/v1' });
-
-        /* register the graphql subscription functionalities */
         this.server = http.createServer(this.app);
-        gqlServer.installSubscriptionHandlers(this.server);
-
-        /* SECOND SERVER */
-        /* register apolloserver for graphql requests */
-        const gqlServer2 = new ApolloServer({
-            typeDefs: schemaV2,
-            resolvers: resolversV2,
-            plugins: [
-                {
-                    serverWillStart() {
-                        logPlugin.serverWillStartLogPlugin();
-                    }
-                },
-                {
-                    requestDidStart() {
-                        return {
-                            executionDidStart(requestContext) {
-                                const operation = requestContext.operationName;
-                                const actionData = requestContext.request.variables;
-                                (requestContext as any).request.variables = spaceFixing(operation, actionData);
-                            },
-                            willSendResponse(requestContext) {
-                                logPlugin.requestDidStartLogPlugin(requestContext);
-                            }
-                        };
-                    },
-                }
-            ],
-            context: ({ req, res }) => {
-                /* Bounce all unauthenticated graphql requests */
-                // if (req.user === undefined && req.body.operationName !== 'login' && req.body.operationName !== 'IntrospectionQuery' ) {  // login and schema introspection doesn't need authentication
-                //     throw new ForbiddenError('not logged in');
-                // }
-                return ({ req, res });
-            },
-            formatError: (error) => {
-                // TO_DO: generate a ref uuid for errors so the clients can contact admin
-                // TO_DO: check if the error is not thrown my me manually then switch to generic error to client and log
-                // Logger().error(error);
-                return error;
-            }
-        });
-
-        gqlServer2.applyMiddleware({ app: this.app, cors: { credentials: true }, path: '/api/v2' });
-
-        /* register the graphql subscription functionalities */
-        this.server = http.createServer(this.app);
-        gqlServer2.installSubscriptionHandlers(this.server);
+        this.createApolloServer(resolversV0, schemaV0, '/api/v0');
+        this.createApolloServer(resolversV1, schemaV1, '/api/v1');
 
         /* Bounce all unauthenticated non-graphql HTTP requests */
         // this.app.use((req: Request, res: Response, next: NextFunction) => {
@@ -153,6 +65,52 @@ export class Router {
 
         this.app.get('/file/:fileId', fileDownloadController);
 
+    }
+
+    private createApolloServer(resolvers: any, schema: any, endPoints: string) {
+        const gqlServer = new ApolloServer({
+            typeDefs: schema,
+            resolvers: resolvers,
+            plugins: [
+                {
+                    serverWillStart() {
+                        logPlugin.serverWillStartLogPlugin();
+                    }
+                },
+                {
+                    requestDidStart() {
+                        return {
+                            executionDidStart(requestContext) {
+                                const operation = requestContext.operationName;
+                                const actionData = requestContext.request.variables;
+                                (requestContext as any).request.variables = spaceFixing(operation, actionData);
+                            },
+                            willSendResponse(requestContext) {
+                                logPlugin.requestDidStartLogPlugin(requestContext);
+                            }
+                        };
+                    },
+                }
+            ],
+            context: ({ req, res }) => {
+                /* Bounce all unauthenticated graphql requests */
+                // if (req.user === undefined && req.body.operationName !== 'login' && req.body.operationName !== 'IntrospectionQuery' ) {  // login and schema introspection doesn't need authentication
+                //     throw new ForbiddenError('not logged in');
+                // }
+                return ({ req, res });
+            },
+            formatError: (error) => {
+                // TO_DO: generate a ref uuid for errors so the clients can contact admin
+                // TO_DO: check if the error is not thrown my me manually then switch to generic error to client and log
+                // Logger().error(error);
+                return error;
+            }
+        });
+
+        gqlServer.applyMiddleware({ app: this.app, cors: { credentials: true }, path: endPoints });
+
+        /* register the graphql subscription functionalities */
+        gqlServer.installSubscriptionHandlers(this.server);
     }
 
     public getApp(): Express {
