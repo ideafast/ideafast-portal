@@ -34,5 +34,5 @@
     "sessionsSecret": "Change_Me",
     "aesSecret": "change_this",
     "nodemailer": {},
-    "apiVersions": ["v1", "v2"]
+    "apiVersions": ["v0", "v1"]
 }

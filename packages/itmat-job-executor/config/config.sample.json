@@ -28,5 +28,5 @@
         "useSSL": false
     },
     "pollingInterval": 10000,
-    "apiVersions": ["v1", "v2"]
+    "apiVersions": ["v0", "v1"]
 }
