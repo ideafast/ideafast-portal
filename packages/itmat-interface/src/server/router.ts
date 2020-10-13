@@ -50,6 +50,7 @@ export class Router {
 
 
         /* register apolloserver for graphql requests */
+        /* TODO: need to consider to make apis have rolling capacity */
         this.server = http.createServer(this.app);
         this.createApolloServer(resolversV0, schemaV0, '/api/v0');
         this.createApolloServer(resolversV1, schemaV1, '/api/v1');
