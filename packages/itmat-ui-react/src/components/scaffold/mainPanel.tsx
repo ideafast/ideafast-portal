@@ -27,3 +27,4 @@ export const MainPanel: React.FunctionComponent = () => {
         </div>
     );
 };
+

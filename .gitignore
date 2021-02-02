@@ -69,7 +69,7 @@ server.crt
 server.key
 
 # Documentation
-doc/
+# doc/
 
 config.json
 config._test.js
