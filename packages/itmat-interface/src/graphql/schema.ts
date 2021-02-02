@@ -23,6 +23,51 @@ enum FIELD_VALUE_TYPE {
 
 }
 
+type DocWithoutData {
+    id: String
+    title: String
+    docType: DOC_TYPE
+    createdAt: Float
+    lastModifiedAt: Float
+    lastModifiedBy: String
+    status: DOC_STATUS
+}
+
+type Doc {
+    id: String
+    title: String
+    docType: DOC_TYPE
+    data: String
+    createdAt: Float
+    lastModifiedAt: Float
+    lastModifiedBy: String
+    status: DOC_STATUS!
+    attachments: [Attachment]
+}
+
+enum DOC_TYPE {
+    DOCUMENTATION
+    NOTIFICATION
+    OTHERS
+}
+
+enum DOC_STATUS {
+    DELETED
+    ACTIVATED
+    DEACTIVATED
+}
+
+input AttachmentInput {
+    fileName: String
+    fileBase64: String
+}
+
+type Attachment {
+    fileName: String
+    fileBase64: String
+}
+
+
 type Field {
     id: String!
     studyId: String!
@@ -365,6 +410,9 @@ type Query {
 
     # LOG
     getLogs(requesterName: String, requesterType: USERTYPE, logType: LOG_TYPE, actionType: LOG_ACTION, status: LOG_STATUS): [Log]
+
+    # DOC
+    getDocs(docType: DOC_TYPE): [Doc]
 }
 
 type Mutation {
@@ -418,6 +466,9 @@ type Mutation {
     createFieldCurationJob(file: String!, studyId: String!, dataVersionId: String!, tag: String!): Job
     setDataversionAsCurrent(studyId: String!, dataVersionId: String!): Study
 
+    # DOC
+    createDoc(title: String, docType: DOC_TYPE, data: String, user: String, attachments: [AttachmentInput]): DocWithoutData
+    editDoc(id: String, title: String, data: String, user: String, status: DOC_STATUS, attachments: [AttachmentInput]): DocWithoutData
 }
 
 type Subscription {

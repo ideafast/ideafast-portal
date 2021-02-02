@@ -81,7 +81,13 @@ const collections = {
             { key: { id: 1 }, unique: true },
             { key: { pubkey: 1 }, unique: true },
         ]
-    }
+    },
+    docs_collection: {
+        name: 'DOC_COLLECTION',
+        indexes: [
+            { key: { id: 1 }, unique: true },
+        ]
+    },
 };
 
 export async function setupDatabase(mongostr: string, databaseName: string): Promise<void> {

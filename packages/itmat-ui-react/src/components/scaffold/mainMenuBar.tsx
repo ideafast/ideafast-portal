@@ -3,7 +3,7 @@ import { Query, Mutation } from '@apollo/client/react/components';
 import { NavLink } from 'react-router-dom';
 import { LOGOUT, WHO_AM_I, IProject, userTypes } from 'itmat-commons';
 import css from './scaffold.module.css';
-import { DatabaseOutlined, TeamOutlined, PoweroffOutlined, HistoryOutlined, SettingOutlined } from '@ant-design/icons';
+import { DatabaseOutlined, TeamOutlined, PoweroffOutlined, HistoryOutlined, SettingOutlined, NotificationOutlined } from '@ant-design/icons';
 import LoadSpinner from '../reusable/loadSpinner';
 
 type MainMenuBarProps = {
@@ -47,6 +47,13 @@ export const MainMenuBar: React.FunctionComponent<MainMenuBarProps> = ({ project
                 return null;
             }}
         </Query>
+        {
+            <div>
+                <NavLink to='/docs' title='Docs' activeClassName={css.clickedButton}>
+                    <div className={css.button}><NotificationOutlined /> Information</div>
+                </NavLink>
+            </div>
+        }
         {/*
         <div>
             <NavLink to="/notifications" title="Notifications" activeClassName={css.clickedButton}>
