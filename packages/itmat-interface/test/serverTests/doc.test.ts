@@ -8,8 +8,6 @@ import { MongoMemoryServer } from 'mongodb-memory-server';
 import { setupDatabase } from 'itmat-setup';
 import config from '../../config/config.sample.json';
 import { errorCodes } from '../../src/graphql/errors';
-import * as mfa from '../../src/utils/mfa';
-import { v4 as uuid} from 'uuid';
 import {
     CREATE_DOC,
     EDIT_DOC,
@@ -18,7 +16,6 @@ import {
     DOC_TYPE,
     DOC_STATUS
 } from 'itmat-commons';
-import { expression } from '@babel/template';
 
 let app;
 let mongodb;
@@ -71,15 +68,11 @@ beforeAll(async () => { // eslint-disable-line no-undef
 
     /* Mock for testing */
     jest.spyOn(Date, 'now').mockImplementation(() => 1591134065000);
-    // jest.mock('uuid', () => ({ v4: () => 'testId'}));
-    jest.spyOn(uuid.prototype, 'uuid').mockReturnValue('testId');
-
 });
 
 describe('DOC API', () => {
-    describe('Create a doc (admin)', () => {
-        test('Write log (Login)', async () => {
-            const userSecret = 'H6BNKKO27DPLCATGEJAZNWQV4LWOTMRA';
+    describe('Write doc', () => {
+        test('Write a doc (admin)', async () => {
             const newDoc = {
                 docType: DOC_TYPE.DOCUMENTATION,
                 title: 'test title0',
@@ -93,104 +86,108 @@ describe('DOC API', () => {
             });
             expect(res.status).toBe(200);
             expect(res.body.errors).toBeUndefined();
-            expect(res.body.data.createDoc).toEqual({
+            expect(res.body.data.createDoc.title).toEqual('test title0');
+            expect(res.body.data.createDoc.docType).toEqual(DOC_TYPE.DOCUMENTATION);
+            expect(res.body.data.createDoc.createdAt).toEqual(1591134065000);
+            expect(res.body.data.createDoc.lastModifiedAt).toEqual(1591134065000);
+            expect(res.body.data.createDoc.lastModifiedBy).toEqual('test user0');
+            expect(res.body.data.createDoc.status).toEqual(DOC_STATUS.DEACTIVATED);
+
+        }, 30000);
+
+        test('Write a doc (user, should fail)', async () => {
+            const newDoc = {
+                docType: DOC_TYPE.DOCUMENTATION,
+                title: 'test title0',
+                data: '<p>test data</p>',
+                user: 'test user0',
+                attachments: [{fileName: 'test attachment filename0', fileBase64: 'test attachment filebase640'}]
+            };
+            const res = await user.post('/graphql').set('Content-type', 'application/json').send({
+                query: print(CREATE_DOC),
+                variables: newDoc
+            });
+            expect(res.status).toBe(200);
+            expect(res.body.errors).toHaveLength(1);
+            expect(res.body.errors[0].message).toBe(errorCodes.NO_PERMISSION_ERROR);
+        }, 30000);
+    });
+
+    describe('Edit a doc', () => {
+        test('Edit doc (admin)', async () => {
+            const existedDoc: IDoc = {
                 id: 'testId',
                 title: 'test title0',
                 data: '<p>test data</p>',
                 docType: DOC_TYPE.DOCUMENTATION,
-                createdAt: 1591134065000,
-                lastModifiedAt: 1591134065000,
+                createdAt: 1591134060000,
+                lastModifiedAt: 1591134060000,
                 lastModifiedBy: 'test user0',
                 status: DOC_STATUS.DEACTIVATED,
-                attachments:[{fileName: 'test attachment filename0', fileBase64: 'test attachment filebase640'}]
+                attachments:[{id: 'attach1', fileName: 'test attachment filename0', fileBase64: 'test attachment filebase640'}]
+            };
+            await mongoClient.collection(config.database.collections.docs_collection).insertOne(existedDoc);
+            const res = await admin.post('/graphql').set('Content-type', 'application/json').send({
+                query: print(EDIT_DOC),
+                variables: {
+                    id: 'testId',
+                    docType: DOC_TYPE.NOTIFICATION,
+                    title: 'test title modified',
+                    data: '<p>test data modified</p>',
+                    user: 'test user1',
+                    status: DOC_STATUS.ACTIVATED,
+                    attachments: [{fileName: 'test attachment filename0', fileBase64: 'test attachment filebase640'}]
+                }
             });
+            expect(res.status).toBe(200);
+            expect(res.body.errors).toBeUndefined();
+            expect(res.body.data.editDoc.title).toEqual('test title modified');
+            expect(res.body.data.editDoc.docType).toEqual(DOC_TYPE.NOTIFICATION);
+            expect(res.body.data.editDoc.lastModifiedAt).toEqual(1591134065000);
+            expect(res.body.data.editDoc.lastModifiedBy).toEqual('test user1');
+            expect(res.body.data.editDoc.status).toEqual(DOC_STATUS.ACTIVATED);
         }, 30000);
+
+        test('Edit doc (user, should fail)', async () => {
+            const res = await user.post('/graphql').set('Content-type', 'application/json').send({
+                query: print(EDIT_DOC),
+                variables: {
+                    id: 'testId',
+                    docType: DOC_TYPE.NOTIFICATION,
+                    title: 'test title modified',
+                    data: '<p>test data modified</p>',
+                    user: 'test user1',
+                    status: DOC_STATUS.ACTIVATED,
+                    attachments: [{fileName: 'test attachment filename0', fileBase64: 'test attachment filebase640'}]
+                }
+            });
+            expect(res.status).toBe(200);
+            expect(res.body.errors).toHaveLength(1);
+            expect(res.body.errors[0].message).toBe(errorCodes.NO_PERMISSION_ERROR);
+        }, 30000);
+
     });
 
-    // describe('Edit a doc (admin)', () => {
-    //     test('Write log (Login)', async () => {
-    //         const userSecret = 'H6BNKKO27DPLCATGEJAZNWQV4LWOTMRA';
-    //         const existedDoc: IDoc = {
-    //             id: 'testId',
-    //             title: 'test title0',
-    //             data: '<p>test data</p>',
-    //             docType: DOC_TYPE.DOCUMENTATION,
-    //             createdAt: 1591134065000,
-    //             lastModifiedAt: 1591134065000,
-    //             lastModifiedBy: 'test user0',
-    //             status: DOC_STATUS.DEACTIVATED,
-    //             attachments:[{fileName: 'test attachment filename0', fileBase64: 'test attachment filebase640'}]
-    //         };
-    //         await mongoClient.collection(config.database.collections.docs_collection).insertOne(existedDoc);
-    //         const res = await admin.post('/graphql').set('Content-type', 'application/json').send({
-    //             query: print(EDIT_DOC),
-    //             variables: {
-    //                 docType: DOC_TYPE.NOTIFICATION,
-    //                 title: 'test title modified',
-    //                 data: '<p>test data modified</p>',
-    //                 status: DOC_STATUS.ACTIVATED
-    //             }
-    //         });
-    //         expect(res.status).toBe(200);
-    //         expect(res.body.errors).toBeUndefined();
-    //         expect(res.body.data.createDoc).toEqual({
-    //             id: 'testId',
-    //             title: 'test title modified',
-    //             data: '<p>test data modified</p>',
-    //             docType: DOC_TYPE.DOCUMENTATION,
-    //             createdAt: 1591134060000,
-    //             lastModifiedAt: 1591134065000,
-    //             lastModifiedBy: 'test user0',
-    //             status: DOC_STATUS.ACTIVATED,
-    //             attachments:[{fileName: 'test attachment filename0', fileBase64: 'test attachment filebase640'}]
-    //         })
-    //     }, 30000);
+    describe('Get docs (admin)', () => {
+        test('Get doc', async () => {
+            const res = await admin.post('/graphql').set('Content-type', 'application/json').send({
+                query: print(GET_DOCS),
+                variables: {
+                }
+            });
+            expect(res.status).toBe(200);
+            expect(res.body.errors).toBeUndefined();
+            expect(res.body.data.getDocs).toHaveLength(2);
+            expect(res.body.data.getDocs[1].title).toEqual('test title modified');
+            expect(res.body.data.getDocs[1].data).toEqual('<p>test data modified</p>');
+            expect(res.body.data.getDocs[1].docType).toEqual(DOC_TYPE.NOTIFICATION);
+            expect(res.body.data.getDocs[1].createdAt).toEqual(1591134060000);
+            expect(res.body.data.getDocs[1].lastModifiedAt).toEqual(1591134065000);
+            expect(res.body.data.getDocs[1].lastModifiedBy).toEqual('test user1');
+            expect(res.body.data.getDocs[1].status).toEqual(DOC_STATUS.ACTIVATED);
+            expect(res.body.data.getDocs[1].attachments[0].fileName).toEqual('test attachment filename0');
+            expect(res.body.data.getDocs[1].attachments[0].fileBase64).toEqual('test attachment filebase640');
+        }, 30000);
 
-    // });
-
-    // describe('Get logs', () => {
-    //     beforeAll(async () => {
-    //         // write initial data for testing
-    //         const logSample = [{
-    //             id: '001',
-    //             requesterName: userTypes.SYSTEM,
-    //             requesterType: userTypes.SYSTEM,
-    //             logType: LOG_TYPE.SYSTEM_LOG,
-    //             userAgent: USER_AGENT.MOZILLA,
-    //             actionType: LOG_ACTION.startSERVER,
-    //             actionData: JSON.stringify({}),
-    //             time: 100000000,
-    //             status: LOG_STATUS.SUCCESS,
-    //             error: ''
-    //         }];
-    //         await db.collections!.log_collection.insertMany(logSample);
-    //     });
-
-    //     afterAll(async () => {
-    //         await mongoClient.collection(config.database.collections.log_collection).remove({});
-    //     });
-
-    //     test('GET log (admin)', async () => {
-    //         const res = await admin.post('/graphql').send({
-    //             query: print(GET_LOGS),
-    //             variables: {
-    //             }
-    //         });
-    //         expect(res.status).toBe(200);
-    //         expect(res.body.errors).toBeUndefined();
-    //         expect(res.body.data.getLogs.length).toBeGreaterThanOrEqual(1);
-    //     }, 30000);
-
-    //     test('GET log (user) should fail', async () => {
-    //         const res = await user.post('/graphql').send({
-    //             query: print(GET_LOGS),
-    //             variables: {
-    //                 requesterId: 'test_id1'
-    //             }
-    //         });
-    //         expect(res.status).toBe(200);
-    //         expect(res.body.errors).toHaveLength(1);
-    //         expect(res.body.errors[0].message).toBe(errorCodes.NO_PERMISSION_ERROR);
-    //     }, 30000);
-    // });
+    });
 });

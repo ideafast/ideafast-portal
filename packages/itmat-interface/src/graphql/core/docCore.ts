@@ -10,6 +10,11 @@ export class DocCore {
             throw new ApolloError('Fields can not be empty');
         }
         const time = Date.now();
+        if (attachments !== undefined) {
+            for (let i = 0; i < attachments.length; i++) {
+                attachments[i]['id'] = uuid();
+            }
+        }
         const entry: IDoc = {
             id: uuid(),
             title: title,
@@ -38,13 +43,19 @@ export class DocCore {
         }
     }
 
-    public async editDoc(id: string, title: string, data: string, user: string, status: DOC_STATUS, attachments: attachment[]) {
+    public async editDoc(id: string, docType: DOC_TYPE, title: string, data: string, user: string, status: DOC_STATUS, attachments: attachment[]) {
         if (title === '' || data === '') {
             throw new ApolloError('Fields can not be empty');
+        }
+        if (attachments !== undefined) {
+            for (let i = 0; i < attachments.length; i++) {
+                attachments[i]['id'] = uuid();
+            }
         }
         const time = Date.now();
         const fieldsToUpdate = {
             data: data,
+            docType: docType,
             title: title,
             lastModifiedAt: time,
             lastModifiedBy: user,

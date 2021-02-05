@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { Query } from '@apollo/client/react/components';
-import { GET_DOCS, Models, WHO_AM_I, userTypes, CREATE_DOC, DOC_TYPE, IDoc, EDIT_DOC, IUser, DOC_STATUS, attachment, Doc } from 'itmat-commons';
+import { GET_DOCS, Models, WHO_AM_I, userTypes, CREATE_DOC, DOC_TYPE, IDoc, EDIT_DOC, IUser, DOC_STATUS } from 'itmat-commons';
 import LoadSpinner from '../reusable/loadSpinner';
 import { Table, Input, Button, Radio, Modal, Upload } from 'antd';
 import ReactQuill from 'react-quill';
@@ -13,7 +13,7 @@ interface docContents {
     data: string;
     docType: DOC_TYPE;
     docStatus: DOC_STATUS;
-    attachments: attachment[];
+    attachments: any[];
 }
 
 export const DocListSection: React.FunctionComponent = () => {
@@ -38,11 +38,8 @@ export const DocListSection: React.FunctionComponent = () => {
                 }
                 const docList: IDoc[] = data.getDocs;
                 return ( <>
-                    {JSON.stringify(docList[0].attachments[0].fileName)}<br/>
-                    {JSON.stringify(docList[0].attachments[1].fileName)}<br/>
-                    {JSON.stringify(docList[0].attachments[2].fileName)}<br/>
-                    {/* {docList.length !== 0 ? <DocList user={whoamidata.whoAmI} list={docList} /> : <span>No Documents Found!</span>} */}
-                    {/* {whoamidata.whoAmI.type === userTypes.ADMIN ? <DocWriter user={whoamidata.whoAmI} /> : null} */}
+                    {docList.length !== 0 ? <DocList user={whoamidata.whoAmI} list={docList} /> : <span>No Documents Found!</span>}
+                    {whoamidata.whoAmI.type === userTypes.ADMIN ? <DocWriter user={whoamidata.whoAmI} /> : null}
                 </>
                 );
             }}
@@ -62,6 +59,7 @@ export const DocList: React.FunctionComponent<{ list: Models.Doc.IDoc[], user: I
         attachments: []
     };
     const [docViewContents, setDocViewContents] = React.useState<docContents>(emptyDocContents);
+    const [oldAttachments, setOldAttachments] = React.useState<any>([]); // save attachments of previously uploaded file, modified in edit mode
 
     const columns = [
         {
@@ -105,8 +103,9 @@ export const DocList: React.FunctionComponent<{ list: Models.Doc.IDoc[], user: I
                                 data: record.data,
                                 docType: record.docType,
                                 docStatus: record.status,
-                                attachments: record.attachments
+                                attachments: []
                             });
+                            setOldAttachments(record.attachments);
                             setIsDocEdit(true);
                         }}
                     >Edit</Button>;
@@ -130,8 +129,9 @@ export const DocList: React.FunctionComponent<{ list: Models.Doc.IDoc[], user: I
                             data: record.data,
                             docType: record.docType,
                             docStatus: record.docStatus,
-                            attachments: record.attachments
+                            attachments: []
                         });
+                        setOldAttachments(record.attachments);
                         setIsDocView(true);
                     }}
                 >View</Button>;
@@ -142,11 +142,28 @@ export const DocList: React.FunctionComponent<{ list: Models.Doc.IDoc[], user: I
 
 
     const [editDoc] = useMutation(EDIT_DOC, {
-        // onCompleted: () => {},
+        onCompleted: () => {
+            // window.location.reload();
+        },
         refetchQueries: [{ query: WHO_AM_I }],
         onError: () => { return; }
     });
 
+    function customRequest(option) {
+        const formData = new FormData();
+        formData.append('files[]', option.file);
+        const reader = new FileReader();
+        reader.readAsDataURL(option.file);
+        reader.onloadend = function(e) {
+            const filename = option.file.name;
+            const encoded = (e as any).target.result;
+            const uid = option.file.uid; // unique identifier for each upload
+            setDocViewContents({...docViewContents, attachments: [...docViewContents.attachments, {uid: uid, fileName: filename, fileBase64: encoded}]});
+            if (e && e.target && e.target.result) {
+                option.onSuccess();
+            }
+        };
+    }
 
     return (<>
         <Table
@@ -155,15 +172,15 @@ export const DocList: React.FunctionComponent<{ list: Models.Doc.IDoc[], user: I
             dataSource={list}
             onRow={(rec: IDoc) => ({
                 onMouseEnter: () => {
-                    console.log(rec.attachments);
                     setDocViewContents({
                         id: rec.id,
                         title: rec.title,
                         data: rec.data,
                         docType: rec.docType,
                         docStatus: rec.status,
-                        attachments: rec.attachments
+                        attachments: []
                     });
+                    setOldAttachments(rec.attachments);
                 }
             })}
         >
@@ -183,9 +200,8 @@ export const DocList: React.FunctionComponent<{ list: Models.Doc.IDoc[], user: I
                 theme={'bubble'}
             />
             <h2>Attachments</h2>
-            {docViewContents.attachments.map((el) => el.fileName)}
-            {docViewContents.attachments.length === 0 ? null :
-                docViewContents.attachments.map((el) => <><a download={el.fileName} href={el.fileBase64}>{el.fileName}</a><br/></>)
+            {oldAttachments === null ? <p>No files.</p> :
+                oldAttachments.map((el) => <><a download={el.fileName} href={el.fileBase64}>{el.fileName}</a><br/></>)
             }
         </Modal>
         <Modal
@@ -214,23 +230,60 @@ export const DocList: React.FunctionComponent<{ list: Models.Doc.IDoc[], user: I
                 <Radio.Button value={DOC_STATUS.DEACTIVATED}>{DOC_STATUS.DEACTIVATED}</Radio.Button>
                 <Radio.Button value={DOC_STATUS.DELETED}>{DOC_STATUS.DELETED}</Radio.Button>
             </Radio.Group><br/><br/>
-            <h2>Contents</h2>
+            <h2>Contents</h2><h4>Tips: In order to access external address, you need to add https:// or https:// before the link.</h4>
             <ReactQuill
                 theme='snow'
                 value={docViewContents.data}
                 onChange={(value) => setDocViewContents({...docViewContents, data: value})}
                 modules={modules}
             /><br/><br/>
+            <h2>Attachments</h2>
+            {oldAttachments === null ? <p>No files.</p> :
+                oldAttachments.map((el) => <>
+                    <a download={el.fileName} href={el.fileBase64}>{el.fileName}</a>
+                    <Button
+                        type='primary'
+                        style={{ width: '15%', display: 'inline-block' }}
+                        onClick={() => {
+                            setOldAttachments(oldAttachments.filter( function( obj ) {
+                                return obj.fileName !== el.fileName;
+                            } ));
+                            console.log(oldAttachments);
+                        }}
+                    >Delete</Button><br/>
+                    <br/></>)
+            }
+            <Upload
+                accept='image/*, video/*, audio/*, .pdf, .json, .csv'
+                listType={'picture-card'}
+                multiple={true}
+                customRequest={customRequest}
+                onRemove={(info) => {
+                    setDocViewContents({...docViewContents, attachments: docViewContents.attachments.filter( (function(obj) {
+                        return obj.uid !== info.uid;
+                    }))});
+                }}
+            >
+                <button >
+                        Upload
+                </button>
+            </Upload>
             <Button
                 type='primary'
                 style={{ width: '15%', display: 'inline-block' }}
                 onClick={() => {
-                    editDoc({ variables: {id: docViewContents.id, docType: docViewContents.docType, data: docViewContents.data, user: user.id, title: docViewContents.title, status: docViewContents.docStatus} });
+                    console.log(docViewContents.attachments);
+                    const newAttachments = docViewContents.attachments.length === 0 ? [] : docViewContents.attachments.map((el) => ({fileName: el.fileName, fileBase64: el.fileBase64}));
+                    const previousAttachments = oldAttachments.length === 0 ? [] : oldAttachments.map((el) => ({fileName: el.fileName, fileBase64: el.fileBase64}));
+                    console.log(previousAttachments);
+                    console.log(newAttachments);
+                    const combineAttachments = (newAttachments as any).concat(previousAttachments);
+                    editDoc({ variables: {id: docViewContents.id, docType: docViewContents.docType, data: docViewContents.data, user: user.id, title: docViewContents.title, status: docViewContents.docStatus, attachments: combineAttachments} });
                     setIsDocEdit(false);
-                    window.location.reload();
+                    setDocViewContents(emptyDocContents);
+                    setOldAttachments([]);
                 }}
             >Submit</Button><br/>
-            <h4>Tips: In order to access external address, you need to add https:// or https:// before the link.</h4>
         </Modal>
     </>
     );
@@ -239,7 +292,9 @@ export const DocList: React.FunctionComponent<{ list: Models.Doc.IDoc[], user: I
 export const DocWriter: React.FunctionComponent<{ user: IUser  }> = ({ user }) => {
     const [isWriting, setIsWriting] = React.useState(false);
     const [createDoc] = useMutation(CREATE_DOC, {
-        onCompleted: () => {window.location.reload();},
+        onCompleted: () => {
+            // window.location.reload();
+        },
         refetchQueries: [{ query: WHO_AM_I }],
         onError: () => { return; }
     });
@@ -259,9 +314,8 @@ export const DocWriter: React.FunctionComponent<{ user: IUser  }> = ({ user }) =
         reader.onloadend = function(e) {
             const filename = option.file.name;
             const encoded = (e as any).target.result;
-            console.log(filename);
-            console.log(encoded);
-            setAttachments([...attachments, {fileName: filename, fileBase64: encoded}]);
+            const uid = option.file.uid; // unique identifier for each upload
+            setAttachments([...attachments, {uid: uid, fileName: filename, fileBase64: encoded}]);
             if (e && e.target && e.target.result) {
                 option.onSuccess();
             }
@@ -285,6 +339,9 @@ export const DocWriter: React.FunctionComponent<{ user: IUser  }> = ({ user }) =
             cancelText='Cancel'
             width='90%'
         >
+            {attachments.map((el) => <p>{el.fileName}</p>)}
+            {attachments.map((el) => <p>{el.uid}</p>)}
+            {attachments.map((el) => <p>{el.fileBase64.substring(0,50)}</p>)}
             <div style={{ width: '80%', margin: 'auto'}}>
                 <h2>Title: </h2>
                 <Input placeholder='Title' value={doc.title} onChange={({target: {value}}) => setDoc({...doc, title: value})} /><br/><br/><br/>
@@ -300,7 +357,7 @@ export const DocWriter: React.FunctionComponent<{ user: IUser  }> = ({ user }) =
                     <Radio.Button value={DOC_STATUS.DEACTIVATED}>{DOC_STATUS.DEACTIVATED}</Radio.Button>
                     <Radio.Button value={DOC_STATUS.DELETED}>{DOC_STATUS.DELETED}</Radio.Button>
                 </Radio.Group><br/><br/><br/>
-                <h2>Contents</h2>
+                <h2>Contents</h2><h4>Tips: In order to access external address, you need to add https:// or https:// before the link.</h4>
                 <ReactQuill
                     theme='snow'
                     value={doc.data}
@@ -308,14 +365,15 @@ export const DocWriter: React.FunctionComponent<{ user: IUser  }> = ({ user }) =
                     modules={modules}
                 /><br/><br/>
                 <h2>Attachments</h2>
-                {JSON.stringify(attachments.map((el) => el.fileName))}<br/>
                 <Upload
                     accept='image/*, video/*, audio/*, .pdf, .json, .csv'
                     listType={'picture-card'}
                     multiple={true}
                     customRequest={customRequest}
-                    onChange={(info) => {
-                        // setAttachments([...info.fileList]);
+                    onRemove={(info) => {
+                        setAttachments(attachments.filter( function(obj ) {
+                            return obj.uid !== info.uid;
+                        }));
                     }}
                 >
                     <button >
@@ -329,8 +387,10 @@ export const DocWriter: React.FunctionComponent<{ user: IUser  }> = ({ user }) =
                         if (doc.title === '' || doc.data === '') {
                             throw new Error('Fields can not be empty');
                         }
-                        createDoc({ variables: {docType: doc.docType, data: doc.data, user: user.id, title: doc.title, attachments: attachments} });
+                        setAttachments(attachments.forEach(function(v){ delete v.uid; }));
+                        createDoc({ variables: {docType: doc.docType, data: doc.data, user: user.id, title: doc.title, attachments:  attachments}});
                         setDoc({...doc, docType: DOC_TYPE.DOCUMENTATION, data: '', title: '', docStatus: DOC_STATUS.DEACTIVATED});
+                        setAttachments([]);
                         // window.location.reload();
                     }}
                 >Publish</Button>
@@ -363,10 +423,3 @@ const modules = {
         // ['clean'],                                        // remove formatting button
     ]
 };
-
-const toBase64 = file => new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = error => reject(error);
-});

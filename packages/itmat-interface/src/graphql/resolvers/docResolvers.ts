@@ -46,6 +46,7 @@ export const docResolvers = {
             }
             const result = await docCore.editDoc(
                 args.id,
+                args.docType,
                 args.title,
                 args.data,
                 args.user,

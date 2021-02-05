@@ -16,6 +16,7 @@ export const GET_DOCS = gql`
             lastModifiedBy,
             status,
             attachments {
+                id
                 fileName,
                 fileBase64
             }
@@ -52,6 +53,7 @@ export const CREATE_DOC = gql`
 export const EDIT_DOC = gql`
     mutation editDoc(
         $id: String
+        $docType: DOC_TYPE
         $data: String
         $user: String
         $title: String
@@ -60,6 +62,7 @@ export const EDIT_DOC = gql`
     ) {
         editDoc(
             id: $id,
+            docType: $docType,
             data: $data,
             user: $user,
             title: $title,

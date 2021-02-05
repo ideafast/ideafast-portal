@@ -63,6 +63,7 @@ input AttachmentInput {
 }
 
 type Attachment {
+    id: String
     fileName: String
     fileBase64: String
 }
@@ -468,7 +469,7 @@ type Mutation {
 
     # DOC
     createDoc(title: String, docType: DOC_TYPE, data: String, user: String, attachments: [AttachmentInput]): DocWithoutData
-    editDoc(id: String, title: String, data: String, user: String, status: DOC_STATUS, attachments: [AttachmentInput]): DocWithoutData
+    editDoc(id: String, docType: DOC_TYPE, title: String, data: String, user: String, status: DOC_STATUS, attachments: [AttachmentInput]): DocWithoutData
 }
 
 type Subscription {

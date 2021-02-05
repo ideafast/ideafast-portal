@@ -26,6 +26,7 @@ export enum DOC_STATUS {
 }
 
 export interface attachment {
+    id: string,
     fileName: string,
     fileBase64: string
 }
