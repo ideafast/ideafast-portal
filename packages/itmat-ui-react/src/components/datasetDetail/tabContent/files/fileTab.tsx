@@ -37,24 +37,26 @@ export const deviceTypes = {
     IEN: 'English Interview Transcripts',
     INL: 'Dutch Interview Transcripts',
     TEQ: 'Technology Experience Questionnaire',
-    PSG: 'PSG Study Polysomnography Data'
+    PSG: 'PSG Study Polysomnography Data',
+    PSR: 'PSG raw data',
+    PSM: 'PSG meta data',
+    SMA: 'Stress Monitor App',
+    TFA: 'ThinkFast App'
 };
 
 const { RangePicker } = DatePicker;
+let progressReports = [];
 
 export const FileRepositoryTabContent: React.FunctionComponent<{ studyId: string }> = ({ studyId }) => {
 
+    const [uploadMovement, setUploadMovement] = useState(0);
     const [isDropOverlayShowing, setisDropOverlayShowing] = useState(false);
     const [fileList, setFileList] = useState<StudyFile[]>([]);
     const [isUploading, setIsUploading] = useState(false);
     const store = useApolloClient();
     const { loading: getOrgsLoading, error: getOrgsError, data: getOrgsData } = useQuery(GET_ORGANISATIONS);
-    const { loading: getStudyLoading, error: getStudyError, data: getStudyData} = useQuery(GET_STUDY, {variables: {studyId: studyId}});
+    const { loading: getStudyLoading, error: getStudyError, data: getStudyData } = useQuery(GET_STUDY, { variables: { studyId: studyId } });
     const { loading: getUsersLoading, error: getUsersError, data: getUsersData } = useQuery(GET_USERS, { variables: { fetchDetailsAdminOnly: false, fetchAccessPrivileges: false } });
-    // let { loading, progress, error } = useUpload(files, {
-    //     mutation: UPLOAD_FILE,
-    //     variables: { input: { files, name: 'test' } },
-    // });
     const [searchTerm, setSearchTerm] = useState('');
 
     const [uploadFile] = useMutation(UPLOAD_FILE, {
@@ -131,7 +133,7 @@ export const FileRepositoryTabContent: React.FunctionComponent<{ studyId: string
                     file.deviceId = `${particules[3].toUpperCase()}${particules[4].toUpperCase()}`;
                 const startDate = moment(particules[5], 'YYYYMMDD');
                 const endDate = moment(particules[6], 'YYYYMMDD');
-                if (startDate.isBefore(endDate)) {
+                if (startDate.isSameOrBefore(endDate)) {
                     if (startDate.isValid())
                         file.startDate = startDate;
                     if (endDate.isValid())
@@ -139,6 +141,7 @@ export const FileRepositoryTabContent: React.FunctionComponent<{ studyId: string
                 }
             }
             file.uuid = uuid();
+            progressReports[`UP_${file.participantId}_${file.deviceId}_${file.startDate?.valueOf()}_${file.endDate?.valueOf()}`] = undefined;
             fileList.push(file);
         });
         setFileList([...fileList]);
@@ -150,19 +153,32 @@ export const FileRepositoryTabContent: React.FunctionComponent<{ studyId: string
         const uploads: Promise<any>[] = [];
         setIsUploading(true);
         validFile.forEach(file => {
+            const description = {
+                participantId: file.participantId?.trim().toUpperCase(),
+                deviceId: file.deviceId?.trim().toUpperCase(),
+                startDate: file.startDate?.valueOf(),
+                endDate: file.endDate?.valueOf(),
+            };
+            const uploadMapHackName = `UP_${description.participantId}_${description.deviceId}_${description.startDate}_${description.endDate}`;
+            if (!(window as any).onUploadProgressHackMap)
+                (window as any).onUploadProgressHackMap = {};
+            (window as any).onUploadProgressHackMap[uploadMapHackName] = (progressEvent) => {
+                setUploadMovement(Math.random);
+                progressReports = {
+                    ...progressReports,
+                    [uploadMapHackName]: progressEvent
+                };
+            };
             uploads.push(uploadFile({
                 variables: {
                     file,
                     studyId,
-                    description: JSON.stringify({
-                        participantId: file.participantId?.trim().toUpperCase(),
-                        deviceId: file.deviceId?.trim().toUpperCase(),
-                        startDate: file.startDate?.valueOf(),
-                        endDate: file.endDate?.valueOf(),
-                    }),
+                    description: JSON.stringify(description),
                     fileLength: file.size
                 }
             }).then(result => {
+                delete (window as any).onUploadProgressHackMap[uploadMapHackName];
+                delete progressReports[uploadMapHackName];
                 removeFile(file);
                 notification.success({
                     message: 'Upload succeeded!',
@@ -170,6 +186,8 @@ export const FileRepositoryTabContent: React.FunctionComponent<{ studyId: string
                     placement: 'topRight',
                 });
             }).catch(error => {
+                delete (window as any).onUploadProgressHackMap[uploadMapHackName];
+                delete progressReports[uploadMapHackName];
                 notification.error({
                     message: 'Upload error!',
                     description: error?.message ?? error ?? 'Unknown Error Occurred!',
@@ -217,7 +235,13 @@ export const FileRepositoryTabContent: React.FunctionComponent<{ studyId: string
             title: 'File name',
             dataIndex: 'name',
             key: 'fileName',
-            sorter: (a, b) => a.fileName.localeCompare(b.fileName)
+            sorter: (a, b) => a.fileName.localeCompare(b.fileName),
+            render: (value, record) => {
+                const progress = progressReports[`UP_${record.participantId}_${record.deviceId}_${record.startDate?.valueOf()}_${record.endDate?.valueOf()}`];
+                if (progress)
+                    return <React.Fragment key={uploadMovement}>{Math.round(1000 * (progress.loaded - 1) / progress.total) / 10}%</React.Fragment>;
+                return value;
+            }
         },
         {
             title: 'Participant ID',
@@ -294,21 +318,22 @@ export const FileRepositoryTabContent: React.FunctionComponent<{ studyId: string
 
     function dataSourceFilter(files: IFile[]) {
         return files.filter(file =>
-            !searchTerm
-            || (JSON.parse(file.description).participantId).toUpperCase().indexOf(searchTerm) > -1
-            || sites[JSON.parse(file.description).participantId[0]].toUpperCase().indexOf(searchTerm) > -1
-            || JSON.parse(file.description).deviceId.toUpperCase().indexOf(searchTerm) > -1
-            || deviceTypes[JSON.parse(file.description).deviceId.substr(0, 3)].toUpperCase().indexOf(searchTerm) > -1
-            || (!userIdNameMapping[file.uploadedBy] || userIdNameMapping[file.uploadedBy].toUpperCase().indexOf(searchTerm) > -1)
+            file !== null && file !== undefined &&
+            (!searchTerm
+                || (JSON.parse(file.description).participantId).toUpperCase().indexOf(searchTerm) > -1
+                || sites[JSON.parse(file.description).participantId[0]].toUpperCase().indexOf(searchTerm) > -1
+                || JSON.parse(file.description).deviceId.toUpperCase().indexOf(searchTerm) > -1
+                || deviceTypes[JSON.parse(file.description).deviceId.substr(0, 3)].toUpperCase().indexOf(searchTerm) > -1
+                || (!userIdNameMapping[file.uploadedBy] || userIdNameMapping[file.uploadedBy].toUpperCase().indexOf(searchTerm) > -1))
         ).sort((a, b) => parseInt(b.uploadTime) - parseInt(a.uploadTime));
     }
 
     const sortedFiles = dataSourceFilter(getStudyData.getStudy.files).sort((a, b) => parseInt((b as any).uploadTime) - parseInt((a as any).uploadTime));
     const numberOfFiles = sortedFiles.length;
-    const sizeOfFiles = sortedFiles.reduce((a, b) => a + (b['fileSize'] || 0), 0);
-    const participantOfFiles = sortedFiles.reduce(function(values, v) {
-        if (!values.set[v['uploadedBy']]) {
-            (values as any).set[v['uploadedBy']] = 1;
+    const sizeOfFiles = sortedFiles.reduce((a, b) => a + (parseInt(b['fileSize'] as any) || 0), 0);
+    const participantOfFiles = sortedFiles.reduce(function (values, v) {
+        if (!values.set[JSON.parse(v['description'])['participantId']]) {
+            (values as any).set[JSON.parse(v['description'])['participantId']] = 1;
             values.count++;
         }
         return values;
@@ -366,7 +391,7 @@ export const FileRepositoryTabContent: React.FunctionComponent<{ studyId: string
                     <br />
                     <br />
                 </Subsection>
-                <SubsectionWithComment title='Existing files' comment={'Total Files: ' + numberOfFiles + '\t\tTotal Size: ' + formatBytes(sizeOfFiles) + '\t\tTotal Participants: ' + participantOfFiles }>
+                <SubsectionWithComment title='Existing files' comment={'Total Files: ' + numberOfFiles + '\t\tTotal Size: ' + formatBytes(sizeOfFiles) + '\t\tTotal Participants: ' + participantOfFiles}>
                     <Input.Search allowClear placeholder='Search' onChange={({ target: { value } }) => setSearchTerm(value?.toUpperCase())} />
                     <FileList files={sortedFiles} searchTerm={searchTerm}></FileList>
                     <br />
@@ -404,7 +429,7 @@ interface EditableCellProps {
     children: React.ReactNode;
     dataIndex: string;
     record: StudyFile;
-    handleSave: (record: StudyFile) => void;
+    handleSave: (__unused__record: StudyFile) => void;
 }
 
 const EditableCell: React.FC<EditableCellProps> = ({

@@ -2,6 +2,7 @@ import { gql } from 'apollo-server-express';
 
 export const schema = gql`
 scalar JSON
+scalar BigInt
 
 enum USERTYPE {
     ADMIN
@@ -123,6 +124,16 @@ type Pubkey {
     deleted: String
 }
 
+type KeyPairwSignature {
+    privateKey: String!
+    publicKey: String!
+    signature: String
+}
+
+type Signature {
+    signature: String
+}
+
 type AccessToken {
     accessToken: String
 }
@@ -154,7 +165,7 @@ type File {
     fileName: String!
     studyId: String!
     projectId: String
-    fileSize: Int
+    fileSize: BigInt
     description: String!
     uploadTime: String!
     uploadedBy: String!
@@ -432,6 +443,8 @@ type Mutation {
     # PUBLIC KEY AUTHENTICATION
     registerPubkey(pubkey: String!, signature: String!, associatedUserId: String): Pubkey    
     issueAccessToken(pubkey: String!, signature: String!): AccessToken
+    keyPairGenwSignature: KeyPairwSignature
+    rsaSigner(privateKey: String!, message: String): Signature
 
     # ORGANISATION
     createOrganisation(name: String!, containOrg: String): Organisation
@@ -456,7 +469,7 @@ type Mutation {
     removeRole(roleId: String!): GenericResponse
 
     # FILES
-    uploadFile(studyId: String!, description: String!, file: Upload!, fileLength: Int, hash: String): File
+    uploadFile(studyId: String!, description: String!, file: Upload!, fileLength: BigInt, hash: String): File
     deleteFile(fileId: String!): GenericResponse
 
     # QUERY

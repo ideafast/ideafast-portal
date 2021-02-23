@@ -158,7 +158,7 @@ if (global.hasMinio) {
                         fileName: 'I7N3G6G-MMM7N3G6G-20200704-20200721.txt',
                         studyId: createdStudy.id,
                         projectId: null,
-                        fileSize: 13,
+                        fileSize: '13',
                         description: JSON.stringify({participantId:'I7N3G6G',deviceId:'MMM7N3G6G',startDate:1593817200000,endDate:1595286000000}),
                         uploadedBy: adminId,
                         hash: '4ae25be36354ee0aec8dc8deac3f279d2e9d6415361da996cf57eb6142cfb1a2'
@@ -212,7 +212,7 @@ if (global.hasMinio) {
                         fileName: 'I7N3G6G-MMM7N3G6G-20200704-20200721.txt',
                         studyId: createdStudy.id,
                         projectId: null,
-                        fileSize: 13,
+                        fileSize: '13',
                         description: JSON.stringify({participantId:'I7N3G6G',deviceId:'MMM7N3G6G',startDate:1593817200000,endDate:1595286000000}),
                         uploadedBy: authorisedUserProfile.id,
                         hash: '4ae25be36354ee0aec8dc8deac3f279d2e9d6415361da996cf57eb6142cfb1a2'
@@ -244,7 +244,7 @@ if (global.hasMinio) {
                         fileName: 'IR6R4AR-AX6VJH6F6-20200601-20200703.txt',
                         studyId: createdStudy.id,
                         projectId: null,
-                        fileSize: 0,
+                        fileSize: '0',
                         description: JSON.stringify({participantId:'IR6R4AR',deviceId:'AX6VJH6F6',startDate:1590966000000,endDate:1593730800000}),
                         uploadedBy: adminId,
                         hash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
@@ -304,7 +304,7 @@ if (global.hasMinio) {
                             variables: {
                                 studyId: createdStudy.id,
                                 file: null,
-                                description: JSON.stringify({participantId:'K7N3G6G',deviceId:'MMM7N3G6G',startDate:1593817200000,endDate:1595286000000}),
+                                description: JSON.stringify({participantId:'27N3G6G',deviceId:'MMM7N3G6G',startDate:1593817200000,endDate:1595286000000}),
                                 fileLength: 13
                             }
                         }))
@@ -313,7 +313,7 @@ if (global.hasMinio) {
 
                     expect(res.status).toBe(200);
                     expect(res.body.errors).toHaveLength(1);
-                    expect(res.body.errors[0].message).toBe('Filename and description must be matched and valid');
+                    expect(res.body.errors[0].message).toBe('File description is invalid');
                     expect(res.body.data.uploadFile).toEqual(null);
                 });
             });

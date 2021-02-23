@@ -12,7 +12,11 @@ export const deviceTypes = {
     IEN: 'English Interview Transcripts',
     INL: 'Dutch Interview Transcripts',
     TEQ: 'Technology Experience Questionnaire',
-    PSG: 'PSG Study Polysomnography Data'
+    PSG: 'PSG Study Polysomnography Data',
+    PSR: 'PSG raw data',
+    PSM: 'PSG meta data',
+    SMA: 'Stress Monitor App',
+    TFA: 'ThinkFast App'
 };
 
 export const sitesIDMarker = {
@@ -22,3 +26,5 @@ export const sitesIDMarker = {
     G: 'GHI Muenster',
     E: 'EMC Rotterdam'
 };
+
+export const fileSizeLimit = 8589934592;
