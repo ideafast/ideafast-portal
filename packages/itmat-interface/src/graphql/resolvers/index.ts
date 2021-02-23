@@ -11,7 +11,7 @@ import { ApolloError } from 'apollo-server-core';
 import { errorCodes } from '../errors';
 import { IUser } from 'itmat-commons';
 import { logResolvers } from './logResolvers';
-
+import { docResolvers } from './docResolvers';
 const modules = [
     studyResolvers,
     userResolvers,
@@ -21,7 +21,8 @@ const modules = [
     fileResolvers,
     organisationResolvers,
     pubkeyResolvers,
-    logResolvers
+    logResolvers,
+    docResolvers
 ];
 
 // const loggingDecorator = (reducerFunction: Function) => {

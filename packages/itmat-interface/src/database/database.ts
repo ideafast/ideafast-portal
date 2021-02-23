@@ -12,7 +12,8 @@ export interface IDatabaseConfig extends IDatabaseBaseConfig {
         files_collection: string,
         organisations_collection: string,
         log_collection: string,
-        pubkeys_collection: string
+        pubkeys_collection: string,
+        docs_collection: string
     };
 }
 
