@@ -10,8 +10,12 @@ export const docResolvers = {
             const requester: Models.UserModels.IUser = context.req.user;
             const queryObj = {};
             for (const prop in args) {
-                if (args.prop !== undefined) {
-                    queryObj[prop] = args.prop;
+                if (args[prop] !== undefined) {
+                    if (prop === 'docId') {
+                        queryObj['id'] = args[prop];
+                    } else {
+                        queryObj[prop] = args[prop];
+                    }
                 }
             }
             /* return all docs to admin but only activated docs to general users */

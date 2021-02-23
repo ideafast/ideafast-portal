@@ -413,7 +413,7 @@ type Query {
     getLogs(requesterName: String, requesterType: USERTYPE, logType: LOG_TYPE, actionType: LOG_ACTION, status: LOG_STATUS): [Log]
 
     # DOC
-    getDocs(docType: DOC_TYPE): [Doc]
+    getDocs(docType: DOC_TYPE, docId: String): [Doc]
 }
 
 type Mutation {

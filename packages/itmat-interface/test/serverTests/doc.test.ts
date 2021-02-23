@@ -173,6 +173,7 @@ describe('DOC API', () => {
             const res = await admin.post('/graphql').set('Content-type', 'application/json').send({
                 query: print(GET_DOCS),
                 variables: {
+                    withData: true
                 }
             });
             expect(res.status).toBe(200);

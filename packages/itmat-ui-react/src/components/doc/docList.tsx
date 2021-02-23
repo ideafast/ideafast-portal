@@ -24,7 +24,7 @@ export const DocListSection: React.FunctionComponent = () => {
     return (
         <Query<any, any>
             query={GET_DOCS}
-            variables={{}}
+            variables={{withData: false}}
         >
             {({ loading, error, data }) => {
                 if (loading) { return <LoadSpinner />; }
@@ -60,6 +60,9 @@ export const DocList: React.FunctionComponent<{ list: Models.Doc.IDoc[], user: I
     };
     const [docViewContents, setDocViewContents] = React.useState<docContents>(emptyDocContents);
     const [oldAttachments, setOldAttachments] = React.useState<any>([]); // save attachments of previously uploaded file, modified in edit mode
+
+    const [singgleDocVariables, setSingleDocVariables] = React.useState({docId: '', withData: false});
+    const {loading: getSingleDocLoading, data: getSingleDocData} = useQuery(GET_DOCS, {variables: singgleDocVariables});
 
     const columns = [
         {
@@ -123,6 +126,10 @@ export const DocList: React.FunctionComponent<{ list: Models.Doc.IDoc[], user: I
                     type='primary'
                     style={{ width: '35%', display: 'inline-block' }}
                     onClick={() => {
+                        setSingleDocVariables({docId: record.id, withData: true});
+                        console.log('----------------');
+                        console.log(record.id);
+                        console.log(getSingleDocData);
                         setDocViewContents({
                             id: record.id,
                             title: record.title,
@@ -131,7 +138,8 @@ export const DocList: React.FunctionComponent<{ list: Models.Doc.IDoc[], user: I
                             docStatus: record.docStatus,
                             attachments: []
                         });
-                        setOldAttachments(record.attachments);
+                        // setOldAttachments(record.attachments);
+                        setOldAttachments(getSingleDocData.getDocs[0].attachments);
                         setIsDocView(true);
                     }}
                 >View</Button>;
@@ -148,6 +156,10 @@ export const DocList: React.FunctionComponent<{ list: Models.Doc.IDoc[], user: I
         refetchQueries: [{ query: WHO_AM_I }],
         onError: () => { return; }
     });
+
+    if (getSingleDocLoading) {
+        return <LoadSpinner />;
+    }
 
     function customRequest(option) {
         const formData = new FormData();
@@ -172,6 +184,7 @@ export const DocList: React.FunctionComponent<{ list: Models.Doc.IDoc[], user: I
             dataSource={list}
             onRow={(rec: IDoc) => ({
                 onMouseEnter: () => {
+                    setSingleDocVariables({docId: rec.id, withData: true});
                     setDocViewContents({
                         id: rec.id,
                         title: rec.title,
@@ -248,7 +261,6 @@ export const DocList: React.FunctionComponent<{ list: Models.Doc.IDoc[], user: I
                             setOldAttachments(oldAttachments.filter( function( obj ) {
                                 return obj.fileName !== el.fileName;
                             } ));
-                            console.log(oldAttachments);
                         }}
                     >Delete</Button><br/>
                     <br/></>)
@@ -272,11 +284,8 @@ export const DocList: React.FunctionComponent<{ list: Models.Doc.IDoc[], user: I
                 type='primary'
                 style={{ width: '15%', display: 'inline-block' }}
                 onClick={() => {
-                    console.log(docViewContents.attachments);
                     const newAttachments = docViewContents.attachments.length === 0 ? [] : docViewContents.attachments.map((el) => ({fileName: el.fileName, fileBase64: el.fileBase64}));
                     const previousAttachments = oldAttachments.length === 0 ? [] : oldAttachments.map((el) => ({fileName: el.fileName, fileBase64: el.fileBase64}));
-                    console.log(previousAttachments);
-                    console.log(newAttachments);
                     const combineAttachments = (newAttachments as any).concat(previousAttachments);
                     editDoc({ variables: {id: docViewContents.id, docType: docViewContents.docType, data: docViewContents.data, user: user.id, title: docViewContents.title, status: docViewContents.docStatus, attachments: combineAttachments} });
                     setIsDocEdit(false);

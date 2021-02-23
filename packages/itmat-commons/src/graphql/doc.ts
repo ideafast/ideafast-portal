@@ -2,10 +2,13 @@ import gql from 'graphql-tag';
 
 export const GET_DOCS = gql`
     query getDocs(
-        $docType: DOC_TYPE,  
+        $docType: DOC_TYPE,
+        $docId: String,
+        $withData: Boolean!
     ) {
         getDocs (
             docType: $docType
+            docId: $docId
         ) {
             id,
             title,
@@ -18,7 +21,7 @@ export const GET_DOCS = gql`
             attachments {
                 id
                 fileName,
-                fileBase64
+                fileBase64 @include (if: $withData)
             }
         }
     }
