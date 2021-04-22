@@ -1,13 +1,13 @@
 import * as Minio from 'minio';
 import { Logger } from './logger';
-import { Readable } from 'stream';
+import type { Readable } from 'stream';
 
 export interface IObjectStoreConfig {
     host: string;
     port: number;
     accessKey: string;
     secretKey: string;
-    bucketRegion: string;
+    bucketRegion?: string;
     useSSL: boolean;
 }
 
@@ -65,7 +65,7 @@ export class ObjectStore {
         }
 
         const result = await this.client!.putObject(lowercasestudyid, uri, fileStream);
-        return result;
+        return result.etag;
     }
 
     public async downloadFile(studyId: string, uri: string): Promise<Readable> {

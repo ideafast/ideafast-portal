@@ -1,13 +1,13 @@
-import { Models, GET_LOGS, userTypes, LOG_ACTION, LOG_TYPE, LOG_STATUS } from 'itmat-commons';
-import * as React from 'react';
+import { FunctionComponent, useState } from 'react';
+import { GET_LOGS } from '@itmat-broker/itmat-models';
+import { userTypes, LOG_ACTION, LOG_TYPE, LOG_STATUS, USER_AGENT, ILogEntry } from '@itmat-broker/itmat-types';
 import { Query } from '@apollo/client/react/components';
 import LoadSpinner from '../reusable/loadSpinner';
-import { Table, Input, Button, Checkbox, Descriptions, DatePicker } from 'antd';
-import Modal from 'antd/lib/modal/Modal';
+import { Table, Input, Button, Checkbox, Descriptions, DatePicker, Modal } from 'antd';
 import Highlighter from 'react-highlight-words';
-import moment from 'moment';
+import dayjs from 'dayjs';
 
-export const LogListSection: React.FunctionComponent = () => {
+export const LogListSection: FunctionComponent = () => {
 
     return (
         <Query<any, any>
@@ -19,12 +19,11 @@ export const LogListSection: React.FunctionComponent = () => {
                 if (error) {
                     return (
                         <p>
-                            Error :(
-                            {error.message}
+                            Error {error.message}
                         </p>
                     );
                 }
-                const logList: Models.Log.ILogEntry[] = data.getLogs;
+                const logList: ILogEntry[] = data.getLogs;
                 return (
                     <LogList list={logList} />
                 );
@@ -33,31 +32,32 @@ export const LogListSection: React.FunctionComponent = () => {
     );
 };
 
-const LogList: React.FunctionComponent<{ list: Models.Log.ILogEntry[] }> = ({ list }) => {
-    const [searchTerm, setSearchTerm] = React.useState('');
+const LogList: FunctionComponent<{ list: ILogEntry[] }> = ({ list }) => {
+    const [searchTerm, setSearchTerm] = useState('');
     const initInputs = {
         requesterName: '',
         requesterType: [],
+        userAgent: [],
         logType: [],
         actionType: [],
         time: '',
         status: [],
         dateRange: ['', '']
     };
-    const [inputs, setInputs]: [{ [key: string]: any }, any] = React.useState(initInputs);
-    const [verbose, setVerbose] = React.useState(false);
-    const [verboseInfo, setVerboseInfo] = React.useState(({ actionData: JSON.stringify({}) }));
-    const [advancedSearch, setAdvancedSearch] = React.useState(false);
+    const [inputs, setInputs]: [{ [key: string]: any }, any] = useState(initInputs);
+    const [verbose, setVerbose] = useState(false);
+    const [verboseInfo, setVerboseInfo] = useState(({ actionData: JSON.stringify({}) }));
+    const [advancedSearch, setAdvancedSearch] = useState(false);
     const dateFormat = 'YYYY-MM-DD';
     function formatActionData(data: any) {
         const obj = JSON.parse(data.actionData);
         const keys = Object.keys(obj);
         const keysMap = keys.map((el) => <><span>{el}</span><br /></>);
-        const valuesMap = keys.map((el) => <><span>{obj[el].toString()}</span><br /></>);
+        const valuesMap = keys.map((el) => <><span>{JSON.stringify((obj[el] || 'NA'))}</span><br /></>);
         return { keyList: keysMap, valueList: valuesMap };
     }
     /* time offset, when filter by time, adjust all date to utc time */
-    const timeOffset = moment().zone() /* minutes */ * 60 /* seconds */ * 1000 /* to UNIX millisec */;
+    const timeOffset = dayjs().utcOffset() /* minutes */ * 60 /* seconds */ * 1000 /* to UNIX millisec */;
 
     const inputControl = (property: string) => ({
         value: inputs[property],
@@ -72,20 +72,26 @@ const LogList: React.FunctionComponent<{ list: Models.Log.ILogEntry[] }> = ({ li
             setInputs({ ...inputs, [property]: e });
         }
     });
-
-    function dataSourceFilter(logList: Models.ILogEntry[]) {
-        return logList.filter(log =>
-            (searchTerm === '' || (log.requesterName.toUpperCase().search(searchTerm) > -1 || log.requesterType.toUpperCase().search(searchTerm) > -1
-                || log.logType.toUpperCase().search(searchTerm) > -1 || log.actionType.toUpperCase().search(searchTerm) > -1
-                || new Date(log.time).toUTCString().toUpperCase().search(searchTerm) > -1 || log.status.toUpperCase().search(searchTerm) > -1))
-            && (inputs.requesterName === '' || log.requesterName.toLowerCase().indexOf(inputs.requesterName.toLowerCase()) !== -1)
-            && (inputs.requesterType.length === 0 || inputs.requesterType.includes(log.requesterType))
-            && (inputs.logType.length === 0 || inputs.logType.includes(log.logType))
-            && (inputs.actionType.length === 0 || inputs.actionType.includes(log.actionType))
-            && (inputs.status.length === 0 || inputs.status.includes(log.status))
-            && (inputs.dateRange[0] === '' || (moment(inputs.dateRange[0].startOf('day')).valueOf() - timeOffset) < log.time)
-            && (inputs.dateRange[1] === '' || (moment(inputs.dateRange[1].startOf('day')).valueOf() + 24 * 60 * 60 * 1000 /* ONE DAY IN MILLSEC */ - timeOffset) > log.time)
-        );
+    function dataSourceFilter(logList: ILogEntry[]) {
+        return logList.filter((log) => {
+            // convert the contest of log to be string (except for value), as null could not be parsed
+            const logCopy: any = { ...log };
+            Object.keys(logCopy).forEach(item => {
+                logCopy[item] = (logCopy[item] || '').toString();
+            });
+            return (searchTerm === '' || (logCopy.requesterName.toUpperCase().search(searchTerm) > -1 || logCopy.requesterType.toUpperCase().search(searchTerm) > -1
+                || logCopy.logType.toUpperCase().search(searchTerm) > -1 || logCopy.actionType.toUpperCase().search(searchTerm) > -1
+                || logCopy.status.toUpperCase().search(searchTerm) > -1 || logCopy.userAgent.toUpperCase().search(searchTerm) > -1
+                || new Date(logCopy.time).toUTCString().toUpperCase().search(searchTerm) > -1 || logCopy.status.toUpperCase().search(searchTerm) > -1))
+                && (inputs.requesterName === '' || logCopy.requesterName.toLowerCase().indexOf(inputs.requesterName.toLowerCase()) !== -1)
+                && (inputs.requesterType.length === 0 || inputs.requesterType.includes(logCopy.requesterType))
+                && (inputs.userAgent.length === 0 || inputs.userAgent.includes(logCopy.userAgent))
+                && (inputs.logType.length === 0 || inputs.logType.includes(logCopy.logType))
+                && (inputs.actionType.length === 0 || inputs.actionType.includes(logCopy.actionType))
+                && (inputs.status.length === 0 || inputs.status.includes(logCopy.status))
+                && (inputs.dateRange[0] === '' || (dayjs(inputs.dateRange[0].startOf('day')).valueOf() - timeOffset) < logCopy.time)
+                && (inputs.dateRange[1] === '' || (dayjs(inputs.dateRange[1].startOf('day')).valueOf() + 24 * 60 * 60 * 1000 /* ONE DAY IN MILLSEC */ - timeOffset) > logCopy.time);
+        });
     }
 
     const columns = [
@@ -132,7 +138,21 @@ const LogList: React.FunctionComponent<{ list: Models.Log.ILogEntry[] }> = ({ li
             }
         },
         {
-            title: 'Operation Type',
+            title: 'Request From',
+            dataIndex: 'userAgent',
+            key: 'userAgent',
+            render: (__unused__value, record) => {
+                if (searchTerm)
+                    return <Highlighter searchWords={[searchTerm]} textToHighlight={record.userAgent} highlightStyle={{
+                        backgroundColor: '#FFC733',
+                        padding: 0
+                    }} />;
+                else
+                    return record.userAgent;
+            }
+        },
+        {
+            title: 'API Type',
             dataIndex: 'actionType',
             key: 'actionType',
             render: (__unused__value, record) => {
@@ -150,13 +170,7 @@ const LogList: React.FunctionComponent<{ list: Models.Log.ILogEntry[] }> = ({ li
             dataIndex: 'time',
             key: 'time',
             render: (__unused__value, record) => {
-                if (searchTerm)
-                    return <Highlighter searchWords={[searchTerm]} textToHighlight={new Date(record.time).toUTCString()} highlightStyle={{
-                        backgroundColor: '#FFC733',
-                        padding: 0
-                    }} />;
-                else
-                    return new Date(record.time).toUTCString();
+                return new Date(record.time).toUTCString();
             }
         },
         {
@@ -221,6 +235,8 @@ const LogList: React.FunctionComponent<{ list: Models.Log.ILogEntry[] }> = ({ li
             <Input {...inputControl('requesterName')} style={{ marginBottom: '20px' }} />
             <Descriptions title='Requester Type'></Descriptions>
             <Checkbox.Group options={Object.keys(userTypes)} {...checkboxControl('requesterType')} style={{ marginBottom: '20px' }} />
+            <Descriptions title='Request From'></Descriptions>
+            <Checkbox.Group options={Object.keys(USER_AGENT)} {...checkboxControl('userAgent')} style={{ marginBottom: '20px' }} />
             <Descriptions title='Log Type'></Descriptions>
             <Checkbox.Group options={Object.keys(LOG_TYPE)} {...checkboxControl('logType')} style={{ marginBottom: '20px' }} />
             <Descriptions title='Request Type'></Descriptions>
@@ -229,13 +245,13 @@ const LogList: React.FunctionComponent<{ list: Models.Log.ILogEntry[] }> = ({ li
             <Checkbox.Group options={Object.keys(LOG_STATUS)} {...checkboxControl('status')} style={{ marginBottom: '20px' }} />
             <Descriptions title='Date Range'></Descriptions>
             <DatePicker.RangePicker
-                defaultValue={[moment('2015-06-06', dateFormat), moment('2015-06-06', dateFormat)]}
+                defaultValue={[dayjs('2015-06-06', dateFormat), dayjs('2015-06-06', dateFormat)]}
                 {...inputControl('dateRange')}
             />
         </Modal>
         <Table
             rowKey={(rec) => rec.id}
-            onRow={(record: Models.ILogEntry) => ({
+            onRow={(record: ILogEntry) => ({
                 onClick: () => {
                     setVerbose(true);
                     setVerboseInfo(record);
@@ -269,6 +285,7 @@ const LogList: React.FunctionComponent<{ list: Models.Log.ILogEntry[] }> = ({ li
                 columns={detailColumns}
                 dataSource={[formatActionData(verboseInfo)]}
                 size='small'
+                scroll={{ x: true }}
             >
             </Table>
         </Modal>

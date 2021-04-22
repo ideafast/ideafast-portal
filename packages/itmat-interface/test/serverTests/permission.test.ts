@@ -1,25 +1,28 @@
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-nocheck
+
 import request from 'supertest';
 import { print } from 'graphql';
 import { connectAdmin, connectUser, connectAgent } from './_loginHelper';
 import { db } from '../../src/database/database';
 import { Router } from '../../src/server/router';
 import { errorCodes } from '../../src/graphql/errors';
-import { MongoClient } from 'mongodb';
-import * as itmatCommons from 'itmat-commons';
+import { Db, MongoClient } from 'mongodb';
+import { permissions, IUser, IStudy, IProject, IRole } from '@itmat-broker/itmat-types';
+import { ADD_NEW_ROLE, EDIT_ROLE, REMOVE_ROLE } from '@itmat-broker/itmat-models';
 import { MongoMemoryServer } from 'mongodb-memory-server';
-import { setupDatabase } from 'itmat-setup';
+import { setupDatabase } from '@itmat-broker/itmat-setup';
 import config from '../../config/config.sample.json';
 import { v4 as uuid } from 'uuid';
-const { ADD_NEW_ROLE, EDIT_ROLE, REMOVE_ROLE } = itmatCommons.GQLRequests;
-const { permissions } = itmatCommons;
+import { Express } from 'express';
 
-let app;
-let mongodb;
-let admin;
-let user;
-let mongoConnection;
-let mongoClient;
-let apiPath;
+let app: Express;
+let mongodb: MongoMemoryServer;
+let admin: request.SuperTest<request.Test>;
+let user: request.SuperTest<request.Test>;
+let mongoConnection: MongoClient;
+let mongoClient: Db;
+let apiPath: string;
 
 afterAll(async () => {
     await db.closeConnection();
@@ -32,23 +35,20 @@ beforeAll(async () => { // eslint-disable-line no-undef
     apiPath = '/api/'.concat(config.apiVersions[config.apiVersions.length - 1]);
 
     /* Creating a in-memory MongoDB instance for testing */
-    mongodb = new MongoMemoryServer();
-    const connectionString = await mongodb.getUri();
-    const database = await mongodb.getDbName();
-    await setupDatabase(connectionString, database);
+    const dbName = uuid();
+    mongodb = await MongoMemoryServer.create({ instance: { dbName } });
+    const connectionString = mongodb.getUri();
+    await setupDatabase(connectionString, dbName);
 
     /* Wiring up the backend server */
     config.database.mongo_url = connectionString;
-    config.database.database = database;
-    await db.connect(config.database, MongoClient.connect);
+    config.database.database = dbName;
+    await db.connect(config.database, MongoClient.connect as any);
     const router = new Router(config);
 
     /* Connect mongo client (for test setup later / retrieve info later) */
-    mongoConnection = await MongoClient.connect(connectionString, {
-        useNewUrlParser: true,
-        useUnifiedTopology: true
-    });
-    mongoClient = mongoConnection.db(database);
+    mongoConnection = await MongoClient.connect(connectionString);
+    mongoClient = mongoConnection.db(dbName);
 
     /* Connecting clients for testing later */
     app = router.getApp();
@@ -59,19 +59,19 @@ beforeAll(async () => { // eslint-disable-line no-undef
 });
 
 describe('ROLE API', () => {
-    let adminId;
+    let adminId: any;
 
     beforeAll(async () => {
         /* setup: first retrieve the generated user id */
-        const result = await mongoClient.collection(config.database.collections.users_collection).find({}, { projection: { id: 1, username: 1 } }).toArray();
-        adminId = result.filter(e => e.username === 'admin')[0].id;
+        const result = await mongoClient.collection<IUser>(config.database.collections.users_collection).find({}, { projection: { id: 1, username: 1 } }).toArray();
+        adminId = result.filter((e: { username: string; }) => e.username === 'admin')[0].id;
     });
 
     describe('ADDING ROLE', () => {
-        let setupStudy;
-        let setupProject;
-        let authorisedUser;
-        let authorisedUserProfile;
+        let setupStudy: { id: any; name?: string; createdBy?: any; lastModified?: number; deleted?: null; currentDataVersion?: number; dataVersions?: never[]; };
+        let setupProject: { id: any; studyId?: string; createdBy?: any; patientMapping?: Record<string, any>; name?: string; approvedFields?: Record<string, any>; approvedFiles?: never[]; lastModified?: number; deleted?: null; };
+        let authorisedUser: request.SuperTest<request.Test>;
+        let authorisedUserProfile: { otpSecret: any; id: any; username?: string; type?: string; firstname?: string; lastname?: string; password?: string; email?: string; description?: string; emailNotificationsActivated?: boolean; organisation?: string; deleted?: null; };
         beforeEach(async () => {
             const studyName = uuid();
             setupStudy = {
@@ -83,7 +83,7 @@ describe('ROLE API', () => {
                 currentDataVersion: -1,
                 dataVersions: []
             };
-            await mongoClient.collection(config.database.collections.studies_collection).insertOne(setupStudy);
+            await mongoClient.collection<IStudy>(config.database.collections.studies_collection).insertOne(setupStudy);
 
             const projectName = uuid();
             setupProject = {
@@ -97,7 +97,7 @@ describe('ROLE API', () => {
                 lastModified: 20000002,
                 deleted: null
             };
-            await mongoClient.collection(config.database.collections.projects_collection).insertOne(setupProject);
+            await mongoClient.collection<IProject>(config.database.collections.projects_collection).insertOne(setupProject);
 
             /* setup: creating a privileged user (not yet added roles) */
             const username = uuid();
@@ -115,7 +115,7 @@ describe('ROLE API', () => {
                 deleted: null,
                 id: `new_user_id_${username}`
             };
-            await mongoClient.collection(config.database.collections.users_collection).insertOne(authorisedUserProfile);
+            await mongoClient.collection<IUser>(config.database.collections.users_collection).insertOne(authorisedUserProfile);
 
             authorisedUser = request.agent(app);
             await connectAgent(authorisedUser, username, 'admin', authorisedUserProfile.otpSecret);
@@ -134,7 +134,7 @@ describe('ROLE API', () => {
             expect(res.status).toBe(200);
             expect(res.body.errors).toBeUndefined();
 
-            const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ name: roleName });
+            const createdRole = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({ name: roleName });
             expect(createdRole).toEqual({
                 _id: createdRole._id,
                 id: createdRole.id,
@@ -156,7 +156,7 @@ describe('ROLE API', () => {
             });
 
             /* cleanup */
-            await mongoClient.collection(config.database.collections.roles_collection).findOneAndUpdate({ name: roleName, deleted: null }, { $set: { deleted: new Date().valueOf() } });
+            await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOneAndUpdate({ name: roleName, deleted: null }, { $set: { deleted: new Date().valueOf() } });
         });
 
         test('Creating a new role for study (user without privilege) (should fail)', async () => {
@@ -174,7 +174,7 @@ describe('ROLE API', () => {
             expect(res.body.errors[0].message).toBe(errorCodes.NO_PERMISSION_ERROR);
             expect(res.body.data.addRoleToStudyOrProject).toEqual(null);
 
-            const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ name: roleName });
+            const createdRole = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({ name: roleName });
             expect(createdRole).toBe(null);
         });
 
@@ -192,7 +192,7 @@ describe('ROLE API', () => {
                 users: [authorisedUserProfile.id],
                 deleted: null
             };
-            await mongoClient.collection(config.database.collections.roles_collection).insertOne(newRole);
+            await mongoClient.collection<IRole>(config.database.collections.roles_collection).insertOne(newRole);
 
             /* test */
             const roleName = uuid();
@@ -207,7 +207,7 @@ describe('ROLE API', () => {
             expect(res.status).toBe(200);
             expect(res.body.errors).toBeUndefined();
 
-            const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ name: roleName });
+            const createdRole = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({ name: roleName });
             expect(createdRole).toEqual({
                 _id: createdRole._id,
                 id: createdRole.id,
@@ -229,7 +229,7 @@ describe('ROLE API', () => {
             });
 
             /* cleanup */
-            await mongoClient.collection(config.database.collections.roles_collection).findOneAndUpdate({ name: roleName, deleted: null }, { $set: { deleted: new Date().valueOf() } });
+            await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOneAndUpdate({ name: roleName, deleted: null }, { $set: { deleted: new Date().valueOf() } });
         });
 
         test('Creating a new role for project (admin)', async () => {
@@ -245,7 +245,7 @@ describe('ROLE API', () => {
             expect(res.status).toBe(200);
             expect(res.body.errors).toBeUndefined();
 
-            const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ name: roleName });
+            const createdRole = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({ name: roleName });
             expect(createdRole).toEqual({
                 _id: createdRole._id,
                 id: createdRole.id,
@@ -267,7 +267,7 @@ describe('ROLE API', () => {
             });
 
             /* cleanup */
-            await mongoClient.collection(config.database.collections.roles_collection).findOneAndUpdate({ name: roleName, deleted: null }, { $set: { deleted: new Date().valueOf() } });
+            await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOneAndUpdate({ name: roleName, deleted: null }, { $set: { deleted: new Date().valueOf() } });
         });
 
         test('Creating a new role for project (user with privilege for another project in the same study) (should fail)', async () => {
@@ -284,7 +284,7 @@ describe('ROLE API', () => {
                 lastModified: 20000002,
                 deleted: null
             };
-            await mongoClient.collection(config.database.collections.projects_collection).insertOne(anotherSetupProject);
+            await mongoClient.collection<IProject>(config.database.collections.projects_collection).insertOne(anotherSetupProject);
 
             /* setup: giving authorised user privilege */
             const roleId = uuid();
@@ -299,7 +299,7 @@ describe('ROLE API', () => {
                 users: [authorisedUserProfile.id],
                 deleted: null
             };
-            await mongoClient.collection(config.database.collections.roles_collection).insertOne(newRole);
+            await mongoClient.collection<IRole>(config.database.collections.roles_collection).insertOne(newRole);
 
             /* test */
             const roleName = uuid();
@@ -316,7 +316,7 @@ describe('ROLE API', () => {
             expect(res.body.errors[0].message).toBe(errorCodes.NO_PERMISSION_ERROR);
             expect(res.body.data.addRoleToStudyOrProject).toEqual(null);
 
-            const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ name: roleName });
+            const createdRole = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({ name: roleName });
             expect(createdRole).toBe(null);
         });
 
@@ -334,7 +334,7 @@ describe('ROLE API', () => {
                 users: [authorisedUserProfile.id],
                 deleted: null
             };
-            await mongoClient.collection(config.database.collections.roles_collection).insertOne(newRole);
+            await mongoClient.collection<IRole>(config.database.collections.roles_collection).insertOne(newRole);
 
             /* test */
             const roleName = uuid();
@@ -349,7 +349,7 @@ describe('ROLE API', () => {
             expect(res.status).toBe(200);
             expect(res.body.errors).toBeUndefined();
 
-            const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ name: roleName });
+            const createdRole = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({ name: roleName });
             expect(createdRole).toEqual({
                 _id: createdRole._id,
                 id: createdRole.id,
@@ -371,7 +371,7 @@ describe('ROLE API', () => {
             });
 
             /* cleanup */
-            await mongoClient.collection(config.database.collections.roles_collection).findOneAndUpdate({ name: roleName, deleted: null }, { $set: { deleted: new Date().valueOf() } });
+            await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOneAndUpdate({ name: roleName, deleted: null }, { $set: { deleted: new Date().valueOf() } });
         });
 
         test('Creating a new role for project (user with privilege for the study)', async () => {
@@ -388,7 +388,7 @@ describe('ROLE API', () => {
                 users: [authorisedUserProfile.id],
                 deleted: null
             };
-            await mongoClient.collection(config.database.collections.roles_collection).insertOne(newRole);
+            await mongoClient.collection<IRole>(config.database.collections.roles_collection).insertOne(newRole);
 
             /* test */
             const roleName = uuid();
@@ -403,7 +403,7 @@ describe('ROLE API', () => {
             expect(res.status).toBe(200);
             expect(res.body.errors).toBeUndefined();
 
-            const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ name: roleName });
+            const createdRole = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({ name: roleName });
             expect(createdRole).toEqual({
                 _id: createdRole._id,
                 id: createdRole.id,
@@ -425,7 +425,7 @@ describe('ROLE API', () => {
             });
 
             /* cleanup */
-            await mongoClient.collection(config.database.collections.roles_collection).findOneAndUpdate({ name: roleName, deleted: null }, { $set: { deleted: new Date().valueOf() } });
+            await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOneAndUpdate({ name: roleName, deleted: null }, { $set: { deleted: new Date().valueOf() } });
         });
 
         test('Creating a new role for project (user without privilege) (should fail)', async () => {
@@ -443,16 +443,16 @@ describe('ROLE API', () => {
             expect(res.body.errors[0].message).toBe(errorCodes.NO_PERMISSION_ERROR);
             expect(res.body.data.addRoleToStudyOrProject).toEqual(null);
 
-            const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ name: roleName });
+            const createdRole = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({ name: roleName });
             expect(createdRole).toBe(null);
         });
     });
 
     describe('EDITING ROLE', () => {
         describe('EDIT STUDY ROLE', () => {
-            let setupStudy;
-            let setupRole;
-            let authorisedUser;
+            let setupStudy: { id: any; name?: string; createdBy?: any; lastModified?: number; deleted?: null; currentDataVersion?: number; dataVersions?: never[]; };
+            let setupRole: { id: any; _id?: any; name: any; studyId: any; projectId?: null; permissions?: never[]; createdBy?: any; users?: never[]; deleted?: null; };
+            let authorisedUser: request.SuperTest<request.Test>;
             let authorisedUserProfile;
             beforeEach(async () => {
                 const studyName = uuid();
@@ -465,7 +465,7 @@ describe('ROLE API', () => {
                     currentDataVersion: -1,
                     dataVersions: []
                 };
-                await mongoClient.collection(config.database.collections.studies_collection).insertOne(setupStudy);
+                await mongoClient.collection<IStudy>(config.database.collections.studies_collection).insertOne(setupStudy);
 
                 /* setup: creating a privileged user (not yet added roles) */
                 const username = uuid();
@@ -483,7 +483,7 @@ describe('ROLE API', () => {
                     deleted: null,
                     id: `new_user_id_${username}`
                 };
-                await mongoClient.collection(config.database.collections.users_collection).insertOne(authorisedUserProfile);
+                await mongoClient.collection<IUser>(config.database.collections.users_collection).insertOne(authorisedUserProfile);
 
                 authorisedUser = request.agent(app);
                 await connectAgent(authorisedUser, username, 'admin', authorisedUserProfile.otpSecret);
@@ -513,7 +513,7 @@ describe('ROLE API', () => {
                     users: [],
                     deleted: null
                 };
-                await mongoClient.collection(config.database.collections.roles_collection).insertMany([setupRole, authorisedUserRole]);
+                await mongoClient.collection<IRole>(config.database.collections.roles_collection).insertMany([setupRole, authorisedUserRole]);
             });
 
             test('Edit a non-existent role (admin)', async () => {
@@ -529,7 +529,7 @@ describe('ROLE API', () => {
                 expect(res.body.errors).toHaveLength(1);
                 expect(res.body.errors[0].message).toBe(errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY);
                 expect(res.body.data.editRole).toEqual(null);
-                const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ id: setupRole.id });
+                const createdRole = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({ id: setupRole.id });
                 expect(createdRole).toEqual({
                     _id: setupRole._id,
                     id: setupRole.id,
@@ -556,7 +556,7 @@ describe('ROLE API', () => {
                 expect(res.body.errors).toHaveLength(1);
                 expect(res.body.errors[0].message).toBe(errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY);
                 expect(res.body.data.editRole).toEqual(null);
-                const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ id: setupRole.id });
+                const createdRole = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({ id: setupRole.id });
                 expect(createdRole).toEqual({
                     _id: setupRole._id,
                     id: setupRole.id,
@@ -589,7 +589,7 @@ describe('ROLE API', () => {
                     permissions: [],
                     users: []
                 });
-                const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ id: setupRole.id });
+                const createdRole = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({ id: setupRole.id });
                 expect(createdRole).toEqual({
                     _id: setupRole._id,
                     id: setupRole.id,
@@ -622,7 +622,7 @@ describe('ROLE API', () => {
                     permissions: [],
                     users: []
                 });
-                const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ id: setupRole.id });
+                const createdRole = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({ id: setupRole.id });
                 expect(createdRole).toEqual({
                     _id: setupRole._id,
                     id: setupRole.id,
@@ -650,7 +650,7 @@ describe('ROLE API', () => {
                 expect(res.body.errors).toHaveLength(1);
                 expect(res.body.errors[0].message).toBe(errorCodes.NO_PERMISSION_ERROR);
                 expect(res.body.data.editRole).toEqual(null);
-                const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ id: setupRole.id });
+                const createdRole = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({ id: setupRole.id });
                 expect(createdRole).toEqual({
                     _id: setupRole._id,
                     id: setupRole.id,
@@ -666,7 +666,7 @@ describe('ROLE API', () => {
 
             test('Add a non-existent user to role (admin)', async () => {
                 /* setup: confirm that role has no user yet */
-                const role = await mongoClient.collection(config.database.collections.roles_collection).findOne({
+                const role = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({
                     id: setupRole.id,
                     deleted: null
                 });
@@ -697,7 +697,7 @@ describe('ROLE API', () => {
                 expect(res.body.errors).toHaveLength(1);
                 expect(res.body.errors[0].message).toBe(errorCodes.CLIENT_MALFORMED_INPUT);
                 expect(res.body.data.editRole).toEqual(null);
-                const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ id: setupRole.id });
+                const createdRole = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({ id: setupRole.id });
                 expect(createdRole).toEqual({
                     _id: setupRole._id,
                     id: setupRole.id,
@@ -728,7 +728,7 @@ describe('ROLE API', () => {
                     deleted: null,
                     id: `new_user_id_${newUsername}`
                 };
-                await mongoClient.collection(config.database.collections.users_collection).insertOne(newUser);
+                await mongoClient.collection<IUser>(config.database.collections.users_collection).insertOne(newUser);
 
                 /* test */
                 const res = await admin.post(apiPath).send({
@@ -756,7 +756,7 @@ describe('ROLE API', () => {
                         lastname: newUser.lastname
                     }]
                 });
-                const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ id: setupRole.id });
+                const createdRole = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({ id: setupRole.id });
                 expect(createdRole).toEqual({
                     _id: setupRole._id,
                     id: setupRole.id,
@@ -787,7 +787,7 @@ describe('ROLE API', () => {
                     deleted: null,
                     id: `new_user_id_${newUsername}`
                 };
-                await mongoClient.collection(config.database.collections.users_collection).insertOne(newUser);
+                await mongoClient.collection<IUser>(config.database.collections.users_collection).insertOne(newUser);
 
                 /* test */
                 const res = await authorisedUser.post(apiPath).send({
@@ -815,7 +815,7 @@ describe('ROLE API', () => {
                         lastname: newUser.lastname
                     }]
                 });
-                const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ id: setupRole.id });
+                const createdRole = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({ id: setupRole.id });
                 expect(createdRole).toEqual({
                     _id: setupRole._id,
                     id: setupRole.id,
@@ -846,7 +846,7 @@ describe('ROLE API', () => {
                     deleted: null,
                     id: `new_user_id_${newUsername}`
                 };
-                await mongoClient.collection(config.database.collections.users_collection).insertOne(newUser);
+                await mongoClient.collection<IUser>(config.database.collections.users_collection).insertOne(newUser);
 
                 /* test */
                 const res = await user.post(apiPath).send({
@@ -863,7 +863,7 @@ describe('ROLE API', () => {
                 expect(res.body.errors).toHaveLength(1);
                 expect(res.body.errors[0].message).toBe(errorCodes.NO_PERMISSION_ERROR);
                 expect(res.body.data.editRole).toEqual(null);
-                const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ id: setupRole.id });
+                const createdRole = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({ id: setupRole.id });
                 expect(createdRole).toEqual({
                     _id: setupRole._id,
                     id: setupRole.id,
@@ -894,15 +894,15 @@ describe('ROLE API', () => {
                     deleted: null,
                     id: `new_user_id_${newUsername}`
                 };
-                await mongoClient.collection(config.database.collections.users_collection).insertOne(newUser);
-                const updatedRole = await mongoClient.collection(config.database.collections.roles_collection).findOneAndUpdate({
+                await mongoClient.collection<IUser>(config.database.collections.users_collection).insertOne(newUser);
+                const updatedRole = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOneAndUpdate({
                     id: setupRole.id,
                     deleted: null
                 }, {
                     $push: {
                         users: newUser.id
                     }
-                }, { returnOriginal: false });
+                }, { returnDocument: 'after' });
                 expect(updatedRole.value.users).toEqual([newUser.id]);
 
                 /* test */
@@ -926,7 +926,7 @@ describe('ROLE API', () => {
                     permissions: [],
                     users: []
                 });
-                const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ id: setupRole.id });
+                const createdRole = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({ id: setupRole.id });
                 expect(createdRole).toEqual({
                     _id: setupRole._id,
                     id: setupRole.id,
@@ -942,7 +942,7 @@ describe('ROLE API', () => {
 
             test('Add permission to role (admin)', async () => {
                 /* setup: confirm that role has no permissions yet */
-                const role = await mongoClient.collection(config.database.collections.roles_collection).findOne({
+                const role = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({
                     id: setupRole.id,
                     deleted: null
                 });
@@ -985,7 +985,7 @@ describe('ROLE API', () => {
                     ],
                     users: []
                 });
-                const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ id: setupRole.id });
+                const createdRole = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({ id: setupRole.id });
                 expect(createdRole).toEqual({
                     _id: setupRole._id,
                     id: setupRole.id,
@@ -1004,10 +1004,10 @@ describe('ROLE API', () => {
 
             test('Add a duplicated permission to role (admin)', async () => {
                 /* setup: confirm that role has one permissions yet */
-                const role = await mongoClient.collection(config.database.collections.roles_collection).findOneAndUpdate({
+                const role = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOneAndUpdate({
                     id: setupRole.id,
                     deleted: null
-                }, { $push: { permissions: permissions.specific_study.specific_study_readonly_access } }, { returnOriginal: false });
+                }, { $push: { permissions: permissions.specific_study.specific_study_readonly_access } }, { returnDocument: 'after' });
                 expect(role.value).toEqual({
                     _id: setupRole._id,
                     id: setupRole.id,
@@ -1045,7 +1045,7 @@ describe('ROLE API', () => {
                     ],
                     users: []
                 });
-                const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ id: setupRole.id });
+                const createdRole = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({ id: setupRole.id });
                 expect(createdRole).toEqual({
                     _id: setupRole._id,
                     id: setupRole.id,
@@ -1063,7 +1063,7 @@ describe('ROLE API', () => {
 
             test('Add two of the same permissions to role (admin)', async () => {
                 /* setup: confirm that role has no permissions yet */
-                const role = await mongoClient.collection(config.database.collections.roles_collection).findOne({
+                const role = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({
                     id: setupRole.id,
                     deleted: null
                 });
@@ -1105,7 +1105,7 @@ describe('ROLE API', () => {
                     ],
                     users: []
                 });
-                const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ id: setupRole.id });
+                const createdRole = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({ id: setupRole.id });
                 expect(createdRole).toEqual({
                     _id: setupRole._id,
                     id: setupRole.id,
@@ -1123,7 +1123,7 @@ describe('ROLE API', () => {
 
             test('Adding a non-sense permission to role (admin) (should fail)', async () => {
                 /* setup: confirm that role has no permissions yet */
-                const role = await mongoClient.collection(config.database.collections.roles_collection).findOne({
+                const role = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({
                     id: setupRole.id,
                     deleted: null
                 });
@@ -1156,7 +1156,7 @@ describe('ROLE API', () => {
                 expect(res.body.errors).toHaveLength(1);
                 expect(res.body.errors[0].message).toBe(errorCodes.CLIENT_MALFORMED_INPUT);
                 expect(res.body.data.editRole).toEqual(null);
-                const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ id: setupRole.id });
+                const createdRole = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({ id: setupRole.id });
                 expect(createdRole).toEqual({
                     _id: setupRole._id,
                     id: setupRole.id,
@@ -1172,7 +1172,7 @@ describe('ROLE API', () => {
 
             test('Adding a project permission to study role (admin) (should fail)', async () => {
                 /* setup: confirm that role has no permissions yet */
-                const role = await mongoClient.collection(config.database.collections.roles_collection).findOne({
+                const role = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({
                     id: setupRole.id,
                     deleted: null
                 });
@@ -1205,7 +1205,7 @@ describe('ROLE API', () => {
                 expect(res.body.errors).toHaveLength(1);
                 expect(res.body.errors[0].message).toBe(errorCodes.CLIENT_MALFORMED_INPUT);
                 expect(res.body.data.editRole).toEqual(null);
-                const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ id: setupRole.id });
+                const createdRole = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({ id: setupRole.id });
                 expect(createdRole).toEqual({
                     _id: setupRole._id,
                     id: setupRole.id,
@@ -1221,10 +1221,10 @@ describe('ROLE API', () => {
 
             test('Remove permission from role (admin)', async () => {
                 /* setup: confirm that role has one permissions */
-                const role = await mongoClient.collection(config.database.collections.roles_collection).findOneAndUpdate({
+                const role = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOneAndUpdate({
                     id: setupRole.id,
                     deleted: null
-                }, { $push: { permissions: permissions.specific_study.specific_study_readonly_access } }, { returnOriginal: false });
+                }, { $push: { permissions: permissions.specific_study.specific_study_readonly_access } }, { returnDocument: 'after' });
                 expect(role.value).toEqual({
                     _id: setupRole._id,
                     id: setupRole.id,
@@ -1260,7 +1260,7 @@ describe('ROLE API', () => {
                     permissions: [],
                     users: []
                 });
-                const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ id: setupRole.id });
+                const createdRole = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({ id: setupRole.id });
                 expect(createdRole).toEqual({
                     _id: setupRole._id,
                     id: setupRole.id,
@@ -1276,7 +1276,7 @@ describe('ROLE API', () => {
 
             test('Remove permission which is not added from role (admin)', async () => {
                 /* setup: confirm that role has no permissions yet */
-                const role = await mongoClient.collection(config.database.collections.roles_collection).findOne({
+                const role = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({
                     id: setupRole.id,
                     deleted: null
                 });
@@ -1300,7 +1300,7 @@ describe('ROLE API', () => {
                         permissionChanges: {
                             add: [],
                             remove: [
-                                permissions.specific_study.specific_study_readonly_access,
+                                permissions.specific_study.specific_study_readonly_access
                             ]
                         }
                     }
@@ -1315,7 +1315,7 @@ describe('ROLE API', () => {
                     permissions: [],
                     users: []
                 });
-                const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ id: setupRole.id });
+                const createdRole = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({ id: setupRole.id });
                 expect(createdRole).toEqual({
                     _id: setupRole._id,
                     id: setupRole.id,
@@ -1346,13 +1346,13 @@ describe('ROLE API', () => {
                     deleted: null,
                     id: `new_user_id_${newUsername}`
                 };
-                await mongoClient.collection(config.database.collections.users_collection).insertOne(newUser);
+                await mongoClient.collection<IUser>(config.database.collections.users_collection).insertOne(newUser);
 
                 /* setup role */
-                const role = await mongoClient.collection(config.database.collections.roles_collection).findOneAndUpdate({
+                const role = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOneAndUpdate({
                     id: setupRole.id,
                     deleted: null
-                }, { $push: { permissions: permissions.specific_study.specific_study_readonly_access, users: newUser.id } }, { returnOriginal: false });
+                }, { $push: { permissions: permissions.specific_study.specific_study_readonly_access, users: newUser.id } }, { returnDocument: 'after' });
                 expect(role.value).toEqual({
                     _id: setupRole._id,
                     id: setupRole.id,
@@ -1399,10 +1399,10 @@ describe('ROLE API', () => {
                         id: adminId,
                         organisation: 'organisation_system',
                         firstname: 'Fadmin',
-                        lastname: 'Ladmin',
+                        lastname: 'Ladmin'
                     }]
                 });
-                const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ id: setupRole.id });
+                const createdRole = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({ id: setupRole.id });
                 expect(createdRole).toEqual({
                     _id: setupRole._id,
                     id: setupRole.id,
@@ -1420,10 +1420,10 @@ describe('ROLE API', () => {
         });
 
         describe('EDIT PROJECT ROLE', () => {
-            let setupStudy;
-            let setupProject;
-            let setupRole;
-            let authorisedUser;
+            let setupStudy: { id: any; name?: string; createdBy?: any; lastModified?: number; deleted?: null; currentDataVersion?: number; dataVersions?: never[]; };
+            let setupProject: { id: any; studyId?: string; createdBy?: any; patientMapping?: Record<string, any>; name?: string; approvedFields?: Record<string, any>; approvedFiles?: never[]; lastModified?: number; deleted?: null; };
+            let setupRole: { id: any; _id?: any; name: any; projectId?: string; studyId?: string; permissions?: never[]; createdBy?: any; users?: never[]; deleted?: null; };
+            let authorisedUser: request.SuperTest<request.Test>;
             let authorisedUserProfile;
             beforeEach(async () => {
                 /* setup: creating a setup study */
@@ -1437,7 +1437,7 @@ describe('ROLE API', () => {
                     currentDataVersion: -1,
                     dataVersions: []
                 };
-                await mongoClient.collection(config.database.collections.studies_collection).insertOne(setupStudy);
+                await mongoClient.collection<IStudy>(config.database.collections.studies_collection).insertOne(setupStudy);
 
                 /* setup: creating a project */
                 const projectName = uuid();
@@ -1452,7 +1452,7 @@ describe('ROLE API', () => {
                     lastModified: 12103214,
                     deleted: null
                 };
-                await mongoClient.collection(config.database.collections.projects_collection).insertOne(setupProject);
+                await mongoClient.collection<IProject>(config.database.collections.projects_collection).insertOne(setupProject);
 
                 /* setup: creating a privileged user (not yet added roles) */
                 const username = uuid();
@@ -1470,7 +1470,7 @@ describe('ROLE API', () => {
                     deleted: null,
                     id: `new_user_id_${username}`
                 };
-                await mongoClient.collection(config.database.collections.users_collection).insertOne(authorisedUserProfile);
+                await mongoClient.collection<IUser>(config.database.collections.users_collection).insertOne(authorisedUserProfile);
 
                 authorisedUser = request.agent(app);
                 await connectAgent(authorisedUser, username, 'admin', authorisedUserProfile.otpSecret);
@@ -1500,7 +1500,7 @@ describe('ROLE API', () => {
                     users: [],
                     deleted: null
                 };
-                await mongoClient.collection(config.database.collections.roles_collection).insertMany([setupRole, authorisedUserRole]);
+                await mongoClient.collection<IRole>(config.database.collections.roles_collection).insertMany([setupRole, authorisedUserRole]);
             });
 
             test('Change role name (admin)', async () => {
@@ -1522,7 +1522,7 @@ describe('ROLE API', () => {
                     permissions: [],
                     users: []
                 });
-                const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ id: setupRole.id });
+                const createdRole = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({ id: setupRole.id });
                 expect(createdRole).toEqual({
                     _id: setupRole._id,
                     id: setupRole.id,
@@ -1555,7 +1555,7 @@ describe('ROLE API', () => {
                     permissions: [],
                     users: []
                 });
-                const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ id: setupRole.id });
+                const createdRole = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({ id: setupRole.id });
                 expect(createdRole).toEqual({
                     _id: setupRole._id,
                     id: setupRole.id,
@@ -1583,7 +1583,7 @@ describe('ROLE API', () => {
                 expect(res.body.errors).toHaveLength(1);
                 expect(res.body.errors[0].message).toBe(errorCodes.NO_PERMISSION_ERROR);
                 expect(res.body.data.editRole).toEqual(null);
-                const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ id: setupRole.id });
+                const createdRole = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({ id: setupRole.id });
                 expect(createdRole).toEqual({
                     _id: setupRole._id,
                     id: setupRole.id,
@@ -1599,7 +1599,7 @@ describe('ROLE API', () => {
 
             test('Add a non-existent user to role (admin)', async () => {
                 /* setup: confirm that role has no user yet */
-                const role = await mongoClient.collection(config.database.collections.roles_collection).findOne({
+                const role = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({
                     id: setupRole.id,
                     deleted: null
                 });
@@ -1630,7 +1630,7 @@ describe('ROLE API', () => {
                 expect(res.body.errors).toHaveLength(1);
                 expect(res.body.errors[0].message).toBe(errorCodes.CLIENT_MALFORMED_INPUT);
                 expect(res.body.data.editRole).toEqual(null);
-                const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ id: setupRole.id });
+                const createdRole = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({ id: setupRole.id });
                 expect(createdRole).toEqual({
                     _id: setupRole._id,
                     id: setupRole.id,
@@ -1661,7 +1661,7 @@ describe('ROLE API', () => {
                     deleted: null,
                     id: `new_user_id_${newUsername}`
                 };
-                await mongoClient.collection(config.database.collections.users_collection).insertOne(newUser);
+                await mongoClient.collection<IUser>(config.database.collections.users_collection).insertOne(newUser);
 
                 /* test */
                 const res = await authorisedUser.post(apiPath).send({
@@ -1689,7 +1689,7 @@ describe('ROLE API', () => {
                         lastname: newUser.lastname
                     }]
                 });
-                const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ id: setupRole.id });
+                const createdRole = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({ id: setupRole.id });
                 expect(createdRole).toEqual({
                     _id: setupRole._id,
                     id: setupRole.id,
@@ -1720,7 +1720,7 @@ describe('ROLE API', () => {
                     deleted: null,
                     id: `new_user_id_${newUsername}`
                 };
-                await mongoClient.collection(config.database.collections.users_collection).insertOne(newUser);
+                await mongoClient.collection<IUser>(config.database.collections.users_collection).insertOne(newUser);
 
                 /* test */
                 const res = await user.post(apiPath).send({
@@ -1737,7 +1737,7 @@ describe('ROLE API', () => {
                 expect(res.body.errors).toHaveLength(1);
                 expect(res.body.errors[0].message).toBe(errorCodes.NO_PERMISSION_ERROR);
                 expect(res.body.data.editRole).toEqual(null);
-                const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ id: setupRole.id });
+                const createdRole = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({ id: setupRole.id });
                 expect(createdRole).toEqual({
                     _id: setupRole._id,
                     id: setupRole.id,
@@ -1753,7 +1753,7 @@ describe('ROLE API', () => {
 
             test('Adding a study permission to project role (admin) (should fail)', async () => {
                 /* setup: confirm that role has no permissions yet */
-                const role = await mongoClient.collection(config.database.collections.roles_collection).findOne({
+                const role = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({
                     id: setupRole.id,
                     deleted: null
                 });
@@ -1786,7 +1786,7 @@ describe('ROLE API', () => {
                 expect(res.body.errors).toHaveLength(1);
                 expect(res.body.errors[0].message).toBe(errorCodes.CLIENT_MALFORMED_INPUT);
                 expect(res.body.data.editRole).toEqual(null);
-                const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ id: setupRole.id });
+                const createdRole = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({ id: setupRole.id });
                 expect(createdRole).toEqual({
                     _id: setupRole._id,
                     id: setupRole.id,
@@ -1805,8 +1805,8 @@ describe('ROLE API', () => {
     describe('DELETING ROLE', () => {
         describe('DELETE STUDY ROLE', () => {
             let setupStudy;
-            let setupRole;
-            let authorisedUser;
+            let setupRole: { id: any; projectId?: null; studyId?: string; name?: string; permissions?: never[]; createdBy?: any; users?: never[]; deleted?: null; };
+            let authorisedUser: request.SuperTest<request.Test>;
             let authorisedUserProfile;
             beforeEach(async () => {
                 const studyName = uuid();
@@ -1819,7 +1819,7 @@ describe('ROLE API', () => {
                     currentDataVersion: -1,
                     dataVersions: []
                 };
-                await mongoClient.collection(config.database.collections.studies_collection).insertOne(setupStudy);
+                await mongoClient.collection<IStudy>(config.database.collections.studies_collection).insertOne(setupStudy);
 
                 /* setup: creating a privileged user (not yet added roles) */
                 const username = uuid();
@@ -1837,7 +1837,7 @@ describe('ROLE API', () => {
                     deleted: null,
                     id: `new_user_id_${username}`
                 };
-                await mongoClient.collection(config.database.collections.users_collection).insertOne(authorisedUserProfile);
+                await mongoClient.collection<IUser>(config.database.collections.users_collection).insertOne(authorisedUserProfile);
 
                 authorisedUser = request.agent(app);
                 await connectAgent(authorisedUser, username, 'admin', authorisedUserProfile.otpSecret);
@@ -1867,7 +1867,7 @@ describe('ROLE API', () => {
                     users: [],
                     deleted: null
                 };
-                await mongoClient.collection(config.database.collections.roles_collection).insertMany([setupRole, authorisedUserRole]);
+                await mongoClient.collection<IRole>(config.database.collections.roles_collection).insertMany([setupRole, authorisedUserRole]);
             });
 
             test('delete a study role (admin)', async () => {
@@ -1880,7 +1880,7 @@ describe('ROLE API', () => {
                 expect(res.status).toBe(200);
                 expect(res.body.errors).toBeUndefined();
                 expect(res.body.data.removeRole).toEqual({ successful: true });
-                const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ id: setupRole.id });
+                const createdRole = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({ id: setupRole.id });
                 expect(typeof createdRole.deleted).toBe('number');
             });
 
@@ -1894,7 +1894,7 @@ describe('ROLE API', () => {
                 expect(res.status).toBe(200);
                 expect(res.body.errors).toBeUndefined();
                 expect(res.body.data.removeRole).toEqual({ successful: true });
-                const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ id: setupRole.id });
+                const createdRole = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({ id: setupRole.id });
                 expect(typeof createdRole.deleted).toBe('number');
             });
 
@@ -1909,7 +1909,7 @@ describe('ROLE API', () => {
                 expect(res.body.errors).toHaveLength(1);
                 expect(res.body.errors[0].message).toBe(errorCodes.NO_PERMISSION_ERROR);
                 expect(res.body.data.removeRole).toEqual(null);
-                const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ id: setupRole.id });
+                const createdRole = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({ id: setupRole.id });
                 expect(createdRole.deleted).toBe(null);
             });
 
@@ -1924,7 +1924,7 @@ describe('ROLE API', () => {
                 expect(res.body.errors).toHaveLength(1);
                 expect(res.body.errors[0].message).toBe(errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY);
                 expect(res.body.data.removeRole).toEqual(null);
-                const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ id: setupRole.id });
+                const createdRole = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({ id: setupRole.id });
                 expect(createdRole.deleted).toBe(null);
             });
         });
@@ -1932,8 +1932,8 @@ describe('ROLE API', () => {
         describe('DELETE PROJECT ROLE', () => {
             let setupStudy;
             let setupProject;
-            let setupRole;
-            let authorisedUser;
+            let setupRole: { id: any; projectId?: string; studyId?: string; name?: string; permissions?: never[]; createdBy?: any; users?: never[]; deleted?: null; };
+            let authorisedUser: request.SuperTest<request.Test>;
             let authorisedUserProfile;
             beforeEach(async () => {
                 /* setup: creating a setup study */
@@ -1947,7 +1947,7 @@ describe('ROLE API', () => {
                     currentDataVersion: -1,
                     dataVersions: []
                 };
-                await mongoClient.collection(config.database.collections.studies_collection).insertOne(setupStudy);
+                await mongoClient.collection<IStudy>(config.database.collections.studies_collection).insertOne(setupStudy);
 
                 /* setup: creating a project */
                 const projectName = uuid();
@@ -1962,7 +1962,7 @@ describe('ROLE API', () => {
                     lastModified: 12103214,
                     deleted: null
                 };
-                await mongoClient.collection(config.database.collections.projects_collection).insertOne(setupProject);
+                await mongoClient.collection<IProject>(config.database.collections.projects_collection).insertOne(setupProject);
 
                 /* setup: creating a privileged user (not yet added roles) */
                 const username = uuid();
@@ -1980,7 +1980,7 @@ describe('ROLE API', () => {
                     deleted: null,
                     id: `new_user_id_${username}`
                 };
-                await mongoClient.collection(config.database.collections.users_collection).insertOne(authorisedUserProfile);
+                await mongoClient.collection<IUser>(config.database.collections.users_collection).insertOne(authorisedUserProfile);
 
                 authorisedUser = request.agent(app);
                 await connectAgent(authorisedUser, username, 'admin', authorisedUserProfile.otpSecret);
@@ -2010,7 +2010,7 @@ describe('ROLE API', () => {
                     users: [],
                     deleted: null
                 };
-                await mongoClient.collection(config.database.collections.roles_collection).insertMany([setupRole, authorisedUserRole]);
+                await mongoClient.collection<IRole>(config.database.collections.roles_collection).insertMany([setupRole, authorisedUserRole]);
             });
 
             test('delete a project role (admin)', async () => {
@@ -2023,7 +2023,7 @@ describe('ROLE API', () => {
                 expect(res.status).toBe(200);
                 expect(res.body.errors).toBeUndefined();
                 expect(res.body.data.removeRole).toEqual({ successful: true });
-                const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ id: setupRole.id });
+                const createdRole = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({ id: setupRole.id });
                 expect(typeof createdRole.deleted).toBe('number');
             });
 
@@ -2037,7 +2037,7 @@ describe('ROLE API', () => {
                 expect(res.status).toBe(200);
                 expect(res.body.errors).toBeUndefined();
                 expect(res.body.data.removeRole).toEqual({ successful: true });
-                const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ id: setupRole.id });
+                const createdRole = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({ id: setupRole.id });
                 expect(typeof createdRole.deleted).toBe('number');
             });
         });

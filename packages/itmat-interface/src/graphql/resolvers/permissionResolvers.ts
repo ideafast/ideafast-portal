@@ -1,11 +1,10 @@
 import { ApolloError } from 'apollo-server-express';
-import { IUser, IRole } from 'itmat-commons';
+import { task_required_permissions, permissions, IUser, IRole } from '@itmat-broker/itmat-types';
 import { db } from '../../database/database';
 import { permissionCore } from '../core/permissionCore';
 import { studyCore } from '../core/studyCore';
 import { errorCodes } from '../errors';
 import { IGenericResponse, makeGenericReponse } from '../responses';
-import { task_required_permissions, permissions } from 'itmat-commons';
 
 export const permissionResolvers = {
     Query: {
@@ -35,7 +34,7 @@ export const permissionResolvers = {
     StudyOrProjectUserRole: {
         users: async (role: IRole): Promise<IUser[]> => {
             const listOfUsers = role.users;
-            return await (db.collections!.users_collection.find<IUser>({ id: { $in: listOfUsers } }, { projection: { _id: 0, password: 0, email: 0 } }).toArray());
+            return await (db.collections!.users_collection.find({ id: { $in: listOfUsers } }, { projection: { _id: 0, password: 0, email: 0 } }).toArray());
         }
     },
     Mutation: {
@@ -76,7 +75,7 @@ export const permissionResolvers = {
             const requester: IUser = context.req.user;
             const { roleId, name, permissionChanges, userChanges } = args;
 
-            const role: IRole = await db.collections!.roles_collection.findOne({ id: roleId, deleted: null })!;
+            const role = await db.collections!.roles_collection.findOne({ id: roleId, deleted: null })!;
             if (role === null) {
                 throw new ApolloError(errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY);
             }
@@ -128,7 +127,7 @@ export const permissionResolvers = {
             const requester: IUser = context.req.user;
             const { roleId } = args;
 
-            const role: IRole = await db.collections!.roles_collection.findOne({ id: roleId, deleted: null })!;
+            const role = await db.collections!.roles_collection.findOne({ id: roleId, deleted: null })!;
             if (role === null) {
                 throw new ApolloError(errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY);
             }

@@ -2,18 +2,8 @@ import { ApolloError, UserInputError } from 'apollo-server-express';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import { mailer } from '../../emailer/emailer';
-import {
-    Models,
-    Logger,
-    IProject,
-    IRole,
-    IStudy,
-    IUser,
-    IUserWithoutToken,
-    IResetPasswordRequest,
-    userTypes,
-    IOrganisation
-} from 'itmat-commons';
+import { IProject, IStudy, IUser, IUserWithoutToken, IResetPasswordRequest, userTypes, IOrganisation } from '@itmat-broker/itmat-types';
+import { Logger } from '@itmat-broker/itmat-commons';
 import { v4 as uuid } from 'uuid';
 import mongodb from 'mongodb';
 import { db } from '../../database/database';
@@ -66,11 +56,14 @@ export const userResolvers = {
                 throw new ApolloError(errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY);
             }
             return makeGenericReponse();
+        },
+        recoverSessionExpireTime: async (): Promise<IGenericResponse> => {
+            return makeGenericReponse();
         }
     },
     User: {
         access: async (user: IUser, __unused__arg: any, context: any): Promise<{ projects: IProject[], studies: IStudy[], id: string }> => {
-            const requester: Models.UserModels.IUser = context.req.user;
+            const requester: IUser = context.req.user;
 
             /* only admin can access this field */
             if (requester.type !== userTypes.ADMIN && user.id !== requester.id) {
@@ -85,7 +78,7 @@ export const userResolvers = {
             }
 
             /* if requested user is not admin, find all the roles a user has */
-            const roles: IRole[] = await db.collections!.roles_collection.find({ users: user.id, deleted: null }).toArray();
+            const roles = await db.collections!.roles_collection.find({ users: user.id, deleted: null }).toArray();
             const init: { projects: string[], studies: string[] } = { projects: [], studies: [] };
             const studiesAndProjectThatUserCanSee: { projects: string[], studies: string[] } = roles.reduce(
                 (a, e) => {
@@ -98,17 +91,17 @@ export const userResolvers = {
                 }, init
             );
 
-            const projects: IProject[] = await db.collections!.projects_collection.find({
+            const projects = await db.collections!.projects_collection.find({
                 $or: [
                     { id: { $in: studiesAndProjectThatUserCanSee.projects }, deleted: null },
                     { studyId: { $in: studiesAndProjectThatUserCanSee.studies }, deleted: null }
                 ]
             }).toArray();
-            const studies: IStudy[] = await db.collections!.studies_collection.find({ id: { $in: studiesAndProjectThatUserCanSee.studies }, deleted: null }).toArray();
+            const studies = await db.collections!.studies_collection.find({ id: { $in: studiesAndProjectThatUserCanSee.studies }, deleted: null }).toArray();
             return { id: `user_access_obj_user_id_${user.id}`, projects, studies };
         },
         username: async (user: IUser, __unused__arg: any, context: any): Promise<string | null> => {
-            const requester: Models.UserModels.IUser = context.req.user;
+            const requester: IUser = context.req.user;
             /* only admin can access this field */
             if (context.req.user.type !== userTypes.ADMIN && user.id !== requester.id) {
                 throw new ApolloError(errorCodes.NO_PERMISSION_ERROR);
@@ -117,7 +110,7 @@ export const userResolvers = {
             return user.username;
         },
         description: async (user: IUser, __unused__arg: any, context: any): Promise<string | null> => {
-            const requester: Models.UserModels.IUser = context.req.user;
+            const requester: IUser = context.req.user;
             /* only admin can access this field */
             if (context.req.user.type !== userTypes.ADMIN && user.id !== requester.id) {
                 throw new ApolloError(errorCodes.NO_PERMISSION_ERROR);
@@ -126,7 +119,7 @@ export const userResolvers = {
             return user.description;
         },
         email: async (user: IUser, __unused__arg: any, context: any): Promise<string | null> => {
-            const requester: Models.UserModels.IUser = context.req.user;
+            const requester: IUser = context.req.user;
             /* only admin can access this field */
             if (context.req.user.type !== userTypes.ADMIN && user.id !== requester.id) {
                 throw new ApolloError(errorCodes.NO_PERMISSION_ERROR);
@@ -136,6 +129,29 @@ export const userResolvers = {
         }
     },
     Mutation: {
+        requestExpiryDate: async (__unused__parent: Record<string, unknown>, { username, email }: { username?: string, email?: string }): Promise<IGenericResponse> => {
+            /* double-check user existence */
+            const queryObj = email ? { deleted: null, email } : { deleted: null, username };
+            const user: IUser | null = await db.collections!.users_collection.findOne(queryObj);
+            if (!user) {
+                /* even user is null. send successful response: they should know that a user doesn't exist */
+                await new Promise(resolve => setTimeout(resolve, Math.random() * 6000));
+                return makeGenericReponse();
+            }
+            /* send email to the DMP admin mailing-list */
+            await mailer.sendMail(formatEmailRequestExpiryDatetoAdmin({
+                userEmail: user.email,
+                username: user.username
+            }));
+
+            /* send email to client */
+            await mailer.sendMail(formatEmailRequestExpiryDatetoClient({
+                to: user.email,
+                username: user.username
+            }));
+
+            return makeGenericReponse();
+        },
         requestUsernameOrResetPassword: async (__unused__parent: Record<string, unknown>, { forgotUsername, forgotPassword, email, username }: { forgotUsername: boolean, forgotPassword: boolean, email?: string, username?: string }, context: any): Promise<IGenericResponse> => {
             /* checking the args are right */
             if ((forgotUsername && !email) // should provide email if no username
@@ -150,9 +166,9 @@ export const userResolvers = {
 
             /* check user existence */
             const queryObj = email ? { deleted: null, email } : { deleted: null, username };
-            const user: IUser | null = await db.collections!.users_collection.findOne(queryObj);
+            const user = await db.collections!.users_collection.findOne(queryObj);
             if (!user) {
-                /* even user is null. send successful response: they should know that a user dosen't exist */
+                /* even user is null. send successful response: they should know that a user doesn't exist */
                 await new Promise(resolve => setTimeout(resolve, Math.random() * 6000));
                 return makeGenericReponse();
             }
@@ -212,48 +228,73 @@ export const userResolvers = {
                 throw new UserInputError('User does not exist.');
             }
 
-            /* validate if account expired */
-            if (result.expiredAt < Date.now() && result.type === userTypes.STANDARD) {
-                throw new UserInputError('Account Expired.');
-            }
-
             const passwordMatched = await bcrypt.compare(args.password, result.password);
             if (!passwordMatched) {
                 throw new UserInputError('Incorrect password.');
             }
-            delete result.password;
-            delete result.deleted;
 
             // validate the TOTP
             const totpValidated = mfa.verifyTOTP(args.totp, result.otpSecret);
-            if (!totpValidated && process.env.NODE_ENV === 'production') {
-                throw new UserInputError('Incorrect One-Time password.');
+            if (!totpValidated) {
+                if (process.env.NODE_ENV === 'development')
+                    console.warn('Incorrect One-Time password. Continuing in development ...');
+                else
+                    throw new UserInputError('Incorrect One-Time password.');
             }
 
+            /* validate if account expired */
+            if (result.expiredAt < Date.now() && result.type === userTypes.STANDARD) {
+                if (args.requestexpirydate) {
+                    /* send email to the DMP admin mailing-list */
+                    await mailer.sendMail(formatEmailRequestExpiryDatetoAdmin({
+                        userEmail: result.email,
+                        username: result.username
+                    }));
+                    /* send email to client */
+                    await mailer.sendMail(formatEmailRequestExpiryDatetoClient({
+                        to: result.email,
+                        username: result.username
+                    }));
+                    throw new UserInputError('New expiry date has been requested! Wait for ADMIN to approve.');
+                }
+
+                throw new UserInputError('Account Expired. Please request a new expiry date!');
+            }
+
+            const filteredResult: Partial<IUser> = { ...result };
+            delete filteredResult.password;
+            delete filteredResult.deleted;
+
             return new Promise((resolve) => {
-                req.login(result, (err: any) => {
+                req.login(filteredResult, (err: any) => {
                     if (err) {
                         Logger.error(err);
                         throw new ApolloError('Cannot log in. Please try again later.');
                     }
-                    resolve(result);
+                    resolve(filteredResult);
                 });
             });
         },
         logout: async (parent: Record<string, unknown>, __unused__args: any, context: any): Promise<IGenericResponse> => {
-            const requester: Models.UserModels.IUser = context.req.user;
+            const requester: IUser = context.req.user;
             const req: Express.Request = context.req;
             if (requester === undefined || requester === null) {
                 return makeGenericReponse(context.req.user);
             }
             return new Promise((resolve) => {
                 req.session!.destroy((err) => {
-                    req.logout();
                     if (err) {
                         Logger.error(err);
-                        throw new ApolloError('Cannot log out');
+                        throw new ApolloError('Cannot destroy the session');
                     } else {
-                        resolve(makeGenericReponse(context.req.user));
+                        req.logout((err) => {
+                            if (err) {
+                                Logger.error(err);
+                                throw new ApolloError('Cannot log out');
+                            } else {
+                                resolve(makeGenericReponse(context.req.user));
+                            }
+                        });
                     }
                 });
             });
@@ -311,7 +352,7 @@ export const userResolvers = {
             const tmpobj = tmp.fileSync({ mode: 0o644, prefix: 'qrcodeimg-', postfix: '.png' });
 
             QRCode.toFile(tmpobj.name, oauth_uri, {}, function (err) {
-                if (err) throw new ApolloError(err);
+                if (err) throw new ApolloError(err.message);
             });
 
             const attachments = [{ filename: 'qrcode.png', path: tmpobj.name, cid: 'qrcode_cid' }];
@@ -345,14 +386,14 @@ export const userResolvers = {
         },
         deleteUser: async (__unused__parent: Record<string, unknown>, args: any, context: any): Promise<IGenericResponse> => {
             /* only admin can delete users */
-            const requester: Models.UserModels.IUser = context.req.user;
+            const requester: IUser = context.req.user;
 
             // user (admin type) cannot delete itself
             if (requester.id === args.userId) {
                 throw new ApolloError('User cannot delete itself');
             }
 
-            if (requester.type !== Models.UserModels.userTypes.ADMIN) {
+            if (requester.type !== userTypes.ADMIN) {
                 throw new ApolloError(errorCodes.NO_PERMISSION_ERROR);
             }
 
@@ -432,7 +473,7 @@ export const userResolvers = {
             const tmpobj = tmp.fileSync({ mode: 0o644, prefix: 'qrcodeimg-', postfix: '.png' });
 
             QRCode.toFile(tmpobj.name, oauth_uri, {}, function (err) {
-                if (err) throw new ApolloError(err);
+                if (err) throw new ApolloError(err.message);
             });
 
             const attachments = [{ filename: 'qrcode.png', path: tmpobj.name, cid: 'qrcode_cid' }];
@@ -464,9 +505,9 @@ export const userResolvers = {
             return makeGenericReponse();
         },
         editUser: async (__unused__parent: Record<string, unknown>, args: any, context: any): Promise<Record<string, unknown>> => {
-            const requester: Models.UserModels.IUser = context.req.user;
+            const requester: IUser = context.req.user;
             const { id, username, type, firstname, lastname, email, emailNotificationsActivated, password, description, organisation, expiredAt }: {
-                id: string, username?: string, type?: Models.UserModels.userTypes, firstname?: string, lastname?: string, email?: string, emailNotificationsActivated?: boolean, password?: string, description?: string, organisation?: string, expiredAt?: number
+                id: string, username?: string, type?: userTypes, firstname?: string, lastname?: string, email?: string, emailNotificationsActivated?: boolean, password?: string, description?: string, organisation?: string, expiredAt?: number
             } = args.user;
             if (password !== undefined && requester.id !== id) { // only the user themself can reset password
                 throw new ApolloError(errorCodes.NO_PERMISSION_ERROR);
@@ -474,11 +515,12 @@ export const userResolvers = {
             if (password && !passwordIsGoodEnough(password)) {
                 throw new ApolloError('Password has to be at least 8 character long.');
             }
-            if (requester.type !== Models.UserModels.userTypes.ADMIN && requester.id !== id) {
+            if (requester.type !== userTypes.ADMIN && requester.id !== id) {
                 throw new ApolloError(errorCodes.NO_PERMISSION_ERROR);
             }
-            if (requester.type === Models.UserModels.userTypes.ADMIN) {
-                const result: Models.UserModels.IUserWithoutToken = await db.collections!.users_collection.findOne({ id, deleted: null })!;   // just an extra guard before going to bcrypt cause bcrypt is CPU intensive.
+            let result;
+            if (requester.type === userTypes.ADMIN) {
+                result = await db.collections!.users_collection.findOne({ id, deleted: null })!;   // just an extra guard before going to bcrypt cause bcrypt is CPU intensive.
                 if (result === null || result === undefined) {
                     throw new ApolloError('User not found');
                 }
@@ -502,44 +544,71 @@ export const userResolvers = {
                 throw new UserInputError('User not updated: Email is not the right format.');
             }
 
-            if (requester.type !== Models.UserModels.userTypes.ADMIN && (
+            if (requester.type !== userTypes.ADMIN && (
                 type || firstname || lastname || username || description || organisation
             )) {
                 throw new ApolloError('User not updated: Non-admin users are only authorised to change their password or email.');
             }
 
             if (password) { fieldsToUpdate.password = await bcrypt.hash(password, config.bcrypt.saltround); }
-            for (const each of Object.keys(fieldsToUpdate)) {
+            for (const each of (Object.keys(fieldsToUpdate) as Array<keyof typeof fieldsToUpdate>)) {
                 if (fieldsToUpdate[each] === undefined) {
                     delete fieldsToUpdate[each];
                 }
             }
-            const updateResult: mongodb.FindAndModifyWriteOpResultObject<any> = await db.collections!.users_collection.findOneAndUpdate({ id, deleted: null }, { $set: fieldsToUpdate }, { returnOriginal: false });
+            const updateResult: mongodb.ModifyResult<any> = await db.collections!.users_collection.findOneAndUpdate({ id, deleted: null }, { $set: fieldsToUpdate }, { returnDocument: 'after' });
             if (updateResult.ok === 1) {
+                // New expiry date has been updated successfully.
+                if (expiredAt && result) {
+                    /* send email to client */
+                    await mailer.sendMail(formatEmailRequestExpiryDateNotification({
+                        to: result.email,
+                        username: result.username
+                    }));
+                }
                 return updateResult.value;
             } else {
                 throw new ApolloError('Server error; no entry or more than one entry has been updated.');
             }
         },
-        createOrganisation: async (__unused__parent: Record<string, unknown>, { name, containOrg }: { name: string, containOrg: string }, context: any): Promise<IOrganisation> => {
+        createOrganisation: async (__unused__parent: Record<string, unknown>, { name, shortname, containOrg, metadata }: { name: string, shortname: string, containOrg: string, metadata: any }, context: any): Promise<IOrganisation> => {
             const requester: IUser = context.req.user;
 
             /* check privileges */
-            if (requester.type !== Models.UserModels.userTypes.ADMIN) {
+            if (requester.type !== userTypes.ADMIN) {
                 throw new ApolloError(errorCodes.NO_PERMISSION_ERROR);
             }
-
-            const alreadyExist = await db.collections!.organisations_collection.findOne({ name, deleted: null });
-            if (alreadyExist !== null && alreadyExist !== undefined) {
-                throw new UserInputError('This organisation already exists.');
-            }
-
+            // if the org already exists, update it; the existence is checked by the name
             const createdOrganisation = await userCore.createOrganisation({
                 name,
-                containOrg: containOrg ?? null
+                shortname: shortname ?? null,
+                containOrg: containOrg ?? null,
+                metadata: metadata ?? null
             });
 
             return createdOrganisation;
+        },
+        deleteOrganisation: async (__unused__parent: Record<string, unknown>, { id }: { id: string }, context: any): Promise<IOrganisation> => {
+            const requester: IUser = context.req.user;
+
+            /* check privileges */
+            if (requester.type !== userTypes.ADMIN) {
+                throw new ApolloError(errorCodes.NO_PERMISSION_ERROR);
+            }
+
+            const res = await db.collections!.organisations_collection.findOneAndUpdate({ id: id }, {
+                $set: {
+                    deleted: Date.now()
+                }
+            }, {
+                returnDocument: 'after'
+            });
+
+            if (res.ok === 1 && res.value) {
+                return res.value;
+            } else {
+                throw new ApolloError('Delete organisation failed.');
+            }
         }
     },
     Subscription: {}
@@ -585,7 +654,7 @@ export async function decryptEmail(encryptedEmail: string, keySalt: string, iv: 
     });
 }
 
-async function formatEmailForForgottenPassword({ username, firstname, to, resetPasswordToken, origin }: { resetPasswordToken: string, to: string, username:string, firstname: string, origin: any }) {
+async function formatEmailForForgottenPassword({ username, firstname, to, resetPasswordToken, origin }: { resetPasswordToken: string, to: string, username: string, firstname: string, origin: any }) {
     const keySalt = makeAESKeySalt(resetPasswordToken);
     const iv = makeAESIv(resetPasswordToken);
     const encryptedEmail = await encryptEmail(to, keySalt, iv);
@@ -625,6 +694,69 @@ function formatEmailForFogettenUsername({ username, to }: { username: string, to
             <p>
             <p>
                 Your username is <b>${username}</b>.
+            </p>
+            <br/>
+            <p>
+                The ${config.appName} Team.
+            </p>
+        `
+    });
+}
+
+function formatEmailRequestExpiryDatetoClient({ username, to }: { username: string, to: string }) {
+    return ({
+        from: `${config.appName} <${config.nodemailer.auth.user}>`,
+        to,
+        subject: `[${config.appName}] New expiry date has been requested!`,
+        html: `
+            <p>
+                Dear user,
+            <p>
+            <p>
+                New expiry date for your <b>${username}</b> account has been requested.
+                You will get a notification email once the request is approved.                
+            </p>
+            <br/>
+            <p>
+                The ${config.appName} Team.
+            </p>
+        `
+    });
+}
+
+function formatEmailRequestExpiryDatetoAdmin({ username, userEmail }: { username: string, userEmail: string }) {
+    return ({
+        from: `${config.appName} <${config.nodemailer.auth.user}>`,
+        to: `${config.adminEmail}`,
+        subject: `[${config.appName}] New expiry date has been requested from ${username} account!`,
+        html: `
+            <p>
+                Dear ADMINs,
+            <p>
+            <p>
+                A expiry date request from the <b>${username}</b> account (whose email address is <b>${userEmail}</b>) has been submitted.
+                Please approve or deny the request ASAP.
+            </p>
+            <br/>
+            <p>
+                The ${config.appName} Team.
+            </p>
+        `
+    });
+}
+
+function formatEmailRequestExpiryDateNotification({ username, to }: { username: string, to: string }) {
+    return ({
+        from: `${config.appName} <${config.nodemailer.auth.user}>`,
+        to,
+        subject: `[${config.appName}] New expiry date has been updated!`,
+        html: `
+            <p>
+                Dear user,
+            <p>
+            <p>
+                New expiry date for your <b>${username}</b> account has been updated.
+                You now can log in as normal.
             </p>
             <br/>
             <p>

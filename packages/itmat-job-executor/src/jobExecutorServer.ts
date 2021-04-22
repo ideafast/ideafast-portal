@@ -1,19 +1,20 @@
 // External node module imports
-import { Express } from 'express';
+import { v4 as uuid } from 'uuid';
 import { db } from './database/database';
 import { objStore } from './objStore/objStore';
 import { Router } from './server/router';
 import { Server } from './server/server';
-import { JobPoller } from 'itmat-commons';
+import { JobPoller } from '@itmat-broker/itmat-commons';
 import { JobDispatcher } from './jobDispatch/dispatcher';
 import { MongoClient } from 'mongodb';
-import { UKB_CSV_UPLOAD_Handler } from './jobHandlers/UKB_CSV_UPLOAD_handler';
-import { UKB_JSON_UPLOAD_Handler } from './jobHandlers/UKB_JSON_UPLOAD_handler';
-import { UKB_FIELD_INFO_UPLOAD_Handler } from './jobHandlers/UKB_FIELD_INFO_UPLOAD_handler';
+import { UKB_CSV_UPLOAD_Handler } from './jobHandlers/UKB_CSV_UPLOAD_Handler';
+import { UKB_JSON_UPLOAD_Handler } from './jobHandlers/UKB_JSON_UPLOAD_Handler';
+import { UKB_FIELD_INFO_UPLOAD_Handler } from './jobHandlers/UKB_FIELD_INFO_UPLOAD_Handler';
+import { QueryHandler } from './query/queryHandler';
 
 class ITMATJobExecutorServer extends Server {
 
-    private router;
+    private router?: Router;
 
     /**
      * @fn start
@@ -22,7 +23,7 @@ class ITMATJobExecutorServer extends Server {
      * @return {Promise} Resolve to a native Express.js router ready to use on success.
      * In case of error, an ErrorStack is rejected.
      */
-    public start(): Promise<Express> {
+    public start(): Promise<Router> {
         const _this = this;
         return new Promise((resolve, reject) => {
 
@@ -39,10 +40,11 @@ class ITMATJobExecutorServer extends Server {
                     jobDispatcher.registerJobType('DATA_UPLOAD_CSV', UKB_CSV_UPLOAD_Handler.prototype.getInstance.bind(UKB_CSV_UPLOAD_Handler));
                     jobDispatcher.registerJobType('DATA_UPLOAD_JSON', UKB_JSON_UPLOAD_Handler.prototype.getInstance.bind(UKB_JSON_UPLOAD_Handler));
                     jobDispatcher.registerJobType('FIELD_INFO_UPLOAD', UKB_FIELD_INFO_UPLOAD_Handler.prototype.getInstance.bind(UKB_FIELD_INFO_UPLOAD_Handler));
+                    jobDispatcher.registerJobType('QUERY_EXECUTION', QueryHandler.prototype.getInstance.bind(QueryHandler));
                     // jobDispatcher.registerJobType('UKB_IMAGE_UPLOAD', UKB_IMAGE_UPLOAD_Handler.prototype.getInstance);
 
                     const poller = new JobPoller({
-                        identity: 'me',
+                        identity: uuid(),
                         jobCollection: db.collections!.jobs_collection,
                         pollingInterval: this.config.pollingInterval,
                         action: jobDispatcher.dispatch
@@ -50,9 +52,9 @@ class ITMATJobExecutorServer extends Server {
                     poller.setInterval();
 
                     // Return the Express application
-                    return resolve(_this.router.getApp());
+                    return resolve(_this.router);
 
-                }).catch((err) => reject(err));
+                }).catch((err: any) => reject(err));
         });
     }
 

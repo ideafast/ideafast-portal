@@ -1,4 +1,8 @@
-import request from 'supertest';
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-nocheck
+
+import 'nodemailer';
+import request, { SuperAgentTest } from 'supertest';
 import { print } from 'graphql';
 import { connectAdmin, connectUser, connectAgent } from './_loginHelper';
 import { db } from '../../src/database/database';
@@ -6,14 +10,12 @@ import { makeAESIv, makeAESKeySalt, encryptEmail } from '../../src/graphql/resol
 import { v4 as uuid } from 'uuid';
 import { Router } from '../../src/server/router';
 import { errorCodes } from '../../src/graphql/errors';
-import chalk from 'chalk';
-import { MongoClient } from 'mongodb';
+import { MongoClient, Db } from 'mongodb';
 import { MongoMemoryServer } from 'mongodb-memory-server';
-import { setupDatabase } from 'itmat-setup';
+import { setupDatabase } from '@itmat-broker/itmat-setup';
 import config from '../../config/config.sample.json';
 import * as mfa from '../../src/utils/mfa';
 import {
-    IResetPasswordRequest,
     WHO_AM_I,
     GET_USERS,
     CREATE_USER,
@@ -21,23 +23,34 @@ import {
     DELETE_USER,
     REQUEST_USERNAME_OR_RESET_PASSWORD,
     RESET_PASSWORD,
-    LOGIN,
-    IUser,
-    userTypes
-} from 'itmat-commons';
+    LOGIN
+} from '@itmat-broker/itmat-models';
+import { IResetPasswordRequest, IUser, userTypes } from '@itmat-broker/itmat-types';
+import type { Express } from 'express';
 
-let app;
-let mongodb;
-let admin;
-let user;
-let mongoConnection;
-let mongoClient;
-let apiPath;
+let app: Express;
+let mongodb: MongoMemoryServer;
+let admin: SuperAgentTest;
+let user: SuperAgentTest;
+let mongoConnection: MongoClient;
+let mongoClient: Db;
+let apiPath: string;
 
 const SEED_STANDARD_USER_USERNAME = 'standardUser';
 const SEED_STANDARD_USER_EMAIL = 'standard@example.com';
-const TEMP_USER_TEST_EMAIL = process.env.TEST_RECEIVER_EMAIL_ADDR || SEED_STANDARD_USER_EMAIL;
-const SKIP_EMAIL_TEST = process.env.SKIP_EMAIL_TEST === 'true';
+const { TEST_SMTP_CRED, TEST_SMTP_USERNAME, TEST_RECEIVER_EMAIL_ADDR } = process.env;
+const TEMP_USER_TEST_EMAIL = TEST_RECEIVER_EMAIL_ADDR || SEED_STANDARD_USER_EMAIL;
+
+jest.mock('nodemailer', () => {
+    const { TEST_SMTP_CRED, TEST_SMTP_USERNAME } = process.env;
+    if (!TEST_SMTP_CRED || !TEST_SMTP_USERNAME || !config?.nodemailer?.auth?.pass || !config?.nodemailer?.auth?.user)
+        return {
+            createTransport: jest.fn().mockImplementation(() => ({
+                sendMail: jest.fn()
+            }))
+        };
+    return jest.requireActual('nodemailer');
+});
 
 afterAll(async () => {
     await db.closeConnection();
@@ -53,23 +66,20 @@ beforeAll(async () => { // eslint-disable-line no-undef
     apiPath = '/api/'.concat(config.apiVersions[config.apiVersions.length - 1]);
 
     /* Creating a in-memory MongoDB instance for testing */
-    mongodb = new MongoMemoryServer();
-    const connectionString = await mongodb.getUri();
-    const database = await mongodb.getDbName();
-    await setupDatabase(connectionString, database);
+    const dbName = uuid();
+    mongodb = await MongoMemoryServer.create({ instance: { dbName } });
+    const connectionString = mongodb.getUri();
+    await setupDatabase(connectionString, dbName);
 
     /* Wiring up the backend server */
     config.database.mongo_url = connectionString;
-    config.database.database = database;
-    await db.connect(config.database, MongoClient.connect);
+    config.database.database = dbName;
+    await db.connect(config.database, MongoClient.connect as any);
     const router = new Router(config);
 
     /* Connect mongo client (for test setup later / retrieve info later) */
-    mongoConnection = await MongoClient.connect(connectionString, {
-        useNewUrlParser: true,
-        useUnifiedTopology: true
-    });
-    mongoClient = mongoConnection.db(database);
+    mongoConnection = await MongoClient.connect(connectionString);
+    mongoClient = mongoConnection.db(dbName);
 
     /* Connecting clients for testing later */
     app = router.getApp();
@@ -80,6 +90,16 @@ beforeAll(async () => { // eslint-disable-line no-undef
 
     /* Mock Date for testing */
     jest.spyOn(Date, 'now').mockImplementation(() => 1591134065000);
+
+    /* Mock emailing interface */
+    if (config.nodemailer.auth === undefined)
+        config.nodemailer.auth = {
+            auth: {}
+        } as any;
+    if (TEST_SMTP_CRED)
+        config.nodemailer.auth.pass = TEST_SMTP_CRED;
+    if (TEST_SMTP_USERNAME)
+        config.nodemailer.auth.user = TEST_SMTP_USERNAME;
 });
 
 describe('USERS API', () => {
@@ -94,7 +114,6 @@ describe('USERS API', () => {
             encryptedEmailForStandardUser =
                 await encryptEmail(SEED_STANDARD_USER_EMAIL, makeAESKeySalt(presetToken), makeAESIv(presetToken));
         });
-
 
         test('Request reset password with non-existent user providing username', async () => {
             const res = await loggedoutUser
@@ -179,11 +198,6 @@ describe('USERS API', () => {
         });
 
         test('Request reset password with existing user providing email', async () => {
-            /* skip: this test if email env is not set up */
-            if (SKIP_EMAIL_TEST) {
-                console.warn(chalk.yellow('[[WARNING]]: Skipping test "Request reset password with existing user providing email" because SKIP_EMAIL_TEST is set to "true".'));
-                return;
-            }
             /* setup: replacing the seed user's email with slurp test email */
             const updateResult = await db.collections!.users_collection.findOneAndUpdate({
                 username: SEED_STANDARD_USER_USERNAME
@@ -213,17 +227,12 @@ describe('USERS API', () => {
             expect(new Date().valueOf() - modifiedUser.resetPasswordRequests[0].timeOfRequest).toBeLessThan(15000); // less then 5 seconds
 
             /* cleanup: changing the user's email back */
-            const cleanupResult = await db.collections!.users_collection.findOneAndUpdate({ username: SEED_STANDARD_USER_USERNAME }, { $set: { email: SEED_STANDARD_USER_EMAIL, resetPasswordRequests: [] } }, { returnOriginal: false });
+            const cleanupResult = await db.collections!.users_collection.findOneAndUpdate({ username: SEED_STANDARD_USER_USERNAME }, { $set: { email: SEED_STANDARD_USER_EMAIL, resetPasswordRequests: [] } }, { returnDocument: 'after' });
             expect(cleanupResult.ok).toBe(1);
             expect(cleanupResult.value.email).toBe(SEED_STANDARD_USER_EMAIL);
         }, 30000);
 
         test('Request reset password with existing user providing username', async () => {
-            /* skip: this test if email env is not set up */
-            if (SKIP_EMAIL_TEST) {
-                console.warn(chalk.yellow('[[WARNING]]: Skipping test "Request reset password with existing user providing username" because SKIP_EMAIL_TEST is set to "true".'));
-                return;
-            }
             /* setup: replacing the seed user's email with test email */
             const updateResult = await db.collections!.users_collection.findOneAndUpdate({
                 username: SEED_STANDARD_USER_USERNAME
@@ -253,7 +262,7 @@ describe('USERS API', () => {
             expect(new Date().valueOf() - modifiedUser.resetPasswordRequests[0].timeOfRequest).toBeLessThan(15000); // less then 5 seconds
 
             /* cleanup: changing the user's email back */
-            const cleanupResult = await db.collections!.users_collection.findOneAndUpdate({ username: SEED_STANDARD_USER_USERNAME }, { $set: { email: SEED_STANDARD_USER_EMAIL, resetPasswordRequests: [] } }, { returnOriginal: false });
+            const cleanupResult = await db.collections!.users_collection.findOneAndUpdate({ username: SEED_STANDARD_USER_USERNAME }, { $set: { email: SEED_STANDARD_USER_EMAIL, resetPasswordRequests: [] } }, { returnDocument: 'after' });
             expect(cleanupResult.ok).toBe(1);
             expect(cleanupResult.value.email).toBe(SEED_STANDARD_USER_EMAIL);
         }, 30000);
@@ -434,12 +443,6 @@ describe('USERS API', () => {
         });
 
         test('Reset password with valid token', async () => {
-            /* skip: this test if email env is not set up */
-            if (SKIP_EMAIL_TEST) {
-                console.warn(chalk.yellow('[[WARNING]]: Skipping test "create user" because SKIP_EMAIL_TEST is set to "true".'));
-                return;
-            }
-
             /* setup: add request entry to user */
             const resetPWrequest: IResetPasswordRequest = {
                 id: presetToken,
@@ -500,13 +503,6 @@ describe('USERS API', () => {
         });
 
         test('Reset password with used token (should fail)', async () => {
-
-            /* skip: this test if email env is not set up */
-            if (SKIP_EMAIL_TEST) {
-                console.warn(chalk.yellow('[[WARNING]]: Skipping test "create user" because SKIP_EMAIL_TEST is set to "true".'));
-                return;
-            }
-
             /* setup: add request entry to user */
             const resetPWrequest: IResetPasswordRequest[] = [
                 {
@@ -594,7 +590,7 @@ describe('USERS API', () => {
 
         beforeAll(async () => {
             /* setup: first retrieve the generated user id */
-            const result = await mongoClient.collection(config.database.collections.users_collection).find({}, { projection: { id: 1, username: 1 } }).toArray();
+            const result = await mongoClient.collection<IUser>(config.database.collections.users_collection).find({}, { projection: { id: 1, username: 1 } }).toArray();
             adminId = result.filter(e => e.username === 'admin')[0].id;
             userId = result.filter(e => e.username === 'standardUser')[0].id;
         });
@@ -684,7 +680,7 @@ describe('USERS API', () => {
                 createdAt: 1591134065000,
                 expiredAt: 1501134065000
             };
-            await mongoClient.collection(config.database.collections.users_collection).insertOne(newUser);
+            await mongoClient.collection<IUser>(config.database.collections.users_collection).insertOne(newUser);
             const newloggedoutuser = request.agent(app);
             const otp = mfa.generateTOTP(userSecret).toString();
             const res = await newloggedoutuser.post(apiPath).set('Content-type', 'application/json').send({
@@ -698,7 +694,7 @@ describe('USERS API', () => {
             expect(res.status).toBe(200);
             expect(res.body.data.login).toBeNull();
             expect(res.body.errors).toHaveLength(1);
-            expect(res.body.errors[0].message).toBe('Account Expired.');
+            expect(res.body.errors[0].message).toBe('Account Expired. Please request a new expiry date!');
             await admin.post(apiPath).send(
                 {
                     query: print(DELETE_USER),
@@ -728,7 +724,7 @@ describe('USERS API', () => {
                 createdAt: 1591134065000,
                 expiredAt: 1501134065000
             };
-            await mongoClient.collection(config.database.collections.users_collection).insertOne(newUser);
+            await mongoClient.collection<IUser>(config.database.collections.users_collection).insertOne(newUser);
             const newloggedoutuser = request.agent(app);
             const otp = mfa.generateTOTP(adminSecret).toString();
             const res = await newloggedoutuser.post(apiPath).set('Content-type', 'application/json').send({
@@ -775,7 +771,7 @@ describe('USERS API', () => {
 
         beforeAll(async () => {
             /* setup: first retrieve the generated user id */
-            const result = await mongoClient.collection(config.database.collections.users_collection).find({}, { projection: { id: 1, username: 1 } }).toArray();
+            const result = await mongoClient.collection<IUser>(config.database.collections.users_collection).find({}, { projection: { id: 1, username: 1 } }).toArray();
             adminId = result.filter(e => e.username === 'admin')[0].id;
             userId = result.filter(e => e.username === 'standardUser')[0].id;
         });
@@ -1058,11 +1054,6 @@ describe('USERS API', () => {
     describe('APP USER MUTATION API', () => {
 
         test('log in with incorrect totp (user)', async () => {
-            /* skip: this test if email env is not set up */
-            if (SKIP_EMAIL_TEST) {
-                console.warn(chalk.yellow('[[WARNING]]: Skipping test "log in with incorrect totp (user)" because SKIP_EMAIL_TEST is set to "true".'));
-                return;
-            }
             await admin.post(apiPath).send({
                 query: print(CREATE_USER),
                 variables: {
@@ -1080,7 +1071,7 @@ describe('USERS API', () => {
 
             /* getting the created user from mongo */
             const createdUser = (await mongoClient
-                .collection(config.database.collections.users_collection)
+                .collection<IUser>(config.database.collections.users_collection)
                 .findOne({ username: 'testuser0' }));
 
             const incorrectTotp = mfa.generateTOTP(createdUser.otpSecret) + 1;
@@ -1090,17 +1081,13 @@ describe('USERS API', () => {
                     query: print(LOGIN),
                     variables: { username: 'testuser0', password: 'testpassword0', totp: incorrectTotp.toString() }
                 });
+
             expect(res_login.status).toBe(200);
             expect(res_login.body.errors).toHaveLength(1);
             expect(res_login.body.errors[0].message).toBe('Incorrect One-Time password.');
         }, 30000);
 
         test('create user', async () => {
-            /* skip: this test if email env is not set up */
-            if (SKIP_EMAIL_TEST) {
-                console.warn(chalk.yellow('[[WARNING]]: Skipping test "create user" because SKIP_EMAIL_TEST is set to "true".'));
-                return;
-            }
             const res = await admin.post(apiPath).send({
                 query: print(CREATE_USER),
                 variables: {
@@ -1186,7 +1173,7 @@ describe('USERS API', () => {
                 createdAt: 1591134065000,
                 expiredAt: 1991134065000
             };
-            await mongoClient.collection(config.database.collections.users_collection).insertOne(newUser);
+            await mongoClient.collection<IUser>(config.database.collections.users_collection).insertOne(newUser);
 
             /* assertions */
             const res = await admin.post(apiPath).send({
@@ -1228,7 +1215,7 @@ describe('USERS API', () => {
                 createdAt: 1591134065000,
                 expiredAt: 1991134065000
             };
-            await mongoClient.collection(config.database.collections.users_collection).insertOne(newUser);
+            await mongoClient.collection<IUser>(config.database.collections.users_collection).insertOne(newUser);
 
             /* assertion */
             const res = await admin.post(apiPath).send(
@@ -1241,7 +1228,7 @@ describe('USERS API', () => {
                 }
             );
             const result = await mongoClient
-                .collection(config.database.collections.users_collection)
+                .collection<IUser>(config.database.collections.users_collection)
                 .findOne({ id: 'fakeid2' });
             expect(result.password).toBe('fakepassword');
             expect(res.status).toBe(200);
@@ -1271,7 +1258,7 @@ describe('USERS API', () => {
                 createdAt: 1591134065000,
                 expiredAt: 1991134065000
             };
-            await mongoClient.collection(config.database.collections.users_collection).insertOne(newUser);
+            await mongoClient.collection<IUser>(config.database.collections.users_collection).insertOne(newUser);
 
             /* assertion */
             const res = await admin.post(apiPath).send(
@@ -1285,12 +1272,12 @@ describe('USERS API', () => {
                         lastname: 'LMan',
                         email: 'hey@uk.io',
                         description: 'DSI director',
-                        organisation: 'DSI-ICL',
+                        organisation: 'DSI-ICL'
                     }
                 }
             );
             const result = await mongoClient
-                .collection(config.database.collections.users_collection)
+                .collection<IUser>(config.database.collections.users_collection)
                 .findOne({ id: 'fakeid2222' });
             expect(result.password).toBe('fakepassword');
             expect(res.status).toBe(200);
@@ -1334,7 +1321,7 @@ describe('USERS API', () => {
                 createdAt: 1591134065000,
                 expiredAt: 1991134065000
             };
-            await mongoClient.collection(config.database.collections.users_collection).insertOne(newUser);
+            await mongoClient.collection<IUser>(config.database.collections.users_collection).insertOne(newUser);
             const createdUser = request.agent(app);
             await connectAgent(createdUser, 'new_user_4444', 'admin', newUser.otpSecret);
 
@@ -1374,7 +1361,7 @@ describe('USERS API', () => {
                 createdAt: 1591134065000,
                 expiredAt: 1991134065000
             };
-            await mongoClient.collection(config.database.collections.users_collection).insertOne(newUser);
+            await mongoClient.collection<IUser>(config.database.collections.users_collection).insertOne(newUser);
             const createdUser = request.agent(app);
             await connectAgent(createdUser, 'new_user_4', 'admin', newUser.otpSecret);
 
@@ -1408,7 +1395,7 @@ describe('USERS API', () => {
                 createdAt: 1591134065000,
                 expiredAt: 1991134065000
             });
-            const modifieduser = await mongoClient.collection(config.database.collections.users_collection).findOne({ username: 'new_user_4' });
+            const modifieduser = await mongoClient.collection<IUser>(config.database.collections.users_collection).findOne({ username: 'new_user_4' });
             expect(modifieduser.password).not.toBe(newUser.password);
             expect(modifieduser.password).toHaveLength(60);
         });
@@ -1432,7 +1419,7 @@ describe('USERS API', () => {
                 createdAt: 1591134065000,
                 expiredAt: 1991134065000
             };
-            await mongoClient.collection(config.database.collections.users_collection).insertOne(newUser);
+            await mongoClient.collection<IUser>(config.database.collections.users_collection).insertOne(newUser);
             const createdUser = request.agent(app);
             await connectAgent(createdUser, 'new_user_5', 'admin', newUser.otpSecret);
 
@@ -1475,7 +1462,7 @@ describe('USERS API', () => {
                 createdAt: 1591134065000,
                 expiredAt: 1991134065000
             };
-            await mongoClient.collection(config.database.collections.users_collection).insertOne(newUser);
+            await mongoClient.collection<IUser>(config.database.collections.users_collection).insertOne(newUser);
             const createdUser = request.agent(app);
             await connectAgent(createdUser, 'new_user_6', 'admin', newUser.otpSecret);
 
@@ -1514,7 +1501,7 @@ describe('USERS API', () => {
                 createdAt: 1591134065000,
                 expiredAt: 1991134065000
             };
-            await mongoClient.collection(config.database.collections.users_collection).insertOne(newUser);
+            await mongoClient.collection<IUser>(config.database.collections.users_collection).insertOne(newUser);
 
             /* assertion */
             const res = await user.post(apiPath).send(
@@ -1551,7 +1538,7 @@ describe('USERS API', () => {
                 createdAt: 1591134065000,
                 expiredAt: 1991134065000
             };
-            await mongoClient.collection(config.database.collections.users_collection).insertOne(newUser);
+            await mongoClient.collection<IUser>(config.database.collections.users_collection).insertOne(newUser);
 
             /* assertion */
             const getUserRes = await admin.post(apiPath).send({
@@ -1610,7 +1597,7 @@ describe('USERS API', () => {
                 createdAt: 1591134065000,
                 expiredAt: 1991134065000
             };
-            await mongoClient.collection(config.database.collections.users_collection).insertOne(newUser);
+            await mongoClient.collection<IUser>(config.database.collections.users_collection).insertOne(newUser);
 
             /* assertions */
             const res = await admin.post(apiPath).send(
@@ -1665,7 +1652,7 @@ describe('USERS API', () => {
                 createdAt: 1591134065000,
                 expiredAt: 1991134065000
             };
-            await mongoClient.collection(config.database.collections.users_collection).insertOne(newUser);
+            await mongoClient.collection<IUser>(config.database.collections.users_collection).insertOne(newUser);
 
             /* assertion */
             const getUserRes = await user.post(apiPath).send({
@@ -1678,7 +1665,7 @@ describe('USERS API', () => {
                 lastname: 'LChan Mei Yi',
                 type: userTypes.STANDARD,
                 organisation: 'organisation_system',
-                id: newUser.id,
+                id: newUser.id
             }]);
 
 

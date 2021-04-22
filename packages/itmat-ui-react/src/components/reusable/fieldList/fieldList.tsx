@@ -1,75 +1,127 @@
-import { Models } from 'itmat-commons';
-import * as React from 'react';
+import { FunctionComponent } from 'react';
+import { enumValueType, IFieldEntry } from '@itmat-broker/itmat-types';
+import { Table, Tooltip } from 'antd';
 
-import { Tree } from 'antd';
-import 'antd/lib/tree/style/css';
-const { TreeNode } = Tree;
-
-// class DraggableTreeNode extends TreeNode {
-
-//     // constructor(props: any, context: any) {
-//     //     super(props, {...context, rcTree :{ ...context.rcTree, draggable: true } });
-//     //     super(props);
-//     // }
-
-//     render = () => {
-//         this.context.rcTree.draggable = true;
-//         const treenode = super.render();
-//         return treenode;
-//     }
-// }
-
-export const FieldListSection: React.FunctionComponent<{ onCheck?: any; checkedList?: string[]; checkable: boolean; fieldList: Models.Field.IFieldEntry[] }> = ({ onCheck, checkedList, checkable, fieldList }) => {
-    if (fieldList.length === 0) { return <p>There is no available field for this project. Please contact admin or curator of this project.</p>; }
-    const transformedList = fieldList.map(el => `${el.path}>>${el.id}|${el.fieldName}`);
-    const makeTree = (paths: string[]) => {
-        const output: any = [];
-        for (let i = 0; i < paths.length; i++) {
-            const currentPath = paths[i].split('>>');
-            let currentNode = output;
-            for (let j = 0; j < currentPath.length; j++) {
-                const wantedNode = currentPath[j];
-                const filteredNode = currentNode.filter((el: any) => el.name === wantedNode);
-                if (filteredNode.length === 1) {
-                    currentNode = filteredNode[0].children;
-                } else {
-                    const newNode = j === currentPath.length - 1 ? { fieldId: wantedNode.split('|')[0], name: wantedNode.split('|')[1], children: [] } : { fieldId: `CAT:${currentPath.slice(0, j + 1).join('>>')}`, name: wantedNode, children: [] };
-                    currentNode.push(newNode);
-                    currentNode = newNode.children;
-                }
+export const FieldListSection: FunctionComponent<{ studyData?: any, onCheck?: any; checkedList?: string[]; checkable: boolean; fieldList: IFieldEntry[]; verbal?: boolean }> = ({ onCheck, checkedList, checkable, fieldList, verbal }) => {
+    const possibleValuesColumns = [
+        {
+            title: 'Code',
+            dataIndex: 'code',
+            key: 'code',
+            render: (__unused__value, record) => {
+                return record.code;
+            }
+        },
+        {
+            title: 'Description',
+            dataIndex: 'description',
+            key: 'description',
+            render: (__unused__value, record) => {
+                return record.description;
             }
         }
-        return output;
-    };
-
-    const renderTreeNodes = (fieldList: any[]) => fieldList.map(item => {
-        if (item.children.length !== 0) {
-            return (
-                <TreeNode title={item.name} key={item.fieldId} isLeaf={false} selectable={false}>
-                    {renderTreeNodes(item.children)}
-                </TreeNode>
-            );
+    ];
+    const columns = [
+        {
+            title: 'Field ID',
+            dataIndex: 'fieldId',
+            key: 'fieldId',
+            render: (__unused__value, record) => {
+                return record.fieldId;
+            }
+        },
+        {
+            title: 'Field Name',
+            dataIndex: 'fieldName',
+            key: 'fieldName',
+            ellipsis: true,
+            render: (__unused__value, record) => (
+                <Tooltip placement='topLeft' title={record.fieldName}>
+                    {record.fieldName}
+                </Tooltip>
+            )
+        },
+        {
+            title: 'Table Name',
+            dataIndex: 'tableName',
+            key: 'tableName',
+            render: (__unused__value, record) => {
+                return record.tableName;
+            }
+        },
+        {
+            title: 'Data Type',
+            dataIndex: 'dataType',
+            key: 'dataType',
+            render: (__unused__value, record) => {
+                if (record.dataType === enumValueType.CATEGORICAL) {
+                    return <Tooltip placement='topLeft' title={<Table
+                        columns={possibleValuesColumns}
+                        dataSource={record.possibleValues}
+                    >
+                    </Table>}>
+                        {record.dataType}
+                    </Tooltip>;
+                } else {
+                    return <span>{record.dataType}</span>;
+                }
+            }
+        },
+        {
+            title: 'Unit',
+            dataIndex: 'unit',
+            key: 'unit',
+            render: (__unused__value, record) => {
+                return record.unit;
+            }
+        },
+        {
+            title: 'Comments',
+            dataIndex: 'comments',
+            key: 'comments',
+            render: (__unused__value, record) => {
+                return record.comments;
+            }
         }
-        // return checkable ? <TreeNode title={item.name} key={item.fieldId} dataRef={item} isLeaf={true} /> : <DraggableTreeNode title={item.name} key={item.fieldId} dataRef={item} isLeaf={true} selectable={false} />;
-        return <TreeNode title={item.name} key={item.fieldId} isLeaf={true} />;
-    });
-
-
+    ];
     if (checkable) {
-        return (
-            <Tree
-                checkable
-                onCheck={onCheck}
-                checkedKeys={checkedList}
-            >
-                {renderTreeNodes(makeTree(transformedList))}
-            </Tree>
-        );
+        return (<Table
+            rowKey={(rec) => rec.id}
+            pagination={
+                {
+                    defaultPageSize: 50,
+                    showSizeChanger: true,
+                    pageSizeOptions: ['20', '50', '100', '200', '2000'],
+                    defaultCurrent: 1,
+                    showQuickJumper: true
+                }
+            }
+            rowSelection={{
+                type: 'checkbox',
+                onChange: (selectedRows) => {
+                    onCheck(selectedRows);
+                },
+                selectedRowKeys: checkedList
+            }}
+            columns={verbal ? columns : columns.slice(0, 2)}
+            dataSource={[...fieldList].sort((a, b) => { return parseFloat(a.fieldId) - parseFloat(b.fieldId); })}
+            size='middle'
+        ></Table>);
     } else {
-        return (
-            <Tree>
-                {renderTreeNodes(makeTree(transformedList))}
-            </Tree>);
-
+        return (<Table
+            rowKey={(rec) => rec.id}
+            pagination={
+                {
+                    defaultPageSize: 50,
+                    showSizeChanger: true,
+                    pageSizeOptions: ['20', '50', '100', '200', '2000'],
+                    defaultCurrent: 1,
+                    showQuickJumper: true
+                }
+            }
+            columns={verbal ? columns : columns.slice(0, 2)}
+            dataSource={[...fieldList].sort((a, b) => { return parseFloat(a.fieldId) - parseFloat(b.fieldId); })}
+            size='middle'
+        ></Table>);
     }
 };

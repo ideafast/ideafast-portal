@@ -2,20 +2,36 @@ import { Request, Response } from 'express';
 import { db } from '../database/database';
 import { objStore } from '../objStore/objStore';
 import { permissionCore } from '../graphql/core/permissionCore';
-import { Models, task_required_permissions, IFile } from 'itmat-commons';
+import { task_required_permissions, IUser } from '@itmat-broker/itmat-types';
+import jwt from 'jsonwebtoken';
+import { UserInputError } from 'apollo-server-express';
+import { userRetrieval } from '../authentication/pubkeyAuthentication';
 
 export const fileDownloadController = async (req: Request, res: Response): Promise<void> => {
-    const requester = req.user as Models.UserModels.IUser;
+    const requester = req.user as IUser;
     const requestedFile = req.params.fileId;
-
-    if (!requester) {
+    const token = req.headers.authorization || '';
+    let associatedUser = requester;
+    if ((token !== '') && (req.user === undefined)) {
+        // get the decoded payload ignoring signature, no symmetric secret or asymmetric key needed
+        const decodedPayload = jwt.decode(token);
+        // obtain the public-key of the robot user in the JWT payload
+        const pubkey = (decodedPayload as any).publicKey;
+        // verify the JWT
+        jwt.verify(token, pubkey, function (err: any) {
+            if (err) {
+                throw new UserInputError('JWT verification failed. ' + err);
+            }
+        });
+        associatedUser = await userRetrieval(pubkey);
+    } else if (!requester) {
         res.status(403).json({ error: 'Please log in.' });
         return;
     }
 
     try {
         /* download file */
-        const file: IFile = await db.collections!.files_collection.findOne({ id: requestedFile, deleted: null })!;
+        const file = await db.collections!.files_collection.findOne({ id: requestedFile, deleted: null })!;
         if (!file) {
             res.status(404).json({ error: 'File not found or you do not have the necessary permission.' });
             return;
@@ -24,7 +40,7 @@ export const fileDownloadController = async (req: Request, res: Response): Promi
         /* check permission */
         const hasPermission = await permissionCore.userHasTheNeccessaryPermission(
             task_required_permissions.access_project_data,
-            requester,
+            associatedUser,
             file.studyId
         );
         if (!hasPermission) {

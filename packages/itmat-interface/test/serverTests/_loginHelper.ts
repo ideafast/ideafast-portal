@@ -1,9 +1,8 @@
 import { print } from 'graphql';
-import * as itmatCommons from 'itmat-commons';
+import { LOGIN, LOGOUT } from '@itmat-broker/itmat-models';
 import * as mfa from '../../src/utils/mfa';
 import { SuperTest, Test } from 'supertest';
 import config from '../../config/config.sample.json';
-const { LOGIN, LOGOUT } = itmatCommons.GQLRequests;
 
 /* Choose API version tp use */
 const apiPath = '/api/'.concat(config.apiVersions[config.apiVersions.length - 1]);
@@ -36,7 +35,7 @@ export function connectAgent(agent: SuperTest<Test>, user: string, pw: string, s
 export function disconnectAgent(agent: SuperTest<Test>): Promise<void> {
     return new Promise((resolve, reject) => agent.post(apiPath)
         .send({
-            query: print(LOGOUT),
+            query: print(LOGOUT)
         })
         .then(res => {
             if (res.status === 200)

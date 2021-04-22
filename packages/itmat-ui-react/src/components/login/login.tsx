@@ -1,14 +1,11 @@
-import React from 'react';
-import GitInfo from 'react-git-info/macro';
+import { FunctionComponent } from 'react';
 import { Mutation } from '@apollo/client/react/components';
-import { LOGIN, WHO_AM_I } from 'itmat-commons';
+import { LOGIN, WHO_AM_I } from '@itmat-broker/itmat-models';
 import { NavLink } from 'react-router-dom';
 import css from './login.module.css';
-import { Input, Form, Button, Alert } from 'antd';
+import { Input, Form, Button, Alert, Checkbox } from 'antd';
 
-const gitInfo = GitInfo();
-
-export const LoginBox: React.FunctionComponent = () => {
+export const LoginBox: FunctionComponent = () => {
 
     return (
 
@@ -46,11 +43,25 @@ export const LoginBox: React.FunctionComponent = () => {
                                             <br />
                                         </>
                                     ) : null}
-                                    <Form.Item>
-                                        <Button type='primary' disabled={loading} loading={loading} htmlType='submit'>
-                                            Login
-                                        </Button>
-                                    </Form.Item>
+                                    {(error?.message === 'Account Expired. Please request a new expiry date!') ? (
+                                        <>
+                                            <Form.Item name='requestexpirydate' valuePropName='checked' hasFeedback rules={[{ required: true, message: ' ' }]}>
+                                                <Checkbox> Tick the box to request a new expiry date! </Checkbox>
+                                            </Form.Item>
+                                            <Form.Item>
+                                                <Button type='primary' disabled={loading} loading={loading} htmlType='submit'>
+                                                    Submit Request
+                                                </Button>
+                                            </Form.Item>
+                                        </>
+                                    ) :
+                                        <Form.Item>
+                                            <Button type='primary' disabled={loading} loading={loading} htmlType='submit'>
+                                                Login
+                                            </Button>
+                                        </Form.Item>
+                                    }
+
                                 </Form>
                             </div>
                             <br />
@@ -58,7 +69,7 @@ export const LoginBox: React.FunctionComponent = () => {
                             <br />
                             <NavLink to='/reset'>Forgot username or password</NavLink><br />
                             Do not have an account? <NavLink to='/register'>Please register</NavLink><br />
-                            <i style={{ color: '#ccc' }}>v{process.env.REACT_APP_VERSION} - {gitInfo.commit.shortHash} ({gitInfo.branch})</i>
+                            <i style={{ color: '#ccc' }}>v{process.env.REACT_APP_VERSION} - {process.env.NX_REACT_APP_COMMIT} ({process.env.NX_REACT_APP_BRANCH})</i>
                         </div>
                     </div>
                 );

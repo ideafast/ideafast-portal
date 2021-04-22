@@ -1,13 +1,15 @@
+import { FunctionComponent, useState } from 'react';
 import { Tree } from 'antd';
-import React from 'react';
 import { Mutation, Query } from '@apollo/client/react/components';
-import { EDIT_PROJECT_APPROVED_FILES, IFile, GET_STUDY } from 'itmat-commons';
+import { EDIT_PROJECT_APPROVED_FILES, GET_STUDY } from '@itmat-broker/itmat-models';
+import { IFile } from '@itmat-broker/itmat-types';
 import LoadSpinner from '../../../../reusable/loadSpinner';
+import { Button } from 'antd';
 
-export const GrantedFileListSelection: React.FunctionComponent<{ originalCheckedList: string[]; studyId: string; projectId: string }> = ({ projectId, originalCheckedList, studyId }) => {
-    const [checkedList, setCheckedList] = React.useState(originalCheckedList || []);
-    const [savedSuccessfully, setSavedSuccessfully] = React.useState(false);
-    const [currentProjectId, setCurrentProjectId] = React.useState(projectId);
+export const GrantedFileListSelection: FunctionComponent<{ originalCheckedList: string[]; studyId: string; projectId: string }> = ({ projectId, originalCheckedList, studyId }) => {
+    const [checkedList, setCheckedList] = useState(originalCheckedList || []);
+    const [savedSuccessfully, setSavedSuccessfully] = useState(false);
+    const [currentProjectId, setCurrentProjectId] = useState(projectId);
 
     if (currentProjectId !== projectId) {
         setCheckedList(originalCheckedList);
@@ -22,7 +24,7 @@ export const GrantedFileListSelection: React.FunctionComponent<{ originalChecked
     return <Query<any, any> query={GET_STUDY} variables={{ studyId }}>
         {({ loading, data: fileData, error }) => {
             if (loading) { return <LoadSpinner />; }
-            if (error) { return <p>Error :( {JSON.stringify(error)}</p>; }
+            if (error) { return <p>Error {JSON.stringify(error)}</p>; }
 
             return <>
                 <Tree
@@ -39,11 +41,11 @@ export const GrantedFileListSelection: React.FunctionComponent<{ originalChecked
                     {(editApprovedFiles, { loading, error }) =>
                         <>
                             {
-                                loading ? <button style={{ margin: '1rem 0 0 0' }}>Loading</button> :
-                                    <button style={{ margin: '1rem 0 0 0' }} onClick={() => {
+                                loading ? <Button style={{ margin: '1rem 0 0 0' }}>Loading</Button> :
+                                    <Button style={{ margin: '1rem 0 0 0' }} onClick={() => {
                                         editApprovedFiles({ variables: { projectId, approvedFiles: checkedList } });
                                         setSavedSuccessfully(false);
-                                    }}>Save</button>
+                                    }}>Save</Button>
                             }
                             {
                                 error ? <div className='error_banner'>{JSON.stringify(error)}</div> : null
