@@ -34,7 +34,8 @@ import {
     IStudyDataVersion,
     IStudy,
     enumValueType,
-    enumItemType
+    enumItemType,
+    EDIT_STUDY
 } from 'itmat-commons';
 
 let app;
@@ -102,7 +103,7 @@ describe('STUDY API', () => {
             const studyName = uuid();
             const res = await admin.post(apiPath).send({
                 query: print(CREATE_STUDY),
-                variables: { name: studyName }
+                variables: { name: studyName, description: 'test description' }
             });
             expect(res.status).toBe(200);
             expect(res.body.errors).toBeUndefined();
@@ -110,7 +111,8 @@ describe('STUDY API', () => {
             const createdStudy = await mongoClient.collection(config.database.collections.studies_collection).findOne({ name: studyName });
             expect(res.body.data.createStudy).toEqual({
                 id: createdStudy.id,
-                name: studyName
+                name: studyName,
+                description: 'test description'
             });
 
             const resWhoAmI = await admin.post(apiPath).send({ query: print(WHO_AM_I) });
@@ -141,6 +143,36 @@ describe('STUDY API', () => {
             await mongoClient.collection(config.database.collections.studies_collection).findOneAndUpdate({ name: studyName, deleted: null }, { $set: { deleted: new Date().valueOf() } });
         });
 
+        test('Edit study (admin)', async () => {
+            const studyName = uuid();
+            const res = await admin.post(apiPath).send({
+                query: print(CREATE_STUDY),
+                variables: { name: studyName, description: 'test description' }
+            });
+            expect(res.status).toBe(200);
+            expect(res.body.errors).toBeUndefined();
+
+            const createdStudy = await mongoClient.collection(config.database.collections.studies_collection).findOne({ name: studyName });
+            expect(res.body.data.createStudy).toEqual({
+                id: createdStudy.id,
+                name: studyName,
+                description: 'test description'
+            });
+
+            const editStudy = await admin.post(apiPath).send({
+                query: print(EDIT_STUDY),
+                variables: {studyId: createdStudy.id, description: 'edited description'}
+            });
+            expect(editStudy.body.data.editStudy).toEqual({
+                id: createdStudy.id,
+                name: studyName,
+                description: 'edited description'
+            });
+
+            /* cleanup: delete study */
+            await mongoClient.collection(config.database.collections.studies_collection).findOneAndUpdate({ name: studyName, deleted: null }, { $set: { deleted: new Date().valueOf() } });
+        });
+
         test('Create study that violate unique name constraint (admin)', async () => {
             const studyName = uuid();
             const newStudy = {
@@ -156,7 +188,7 @@ describe('STUDY API', () => {
 
             const res = await admin.post(apiPath).send({
                 query: print(CREATE_STUDY),
-                variables: { name: studyName }
+                variables: { name: studyName, description: 'test description' }
             });
             expect(res.status).toBe(200);
             expect(res.body.errors).toHaveLength(1);
@@ -186,7 +218,7 @@ describe('STUDY API', () => {
 
             const res = await admin.post(apiPath).send({
                 query: print(CREATE_STUDY),
-                variables: { name: studyName.toUpperCase() }
+                variables: { name: studyName.toUpperCase(), description: 'test description' }
             });
             expect(res.status).toBe(200);
             expect(res.body.errors).toHaveLength(1);
@@ -205,7 +237,7 @@ describe('STUDY API', () => {
             const studyName = uuid();
             const res = await user.post(apiPath).send({
                 query: print(CREATE_STUDY),
-                variables: { name: studyName }
+                variables: { name: studyName, description: 'test description' }
             });
             expect(res.status).toBe(200);
             expect(res.body.data.createStudy).toBe(null);
@@ -214,6 +246,35 @@ describe('STUDY API', () => {
 
             const createdStudy = await mongoClient.collection(config.database.collections.studies_collection).findOne({ name: studyName });
             expect(createdStudy).toBe(null);
+        });
+
+        test('Edit study (user) (should fail)', async () => {
+            const studyName = uuid();
+            const res = await admin.post(apiPath).send({
+                query: print(CREATE_STUDY),
+                variables: { name: studyName, description: 'test description' }
+            });
+            expect(res.status).toBe(200);
+            expect(res.body.errors).toBeUndefined();
+
+            const createdStudy = await mongoClient.collection(config.database.collections.studies_collection).findOne({ name: studyName });
+            expect(res.body.data.createStudy).toEqual({
+                id: createdStudy.id,
+                name: studyName,
+                description: 'test description'
+            });
+
+            const editStudy = await user.post(apiPath).send({
+                query: print(EDIT_STUDY),
+                variables: {studyId: createdStudy.id, description: 'edited description'}
+            });
+            expect(editStudy.status).toBe(200);
+            expect(editStudy.body.data.editStudy).toBe(null);
+            expect(editStudy.body.errors).toHaveLength(1);
+            expect(editStudy.body.errors[0].message).toBe(errorCodes.NO_PERMISSION_ERROR);
+
+            /* cleanup: delete study */
+            await mongoClient.collection(config.database.collections.studies_collection).findOneAndUpdate({ name: studyName, deleted: null }, { $set: { deleted: new Date().valueOf() } });
         });
 
         test('Delete study (no projects) (admin)', async () => {
@@ -657,14 +718,15 @@ describe('STUDY API', () => {
                 const studyName = uuid();
                 const res = await admin.post(apiPath).send({
                     query: print(CREATE_STUDY),
-                    variables: { name: studyName }
+                    variables: { name: studyName, description: 'test description' }
                 });
                 expect(res.status).toBe(200);
                 expect(res.body.errors).toBeUndefined();
                 createdStudy = await mongoClient.collection(config.database.collections.studies_collection).findOne({ name: studyName });
                 expect(res.body.data.createStudy).toEqual({
                     id: createdStudy.id,
-                    name: studyName
+                    name: studyName,
+                    description: 'test description'
                 });
             }
 
@@ -764,23 +826,25 @@ describe('STUDY API', () => {
                         id: 'mockfile1_id',
                         fileName: 'mockfile1_name',
                         studyId: createdStudy.id,
-                        fileSize: 1000,
+                        fileSize: '1000',
                         description: 'Just a test file1',
                         uploadTime: '1599345644000',
                         uploadedBy: adminId,
                         uri: 'fakeuri',
-                        deleted: null
+                        deleted: null,
+                        hash: '4ae25be36354ee0aec8dc8deac3f279d2e9d6415361da996cf57eb6142cfb1a2'
                     },
                     {
                         id: 'mockfile2_id',
                         fileName: 'mockfile2_name',
                         studyId: createdStudy.id,
-                        fileSize: 1000,
+                        fileSize: '1000',
                         description: 'Just a test file2',
                         uploadTime: '1599345644000',
                         uploadedBy: adminId,
                         uri: 'fakeuri2',
-                        deleted: null
+                        deleted: null,
+                        hash: '4ae25be36354ee0aec8dc8deac3f279d2e9d6415361da996cf57eb6142cfb1a3'
                     }
                 ];
                 await db.collections!.studies_collection.updateOne({ id: createdStudy.id }, { $push: { dataVersions: mockDataVersion }, $inc: { currentDataVersion: 1 } });
@@ -1323,6 +1387,7 @@ describe('STUDY API', () => {
                     name: createdStudy.name,
                     createdBy: adminId,
                     jobs: [],
+                    description: 'test description',
                     projects: [
                         {
                             id: createdProject.id,
@@ -1366,20 +1431,22 @@ describe('STUDY API', () => {
                             fileName: 'mockfile1_name',
                             studyId: createdStudy.id,
                             projectId: null,
-                            fileSize: 1000,
+                            fileSize: '1000',
                             description: 'Just a test file1',
                             uploadTime: '1599345644000',
-                            uploadedBy: adminId
+                            uploadedBy: adminId,
+                            hash: '4ae25be36354ee0aec8dc8deac3f279d2e9d6415361da996cf57eb6142cfb1a2'
                         },
                         {
                             id: 'mockfile2_id',
                             fileName: 'mockfile2_name',
                             studyId: createdStudy.id,
                             projectId: null,
-                            fileSize: 1000,
+                            fileSize: '1000',
                             description: 'Just a test file2',
                             uploadTime: '1599345644000',
-                            uploadedBy: adminId
+                            uploadedBy: adminId,
+                            hash: '4ae25be36354ee0aec8dc8deac3f279d2e9d6415361da996cf57eb6142cfb1a3'
                         }
                     ],
                     numOfSubjects: 2,
@@ -1810,7 +1877,7 @@ describe('STUDY API', () => {
                     fileName: mockFiles[0].fileName,
                     studyId: createdStudy.id,
                     projectId: null,
-                    fileSize: mockFiles[0].fileSize,
+                    fileSize: (mockFiles[0].fileSize as any).toString(),
                     description: mockFiles[0].description,
                     uploadedBy: adminId
                 }]
@@ -1818,7 +1885,7 @@ describe('STUDY API', () => {
             expect(typeof editProjectApprovedFiles.id).toEqual('string');
             expect(typeof editProjectApprovedFiles.files[0].fileName).toEqual('string');
             expect(typeof editProjectApprovedFiles.files[0].studyId).toEqual('string');
-            expect(typeof editProjectApprovedFiles.files[0].fileSize).toEqual('number');
+            expect(typeof editProjectApprovedFiles.files[0].fileSize).toEqual('string');
             expect(typeof editProjectApprovedFiles.files[0].description).toEqual('string');
             expect(typeof editProjectApprovedFiles.files[0].uploadedBy).toEqual('string');
 
@@ -1845,7 +1912,7 @@ describe('STUDY API', () => {
                     fileName: mockFiles[0].fileName,
                     studyId: createdStudy.id,
                     projectId: null,
-                    fileSize: mockFiles[0].fileSize,
+                    fileSize: (mockFiles[0].fileSize as any).toString(),
                     description: mockFiles[0].description,
                     uploadedBy: adminId
                 }]
@@ -1853,7 +1920,7 @@ describe('STUDY API', () => {
             expect(typeof editProjectApprovedFiles.id).toEqual('string');
             expect(typeof editProjectApprovedFiles.files[0].fileName).toEqual('string');
             expect(typeof editProjectApprovedFiles.files[0].studyId).toEqual('string');
-            expect(typeof editProjectApprovedFiles.files[0].fileSize).toEqual('number');
+            expect(typeof editProjectApprovedFiles.files[0].fileSize).toEqual('string');
             expect(typeof editProjectApprovedFiles.files[0].description).toEqual('string');
             expect(typeof editProjectApprovedFiles.files[0].uploadedBy).toEqual('string');
 

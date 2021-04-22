@@ -2,6 +2,7 @@ import { gql } from 'apollo-server-express';
 
 export const schemaV1 = gql`
 scalar JSON
+scalar BigInt
 
 enum USERTYPE {
     ADMIN
@@ -67,6 +68,30 @@ type User {
     access: UserAccess # admin or self only
 }
 
+type Pubkey {
+    id: String!
+    pubkey: String!
+    associatedUserId: String
+    jwtPubkey: String!
+    jwtSeckey: String!
+    refreshCounter: Int!
+    deleted: String
+}
+
+type KeyPairwSignature {
+    privateKey: String!
+    publicKey: String!
+    signature: String
+}
+
+type Signature {
+    signature: String
+}
+
+type AccessToken {
+    accessToken: String
+}
+
 type OrganisationMetadata {
     siteIDMarker: String
 }
@@ -94,10 +119,11 @@ type File {
     fileName: String!
     studyId: String!
     projectId: String
-    fileSize: Int
+    fileSize: BigInt
     description: String!
     uploadTime: String!
     uploadedBy: String!
+    hash: String!
 }
 
 type DataVersion {
@@ -119,7 +145,7 @@ type Study {
     lastModified: Int!
     currentDataVersion: Int
     dataVersions: [DataVersion]!
-
+    description: String
     # external to mongo documents:
     jobs: [Job]!
     projects: [Project]!
@@ -170,6 +196,11 @@ type Job {
 enum LOG_TYPE {
    SYSTEM_LOG
    REQUEST_LOG
+}
+
+enum USER_AGENT {
+    MOZILLA,
+    OTHER
 }
 
 enum LOG_STATUS {
@@ -231,6 +262,7 @@ type Log {
     id: String!,
     requesterName: String,
     requesterType: USERTYPE,
+    userAgent: USER_AGENT,
     logType: LOG_TYPE,
     actionType: LOG_ACTION,
     actionData: JSON,
@@ -327,6 +359,9 @@ type Query {
     # ORGANISATION
     getOrganisations(organisationId: String): [Organisation]
 
+    # PUBLIC KEY AUTHENTICATION
+    getPubkeys(pubkeyId: String, associatedUserId: String): [Pubkey]
+
     # STUDY
     getStudy(studyId: String!): Study
     getProject(projectId: String!): Project
@@ -355,6 +390,12 @@ type Mutation {
     ): GenericResponse
     resetPassword(encryptedEmail: String!, token: String!, newPassword: String!): GenericResponse
     createUser(user: CreateUserInput!): GenericResponse
+    
+    # PUBLIC KEY AUTHENTICATION
+    registerPubkey(pubkey: String!, signature: String!, associatedUserId: String): Pubkey    
+    issueAccessToken(pubkey: String!, signature: String!): AccessToken
+    keyPairGenwSignature: KeyPairwSignature
+    rsaSigner(privateKey: String!, message: String): Signature
 
     # ORGANISATION
     createOrganisation(name: String!, containOrg: String): Organisation
@@ -364,8 +405,9 @@ type Mutation {
     deleteUser(userId: String!): GenericResponse
 
     # STUDY
-    createStudy(name: String!): Study
+    createStudy(name: String!, description: String): Study
     deleteStudy(studyId: String!): GenericResponse
+    editStudy(studyId: String!, description: String): Study
 
     # PROJECT
     createProject(studyId: String!, projectName: String!, approvedFields: [String]): Project
@@ -379,7 +421,7 @@ type Mutation {
     removeRole(roleId: String!): GenericResponse
 
     # FILES
-    uploadFile(studyId: String!, description: String!, file: Upload!, fileLength: Int): File
+    uploadFile(studyId: String!, description: String!, file: Upload!, fileLength: BigInt, hash: String): File
     deleteFile(fileId: String!): GenericResponse
 
     # QUERY
