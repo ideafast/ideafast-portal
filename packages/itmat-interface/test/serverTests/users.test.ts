@@ -32,6 +32,7 @@ let admin;
 let user;
 let mongoConnection;
 let mongoClient;
+let apiPath;
 
 const SEED_STANDARD_USER_USERNAME = 'standardUser';
 const SEED_STANDARD_USER_EMAIL = 'standard@example.com';
@@ -48,6 +49,9 @@ afterAll(async () => {
 });
 
 beforeAll(async () => { // eslint-disable-line no-undef
+    /* Choose API version used in this test file */
+    apiPath = '/api/'.concat(config.apiVersions[config.apiVersions.length - 1]);
+
     /* Creating a in-memory MongoDB instance for testing */
     mongodb = new MongoMemoryServer();
     const connectionString = await mongodb.getUri();
@@ -94,7 +98,7 @@ describe('USERS API', () => {
 
         test('Request reset password with non-existent user providing username', async () => {
             const res = await loggedoutUser
-                .post('/graphql')
+                .post(apiPath)
                 .send({
                     query: print(REQUEST_USERNAME_OR_RESET_PASSWORD),
                     variables: {
@@ -110,7 +114,7 @@ describe('USERS API', () => {
 
         test('Request reset password with non-existent user providing email', async () => {
             const res = await loggedoutUser
-                .post('/graphql')
+                .post(apiPath)
                 .send({
                     query: print(REQUEST_USERNAME_OR_RESET_PASSWORD),
                     variables: {
@@ -126,7 +130,7 @@ describe('USERS API', () => {
 
         test('Request reset password with non-existent user but provide email as well as username (should fail)', async () => {
             const res = await loggedoutUser
-                .post('/graphql')
+                .post(apiPath)
                 .send({
                     query: print(REQUEST_USERNAME_OR_RESET_PASSWORD),
                     variables: {
@@ -144,7 +148,7 @@ describe('USERS API', () => {
 
         test('Request reset password and username but do not provide any email nor username (should fail)', async () => {
             const res = await loggedoutUser
-                .post('/graphql')
+                .post(apiPath)
                 .send({
                     query: print(REQUEST_USERNAME_OR_RESET_PASSWORD),
                     variables: {
@@ -159,7 +163,7 @@ describe('USERS API', () => {
 
         test('Request reset password and username but provide username (should fail)', async () => {
             const res = await loggedoutUser
-                .post('/graphql')
+                .post(apiPath)
                 .send({
                     query: print(REQUEST_USERNAME_OR_RESET_PASSWORD),
                     variables: {
@@ -188,7 +192,7 @@ describe('USERS API', () => {
 
             /* test */
             const res = await loggedoutUser
-                .post('/graphql')
+                .post(apiPath)
                 .send({
                     query: print(REQUEST_USERNAME_OR_RESET_PASSWORD),
                     variables: {
@@ -228,7 +232,7 @@ describe('USERS API', () => {
 
             /* test */
             const res = await loggedoutUser
-                .post('/graphql')
+                .post(apiPath)
                 .send({
                     query: print(REQUEST_USERNAME_OR_RESET_PASSWORD),
                     variables: {
@@ -256,7 +260,7 @@ describe('USERS API', () => {
 
         test('Reset password with password length < 8', async () => {
             const res = await loggedoutUser
-                .post('/graphql')
+                .post(apiPath)
                 .send({
                     query: print(RESET_PASSWORD),
                     variables: {
@@ -286,7 +290,7 @@ describe('USERS API', () => {
 
             /* test */
             const res = await loggedoutUser
-                .post('/graphql')
+                .post(apiPath)
                 .send({
                     query: print(RESET_PASSWORD),
                     variables: {
@@ -325,7 +329,7 @@ describe('USERS API', () => {
 
             /* test */
             const res = await loggedoutUser
-                .post('/graphql')
+                .post(apiPath)
                 .send({
                     query: print(RESET_PASSWORD),
                     variables: {
@@ -362,7 +366,7 @@ describe('USERS API', () => {
 
             /* test */
             const res = await loggedoutUser
-                .post('/graphql')
+                .post(apiPath)
                 .send({
                     query: print(RESET_PASSWORD),
                     variables: {
@@ -407,7 +411,7 @@ describe('USERS API', () => {
 
             /* test */
             const res = await loggedoutUser
-                .post('/graphql')
+                .post(apiPath)
                 .send({
                     query: print(RESET_PASSWORD),
                     variables: {
@@ -451,7 +455,7 @@ describe('USERS API', () => {
             /* test */
             const newloggedoutuser = request.agent(app);
             const res = await newloggedoutuser
-                .post('/graphql')
+                .post(apiPath)
                 .send({
                     query: print(RESET_PASSWORD),
                     variables: {
@@ -465,7 +469,7 @@ describe('USERS API', () => {
             expect(res.body.data.resetPassword).toEqual({ successful: true });
             const checkedUser = await db.collections!.users_collection.findOne({ username: SEED_STANDARD_USER_USERNAME });
             await connectAgent(newloggedoutuser, SEED_STANDARD_USER_USERNAME, 'securepasswordrighthere', checkedUser.otpSecret);
-            const whoami = await newloggedoutuser.post('/graphql').send({ query: print(WHO_AM_I) });
+            const whoami = await newloggedoutuser.post(apiPath).send({ query: print(WHO_AM_I) });
             expect(whoami.status).toBe(200);
             expect(whoami.body.error).toBeUndefined();
             expect(whoami.body.data.whoAmI.id).toBeDefined();
@@ -523,7 +527,7 @@ describe('USERS API', () => {
             expect(updateResult.ok).toBe(1);
             const newloggedoutuser = request.agent(app);
             const res = await newloggedoutuser
-                .post('/graphql')
+                .post(apiPath)
                 .send({
                     query: print(RESET_PASSWORD),
                     variables: {
@@ -537,7 +541,7 @@ describe('USERS API', () => {
             expect(res.body.data.resetPassword).toEqual({ successful: true });
             const checkedUser = await db.collections!.users_collection.findOne({ username: SEED_STANDARD_USER_USERNAME });
             await connectAgent(newloggedoutuser, SEED_STANDARD_USER_USERNAME, 'securepasswordrighthere', checkedUser.otpSecret);
-            const whoami = await newloggedoutuser.post('/graphql').send({ query: print(WHO_AM_I) });
+            const whoami = await newloggedoutuser.post(apiPath).send({ query: print(WHO_AM_I) });
             expect(whoami.status).toBe(200);
             expect(whoami.body.error).toBeUndefined();
             expect(whoami.body.data.whoAmI.id).toBeDefined();
@@ -561,7 +565,7 @@ describe('USERS API', () => {
 
             /* test */
             const resAgain = await newloggedoutuser
-                .post('/graphql')
+                .post(apiPath)
                 .send({
                     query: print(RESET_PASSWORD),
                     variables: {
@@ -597,7 +601,7 @@ describe('USERS API', () => {
 
         test('If someone not logged in made a request', async () => {
             const client_not_logged_in = request.agent(app);
-            const res = await client_not_logged_in.post('/graphql').send({ query: print(GET_USERS), variables: { fetchDetailsAdminOnly: false, fetchAccessPrivileges: false } });
+            const res = await client_not_logged_in.post(apiPath).send({ query: print(GET_USERS), variables: { fetchDetailsAdminOnly: false, fetchAccessPrivileges: false } });
             expect(res.status).toBe(200);
             expect(res.body.errors).toHaveLength(1);
             expect(res.body.errors[0].message).toBe(errorCodes.NOT_LOGGED_IN);
@@ -606,14 +610,14 @@ describe('USERS API', () => {
 
         test('who am I (not logged in)', async () => {
             const client_not_logged_in = request.agent(app);
-            const res = await client_not_logged_in.post('/graphql').send({ query: print(WHO_AM_I) });
+            const res = await client_not_logged_in.post(apiPath).send({ query: print(WHO_AM_I) });
             expect(res.status).toBe(200);
             expect(res.body.errors).toBeUndefined();
             expect(res.body.data.whoAmI).toBe(null);
         });
 
         test('Who am I (admin)', async () => {
-            const res = await admin.post('/graphql').send({ query: print(WHO_AM_I) });
+            const res = await admin.post(apiPath).send({ query: print(WHO_AM_I) });
             expect(res.status).toBe(200);
             expect(res.body.data.whoAmI.id).toBeDefined();
             adminId = res.body.data.whoAmI.id;
@@ -637,7 +641,7 @@ describe('USERS API', () => {
         });
 
         test('Who am I (user)', async () => {
-            const res = await user.post('/graphql').send({ query: print(WHO_AM_I) });
+            const res = await user.post(apiPath).send({ query: print(WHO_AM_I) });
             expect(res.status).toBe(200);
             expect(res.body.error).toBeUndefined();
             expect(res.body.data.whoAmI.id).toBeDefined();
@@ -683,7 +687,7 @@ describe('USERS API', () => {
             await mongoClient.collection(config.database.collections.users_collection).insertOne(newUser);
             const newloggedoutuser = request.agent(app);
             const otp = mfa.generateTOTP(userSecret).toString();
-            const res = await newloggedoutuser.post('/graphql').set('Content-type', 'application/json').send({
+            const res = await newloggedoutuser.post(apiPath).set('Content-type', 'application/json').send({
                 query: print(LOGIN),
                 variables: {
                     username: 'expired_user',
@@ -695,7 +699,7 @@ describe('USERS API', () => {
             expect(res.body.data.login).toBeNull();
             expect(res.body.errors).toHaveLength(1);
             expect(res.body.errors[0].message).toBe('Account Expired.');
-            await admin.post('/graphql').send(
+            await admin.post(apiPath).send(
                 {
                     query: print(DELETE_USER),
                     variables: {
@@ -727,7 +731,7 @@ describe('USERS API', () => {
             await mongoClient.collection(config.database.collections.users_collection).insertOne(newUser);
             const newloggedoutuser = request.agent(app);
             const otp = mfa.generateTOTP(adminSecret).toString();
-            const res = await newloggedoutuser.post('/graphql').set('Content-type', 'application/json').send({
+            const res = await newloggedoutuser.post(apiPath).set('Content-type', 'application/json').send({
                 query: print(LOGIN),
                 variables: {
                     username: 'expired_admin',
@@ -754,7 +758,7 @@ describe('USERS API', () => {
                 expiredAt: 1501134065000
             });
             expect(res.body.errors).toBeUndefined();
-            await admin.post('/graphql').send(
+            await admin.post(apiPath).send(
                 {
                     query: print(DELETE_USER),
                     variables: {
@@ -777,7 +781,7 @@ describe('USERS API', () => {
         });
 
         test('Get all users list with detail (no access info) (admin)', async () => {
-            const res = await admin.post('/graphql').send({ query: print(GET_USERS), variables: { fetchDetailsAdminOnly: true, fetchAccessPrivileges: false } });
+            const res = await admin.post(apiPath).send({ query: print(GET_USERS), variables: { fetchDetailsAdminOnly: true, fetchAccessPrivileges: false } });
             expect(res.status).toBe(200);
             expect(res.body.data.getUsers).toEqual([
                 {
@@ -810,7 +814,7 @@ describe('USERS API', () => {
         });
 
         test('Get all users list with detail (w/ access info) (admin)', async () => {
-            const res = await admin.post('/graphql').send({ query: print(GET_USERS), variables: { fetchDetailsAdminOnly: true, fetchAccessPrivileges: true } });
+            const res = await admin.post(apiPath).send({ query: print(GET_USERS), variables: { fetchDetailsAdminOnly: true, fetchAccessPrivileges: true } });
             expect(res.status).toBe(200);
             expect(res.body.data.getUsers).toEqual([
                 {
@@ -853,7 +857,7 @@ describe('USERS API', () => {
         });
 
         test('Get all users list with detail (no access info) (user) (should fail)', async () => {
-            const res = await user.post('/graphql').send({ query: print(GET_USERS), variables: { fetchDetailsAdminOnly: true, fetchAccessPrivileges: false } });
+            const res = await user.post(apiPath).send({ query: print(GET_USERS), variables: { fetchDetailsAdminOnly: true, fetchAccessPrivileges: false } });
             expect(res.status).toBe(200); //graphql returns 200 for application layer errors
             expect(res.body.errors).toHaveLength(3);
             expect(res.body.errors[0].message).toBe('NO_PERMISSION_ERROR');
@@ -876,7 +880,7 @@ describe('USERS API', () => {
         });
 
         test('Get all users list with detail (w/ access info) (user) (should fail)', async () => {
-            const res = await user.post('/graphql').send({ query: print(GET_USERS), variables: { fetchDetailsAdminOnly: true, fetchAccessPrivileges: true } });
+            const res = await user.post(apiPath).send({ query: print(GET_USERS), variables: { fetchDetailsAdminOnly: true, fetchAccessPrivileges: true } });
             expect(res.status).toBe(200); // graphql returns 200 for application layer errors
             expect(res.body.errors).toHaveLength(4);
             expect(res.body.errors[0].message).toBe('NO_PERMISSION_ERROR');
@@ -907,7 +911,7 @@ describe('USERS API', () => {
         });
 
         test('Get all users without details (admin)', async () => {
-            const res = await admin.post('/graphql').send({ query: print(GET_USERS), variables: { fetchDetailsAdminOnly: false, fetchAccessPrivileges: false } });
+            const res = await admin.post(apiPath).send({ query: print(GET_USERS), variables: { fetchDetailsAdminOnly: false, fetchAccessPrivileges: false } });
             expect(res.status).toBe(200);
             expect(res.body.error).toBeUndefined();
             expect(res.body.data.getUsers).toEqual([
@@ -929,7 +933,7 @@ describe('USERS API', () => {
         });
 
         test('Get all users without details (user)', async () => {
-            const res = await user.post('/graphql').send({ query: print(GET_USERS), variables: { fetchDetailsAdminOnly: false, fetchAccessPrivileges: false } });
+            const res = await user.post(apiPath).send({ query: print(GET_USERS), variables: { fetchDetailsAdminOnly: false, fetchAccessPrivileges: false } });
             expect(res.status).toBe(200);
             expect(res.body.error).toBeUndefined();
             expect(res.body.data.getUsers).toEqual([
@@ -951,7 +955,7 @@ describe('USERS API', () => {
         });
 
         test('Get a specific user with details (admin)', async () => {
-            const res = await admin.post('/graphql').send({ query: print(GET_USERS), variables: { userId, fetchDetailsAdminOnly: true, fetchAccessPrivileges: true } });
+            const res = await admin.post(apiPath).send({ query: print(GET_USERS), variables: { userId, fetchDetailsAdminOnly: true, fetchAccessPrivileges: true } });
             expect(res.status).toBe(200);
             expect(res.body.data.getUsers instanceof Array).toBe(true);
             expect(res.body.data.getUsers).toEqual([
@@ -977,7 +981,7 @@ describe('USERS API', () => {
         });
 
         test('Get a specific non-self user with details (user) (should fail)', async () => {
-            const res = await user.post('/graphql').send({ query: print(GET_USERS), variables: { userId: adminId, fetchDetailsAdminOnly: true, fetchAccessPrivileges: true } });
+            const res = await user.post(apiPath).send({ query: print(GET_USERS), variables: { userId: adminId, fetchDetailsAdminOnly: true, fetchAccessPrivileges: true } });
             expect(res.status).toBe(200);
             expect(res.body.errors).toHaveLength(4);
             expect(res.body.errors[0].message).toBe('NO_PERMISSION_ERROR');
@@ -990,7 +994,7 @@ describe('USERS API', () => {
         });
 
         test('Get a specific non-self user without details (user) (should fail)', async () => {
-            const res = await user.post('/graphql').send({ query: print(GET_USERS), variables: { userId: adminId, fetchDetailsAdminOnly: false, fetchAccessPrivileges: false } });
+            const res = await user.post(apiPath).send({ query: print(GET_USERS), variables: { userId: adminId, fetchDetailsAdminOnly: false, fetchAccessPrivileges: false } });
             expect(res.status).toBe(200);
             expect(res.body.errors).toBeUndefined();
             expect(res.body.data.getUsers).toEqual([
@@ -1005,7 +1009,7 @@ describe('USERS API', () => {
         });
 
         test('Get a specific self user with details (user)', async () => {
-            const res = await user.post('/graphql').send({ query: print(GET_USERS), variables: { userId, fetchDetailsAdminOnly: true, fetchAccessPrivileges: true } });
+            const res = await user.post(apiPath).send({ query: print(GET_USERS), variables: { userId, fetchDetailsAdminOnly: true, fetchAccessPrivileges: true } });
             expect(res.status).toBe(200);
             expect(res.body.errors).toBeUndefined();
             expect(res.body.data.getUsers).toEqual([
@@ -1031,7 +1035,7 @@ describe('USERS API', () => {
         });
 
         test('Get a specific self user without details (w/ access info) (user)', async () => {
-            const res = await user.post('/graphql').send({ query: print(GET_USERS), variables: { userId, fetchDetailsAdminOnly: false, fetchAccessPrivileges: true } });
+            const res = await user.post(apiPath).send({ query: print(GET_USERS), variables: { userId, fetchDetailsAdminOnly: false, fetchAccessPrivileges: true } });
             expect(res.status).toBe(200);
             expect(res.body.errors).toBeUndefined();
             expect(res.body.data.getUsers).toEqual([
@@ -1059,7 +1063,7 @@ describe('USERS API', () => {
                 console.warn(chalk.yellow('[[WARNING]]: Skipping test "log in with incorrect totp (user)" because SKIP_EMAIL_TEST is set to "true".'));
                 return;
             }
-            await admin.post('/graphql').send({
+            await admin.post(apiPath).send({
                 query: print(CREATE_USER),
                 variables: {
                     username: 'testuser0',
@@ -1080,13 +1084,12 @@ describe('USERS API', () => {
                 .findOne({ username: 'testuser0' }));
 
             const incorrectTotp = mfa.generateTOTP(createdUser.otpSecret) + 1;
-            const res_login = await admin.post('/graphql')
+            const res_login = await admin.post(apiPath)
                 .set('Content-type', 'application/json')
                 .send({
                     query: print(LOGIN),
                     variables: { username: 'testuser0', password: 'testpassword0', totp: incorrectTotp.toString() }
                 });
-
             expect(res_login.status).toBe(200);
             expect(res_login.body.errors).toHaveLength(1);
             expect(res_login.body.errors[0].message).toBe('Incorrect One-Time password.');
@@ -1098,7 +1101,7 @@ describe('USERS API', () => {
                 console.warn(chalk.yellow('[[WARNING]]: Skipping test "create user" because SKIP_EMAIL_TEST is set to "true".'));
                 return;
             }
-            const res = await admin.post('/graphql').send({
+            const res = await admin.post(apiPath).send({
                 query: print(CREATE_USER),
                 variables: {
                     username: 'testuser1',
@@ -1123,7 +1126,7 @@ describe('USERS API', () => {
         }, 30000);
 
         test('create user with wrong email format', async () => {
-            const res = await admin.post('/graphql').send({
+            const res = await admin.post(apiPath).send({
                 query: print(CREATE_USER),
                 variables: {
                     username: 'testuser2',
@@ -1144,7 +1147,7 @@ describe('USERS API', () => {
         });
 
         test('create user with space in password and username', async () => {
-            const res = await admin.post('/graphql').send({
+            const res = await admin.post(apiPath).send({
                 query: print(CREATE_USER),
                 variables: {
                     username: 'test user1',
@@ -1186,7 +1189,7 @@ describe('USERS API', () => {
             await mongoClient.collection(config.database.collections.users_collection).insertOne(newUser);
 
             /* assertions */
-            const res = await admin.post('/graphql').send({
+            const res = await admin.post(apiPath).send({
                 query: print(CREATE_USER),
                 variables: {
                     username: 'new_user',
@@ -1228,7 +1231,7 @@ describe('USERS API', () => {
             await mongoClient.collection(config.database.collections.users_collection).insertOne(newUser);
 
             /* assertion */
-            const res = await admin.post('/graphql').send(
+            const res = await admin.post(apiPath).send(
                 {
                     query: print(EDIT_USER),
                     variables: {
@@ -1271,7 +1274,7 @@ describe('USERS API', () => {
             await mongoClient.collection(config.database.collections.users_collection).insertOne(newUser);
 
             /* assertion */
-            const res = await admin.post('/graphql').send(
+            const res = await admin.post(apiPath).send(
                 {
                     query: print(EDIT_USER),
                     variables: {
@@ -1336,7 +1339,7 @@ describe('USERS API', () => {
             await connectAgent(createdUser, 'new_user_4444', 'admin', newUser.otpSecret);
 
             /* assertion */
-            const res = await createdUser.post('/graphql').send(
+            const res = await createdUser.post(apiPath).send(
                 {
                     query: print(EDIT_USER),
                     variables: {
@@ -1376,7 +1379,7 @@ describe('USERS API', () => {
             await connectAgent(createdUser, 'new_user_4', 'admin', newUser.otpSecret);
 
             /* assertion */
-            const res = await createdUser.post('/graphql').send(
+            const res = await createdUser.post(apiPath).send(
                 {
                     query: print(EDIT_USER),
                     variables: {
@@ -1434,7 +1437,7 @@ describe('USERS API', () => {
             await connectAgent(createdUser, 'new_user_5', 'admin', newUser.otpSecret);
 
             /* assertion */
-            const res = await createdUser.post('/graphql').send(
+            const res = await createdUser.post(apiPath).send(
                 {
                     query: print(EDIT_USER),
                     variables: {
@@ -1477,7 +1480,7 @@ describe('USERS API', () => {
             await connectAgent(createdUser, 'new_user_6', 'admin', newUser.otpSecret);
 
             /* assertion */
-            const res = await createdUser.post('/graphql').send(
+            const res = await createdUser.post(apiPath).send(
                 {
                     query: print(EDIT_USER),
                     variables: {
@@ -1514,7 +1517,7 @@ describe('USERS API', () => {
             await mongoClient.collection(config.database.collections.users_collection).insertOne(newUser);
 
             /* assertion */
-            const res = await user.post('/graphql').send(
+            const res = await user.post(apiPath).send(
                 {
                     query: print(EDIT_USER),
                     variables: {
@@ -1551,7 +1554,7 @@ describe('USERS API', () => {
             await mongoClient.collection(config.database.collections.users_collection).insertOne(newUser);
 
             /* assertion */
-            const getUserRes = await admin.post('/graphql').send({
+            const getUserRes = await admin.post(apiPath).send({
                 query: print(GET_USERS),
                 variables: { userId: newUser.id, fetchDetailsAdminOnly: false, fetchAccessPrivileges: false }
             });
@@ -1565,7 +1568,7 @@ describe('USERS API', () => {
             }]);
 
 
-            const res = await admin.post('/graphql').send(
+            const res = await admin.post(apiPath).send(
                 {
                     query: print(DELETE_USER),
                     variables: {
@@ -1580,7 +1583,7 @@ describe('USERS API', () => {
                 id: newUser.id
             });
 
-            const getUserResAfter = await admin.post('/graphql').send({
+            const getUserResAfter = await admin.post(apiPath).send({
                 query: print(GET_USERS),
                 variables: { userId: newUser.id, fetchDetailsAdminOnly: false, fetchAccessPrivileges: false }
             });
@@ -1610,7 +1613,7 @@ describe('USERS API', () => {
             await mongoClient.collection(config.database.collections.users_collection).insertOne(newUser);
 
             /* assertions */
-            const res = await admin.post('/graphql').send(
+            const res = await admin.post(apiPath).send(
                 {
                     query: print(DELETE_USER),
                     variables: {
@@ -1627,7 +1630,7 @@ describe('USERS API', () => {
         });
 
         test('delete user that has never existed (admin)', async () => {
-            const res = await admin.post('/graphql').send(
+            const res = await admin.post(apiPath).send(
                 {
                     query: print(DELETE_USER),
                     variables: {
@@ -1665,7 +1668,7 @@ describe('USERS API', () => {
             await mongoClient.collection(config.database.collections.users_collection).insertOne(newUser);
 
             /* assertion */
-            const getUserRes = await user.post('/graphql').send({
+            const getUserRes = await user.post(apiPath).send({
                 query: print(GET_USERS),
                 variables: { userId: newUser.id, fetchDetailsAdminOnly: false, fetchAccessPrivileges: false }
             });
@@ -1679,7 +1682,7 @@ describe('USERS API', () => {
             }]);
 
 
-            const res = await user.post('/graphql').send(
+            const res = await user.post(apiPath).send(
                 {
                     query: print(DELETE_USER),
                     variables: {
@@ -1692,7 +1695,7 @@ describe('USERS API', () => {
             expect(res.body.errors[0].message).toBe(errorCodes.NO_PERMISSION_ERROR);
             expect(res.body.data.deleteUser).toEqual(null);
 
-            const getUserResAfter = await user.post('/graphql').send({
+            const getUserResAfter = await user.post(apiPath).send({
                 query: print(GET_USERS),
                 variables: { userId: newUser.id, fetchDetailsAdminOnly: false, fetchAccessPrivileges: false }
             });

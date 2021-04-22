@@ -19,6 +19,7 @@ let admin;
 let user;
 let mongoConnection;
 let mongoClient;
+let apiPath;
 
 afterAll(async () => {
     await db.closeConnection();
@@ -27,6 +28,9 @@ afterAll(async () => {
 });
 
 beforeAll(async () => { // eslint-disable-line no-undef
+    /* Choose API version used in this test file */
+    apiPath = '/api/'.concat(config.apiVersions[config.apiVersions.length - 1]);
+
     /* Creating a in-memory MongoDB instance for testing */
     mongodb = new MongoMemoryServer();
     const connectionString = await mongodb.getUri();
@@ -95,7 +99,7 @@ describe('JOB API', () => {
     });
 
     test('Create a data curation job with tag (admin)', async () => {
-        const res = await admin.post('/graphql').send({
+        const res = await admin.post(apiPath).send({
             query: print(CREATE_DATA_CURATION_JOB),
             variables: {
                 file: createdFile.id,
@@ -129,7 +133,7 @@ describe('JOB API', () => {
     });
 
     test('Create a data curation job without tag (admin)', async () => {
-        const res = await admin.post('/graphql').send({
+        const res = await admin.post(apiPath).send({
             query: print(CREATE_DATA_CURATION_JOB),
             variables: {
                 file: createdFile.id,
@@ -162,7 +166,7 @@ describe('JOB API', () => {
     });
 
     test('Create a data curation job (user with no privilege)', async () => {
-        const res = await user.post('/graphql').send({
+        const res = await user.post(apiPath).send({
             query: print(CREATE_DATA_CURATION_JOB),
             variables: {
                 file: createdFile.id,
@@ -217,7 +221,7 @@ describe('JOB API', () => {
         await connectAgent(authorisedUser, username, 'admin', authorisedUserProfile.otpSecret);
 
         /* test */
-        const res = await authorisedUser.post('/graphql').send({
+        const res = await authorisedUser.post(apiPath).send({
             query: print(CREATE_DATA_CURATION_JOB),
             variables: {
                 file: createdFile.id,
@@ -251,7 +255,7 @@ describe('JOB API', () => {
     });
 
     test('Create a data curation job with a non-existent file id (admin)', async () => {
-        const res = await admin.post('/graphql').send({
+        const res = await admin.post(apiPath).send({
             query: print(CREATE_DATA_CURATION_JOB),
             variables: {
                 file: 'fake_file_id',
@@ -270,7 +274,7 @@ describe('JOB API', () => {
     });
 
     test('Create a data curation job with a non-existent study id (admin)', async () => {
-        const res = await admin.post('/graphql').send({
+        const res = await admin.post(apiPath).send({
             query: print(CREATE_DATA_CURATION_JOB),
             variables: {
                 file: createdFile.id,
@@ -289,7 +293,7 @@ describe('JOB API', () => {
     });
 
     test('Create a data curation job with a non-existent study id (user)', async () => {
-        const res = await user.post('/graphql').send({
+        const res = await user.post(apiPath).send({
             query: print(CREATE_DATA_CURATION_JOB),
             variables: {
                 file: createdFile.id,
@@ -308,7 +312,7 @@ describe('JOB API', () => {
     });
 
     test('Create a data curation job with a malformed version id (admin)', async () => {
-        const res = await admin.post('/graphql').send({
+        const res = await admin.post(apiPath).send({
             query: print(CREATE_DATA_CURATION_JOB),
             variables: {
                 file: createdFile.id,

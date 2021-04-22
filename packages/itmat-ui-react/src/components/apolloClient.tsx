@@ -42,7 +42,7 @@ const customFetch = (uri, options): any => {
 };
 
 const uploadLink = createUploadLink({
-    uri: `${window.location.origin}/graphql`,
+    uri: `${window.location.origin}/api/v1`,
     credentials: 'include',
     fetch: customFetch
 }) as any as ApolloLink;

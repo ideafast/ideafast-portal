@@ -1,6 +1,6 @@
 import { gql } from 'apollo-server-express';
 
-export const schema = gql`
+export const schemaV1 = gql`
 scalar JSON
 scalar BigInt
 

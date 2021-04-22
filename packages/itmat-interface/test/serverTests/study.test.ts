@@ -44,6 +44,7 @@ let admin;
 let user;
 let mongoConnection;
 let mongoClient;
+let apiPath;
 
 afterAll(async () => {
     await db.closeConnection();
@@ -55,6 +56,9 @@ afterAll(async () => {
 });
 
 beforeAll(async () => { // eslint-disable-line no-undef
+    /* Choose API version used in this test file */
+    apiPath = '/api/'.concat(config.apiVersions[config.apiVersions.length - 1]);
+
     /* Creating a in-memory MongoDB instance for testing */
     mongodb = new MongoMemoryServer();
     const connectionString = await mongodb.getUri();
@@ -97,7 +101,7 @@ describe('STUDY API', () => {
     describe('MANIPULATING STUDIES EXISTENCE', () => {
         test('Create study (admin)', async () => {
             const studyName = uuid();
-            const res = await admin.post('/graphql').send({
+            const res = await admin.post(apiPath).send({
                 query: print(CREATE_STUDY),
                 variables: { name: studyName, description: 'test description' }
             });
@@ -111,7 +115,7 @@ describe('STUDY API', () => {
                 description: 'test description'
             });
 
-            const resWhoAmI = await admin.post('/graphql').send({ query: print(WHO_AM_I) });
+            const resWhoAmI = await admin.post(apiPath).send({ query: print(WHO_AM_I) });
             expect(resWhoAmI.status).toBe(200);
             expect(resWhoAmI.body.data.errors).toBeUndefined();
             expect(resWhoAmI.body.data.whoAmI).toEqual({
@@ -141,7 +145,7 @@ describe('STUDY API', () => {
 
         test('Edit study (admin)', async () => {
             const studyName = uuid();
-            const res = await admin.post('/graphql').send({
+            const res = await admin.post(apiPath).send({
                 query: print(CREATE_STUDY),
                 variables: { name: studyName, description: 'test description' }
             });
@@ -155,7 +159,7 @@ describe('STUDY API', () => {
                 description: 'test description'
             });
 
-            const editStudy = await admin.post('/graphql').send({
+            const editStudy = await admin.post(apiPath).send({
                 query: print(EDIT_STUDY),
                 variables: {studyId: createdStudy.id, description: 'edited description'}
             });
@@ -182,7 +186,7 @@ describe('STUDY API', () => {
             };
             await mongoClient.collection(config.database.collections.studies_collection).insertOne(newStudy);
 
-            const res = await admin.post('/graphql').send({
+            const res = await admin.post(apiPath).send({
                 query: print(CREATE_STUDY),
                 variables: { name: studyName, description: 'test description' }
             });
@@ -212,7 +216,7 @@ describe('STUDY API', () => {
             };
             await mongoClient.collection(config.database.collections.studies_collection).insertOne(newStudy);
 
-            const res = await admin.post('/graphql').send({
+            const res = await admin.post(apiPath).send({
                 query: print(CREATE_STUDY),
                 variables: { name: studyName.toUpperCase(), description: 'test description' }
             });
@@ -231,7 +235,7 @@ describe('STUDY API', () => {
 
         test('Create study (user) (should fail)', async () => {
             const studyName = uuid();
-            const res = await user.post('/graphql').send({
+            const res = await user.post(apiPath).send({
                 query: print(CREATE_STUDY),
                 variables: { name: studyName, description: 'test description' }
             });
@@ -246,7 +250,7 @@ describe('STUDY API', () => {
 
         test('Edit study (user) (should fail)', async () => {
             const studyName = uuid();
-            const res = await admin.post('/graphql').send({
+            const res = await admin.post(apiPath).send({
                 query: print(CREATE_STUDY),
                 variables: { name: studyName, description: 'test description' }
             });
@@ -260,7 +264,7 @@ describe('STUDY API', () => {
                 description: 'test description'
             });
 
-            const editStudy = await user.post('/graphql').send({
+            const editStudy = await user.post(apiPath).send({
                 query: print(EDIT_STUDY),
                 variables: {studyId: createdStudy.id, description: 'edited description'}
             });
@@ -287,7 +291,7 @@ describe('STUDY API', () => {
             };
             await mongoClient.collection(config.database.collections.studies_collection).insertOne(newStudy);
 
-            const resWhoAmI = await admin.post('/graphql').send({ query: print(WHO_AM_I) });
+            const resWhoAmI = await admin.post(apiPath).send({ query: print(WHO_AM_I) });
             expect(resWhoAmI.status).toBe(200);
             expect(resWhoAmI.body.data.errors).toBeUndefined();
             expect(resWhoAmI.body.data.whoAmI).toEqual({
@@ -312,7 +316,7 @@ describe('STUDY API', () => {
             });
 
             /* test */
-            const res = await admin.post('/graphql').send({
+            const res = await admin.post(apiPath).send({
                 query: print(DELETE_STUDY),
                 variables: { studyId: newStudy.id }
             });
@@ -326,7 +330,7 @@ describe('STUDY API', () => {
             const study = await mongoClient.collection(config.database.collections.studies_collection).findOne({ id: newStudy.id });
             expect(typeof study.deleted).toBe('number');
 
-            const resWhoAmIAfter = await admin.post('/graphql').send({ query: print(WHO_AM_I) });
+            const resWhoAmIAfter = await admin.post(apiPath).send({ query: print(WHO_AM_I) });
             expect(resWhoAmIAfter.status).toBe(200);
             expect(resWhoAmIAfter.body.data.errors).toBeUndefined();
             expect(resWhoAmIAfter.body.data.whoAmI).toEqual({
@@ -363,7 +367,7 @@ describe('STUDY API', () => {
             await mongoClient.collection(config.database.collections.studies_collection).insertOne(newStudy);
 
             /* test */
-            const res = await admin.post('/graphql').send({
+            const res = await admin.post(apiPath).send({
                 query: print(DELETE_STUDY),
                 variables: { studyId: newStudy.id }
             });
@@ -374,7 +378,7 @@ describe('STUDY API', () => {
         });
 
         test('Delete study that never existed (admin)', async () => {
-            const res = await admin.post('/graphql').send({
+            const res = await admin.post(apiPath).send({
                 query: print(DELETE_STUDY),
                 variables: { studyId: 'I_never_existed' }
             });
@@ -398,7 +402,7 @@ describe('STUDY API', () => {
             };
             await mongoClient.collection(config.database.collections.studies_collection).insertOne(newStudy);
 
-            const res = await user.post('/graphql').send({
+            const res = await user.post(apiPath).send({
                 query: print(DELETE_STUDY),
                 variables: { studyId: studyName }
             });
@@ -458,7 +462,7 @@ describe('STUDY API', () => {
 
         test('Create project (no existing patients in study) (admin)', async () => {
             const projectName = uuid();
-            const res = await admin.post('/graphql').send({
+            const res = await admin.post(apiPath).send({
                 query: print(CREATE_PROJECT),
                 variables: {
                     studyId: setupStudy.id,
@@ -493,7 +497,7 @@ describe('STUDY API', () => {
         });
 
         test('Create project (user with no privilege) (should fail)', async () => {
-            const res = await user.post('/graphql').send({
+            const res = await user.post(apiPath).send({
                 query: print(CREATE_PROJECT),
                 variables: {
                     studyId: setupStudy.id,
@@ -547,7 +551,7 @@ describe('STUDY API', () => {
 
             /* test */
             const projectName = uuid();
-            const res = await authorisedUser.post('/graphql').send({
+            const res = await authorisedUser.post(apiPath).send({
                 query: print(CREATE_PROJECT),
                 variables: {
                     studyId: setupStudy.id,
@@ -581,7 +585,7 @@ describe('STUDY API', () => {
         });
 
         test('Delete project (user without privilege) (should fail)', async () => {
-            const res = await user.post('/graphql').send({
+            const res = await user.post(apiPath).send({
                 query: print(DELETE_PROJECT),
                 variables: {
                     projectId: setupProject.id
@@ -595,7 +599,7 @@ describe('STUDY API', () => {
         });
 
         test('Delete project (admin)', async () => {
-            const res = await admin.post('/graphql').send({
+            const res = await admin.post(apiPath).send({
                 query: print(DELETE_PROJECT),
                 variables: {
                     projectId: setupProject.id
@@ -650,7 +654,7 @@ describe('STUDY API', () => {
             await connectAgent(authorisedUser, username, 'admin', authorisedUserProfile.otpSecret);
 
             /* test */
-            const res = await authorisedUser.post('/graphql').send({
+            const res = await authorisedUser.post(apiPath).send({
                 query: print(DELETE_PROJECT),
                 variables: {
                     projectId: setupProject.id
@@ -666,7 +670,7 @@ describe('STUDY API', () => {
         });
 
         test('Delete a non-existent project (admin) (should fail)', async () => {
-            const res = await admin.post('/graphql').send({
+            const res = await admin.post(apiPath).send({
                 query: print(DELETE_PROJECT),
                 variables: {
                     projectId: 'I dont exist'
@@ -712,7 +716,7 @@ describe('STUDY API', () => {
             /* 1. create study */
             {
                 const studyName = uuid();
-                const res = await admin.post('/graphql').send({
+                const res = await admin.post(apiPath).send({
                     query: print(CREATE_STUDY),
                     variables: { name: studyName, description: 'test description' }
                 });
@@ -852,7 +856,7 @@ describe('STUDY API', () => {
             /* 2. create projects for the study */
             {
                 const projectName = uuid();
-                const res = await admin.post('/graphql').send({
+                const res = await admin.post(apiPath).send({
                     query: print(CREATE_PROJECT),
                     variables: {
                         studyId: createdStudy.id,
@@ -873,7 +877,7 @@ describe('STUDY API', () => {
             /* 3. create roles for study */
             {
                 const roleName = uuid();
-                const res = await admin.post('/graphql').send({
+                const res = await admin.post(apiPath).send({
                     query: print(ADD_NEW_ROLE),
                     variables: {
                         roleName,
@@ -908,7 +912,7 @@ describe('STUDY API', () => {
             /* create another role for study (this time it will have "manage project" privilege - equivalent to PI */
             {
                 const roleName = uuid();
-                const res = await admin.post('/graphql').send({
+                const res = await admin.post(apiPath).send({
                     query: print(ADD_NEW_ROLE),
                     variables: {
                         roleName,
@@ -944,7 +948,7 @@ describe('STUDY API', () => {
             /* 4. create roles for project */
             {
                 const roleName = uuid();
-                const res = await admin.post('/graphql').send({
+                const res = await admin.post(apiPath).send({
                     query: print(ADD_NEW_ROLE),
                     variables: {
                         roleName,
@@ -1002,7 +1006,7 @@ describe('STUDY API', () => {
 
             /* 6. add authorised user to role */
             {
-                const res = await admin.post('/graphql').send({
+                const res = await admin.post(apiPath).send({
                     query: print(EDIT_ROLE),
                     variables: {
                         roleId: createdRole_project.id,
@@ -1031,7 +1035,7 @@ describe('STUDY API', () => {
                         lastname: createdUserAuthorised.lastname
                     }]
                 });
-                const resUser = await admin.post('/graphql').send({
+                const resUser = await admin.post(apiPath).send({
                     query: print(GET_USERS),
                     variables: {
                         fetchDetailsAdminOnly: false,
@@ -1086,7 +1090,7 @@ describe('STUDY API', () => {
 
             /* 6. add authorised user to role */
             {
-                const res = await admin.post('/graphql').send({
+                const res = await admin.post(apiPath).send({
                     query: print(EDIT_ROLE),
                     variables: {
                         roleId: createdRole_study.id,
@@ -1115,7 +1119,7 @@ describe('STUDY API', () => {
                         lastname: createdUserAuthorisedStudy.lastname
                     }]
                 });
-                const resUser = await admin.post('/graphql').send({
+                const resUser = await admin.post(apiPath).send({
                     query: print(GET_USERS),
                     variables: {
                         fetchDetailsAdminOnly: false,
@@ -1174,7 +1178,7 @@ describe('STUDY API', () => {
 
             /* 6. add authorised user to role */
             {
-                const res = await admin.post('/graphql').send({
+                const res = await admin.post(apiPath).send({
                     query: print(EDIT_ROLE),
                     variables: {
                         roleId: createdRole_study_manageProject.id,
@@ -1203,7 +1207,7 @@ describe('STUDY API', () => {
                         lastname: createdUserAuthorisedStudyManageProjects.lastname
                     }]
                 });
-                const resUser = await admin.post('/graphql').send({
+                const resUser = await admin.post(apiPath).send({
                     query: print(GET_USERS),
                     variables: {
                         fetchDetailsAdminOnly: false,
@@ -1236,7 +1240,7 @@ describe('STUDY API', () => {
             }
             /* fsdafs: admin who am i */
             {
-                const res = await admin.post('/graphql').send({ query: print(WHO_AM_I) });
+                const res = await admin.post(apiPath).send({ query: print(WHO_AM_I) });
                 expect(res.body.data.whoAmI).toStrictEqual({
                     username: 'admin',
                     type: userTypes.ADMIN,
@@ -1274,7 +1278,7 @@ describe('STUDY API', () => {
         afterAll(async () => {
             /* project user cannot delete study */
             {
-                const res = await authorisedUser.post('/graphql').send({
+                const res = await authorisedUser.post(apiPath).send({
                     query: print(DELETE_STUDY),
                     variables: { studyId: createdStudy.id }
                 });
@@ -1286,7 +1290,7 @@ describe('STUDY API', () => {
 
             /* study user cannot delete study */
             {
-                const res = await authorisedUserStudy.post('/graphql').send({
+                const res = await authorisedUserStudy.post(apiPath).send({
                     query: print(DELETE_STUDY),
                     variables: { studyId: createdStudy.id }
                 });
@@ -1298,7 +1302,7 @@ describe('STUDY API', () => {
 
             /* admin can delete study */
             {
-                const res = await admin.post('/graphql').send({
+                const res = await admin.post(apiPath).send({
                     query: print(DELETE_STUDY),
                     variables: { studyId: createdStudy.id }
                 });
@@ -1309,7 +1313,7 @@ describe('STUDY API', () => {
 
             /* check projects and roles are also deleted */
             {
-                const res = await admin.post('/graphql').send({ query: print(WHO_AM_I) });
+                const res = await admin.post(apiPath).send({ query: print(WHO_AM_I) });
                 expect(res.body.data.whoAmI).toEqual({
                     username: 'admin',
                     type: userTypes.ADMIN,
@@ -1337,7 +1341,7 @@ describe('STUDY API', () => {
 
             /* cannot get study from api anymore */
             {
-                const res = await admin.post('/graphql').send({
+                const res = await admin.post(apiPath).send({
                     query: print(GET_STUDY),
                     variables: { studyId: createdStudy.id }
                 });
@@ -1349,7 +1353,7 @@ describe('STUDY API', () => {
         });
 
         test('Get a non-existent study (admin)', async () => {
-            const res = await admin.post('/graphql').send({
+            const res = await admin.post(apiPath).send({
                 query: print(GET_STUDY),
                 variables: { studyId: 'iamfake' }
             });
@@ -1360,7 +1364,7 @@ describe('STUDY API', () => {
         });
 
         test('Get a non-existent project (admin)', async () => {
-            const res = await admin.post('/graphql').send({
+            const res = await admin.post(apiPath).send({
                 query: print(GET_PROJECT),
                 variables: { projectId: 'iamfake', admin: true }
             });
@@ -1372,7 +1376,7 @@ describe('STUDY API', () => {
 
         test('Get study (admin)', async () => {
             {
-                const res = await admin.post('/graphql').send({
+                const res = await admin.post(apiPath).send({
                     query: print(GET_STUDY),
                     variables: { studyId: createdStudy.id }
                 });
@@ -1461,7 +1465,7 @@ describe('STUDY API', () => {
                 });
             }
             {
-                const res = await admin.post('/graphql').send({
+                const res = await admin.post(apiPath).send({
                     query: print(GET_PROJECT),
                     variables: { projectId: createdProject.id, admin: true }
                 });
@@ -1498,7 +1502,7 @@ describe('STUDY API', () => {
         });
 
         test('Get patient mapping (admin)', async () => {
-            const res = await admin.post('/graphql').send({
+            const res = await admin.post(apiPath).send({
                 query: print(GET_PROJECT_PATIENT_MAPPING),
                 variables: { projectId: createdProject.id }
             });
@@ -1519,7 +1523,7 @@ describe('STUDY API', () => {
         });
 
         test('Get patient mapping (user without privilege) (should fail)', async () => {
-            const res = await user.post('/graphql').send({
+            const res = await user.post(apiPath).send({
                 query: print(GET_PROJECT_PATIENT_MAPPING),
                 variables: { projectId: createdProject.id }
             });
@@ -1531,7 +1535,7 @@ describe('STUDY API', () => {
 
         test('Get patient mapping (user with project data privilege) (should fail)', async () => {
             // patient mapping is obscured from users that can only access project data. They should only see the mapped id
-            const res = await authorisedUser.post('/graphql').send({
+            const res = await authorisedUser.post(apiPath).send({
                 query: print(GET_PROJECT_PATIENT_MAPPING),
                 variables: { projectId: createdProject.id }
             });
@@ -1542,7 +1546,7 @@ describe('STUDY API', () => {
         });
 
         test('Get patient mapping (user with study data privilege)', async () => {
-            const res = await authorisedUserStudy.post('/graphql').send({
+            const res = await authorisedUserStudy.post(apiPath).send({
                 query: print(GET_PROJECT_PATIENT_MAPPING),
                 variables: { projectId: createdProject.id }
             });
@@ -1563,7 +1567,7 @@ describe('STUDY API', () => {
         });
 
         test('Get study (user without privilege)', async () => {
-            const res = await user.post('/graphql').send({
+            const res = await user.post(apiPath).send({
                 query: print(GET_STUDY),
                 variables: { studyId: createdStudy.id }
             });
@@ -1575,7 +1579,7 @@ describe('STUDY API', () => {
 
         test('Get study (user with privilege)', async () => {
             {
-                const res = await authorisedUser.post('/graphql').send({
+                const res = await authorisedUser.post(apiPath).send({
                     query: print(GET_STUDY),
                     variables: { studyId: createdStudy.id }
                 });
@@ -1585,7 +1589,7 @@ describe('STUDY API', () => {
                 expect(res.body.data.getStudy).toEqual(null);
             }
             {
-                const res = await authorisedUser.post('/graphql').send({
+                const res = await authorisedUser.post(apiPath).send({
                     query: print(GET_PROJECT),
                     variables: { projectId: createdProject.id, admin: false }
                 });
@@ -1604,7 +1608,7 @@ describe('STUDY API', () => {
         });
 
         test('Get study fields (admin)', async () => {
-            const res = await admin.post('/graphql').send({
+            const res = await admin.post(apiPath).send({
                 query: print(GET_STUDY_FIELDS),
                 variables: {
                     studyId: createdStudy.id,
@@ -1633,7 +1637,7 @@ describe('STUDY API', () => {
         });
 
         test('Get study fields (user with project privilege) (should fail)', async () => {
-            const res = await authorisedUser.post('/graphql').send({
+            const res = await authorisedUser.post(apiPath).send({
                 query: print(GET_STUDY_FIELDS),
                 variables: {
                     studyId: createdStudy.id,
@@ -1647,7 +1651,7 @@ describe('STUDY API', () => {
         });
 
         test('Edit project approved fields with fields that are not in the field tree (admin) (should fail)', async () => {
-            const res = await admin.post('/graphql').send({
+            const res = await admin.post(apiPath).send({
                 query: print(EDIT_PROJECT_APPROVED_FIELDS),
                 variables: {
                     projectId: createdProject.id,
@@ -1664,7 +1668,7 @@ describe('STUDY API', () => {
 
         test('Edit project approved fields (admin)', async () => {
             const tentativeApprovedFields = mockFields.filter(e => e.fieldTreeId === fieldTreeId).reduce((a: string[], e) => [...a, e.id], []);
-            const res = await admin.post('/graphql').send({
+            const res = await admin.post(apiPath).send({
                 query: print(EDIT_PROJECT_APPROVED_FIELDS),
                 variables: {
                     projectId: createdProject.id,
@@ -1708,7 +1712,7 @@ describe('STUDY API', () => {
 
         test('Edit project approved fields (user without privilege) (should fail)', async () => {
             const tentativeApprovedFields = mockFields.filter(e => e.fieldTreeId === fieldTreeId).reduce((a: string[], e) => [...a, e.id], []);
-            const res = await user.post('/graphql').send({
+            const res = await user.post(apiPath).send({
                 query: print(EDIT_PROJECT_APPROVED_FIELDS),
                 variables: {
                     projectId: createdProject.id,
@@ -1724,7 +1728,7 @@ describe('STUDY API', () => {
 
         test('Edit project approved fields (user with study readonly privilege) (should fail)', async () => {
             const tentativeApprovedFields = mockFields.filter(e => e.fieldTreeId === fieldTreeId).reduce((a: string[], e) => [...a, e.id], []);
-            const res = await authorisedUserStudy.post('/graphql').send({
+            const res = await authorisedUserStudy.post(apiPath).send({
                 query: print(EDIT_PROJECT_APPROVED_FIELDS),
                 variables: {
                     projectId: createdProject.id,
@@ -1740,7 +1744,7 @@ describe('STUDY API', () => {
 
         test('Edit project approved fields (user with study " manage project" privilege)', async () => {
             const tentativeApprovedFields = mockFields.filter(e => e.fieldTreeId === fieldTreeId).reduce((a: string[], e) => [...a, e.id], []);
-            const res = await authorisedUserStudyManageProject.post('/graphql').send({
+            const res = await authorisedUserStudyManageProject.post(apiPath).send({
                 query: print(EDIT_PROJECT_APPROVED_FIELDS),
                 variables: {
                     projectId: createdProject.id,
@@ -1784,7 +1788,7 @@ describe('STUDY API', () => {
 
         test('Edit project approved fields (user with project privilege) (should fail)', async () => {
             const tentativeApprovedFields = mockFields.filter(e => e.fieldTreeId === fieldTreeId).reduce((a: string[], e) => [...a, e.id], []);
-            const res = await authorisedUser.post('/graphql').send({
+            const res = await authorisedUser.post(apiPath).send({
                 query: print(EDIT_PROJECT_APPROVED_FIELDS),
                 variables: {
                     projectId: createdProject.id,
@@ -1799,7 +1803,7 @@ describe('STUDY API', () => {
         });
 
         test('Edit project approved files (user without privilege) (should fail)', async () => {
-            const res = await user.post('/graphql').send({
+            const res = await user.post(apiPath).send({
                 query: print(EDIT_PROJECT_APPROVED_FILES),
                 variables: {
                     projectId: createdProject.id,
@@ -1813,7 +1817,7 @@ describe('STUDY API', () => {
         });
 
         test('Edit project approved files (user with project privilege) (should fail)', async () => {
-            const res = await authorisedUser.post('/graphql').send({
+            const res = await authorisedUser.post(apiPath).send({
                 query: print(EDIT_PROJECT_APPROVED_FILES),
                 variables: {
                     projectId: createdProject.id,
@@ -1827,7 +1831,7 @@ describe('STUDY API', () => {
         });
 
         test('Edit project approved files (user with project privilege) (should fail)', async () => {
-            const res = await authorisedUser.post('/graphql').send({
+            const res = await authorisedUser.post(apiPath).send({
                 query: print(EDIT_PROJECT_APPROVED_FILES),
                 variables: {
                     projectId: createdProject.id,
@@ -1841,7 +1845,7 @@ describe('STUDY API', () => {
         });
 
         test('Edit project approved files (user with study read-only privilege) (should fail)', async () => {
-            const res = await authorisedUserStudy.post('/graphql').send({
+            const res = await authorisedUserStudy.post(apiPath).send({
                 query: print(EDIT_PROJECT_APPROVED_FILES),
                 variables: {
                     projectId: createdProject.id,
@@ -1855,7 +1859,7 @@ describe('STUDY API', () => {
         });
 
         test('Edit project approved files (user with study "manage project" privilege)', async () => {
-            const res = await authorisedUserStudyManageProject.post('/graphql').send({
+            const res = await authorisedUserStudyManageProject.post(apiPath).send({
                 query: print(EDIT_PROJECT_APPROVED_FILES),
                 variables: {
                     projectId: createdProject.id,
@@ -1890,7 +1894,7 @@ describe('STUDY API', () => {
         });
 
         test('Edit project approved files (admin)', async () => {
-            const res = await admin.post('/graphql').send({
+            const res = await admin.post(apiPath).send({
                 query: print(EDIT_PROJECT_APPROVED_FILES),
                 variables: {
                     projectId: createdProject.id,
@@ -1925,7 +1929,7 @@ describe('STUDY API', () => {
         });
 
         test('Edit project approved files for non-existnet file (admin)', async () => {
-            const res = await admin.post('/graphql').send({
+            const res = await admin.post(apiPath).send({
                 query: print(EDIT_PROJECT_APPROVED_FILES),
                 variables: {
                     projectId: createdProject.id,
@@ -1942,7 +1946,7 @@ describe('STUDY API', () => {
             /* setup: add an extra dataversion */
             await db.collections!.studies_collection.updateOne({ id: createdStudy.id }, { $push: { dataVersions: newMockDataVersion }, $inc: { currentDataVersion: 1 } });
 
-            const res = await admin.post('/graphql').send({
+            const res = await admin.post(apiPath).send({
                 query: print(SET_DATAVERSION_AS_CURRENT),
                 variables: {
                     studyId: createdStudy.id,
@@ -1977,7 +1981,7 @@ describe('STUDY API', () => {
             /* setup: add an extra dataversion */
             await db.collections!.studies_collection.updateOne({ id: createdStudy.id }, { $push: { dataVersions: newMockDataVersion }, $inc: { currentDataVersion: 1 } });
 
-            const res = await user.post('/graphql').send({
+            const res = await user.post(apiPath).send({
                 query: print(SET_DATAVERSION_AS_CURRENT),
                 variables: {
                     studyId: createdStudy.id,
@@ -1997,7 +2001,7 @@ describe('STUDY API', () => {
             /* setup: add an extra dataversion */
             await db.collections!.studies_collection.updateOne({ id: createdStudy.id }, { $push: { dataVersions: newMockDataVersion }, $inc: { currentDataVersion: 1 } });
 
-            const res = await authorisedUser.post('/graphql').send({
+            const res = await authorisedUser.post(apiPath).send({
                 query: print(SET_DATAVERSION_AS_CURRENT),
                 variables: {
                     studyId: createdStudy.id,
@@ -2017,7 +2021,7 @@ describe('STUDY API', () => {
             /* setup: add an extra dataversion */
             await db.collections!.studies_collection.updateOne({ id: createdStudy.id }, { $push: { dataVersions: newMockDataVersion }, $inc: { currentDataVersion: 1 } });
 
-            const res = await authorisedUserStudy.post('/graphql').send({
+            const res = await authorisedUserStudy.post(apiPath).send({
                 query: print(SET_DATAVERSION_AS_CURRENT),
                 variables: {
                     studyId: createdStudy.id,
@@ -2037,7 +2041,7 @@ describe('STUDY API', () => {
             /* setup: add an extra dataversion */
             await db.collections!.studies_collection.updateOne({ id: createdStudy.id }, { $push: { dataVersions: newMockDataVersion }, $inc: { currentDataVersion: 1 } });
 
-            const res = await authorisedUserStudyManageProject.post('/graphql').send({
+            const res = await authorisedUserStudyManageProject.post(apiPath).send({
                 query: print(SET_DATAVERSION_AS_CURRENT),
                 variables: {
                     studyId: createdStudy.id,
@@ -2057,7 +2061,7 @@ describe('STUDY API', () => {
             /* setup: add an extra dataversion */
             await db.collections!.studies_collection.updateOne({ id: createdStudy.id }, { $push: { dataVersions: newMockDataVersion }, $inc: { currentDataVersion: 1 } });
 
-            const res = await authorisedUserStudyManageProject.post('/graphql').send({
+            const res = await authorisedUserStudyManageProject.post(apiPath).send({
                 query: print(SET_DATAVERSION_AS_CURRENT),
                 variables: {
                     studyId: createdStudy.id,
@@ -2114,7 +2118,7 @@ describe('STUDY API', () => {
             await db.collections!.studies_collection.updateOne({ id: createdStudy.id }, { $push: { dataVersions: newMockDataVersion }, $inc: { currentDataVersion: 1 } });
 
             /* test */
-            const res = await dataCurator.post('/graphql').send({
+            const res = await dataCurator.post(apiPath).send({
                 query: print(SET_DATAVERSION_AS_CURRENT),
                 variables: {
                     studyId: createdStudy.id,

@@ -8,8 +8,9 @@ import session from 'express-session';
 import http from 'http';
 import passport from 'passport';
 // import { db } from '../database/database';
-import { resolvers } from '../graphql/resolvers';
-import { schema } from '../graphql/schema';
+import { resolversV0, resolversV1 } from '../graphql/resolvers';
+import { schemaV0 } from '../graphql/schemaV0';
+import { schemaV1 } from '../graphql/schemaV1';
 import { fileDownloadController } from '../rest/fileDownload';
 import { userLoginUtils } from '../utils/userLoginUtils';
 import { IConfiguration } from '../utils/configManager';
@@ -51,6 +52,25 @@ export class Router {
         passport.deserializeUser(userLoginUtils.deserialiseUser);
 
         /* register apolloserver for graphql requests */
+        /* TODO: need to consider to make apis have rolling capacity */
+        this.server = http.createServer(this.app);
+        this.createApolloServer(resolversV0, schemaV0, '/api/v0');
+        this.createApolloServer(resolversV1, schemaV1, '/api/v1');
+
+        /* Bounce all unauthenticated non-graphql HTTP requests */
+        // this.app.use((req: Request, res: Response, next: NextFunction) => {
+        //     if (req.user === undefined || req.user.username === undefined) {
+        //         res.status(401).json(new CustomError('Please log in first.'));
+        //         return;
+        //     }
+        //     next();
+        // });
+
+        this.app.get('/file/:fileId', fileDownloadController);
+
+    }
+
+    private createApolloServer(resolvers: any, schema: any, endPoints: string) {
         const gqlServer = new ApolloServer({
             typeDefs: schema,
             resolvers: {
@@ -110,24 +130,10 @@ export class Router {
             }
         });
 
-        gqlServer.applyMiddleware({ app: this.app, cors: { credentials: true } });
+        gqlServer.applyMiddleware({ app: this.app, cors: { credentials: true }, path: endPoints });
 
         /* register the graphql subscription functionalities */
-        this.server = http.createServer(this.app);
         gqlServer.installSubscriptionHandlers(this.server);
-
-
-        /* Bounce all unauthenticated non-graphql HTTP requests */
-        // this.app.use((req: Request, res: Response, next: NextFunction) => {
-        //     if (req.user === undefined || req.user.username === undefined) {
-        //         res.status(401).json(new CustomError('Please log in first.'));
-        //         return;
-        //     }
-        //     next();
-        // });
-
-        this.app.get('/file/:fileId', fileDownloadController);
-
     }
 
     public getApp(): Express {
