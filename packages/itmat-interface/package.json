@@ -63,7 +63,7 @@
         "get-port": "5.1.1",
         "graphql": "15.5.0",
         "itmat-setup": "0.9.1",
-        "jest": "26.6.3",
+        "jest": "27.1.0",
         "jsonwebtoken": "8.5.1",
         "mongodb-memory-server": "6.9.6",
         "node-fetch": "2.6.1",
