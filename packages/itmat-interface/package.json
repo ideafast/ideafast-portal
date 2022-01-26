@@ -59,7 +59,7 @@
         "cross-env": "7.0.3",
         "cross-spawn": "7.0.3",
         "get-port": "6.0.0",
-        "graphql": "15.5.0",
+        "graphql": "16.3.0",
         "itmat-setup": "1.0.0",
         "jest": "27.4.7",
         "jsonwebtoken": "8.5.1",
