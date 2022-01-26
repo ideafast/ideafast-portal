@@ -4,7 +4,11 @@
         "outDir": "./build"
     },
     "include": [
-        "src/**/*",
-        "test/**/*"
+        "src",
+        "../../global.d.ts"
+    ],
+    "exclude": [
+        "src/setupProxy.js",
+        "src/setupTests.js"
     ]
 }

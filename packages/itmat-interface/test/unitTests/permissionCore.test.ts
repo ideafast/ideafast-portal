@@ -1,10 +1,11 @@
 import { db } from '../../src/database/database';
 import { MongoClient } from 'mongodb';
-import { permissions, task_required_permissions } from '@itmat/commons';
+import * as itmatCommons from 'itmat-commons';
 import { MongoMemoryServer } from 'mongodb-memory-server';
-import { setupDatabase } from '../../../itmat-utils/src/databaseSetup/collectionsAndIndexes';
+import { setupDatabase } from 'itmat-setup';
 import config from '../../config/config.sample.json';
 import { permissionCore } from '../../src/graphql/core/permissionCore';
+const { permissions, task_required_permissions } = itmatCommons;
 
 let mongodb;
 let mongoConnection;
@@ -14,31 +15,27 @@ afterAll(async () => {
     await db.closeConnection();
     await mongoConnection?.close();
     await mongodb.stop();
-}, global.__ADJUSTED_TIMEOUT__);
+});
 
 beforeAll(async () => { // eslint-disable-line no-undef
     /* Creating a in-memory MongoDB instance for testing */
-    mongodb = new MongoMemoryServer();
-    const connectionString = await mongodb.getUri();
-    const database = await mongodb.getDbName();
+    mongodb = await MongoMemoryServer.create();
+    const connectionString = mongodb.getUri();
+    const database = mongodb.instanceInfo.dbName;
     await setupDatabase(connectionString, database);
 
     /* Wiring up the backend server */
     config.database.mongo_url = connectionString;
     config.database.database = database;
-    await db.connect(config.database);
+    await db.connect(config.database, MongoClient.connect as any);
 
     /* Connect mongo client (for test setup later / retrieve info later) */
-    mongoConnection = await MongoClient.connect(connectionString, {
-        useNewUrlParser: true,
-        useUnifiedTopology: true
-    });
+    mongoConnection = await MongoClient.connect(connectionString);
     mongoClient = mongoConnection.db(database);
-}, global.__ADJUSTED_TIMEOUT__);
+});
 
 describe('PERMISSION CORE CLASS', () => {
     describe('Check userHasTheNeccessaryPermission()', () => {
-        let admin;
         let user;
         let newUsers;
         beforeAll(async () => {
@@ -47,65 +44,70 @@ describe('PERMISSION CORE CLASS', () => {
                 {
                     username: 'new_user_1',
                     type: 'STANDARD',
-                    realName: 'real_name_1',
+                    firstname: 'Freal_name_1',
+                    lastname: 'Lreal_name_1',
                     password: 'fake_password',
-                    createdBy: 'admin',
-                    email: 'new1@user.io',
+                    otpSecret: 'H6BNKKO27DPLCATGEJAZNWQV4LWOTMRA',
+                    email: 'new1@example.com',
                     description: 'I am a new user.',
                     emailNotificationsActivated: true,
-                    organisation: 'DSI',
+                    organisation: 'organisation_system',
                     deleted: null,
                     id: 'new_user_id_1'
                 },
                 {
                     username: 'new_user_2',
                     type: 'STANDARD',
-                    realName: 'real_name_2',
+                    firstname: 'Freal_name_2',
+                    lastname: 'Lreal_name_2',
                     password: 'fake_password',
-                    createdBy: 'admin',
-                    email: 'new2@user.io',
+                    otpSecret: 'H6BNKKO27DPLCATGEJAZNWQV4LWOTMRA',
+                    email: 'new2@example.com',
                     description: 'I am a new user.',
                     emailNotificationsActivated: true,
-                    organisation: 'DSI',
+                    organisation: 'organisation_system',
                     deleted: null,
                     id: 'new_user_id_2'
                 },
                 {
                     username: 'new_user_3',
                     type: 'STANDARD',
-                    realName: 'real_name_3',
+                    firstname: 'Freal_name_3',
+                    lastname: 'Lreal_name_3',
                     password: 'fake_password',
-                    createdBy: 'admin',
-                    email: 'new3@user.io',
+                    otpSecret: 'H6BNKKO27DPLCATGEJAZNWQV4LWOTMRA',
+                    email: 'new3@example.com',
                     description: 'I am a new user.',
                     emailNotificationsActivated: true,
-                    organisation: 'DSI',
+                    organisation: 'organisation_system',
                     deleted: null,
                     id: 'new_user_id_3'
                 },
                 {
                     username: 'new_user_4',
                     type: 'STANDARD',
-                    realName: 'real_name_4',
+                    firstname: 'Freal_name_4',
+                    lastname: 'Lreal_name_4',
                     password: 'fake_password',
-                    createdBy: 'admin',
-                    email: 'new4@user.io',
+                    otpSecret: 'H6BNKKO27DPLCATGEJAZNWQV4LWOTMRA',
+                    email: 'new4@example.com',
                     description: 'I am a new user.',
                     emailNotificationsActivated: true,
-                    organisation: 'DSI',
+                    organisation: 'organisation_system',
                     deleted: null,
                     id: 'new_user_id_4'
                 },
                 {
                     username: 'new_user_5',
                     type: 'STANDARD',
-                    realName: 'real_name_5',
+                    firstname: 'Freal_name_5',
+                    lastname: 'Lreal_name_5',
                     password: 'fake_password',
-                    createdBy: 'admin',
-                    email: 'new5@user.io',
+                    otpSecret: 'H6BNKKO27DPLCATGEJAZNWQV4LWOTMRA',
+                    email: 'new5@example.com',
                     description: 'I am a new user.',
                     emailNotificationsActivated: true,
-                    organisation: 'DSI',
+                    organisation: 'organisation_system',
                     deleted: null,
                     id: 'new_user_id_5'
                 }
@@ -114,7 +116,6 @@ describe('PERMISSION CORE CLASS', () => {
 
             /* setup: first retrieve the generated user id */
             const result = await mongoClient.collection(config.database.collections.users_collection).find({}, { projection: { id: 1, username: 1 } }).toArray();
-            admin = result.filter(e => e.username === 'admin')[0];
             user = result.filter(e => e.username === 'standardUser')[0];
 
             /* setup: create roles to be tested on */
@@ -203,7 +204,7 @@ describe('PERMISSION CORE CLASS', () => {
                     deleted: null
                 }
             ]);
-        }, global.__ADJUSTED_TIMEOUT__);
+        });
 
         async function testAllPermissions(user, studyId, projectId) {
             return Promise.all([
@@ -265,7 +266,7 @@ describe('PERMISSION CORE CLASS', () => {
                 [false, false, false, false, true, true],
                 [false, false, false, false, false, false]
             ]);
-        }, global.__ADJUSTED_TIMEOUT__);
+        });
 
         test('User belonging to two projects', async () => {
             const result = await testUser(newUsers[0]);
@@ -276,7 +277,7 @@ describe('PERMISSION CORE CLASS', () => {
                 [false, false, false, false, false, false],
                 [false, false, false, false, false, false]
             ]);
-        }, global.__ADJUSTED_TIMEOUT__);
+        });
 
         test('User belonging to one project', async () => {
             const result = await testUser(newUsers[1]);
@@ -287,7 +288,7 @@ describe('PERMISSION CORE CLASS', () => {
                 [false, false, false, false, false, false],
                 [false, false, false, false, false, false]
             ]);
-        }, global.__ADJUSTED_TIMEOUT__);
+        });
 
         test('User belonging to one project and one study', async () => {
             const result = await testUser(newUsers[2]);
@@ -298,7 +299,7 @@ describe('PERMISSION CORE CLASS', () => {
                 [false, false, false, false, true, true],
                 [false, false, false, false, false, false]
             ]);
-        }, global.__ADJUSTED_TIMEOUT__);
+        });
 
         test('User belonging to one study (PI)', async () => {
             const result = await testUser(newUsers[3]);
@@ -309,6 +310,6 @@ describe('PERMISSION CORE CLASS', () => {
                 [false, false, false, false, false, false],
                 [false, false, false, false, false, false]
             ]);
-        }, global.__ADJUSTED_TIMEOUT__);
+        });
     });
 });

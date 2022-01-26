@@ -2,33 +2,26 @@ import * as React from 'react';
 import { Route, Switch } from 'react-router-dom';
 import { Subsection } from '../../../reusable/subsection/subsection';
 import { ProjectDetail } from './detailSections/projectDetail';
-import { ProjectListSection } from './projectListSection';
+import { ProjectListSection, AddNewProject } from './projectListSection';
 import css from './tabContent.module.css';
 
-type ProjectsTabContentProps = {
-    studyId: string;
-    projectList: {
-        id: string;
-        name: string;
-    }[];
+export const ProjectsTabContent: React.FunctionComponent<{ studyId: string; projectList: { id: string; name: string }[] }> = ({ studyId, projectList }) => {
+    return <Switch>
+        <Route path='/datasets/:studyId/projects/:projectId' render={({ match }) => <ProjectDetail projectId={match.params.projectId} studyId={match.params.studyId} />} />
+        <Route path='/datasets/:studyId/projects'>
+            <div className={`${css.tab_page_wrapper} ${css.left_panel} fade_in`}>
+                <div>
+                    <Subsection title='Projects'>
+                        <ProjectListSection studyId={studyId} projectList={projectList} />
+                    </Subsection>
+                </div>
+                <div>
+                    <Subsection title='Add new project'>
+                        <AddNewProject studyId={studyId} />
+                    </Subsection>
+                </div>
+            </div>
+        </Route>
+        <Route path='/' render={() => <></>} />
+    </Switch>;
 };
-
-export const ProjectsTabContent: React.FC<ProjectsTabContentProps> = ({ studyId, projectList }) => (
-    <div className={css.scaffold_wrapper}>
-        <Switch>
-            <Route path="/datasets/:studyId/projects/:projectId" component={ProjectDetail} />
-            <Route
-                path="/datasets/:studyId/projects" render={() => (
-                    <div className={`${css.tab_page_wrapper} ${css.left_panel}`}>
-                        <Subsection title="Projects">
-                            <ProjectListSection studyId={studyId} projectList={projectList} />
-                        </Subsection>
-                    </div>
-                )}
-            />
-            <Route path="/" render={() => <></>} />
-        </Switch>
-    </div>
-);
-
-export default ProjectsTabContent;

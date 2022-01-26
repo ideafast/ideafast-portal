@@ -1,12 +1,11 @@
 import { Tree } from 'antd';
-import { IFile } from '@itmat/commons';
 import React from 'react';
-import { Mutation, Query } from '@apollo/react-components';
-import { EDIT_PROJECT_APPROVED_FILES } from '@itmat/commons';
-import { GET_STUDY } from '@itmat/commons';
-import { LoadingBalls } from '../../../../reusable/icons/loadingBalls';
+import { Mutation, Query } from '@apollo/client/react/components';
+import { EDIT_PROJECT_APPROVED_FILES, IFile, GET_STUDY } from 'itmat-commons';
+import LoadSpinner from '../../../../reusable/loadSpinner';
+import { Button } from 'antd';
 
-export const GrantedFileListSelection: React.FC<{ originalCheckedList: string[]; studyId: string; projectId: string }> = ({ projectId, originalCheckedList, studyId }) => {
+export const GrantedFileListSelection: React.FunctionComponent<{ originalCheckedList: string[]; studyId: string; projectId: string }> = ({ projectId, originalCheckedList, studyId }) => {
     const [checkedList, setCheckedList] = React.useState(originalCheckedList || []);
     const [savedSuccessfully, setSavedSuccessfully] = React.useState(false);
     const [currentProjectId, setCurrentProjectId] = React.useState(projectId);
@@ -17,65 +16,48 @@ export const GrantedFileListSelection: React.FC<{ originalCheckedList: string[];
         setCurrentProjectId(projectId);
     }
 
-    const onCheck = (list: string[]) => {
-        setCheckedList(list);
+    const onCheck = (checkedList: string[]) => {
+        setCheckedList(checkedList);
     };
 
-    return (
-        <Query<any, any> query={GET_STUDY} variables={{ studyId }}>
-            {({ loading, data: fileData, error }) => {
-                if (loading) { return <LoadingBalls />; }
-                if (error) {
-                    return (
-                        <p>
-                            Error :(
-                            {JSON.stringify(error)}
-                        </p>
-                    );
-                }
+    return <Query<any, any> query={GET_STUDY} variables={{ studyId }}>
+        {({ loading, data: fileData, error }) => {
+            if (loading) { return <LoadSpinner />; }
+            if (error) { return <p>Error :( {JSON.stringify(error)}</p>; }
 
-                return (
-                    <>
-                        <Tree
-                            checkable
-                            onCheck={onCheck as any}
-                            checkedKeys={checkedList}
-                        >
-                            {fileData.getStudy.files.map((el: IFile) => <Tree.TreeNode title={el.fileName} key={el.id} isLeaf />)}
-                        </Tree>
-                        <Mutation<any, any>
-                            mutation={EDIT_PROJECT_APPROVED_FILES}
-                            onCompleted={() => setSavedSuccessfully(true)}
-                        >
-                            {(editApprovedFiles, { loading: loadingField, error: errorField }) => (
-                                <>
-                                    {
-                                        loadingField ? <button style={{ margin: '1rem 0 0 0' }}>Loading</button>
-                                            : (
-                                                <button
-                                                    style={{ margin: '1rem 0 0 0' }} onClick={() => {
-                                                        editApprovedFiles({ variables: { projectId, approvedFiles: checkedList } });
-                                                        setSavedSuccessfully(false);
-                                                    }}
-                                                >
-                                                    Save
-                                                </button>
-                                            )
-                                    }
-                                    {
-                                        errorField ? <div className="error_banner">{JSON.stringify(errorField)}</div> : null
-                                    }
+            return <>
+                <Tree
+                    checkable
+                    onCheck={onCheck as any}
+                    checkedKeys={checkedList}
+                >
+                    {fileData.getStudy.files.map((el: IFile) => <Tree.TreeNode title={el.fileName} key={el.id} isLeaf={true} />)}
+                </Tree>
+                <Mutation<any, any>
+                    mutation={EDIT_PROJECT_APPROVED_FILES}
+                    onCompleted={() => setSavedSuccessfully(true)}
+                >
+                    {(editApprovedFiles, { loading, error }) =>
+                        <>
+                            {
+                                loading ? <Button style={{ margin: '1rem 0 0 0' }}>Loading</Button> :
+                                    <Button style={{ margin: '1rem 0 0 0' }} onClick={() => {
+                                        editApprovedFiles({ variables: { projectId, approvedFiles: checkedList } });
+                                        setSavedSuccessfully(false);
+                                    }}>Save</Button>
+                            }
+                            {
+                                error ? <div className='error_banner'>{JSON.stringify(error)}</div> : null
+                            }
 
-                                    {
-                                        savedSuccessfully ? <div className="saved_banner">Saved!</div> : null
-                                    }
-                                </>
-                            )}
-                        </Mutation>
+                            {
+                                savedSuccessfully ? <div className='saved_banner'>Saved!</div> : null
+                            }
+                        </>
+                    }
+                </Mutation>
 
-                    </>
-                );
-            }}
-        </Query>
-    );
+            </>;
+        }}
+    </Query>;
 };

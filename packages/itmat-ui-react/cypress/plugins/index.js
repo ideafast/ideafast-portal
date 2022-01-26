@@ -16,7 +16,7 @@ module.exports = (on) => {
                     oneOf: [
                         {
                             test: [/\.bmp$/, /\.gif$/, /\.jpe?g$/, /\.png$/],
-                            loader: require.resolve('url-loader'),
+                            loader: require.resolve('url-loader')
                         },
                         {
                             test: /\.(js|mjs|jsx|ts|tsx)$/,
@@ -24,7 +24,7 @@ module.exports = (on) => {
                             loader: require.resolve('babel-loader'),
                             options: {
                                 customize: require.resolve(
-                                    'babel-preset-react-app/webpack-overrides',
+                                    'babel-preset-react-app/webpack-overrides'
                                 ),
                                 babelrc: false,
                                 configFile: false,
@@ -33,7 +33,7 @@ module.exports = (on) => {
                                 // // side of caution.
                                 // // We remove this when the user ejects because the default
                                 // // is sane and uses Babel options. Instead of options, we use
-                                // // the compile-scripts and babel-preset-react-app versions.
+                                // // the react-scripts and babel-preset-react-app versions.
                                 // cacheIdentifier: getCacheIdentifier(
                                 //   isEnvProduction
                                 //     ? 'production'
@@ -42,7 +42,7 @@ module.exports = (on) => {
                                 //     'babel-plugin-named-asset-import',
                                 //     'babel-preset-react-app',
                                 //     'react-dev-utils',
-                                //     'compile-scripts',
+                                //     'react-scripts',
                                 //   ]
                                 // ),
                                 // @remove-on-eject-end
@@ -53,7 +53,7 @@ module.exports = (on) => {
                                             loaderMap: {
                                                 svg: {
                                                     ReactComponent:
-                                                        '@svgr/webpack?-svgo,+titleProp,+ref![path]',
+                                '@svgr/webpack?-svgo,+titleProp,+ref![path]',
                                                 },
                                             },
                                         },
@@ -64,9 +64,9 @@ module.exports = (on) => {
                             },
                         },
                     ],
-                },
-            ],
-        },
+                }
+            ]
+        }
 
     };
 

@@ -1,44 +1,6 @@
-export enum enumCohortSelectionOp {
-    EQ = '=',
-    NE = '!=',
-    GT = '>',
-    LOT = '<',
-    DERIVED = 'derived',
-    EXISTS = 'exists',
-    COUNT = 'count'
-}
-
-export interface ICohortSelection {
-    field: string;
-    value: string;
-    op: enumCohortSelectionOp;
-}
-
-export enum enumEquationOp {
-    P = '+',
-    S = '-',
-    M = '*',
-    D = '/',
-    I = '^',
-    FIELD = 'field',
-    VAL = 'val'
-}
-
-export interface IEquationDescription {
-    left: string | IEquationDescription;
-    right: string | IEquationDescription;
-    op: enumEquationOp;
-}
-
-export interface INewFieldSelection {
-    name: string;
-    value: IEquationDescription;
-    op: 'derived';
-}
-
-export interface IQueryEntry {
+export type IQueryEntry = {
     id: string;
-    queryString: string;
+    queryString: any;
     studyId: string;
     projectId?: string;
     requester: string;
@@ -52,4 +14,42 @@ export interface IQueryEntry {
     data_requested: string[];
     cohort: ICohortSelection[][];
     new_fields: INewFieldSelection[];
+}
+
+export type ICohortSelection = {
+    field: string;
+    value: string;
+    op: enumCohortSelectionOp;
+}
+
+export enum enumCohortSelectionOp {
+    '=' = '=',
+    '!=' = '!=',
+    '>' = '>',
+    '<' = '<',
+    'derived' = 'derived',
+    'exists' = 'exists',
+    'count' = 'count'
+}
+
+export type IEquationDescription = {
+    left: string | IEquationDescription;
+    right: string | IEquationDescription;
+    op: enumEquationOp;
+}
+
+export enum enumEquationOp {
+    '+' = '+',
+    '-' = '-',
+    '*' = '*',
+    '/' = '/',
+    '^' = '^',
+    'field' = 'field',
+    'val' = 'val'
+}
+
+export type INewFieldSelection = {
+    name: string;
+    value: IEquationDescription;
+    op: 'derived';
 }

@@ -1,5 +1,3 @@
-console.log('Applying custom Babel configuration...');
-
 module.exports = {
     presets: [
         [
@@ -9,8 +7,7 @@ module.exports = {
                     node: 'current',
                 },
             }
-        ],
-        '@babel/preset-typescript'
+        ]
     ].concat(!['development', 'test'].includes(process.env.NODE_ENV) ? [
         'minify'
     ] : []),

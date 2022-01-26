@@ -1,5 +1,6 @@
-import { gql } from '@apollo/client';
-import { JOB_FRAGMENT } from './curation';
+import gql from 'graphql-tag';
+import { job_fragment } from './curation';
+import { field_fragment } from './fields';
 
 
 export const GET_PROJECT = gql`
@@ -21,13 +22,16 @@ export const GET_PROJECT = gql`
                 studyId
                 users {
                     id
-                    realName
+                    firstname
+                    lastname
                     organisation
                     username
                 }
             }
             iCanEdit
-            fields
+            fields {
+                ...ALL_FOR_FIELD
+            }
             files {
                 id
                 fileName
@@ -35,11 +39,13 @@ export const GET_PROJECT = gql`
                 projectId
                 fileSize
                 description
+                uploadTime
                 uploadedBy
             }
         }
     }
-    ${JOB_FRAGMENT}
+    ${job_fragment}
+    ${field_fragment}
 `;
 
 export const GET_PROJECT_PATIENT_MAPPING = gql`
@@ -52,13 +58,16 @@ export const GET_PROJECT_PATIENT_MAPPING = gql`
 `;
 
 export const EDIT_PROJECT_APPROVED_FIELDS = gql`
-    mutation editProjectApprovedFields($projectId: String!, $fieldTreeId: String! $approvedFields: [String]!) {
-        editProjectApprovedFields(projectId: $projectId, fieldTreeId: $fieldTreeId, approvedFields: $approvedFields) {
+    mutation editProjectApprovedFields($projectId: String!, $approvedFields: [String]!) {
+        editProjectApprovedFields(projectId: $projectId, approvedFields: $approvedFields) {
             id
             approvedFields
-            fields
+            fields {
+                ...ALL_FOR_FIELD
+            }
         }
     }
+    ${field_fragment}
 `;
 
 export const EDIT_PROJECT_APPROVED_FILES = gql`

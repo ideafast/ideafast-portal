@@ -1,20 +1,20 @@
 // External node module imports
-import { Server as HTTPServer } from 'http';
-import { JobPoller } from '@itmat/utils';
+import { Express } from 'express';
 import { db } from './database/database';
 import { objStore } from './objStore/objStore';
 import { Router } from './server/router';
 import { Server } from './server/server';
+import { JobPoller } from 'itmat-commons';
 import { JobDispatcher } from './jobDispatch/dispatcher';
-import { UKBCSVUploadHandler } from './jobHandlers/UKBCSVUploadHandler';
-import { UKBFieldInfoUploadHandler } from './jobHandlers/UKBFieldInfoUploadHandler';
+import { MongoClient } from 'mongodb';
+import { UKB_CSV_UPLOAD_Handler } from './jobHandlers/UKB_CSV_UPLOAD_handler';
+import { UKB_JSON_UPLOAD_Handler } from './jobHandlers/UKB_JSON_UPLOAD_handler';
+import { UKB_FIELD_INFO_UPLOAD_Handler } from './jobHandlers/UKB_FIELD_INFO_UPLOAD_handler';
+import { QueryHandler } from './query/queryHandler';
 
 class ITMATJobExecutorServer extends Server {
-    private router;
 
-    constructor(config) {
-        super(config);
-    }
+    private router;
 
     /**
      * @fn start
@@ -23,32 +23,37 @@ class ITMATJobExecutorServer extends Server {
      * @return {Promise} Resolve to a native Express.js router ready to use on success.
      * In case of error, an ErrorStack is rejected.
      */
-    public start(): Promise<HTTPServer> {
+    public start(): Promise<Express> {
         const _this = this;
         return new Promise((resolve, reject) => {
+
             // Operate database migration if necessary
-            db.connect((this.config as any).database)
-                .then(() => objStore.connect((this.config as any).objectStore))
+            db.connect(this.config.database, MongoClient.connect as any)
+                .then(() => objStore.connect(this.config.objectStore))
                 .then(() => {
+
                     _this.router = new Router();
 
                     const jobDispatcher = new JobDispatcher();
 
                     /* TO_DO: can we figure out the files at runtime and import at runtime */
-                    jobDispatcher.registerJobType('DATA_UPLOAD', UKBCSVUploadHandler.prototype.getInstance);
-                    jobDispatcher.registerJobType('FIELD_INFO_UPLOAD', UKBFieldInfoUploadHandler.prototype.getInstance);
+                    jobDispatcher.registerJobType('DATA_UPLOAD_CSV', UKB_CSV_UPLOAD_Handler.prototype.getInstance.bind(UKB_CSV_UPLOAD_Handler));
+                    jobDispatcher.registerJobType('DATA_UPLOAD_JSON', UKB_JSON_UPLOAD_Handler.prototype.getInstance.bind(UKB_JSON_UPLOAD_Handler));
+                    jobDispatcher.registerJobType('FIELD_INFO_UPLOAD', UKB_FIELD_INFO_UPLOAD_Handler.prototype.getInstance.bind(UKB_FIELD_INFO_UPLOAD_Handler));
+                    jobDispatcher.registerJobType('QUERY_EXECUTION', QueryHandler.prototype.getInstance.bind(QueryHandler));
                     // jobDispatcher.registerJobType('UKB_IMAGE_UPLOAD', UKB_IMAGE_UPLOAD_Handler.prototype.getInstance);
 
                     const poller = new JobPoller({
                         identity: 'me',
                         jobCollection: db.collections!.jobs_collection,
-                        pollingInterval: (this.config as any).pollingInterval,
-                        action: jobDispatcher.dispatch,
+                        pollingInterval: this.config.pollingInterval,
+                        action: jobDispatcher.dispatch
                     });
                     poller.setInterval();
 
                     // Return the Express application
                     return resolve(_this.router.getApp());
+
                 }).catch((err) => reject(err));
         });
     }
@@ -59,7 +64,7 @@ class ITMATJobExecutorServer extends Server {
      * express router MUST be released and this service endpoints are expected to fail.
      * @return {Promise} Resolve to true on success, ErrorStack otherwise
      */
-    public stop() {
+    public stop(): Promise<void> {
         return Promise.resolve();
     }
 }

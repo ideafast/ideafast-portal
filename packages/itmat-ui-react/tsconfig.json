@@ -1,9 +1,4 @@
 {
-    "extends": "../../tsconfig.json",
-    "include": [
-        "src/**/*",
-        "test/**/*"
-    ],
     "compilerOptions": {
         "target": "es5",
         "lib": [
@@ -11,17 +6,27 @@
             "dom.iterable",
             "esnext"
         ],
-        "jsx": "react",
-        "strict": true,
-        "declaration": false,
-        "esModuleInterop": true,
+        "allowJs": true,
         "skipLibCheck": true,
+        "esModuleInterop": true,
         "allowSyntheticDefaultImports": true,
+        "strict": true,
         "forceConsistentCasingInFileNames": true,
         "module": "esnext",
         "moduleResolution": "node",
         "resolveJsonModule": true,
         "isolatedModules": true,
-        "noEmit": true
-    }
+        "noImplicitAny": false,
+        "noEmit": true,
+        "jsx": "react-jsx",
+        "noFallthroughCasesInSwitch": true,
+    },
+    "include": [
+        "src",
+        "../../global.d.ts"
+    ],
+    "exclude": [
+        "src/setupProxy.js",
+        "src/setupTests.js"
+    ]
 }

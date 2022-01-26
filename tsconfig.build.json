@@ -15,10 +15,7 @@
         "target": "es5",
         "sourceMap": true,
         "moduleResolution": "node",
-        "typeRoots": [
-            "overrides",
-            "node_modules/@types"
-        ]
+        "jsx": "react-jsx"
     },
     "exclude": [
         "node_modules",

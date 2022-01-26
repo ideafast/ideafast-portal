@@ -1,3 +1,6 @@
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-nocheck
+
 import request from 'supertest';
 import { print } from 'graphql';
 import { connectAdmin, connectUser, connectAgent } from './_loginHelper';
@@ -5,11 +8,13 @@ import { db } from '../../src/database/database';
 import { Router } from '../../src/server/router';
 import { errorCodes } from '../../src/graphql/errors';
 import { MongoClient } from 'mongodb';
-import { ADD_NEW_ROLE, EDIT_ROLE, REMOVE_ROLE, permissions } from '@itmat/commons';
+import * as itmatCommons from 'itmat-commons';
 import { MongoMemoryServer } from 'mongodb-memory-server';
-import { setupDatabase } from '../../../itmat-utils/src/databaseSetup/collectionsAndIndexes';
+import { setupDatabase } from 'itmat-setup';
 import config from '../../config/config.sample.json';
 import { v4 as uuid } from 'uuid';
+const { ADD_NEW_ROLE, EDIT_ROLE, REMOVE_ROLE } = itmatCommons.GQLRequests;
+const { permissions } = itmatCommons;
 
 let app;
 let mongodb;
@@ -22,26 +27,23 @@ afterAll(async () => {
     await db.closeConnection();
     await mongoConnection?.close();
     await mongodb.stop();
-}, global.__ADJUSTED_TIMEOUT__);
+});
 
 beforeAll(async () => { // eslint-disable-line no-undef
     /* Creating a in-memory MongoDB instance for testing */
-    mongodb = new MongoMemoryServer();
-    const connectionString = await mongodb.getUri();
-    const database = await mongodb.getDbName();
+    mongodb = await MongoMemoryServer.create();
+    const connectionString = mongodb.getUri();
+    const database = mongodb.instanceInfo.dbName;
     await setupDatabase(connectionString, database);
 
     /* Wiring up the backend server */
     config.database.mongo_url = connectionString;
     config.database.database = database;
-    await db.connect(config.database);
-    const router = new Router();
+    await db.connect(config.database, MongoClient.connect as any);
+    const router = new Router(config);
 
     /* Connect mongo client (for test setup later / retrieve info later) */
-    mongoConnection = await MongoClient.connect(connectionString, {
-        useNewUrlParser: true,
-        useUnifiedTopology: true
-    });
+    mongoConnection = await MongoClient.connect(connectionString);
     mongoClient = mongoConnection.db(database);
 
     /* Connecting clients for testing later */
@@ -50,18 +52,16 @@ beforeAll(async () => { // eslint-disable-line no-undef
     user = request.agent(app);
     await connectAdmin(admin);
     await connectUser(user);
-}, global.__ADJUSTED_TIMEOUT__);
+});
 
 describe('ROLE API', () => {
     let adminId;
-    let userId;
 
     beforeAll(async () => {
         /* setup: first retrieve the generated user id */
         const result = await mongoClient.collection(config.database.collections.users_collection).find({}, { projection: { id: 1, username: 1 } }).toArray();
         adminId = result.filter(e => e.username === 'admin')[0].id;
-        userId = result.filter(e => e.username === 'standardUser')[0].id;
-    }, global.__ADJUSTED_TIMEOUT__);
+    });
 
     describe('ADDING ROLE', () => {
         let setupStudy;
@@ -100,21 +100,22 @@ describe('ROLE API', () => {
             authorisedUserProfile = {
                 username,
                 type: 'STANDARD',
-                realName: `${username}_realname`,
+                firstname: `${username}_firstname`,
+                lastname: `${username}_lastname`,
                 password: '$2b$04$j0aSK.Dyq7Q9N.r6d0uIaOGrOe7sI4rGUn0JNcaXcPCv.49Otjwpi',
-                createdBy: 'admin',
-                email: `${username}@user.io`,
+                otpSecret: 'H6BNKKO27DPLCATGEJAZNWQV4LWOTMRA',
+                email: `${username}@example.com`,
                 description: 'I am a new user.',
                 emailNotificationsActivated: true,
-                organisation: 'DSI',
+                organisation: 'organisation_system',
                 deleted: null,
                 id: `new_user_id_${username}`
             };
             await mongoClient.collection(config.database.collections.users_collection).insertOne(authorisedUserProfile);
 
             authorisedUser = request.agent(app);
-            await connectAgent(authorisedUser, username, 'admin');
-        }, global.__ADJUSTED_TIMEOUT__);
+            await connectAgent(authorisedUser, username, 'admin', authorisedUserProfile.otpSecret);
+        });
 
         test('Creating a new role for study (admin)', async () => {
             const roleName = uuid();
@@ -152,7 +153,7 @@ describe('ROLE API', () => {
 
             /* cleanup */
             await mongoClient.collection(config.database.collections.roles_collection).findOneAndUpdate({ name: roleName, deleted: null }, { $set: { deleted: new Date().valueOf() } });
-        }, global.__ADJUSTED_TIMEOUT__);
+        });
 
         test('Creating a new role for study (user without privilege) (should fail)', async () => {
             const roleName = uuid();
@@ -171,7 +172,7 @@ describe('ROLE API', () => {
 
             const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ name: roleName });
             expect(createdRole).toBe(null);
-        }, global.__ADJUSTED_TIMEOUT__);
+        });
 
         test('Creating a new role for study (user with privilege)', async () => {
             /* setup: adding privilege to authorised user */
@@ -225,7 +226,7 @@ describe('ROLE API', () => {
 
             /* cleanup */
             await mongoClient.collection(config.database.collections.roles_collection).findOneAndUpdate({ name: roleName, deleted: null }, { $set: { deleted: new Date().valueOf() } });
-        }, global.__ADJUSTED_TIMEOUT__);
+        });
 
         test('Creating a new role for project (admin)', async () => {
             const roleName = uuid();
@@ -263,7 +264,7 @@ describe('ROLE API', () => {
 
             /* cleanup */
             await mongoClient.collection(config.database.collections.roles_collection).findOneAndUpdate({ name: roleName, deleted: null }, { $set: { deleted: new Date().valueOf() } });
-        }, global.__ADJUSTED_TIMEOUT__);
+        });
 
         test('Creating a new role for project (user with privilege for another project in the same study) (should fail)', async () => {
             /* setup: creating another project */
@@ -313,7 +314,7 @@ describe('ROLE API', () => {
 
             const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ name: roleName });
             expect(createdRole).toBe(null);
-        }, global.__ADJUSTED_TIMEOUT__);
+        });
 
         test('Creating a new role for project (user with privilege for this project)', async () => {
             /* setup: giving authorised user privilege */
@@ -367,7 +368,7 @@ describe('ROLE API', () => {
 
             /* cleanup */
             await mongoClient.collection(config.database.collections.roles_collection).findOneAndUpdate({ name: roleName, deleted: null }, { $set: { deleted: new Date().valueOf() } });
-        }, global.__ADJUSTED_TIMEOUT__);
+        });
 
         test('Creating a new role for project (user with privilege for the study)', async () => {
             /* setup: giving authorised user privilege */
@@ -421,7 +422,7 @@ describe('ROLE API', () => {
 
             /* cleanup */
             await mongoClient.collection(config.database.collections.roles_collection).findOneAndUpdate({ name: roleName, deleted: null }, { $set: { deleted: new Date().valueOf() } });
-        }, global.__ADJUSTED_TIMEOUT__);
+        });
 
         test('Creating a new role for project (user without privilege) (should fail)', async () => {
             const roleName = uuid();
@@ -440,7 +441,7 @@ describe('ROLE API', () => {
 
             const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ name: roleName });
             expect(createdRole).toBe(null);
-        }), global.__ADJUSTED_TIMEOUT__;
+        });
     });
 
     describe('EDITING ROLE', () => {
@@ -467,20 +468,21 @@ describe('ROLE API', () => {
                 authorisedUserProfile = {
                     username,
                     type: 'STANDARD',
-                    realName: `${username}_realname`,
+                    firstname: `${username}_firstname`,
+                    lastname: `${username}_lastname`,
                     password: '$2b$04$j0aSK.Dyq7Q9N.r6d0uIaOGrOe7sI4rGUn0JNcaXcPCv.49Otjwpi',
-                    createdBy: 'admin',
-                    email: `${username}@user.io`,
+                    otpSecret: 'H6BNKKO27DPLCATGEJAZNWQV4LWOTMRA',
+                    email: `${username}@example.com`,
                     description: 'I am a new user.',
                     emailNotificationsActivated: true,
-                    organisation: 'DSI',
+                    organisation: 'organisation_system',
                     deleted: null,
                     id: `new_user_id_${username}`
                 };
                 await mongoClient.collection(config.database.collections.users_collection).insertOne(authorisedUserProfile);
 
                 authorisedUser = request.agent(app);
-                await connectAgent(authorisedUser, username, 'admin');
+                await connectAgent(authorisedUser, username, 'admin', authorisedUserProfile.otpSecret);
 
                 /* setup: giving authorised user privilege */
                 const roleId = [uuid(), uuid()];
@@ -508,7 +510,7 @@ describe('ROLE API', () => {
                     deleted: null
                 };
                 await mongoClient.collection(config.database.collections.roles_collection).insertMany([setupRole, authorisedUserRole]);
-            }, global.__ADJUSTED_TIMEOUT__);
+            });
 
             test('Edit a non-existent role (admin)', async () => {
                 const newRoleName = uuid();
@@ -535,7 +537,7 @@ describe('ROLE API', () => {
                     users: [],
                     deleted: null
                 });
-            }, global.__ADJUSTED_TIMEOUT__);
+            });
 
             test('Edit a non-existent role (user)', async () => {
                 const newRoleName = uuid();
@@ -562,7 +564,7 @@ describe('ROLE API', () => {
                     users: [],
                     deleted: null
                 });
-            }, global.__ADJUSTED_TIMEOUT__);
+            });
 
             test('Change role name (admin)', async () => {
                 const newRoleName = uuid();
@@ -595,7 +597,7 @@ describe('ROLE API', () => {
                     users: [],
                     deleted: null
                 });
-            }, global.__ADJUSTED_TIMEOUT__);
+            });
 
             test('Change role name (privileged user)', async () => {
                 const newRoleName = uuid();
@@ -628,7 +630,7 @@ describe('ROLE API', () => {
                     users: [],
                     deleted: null
                 });
-            }, global.__ADJUSTED_TIMEOUT__);
+            });
 
             test('Change role name (user without privilege) (should fail)', async () => {
                 const newRoleName = uuid();
@@ -656,7 +658,7 @@ describe('ROLE API', () => {
                     users: [],
                     deleted: null
                 });
-            }, global.__ADJUSTED_TIMEOUT__);
+            });
 
             test('Add a non-existent user to role (admin)', async () => {
                 /* setup: confirm that role has no user yet */
@@ -703,7 +705,7 @@ describe('ROLE API', () => {
                     users: [],
                     deleted: null
                 });
-            }, global.__ADJUSTED_TIMEOUT__);
+            });
 
             test('Add user to role (admin)', async () => {
                 /* setup: create a user to be added to role */
@@ -711,13 +713,14 @@ describe('ROLE API', () => {
                 const newUser = {
                     username: newUsername,
                     type: 'STANDARD',
-                    realName: `${newUsername}_realname`,
+                    firstname: `${newUsername}_firstname`,
+                    lastname: `${newUsername}_lastname`,
                     password: '$2b$04$j0aSK.Dyq7Q9N.r6d0uIaOGrOe7sI4rGUn0JNcaXcPCv.49Otjwpi',
-                    createdBy: 'admin',
-                    email: `${newUsername}@user.io`,
+                    otpSecret: 'H6BNKKO27DPLCATGEJAZNWQV4LWOTMRA',
+                    email: `${newUsername}@example.com`,
                     description: 'I am a new user.',
                     emailNotificationsActivated: true,
-                    organisation: 'DSI',
+                    organisation: 'organisation_system',
                     deleted: null,
                     id: `new_user_id_${newUsername}`
                 };
@@ -745,7 +748,8 @@ describe('ROLE API', () => {
                     users: [{
                         id: newUser.id,
                         organisation: newUser.organisation,
-                        realName: newUser.realName
+                        firstname: newUser.firstname,
+                        lastname: newUser.lastname
                     }]
                 });
                 const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ id: setupRole.id });
@@ -760,7 +764,7 @@ describe('ROLE API', () => {
                     users: [newUser.id],
                     deleted: null
                 });
-            }, global.__ADJUSTED_TIMEOUT__);
+            });
 
             test('Add user to role (privileged user)', async () => {
                 /* setup: create a user to be added to role */
@@ -768,13 +772,14 @@ describe('ROLE API', () => {
                 const newUser = {
                     username: newUsername,
                     type: 'STANDARD',
-                    realName: `${newUsername}_realname`,
+                    firstname: `${newUsername}_firstname`,
+                    lastname: `${newUsername}_lastname`,
                     password: '$2b$04$j0aSK.Dyq7Q9N.r6d0uIaOGrOe7sI4rGUn0JNcaXcPCv.49Otjwpi',
-                    createdBy: 'admin',
-                    email: `${newUsername}@user.io`,
+                    otpSecret: 'H6BNKKO27DPLCATGEJAZNWQV4LWOTMRA',
+                    email: `${newUsername}@example.com`,
                     description: 'I am a new user.',
                     emailNotificationsActivated: true,
-                    organisation: 'DSI',
+                    organisation: 'organisation_system',
                     deleted: null,
                     id: `new_user_id_${newUsername}`
                 };
@@ -802,7 +807,8 @@ describe('ROLE API', () => {
                     users: [{
                         id: newUser.id,
                         organisation: newUser.organisation,
-                        realName: newUser.realName
+                        firstname: newUser.firstname,
+                        lastname: newUser.lastname
                     }]
                 });
                 const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ id: setupRole.id });
@@ -817,7 +823,7 @@ describe('ROLE API', () => {
                     users: [newUser.id],
                     deleted: null
                 });
-            }, global.__ADJUSTED_TIMEOUT__);
+            });
 
             test('Add user to role (user without privilege) (should fail)', async () => {
                 /* setup: create a user to be added to role */
@@ -825,13 +831,14 @@ describe('ROLE API', () => {
                 const newUser = {
                     username: newUsername,
                     type: 'STANDARD',
-                    realName: `${newUsername}_realname`,
+                    firstname: `${newUsername}_firstname`,
+                    lastname: `${newUsername}_lastname`,
                     password: '$2b$04$j0aSK.Dyq7Q9N.r6d0uIaOGrOe7sI4rGUn0JNcaXcPCv.49Otjwpi',
-                    createdBy: 'admin',
-                    email: `${newUsername}@user.io`,
+                    otpSecret: 'H6BNKKO27DPLCATGEJAZNWQV4LWOTMRA',
+                    email: `${newUsername}@example.com`,
                     description: 'I am a new user.',
                     emailNotificationsActivated: true,
-                    organisation: 'DSI',
+                    organisation: 'organisation_system',
                     deleted: null,
                     id: `new_user_id_${newUsername}`
                 };
@@ -864,7 +871,7 @@ describe('ROLE API', () => {
                     users: [],
                     deleted: null
                 });
-            }, global.__ADJUSTED_TIMEOUT__);
+            });
 
             test('Remove user from role (admin)', async () => {
                 /* setup: create a user to be removed from role */
@@ -872,13 +879,14 @@ describe('ROLE API', () => {
                 const newUser = {
                     username: newUsername,
                     type: 'STANDARD',
-                    realName: `${newUsername}_realname`,
+                    firstname: `${newUsername}_firstname`,
+                    lastname: `${newUsername}_lastname`,
                     password: '$2b$04$j0aSK.Dyq7Q9N.r6d0uIaOGrOe7sI4rGUn0JNcaXcPCv.49Otjwpi',
-                    createdBy: 'admin',
-                    email: `${newUsername}@user.io`,
+                    otpSecret: 'H6BNKKO27DPLCATGEJAZNWQV4LWOTMRA',
+                    email: `${newUsername}@example.com`,
                     description: 'I am a new user.',
                     emailNotificationsActivated: true,
-                    organisation: 'DSI',
+                    organisation: 'organisation_system',
                     deleted: null,
                     id: `new_user_id_${newUsername}`
                 };
@@ -890,7 +898,7 @@ describe('ROLE API', () => {
                     $push: {
                         users: newUser.id
                     }
-                }, { returnOriginal: false });
+                }, { returnDocument: 'after' });
                 expect(updatedRole.value.users).toEqual([newUser.id]);
 
                 /* test */
@@ -926,7 +934,7 @@ describe('ROLE API', () => {
                     users: [],
                     deleted: null
                 });
-            }, global.__ADJUSTED_TIMEOUT__);
+            });
 
             test('Add permission to role (admin)', async () => {
                 /* setup: confirm that role has no permissions yet */
@@ -988,14 +996,14 @@ describe('ROLE API', () => {
                     users: [],
                     deleted: null
                 });
-            }, global.__ADJUSTED_TIMEOUT__);
+            });
 
             test('Add a duplicated permission to role (admin)', async () => {
                 /* setup: confirm that role has one permissions yet */
                 const role = await mongoClient.collection(config.database.collections.roles_collection).findOneAndUpdate({
                     id: setupRole.id,
                     deleted: null
-                }, { $push: { permissions: permissions.specific_study.specific_study_readonly_access } }, { returnOriginal: false });
+                }, { $push: { permissions: permissions.specific_study.specific_study_readonly_access } }, { returnDocument: 'after' });
                 expect(role.value).toEqual({
                     _id: setupRole._id,
                     id: setupRole.id,
@@ -1047,7 +1055,7 @@ describe('ROLE API', () => {
                     users: [],
                     deleted: null
                 });
-            }, global.__ADJUSTED_TIMEOUT__);
+            });
 
             test('Add two of the same permissions to role (admin)', async () => {
                 /* setup: confirm that role has no permissions yet */
@@ -1107,7 +1115,7 @@ describe('ROLE API', () => {
                     users: [],
                     deleted: null
                 });
-            }, global.__ADJUSTED_TIMEOUT__);
+            });
 
             test('Adding a non-sense permission to role (admin) (should fail)', async () => {
                 /* setup: confirm that role has no permissions yet */
@@ -1156,7 +1164,7 @@ describe('ROLE API', () => {
                     users: [],
                     deleted: null
                 });
-            }, global.__ADJUSTED_TIMEOUT__);
+            });
 
             test('Adding a project permission to study role (admin) (should fail)', async () => {
                 /* setup: confirm that role has no permissions yet */
@@ -1205,14 +1213,14 @@ describe('ROLE API', () => {
                     users: [],
                     deleted: null
                 });
-            }, global.__ADJUSTED_TIMEOUT__);
+            });
 
             test('Remove permission from role (admin)', async () => {
                 /* setup: confirm that role has one permissions */
                 const role = await mongoClient.collection(config.database.collections.roles_collection).findOneAndUpdate({
                     id: setupRole.id,
                     deleted: null
-                }, { $push: { permissions: permissions.specific_study.specific_study_readonly_access } }, { returnOriginal: false });
+                }, { $push: { permissions: permissions.specific_study.specific_study_readonly_access } }, { returnDocument: 'after' });
                 expect(role.value).toEqual({
                     _id: setupRole._id,
                     id: setupRole.id,
@@ -1260,7 +1268,7 @@ describe('ROLE API', () => {
                     users: [],
                     deleted: null
                 });
-            }, global.__ADJUSTED_TIMEOUT__);
+            });
 
             test('Remove permission which is not added from role (admin)', async () => {
                 /* setup: confirm that role has no permissions yet */
@@ -1315,7 +1323,7 @@ describe('ROLE API', () => {
                     users: [],
                     deleted: null
                 });
-            }, global.__ADJUSTED_TIMEOUT__);
+            });
 
             test('Combination of edits (admin)', async () => {
                 /* setup: create a user to be removed from role */
@@ -1323,13 +1331,14 @@ describe('ROLE API', () => {
                 const newUser = {
                     username: newUsername,
                     type: 'STANDARD',
-                    realName: `${newUsername}_realname`,
+                    firstname: `${newUsername}_firstname`,
+                    lastname: `${newUsername}_lastname`,
                     password: '$2b$04$j0aSK.Dyq7Q9N.r6d0uIaOGrOe7sI4rGUn0JNcaXcPCv.49Otjwpi',
-                    createdBy: 'admin',
-                    email: `${newUsername}@user.io`,
+                    otpSecret: 'H6BNKKO27DPLCATGEJAZNWQV4LWOTMRA',
+                    email: `${newUsername}@example.com`,
                     description: 'I am a new user.',
                     emailNotificationsActivated: true,
-                    organisation: 'DSI',
+                    organisation: 'organisation_system',
                     deleted: null,
                     id: `new_user_id_${newUsername}`
                 };
@@ -1339,7 +1348,7 @@ describe('ROLE API', () => {
                 const role = await mongoClient.collection(config.database.collections.roles_collection).findOneAndUpdate({
                     id: setupRole.id,
                     deleted: null
-                }, { $push: { permissions: permissions.specific_study.specific_study_readonly_access, users: newUser.id } }, { returnOriginal: false });
+                }, { $push: { permissions: permissions.specific_study.specific_study_readonly_access, users: newUser.id } }, { returnDocument: 'after' });
                 expect(role.value).toEqual({
                     _id: setupRole._id,
                     id: setupRole.id,
@@ -1384,8 +1393,9 @@ describe('ROLE API', () => {
                     ],
                     users: [{
                         id: adminId,
-                        organisation: 'DSI',
-                        realName: 'admin',
+                        organisation: 'organisation_system',
+                        firstname: 'Fadmin',
+                        lastname: 'Ladmin',
                     }]
                 });
                 const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ id: setupRole.id });
@@ -1402,7 +1412,7 @@ describe('ROLE API', () => {
                     createdBy: adminId,
                     deleted: null
                 });
-            }, global.__ADJUSTED_TIMEOUT__);
+            });
         });
 
         describe('EDIT PROJECT ROLE', () => {
@@ -1445,20 +1455,21 @@ describe('ROLE API', () => {
                 authorisedUserProfile = {
                     username,
                     type: 'STANDARD',
-                    realName: `${username}_realname`,
+                    firstname: `${username}_firstname`,
+                    lastname: `${username}_lastname`,
                     password: '$2b$04$j0aSK.Dyq7Q9N.r6d0uIaOGrOe7sI4rGUn0JNcaXcPCv.49Otjwpi',
-                    createdBy: 'admin',
-                    email: `${username}@user.io`,
+                    otpSecret: 'H6BNKKO27DPLCATGEJAZNWQV4LWOTMRA',
+                    email: `${username}@example.com`,
                     description: 'I am a new user.',
                     emailNotificationsActivated: true,
-                    organisation: 'DSI',
+                    organisation: 'organisation_system',
                     deleted: null,
                     id: `new_user_id_${username}`
                 };
                 await mongoClient.collection(config.database.collections.users_collection).insertOne(authorisedUserProfile);
 
                 authorisedUser = request.agent(app);
-                await connectAgent(authorisedUser, username, 'admin');
+                await connectAgent(authorisedUser, username, 'admin', authorisedUserProfile.otpSecret);
 
                 /* setup: giving authorised user privilege */
                 const roleId = [uuid(), uuid()];
@@ -1486,7 +1497,7 @@ describe('ROLE API', () => {
                     deleted: null
                 };
                 await mongoClient.collection(config.database.collections.roles_collection).insertMany([setupRole, authorisedUserRole]);
-            }, global.__ADJUSTED_TIMEOUT__);
+            });
 
             test('Change role name (admin)', async () => {
                 const newRoleName = uuid();
@@ -1519,7 +1530,7 @@ describe('ROLE API', () => {
                     users: [],
                     deleted: null
                 });
-            }, global.__ADJUSTED_TIMEOUT__);
+            });
 
             test('Change role name (privileged user)', async () => {
                 const newRoleName = uuid();
@@ -1552,7 +1563,7 @@ describe('ROLE API', () => {
                     users: [],
                     deleted: null
                 });
-            }, global.__ADJUSTED_TIMEOUT__);
+            });
 
             test('Change role name (user without privilege) (should fail)', async () => {
                 const newRoleName = uuid();
@@ -1580,7 +1591,7 @@ describe('ROLE API', () => {
                     users: [],
                     deleted: null
                 });
-            }, global.__ADJUSTED_TIMEOUT__);
+            });
 
             test('Add a non-existent user to role (admin)', async () => {
                 /* setup: confirm that role has no user yet */
@@ -1627,7 +1638,7 @@ describe('ROLE API', () => {
                     users: [],
                     deleted: null
                 });
-            }, global.__ADJUSTED_TIMEOUT__);
+            });
 
             test('Add user to role (privileged user)', async () => {
                 /* setup: create a user to be added to role */
@@ -1635,13 +1646,14 @@ describe('ROLE API', () => {
                 const newUser = {
                     username: newUsername,
                     type: 'STANDARD',
-                    realName: `${newUsername}_realname`,
+                    firstname: `${newUsername}_firstname`,
+                    lastname: `${newUsername}_lastname`,
                     password: '$2b$04$j0aSK.Dyq7Q9N.r6d0uIaOGrOe7sI4rGUn0JNcaXcPCv.49Otjwpi',
-                    createdBy: 'admin',
-                    email: `${newUsername}@user.io`,
+                    otpSecret: 'H6BNKKO27DPLCATGEJAZNWQV4LWOTMRA',
+                    email: `${newUsername}@example.com`,
                     description: 'I am a new user.',
                     emailNotificationsActivated: true,
-                    organisation: 'DSI',
+                    organisation: 'organisation_system',
                     deleted: null,
                     id: `new_user_id_${newUsername}`
                 };
@@ -1669,7 +1681,8 @@ describe('ROLE API', () => {
                     users: [{
                         id: newUser.id,
                         organisation: newUser.organisation,
-                        realName: newUser.realName
+                        firstname: newUser.firstname,
+                        lastname: newUser.lastname
                     }]
                 });
                 const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ id: setupRole.id });
@@ -1684,7 +1697,7 @@ describe('ROLE API', () => {
                     users: [newUser.id],
                     deleted: null
                 });
-            }, global.__ADJUSTED_TIMEOUT__);
+            });
 
             test('Add user to role (user without privilege) (should fail)', async () => {
                 /* setup: create a user to be added to role */
@@ -1692,13 +1705,14 @@ describe('ROLE API', () => {
                 const newUser = {
                     username: newUsername,
                     type: 'STANDARD',
-                    realName: `${newUsername}_realname`,
+                    firstname: `${newUsername}_firstname`,
+                    lastname: `${newUsername}_lastname`,
                     password: '$2b$04$j0aSK.Dyq7Q9N.r6d0uIaOGrOe7sI4rGUn0JNcaXcPCv.49Otjwpi',
-                    createdBy: 'admin',
-                    email: `${newUsername}@user.io`,
+                    otpSecret: 'H6BNKKO27DPLCATGEJAZNWQV4LWOTMRA',
+                    email: `${newUsername}@example.com`,
                     description: 'I am a new user.',
                     emailNotificationsActivated: true,
-                    organisation: 'DSI',
+                    organisation: 'organisation_system',
                     deleted: null,
                     id: `new_user_id_${newUsername}`
                 };
@@ -1731,7 +1745,7 @@ describe('ROLE API', () => {
                     users: [],
                     deleted: null
                 });
-            }, global.__ADJUSTED_TIMEOUT__);
+            });
 
             test('Adding a study permission to project role (admin) (should fail)', async () => {
                 /* setup: confirm that role has no permissions yet */
@@ -1780,7 +1794,7 @@ describe('ROLE API', () => {
                     users: [],
                     deleted: null
                 });
-            }, global.__ADJUSTED_TIMEOUT__);
+            });
         });
     });
 
@@ -1808,20 +1822,21 @@ describe('ROLE API', () => {
                 authorisedUserProfile = {
                     username,
                     type: 'STANDARD',
-                    realName: `${username}_realname`,
+                    firstname: `${username}_firstname`,
+                    lastname: `${username}_lastname`,
                     password: '$2b$04$j0aSK.Dyq7Q9N.r6d0uIaOGrOe7sI4rGUn0JNcaXcPCv.49Otjwpi',
-                    createdBy: 'admin',
-                    email: `${username}@user.io`,
+                    otpSecret: 'H6BNKKO27DPLCATGEJAZNWQV4LWOTMRA',
+                    email: `${username}@example.com`,
                     description: 'I am a new user.',
                     emailNotificationsActivated: true,
-                    organisation: 'DSI',
+                    organisation: 'organisation_system',
                     deleted: null,
                     id: `new_user_id_${username}`
                 };
                 await mongoClient.collection(config.database.collections.users_collection).insertOne(authorisedUserProfile);
 
                 authorisedUser = request.agent(app);
-                await connectAgent(authorisedUser, username, 'admin');
+                await connectAgent(authorisedUser, username, 'admin', authorisedUserProfile.otpSecret);
 
                 /* setup: giving authorised user privilege */
                 const roleId = [uuid(), uuid()];
@@ -1849,7 +1864,7 @@ describe('ROLE API', () => {
                     deleted: null
                 };
                 await mongoClient.collection(config.database.collections.roles_collection).insertMany([setupRole, authorisedUserRole]);
-            }, global.__ADJUSTED_TIMEOUT__);
+            });
 
             test('delete a study role (admin)', async () => {
                 const res = await admin.post('/graphql').send({
@@ -1863,7 +1878,7 @@ describe('ROLE API', () => {
                 expect(res.body.data.removeRole).toEqual({ successful: true });
                 const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ id: setupRole.id });
                 expect(typeof createdRole.deleted).toBe('number');
-            }, global.__ADJUSTED_TIMEOUT__);
+            });
 
             test('delete a study role (privileged user)', async () => {
                 const res = await authorisedUser.post('/graphql').send({
@@ -1877,7 +1892,7 @@ describe('ROLE API', () => {
                 expect(res.body.data.removeRole).toEqual({ successful: true });
                 const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ id: setupRole.id });
                 expect(typeof createdRole.deleted).toBe('number');
-            }, global.__ADJUSTED_TIMEOUT__);
+            });
 
             test('delete a study role (user with no privilege) (should fail)', async () => {
                 const res = await user.post('/graphql').send({
@@ -1892,7 +1907,7 @@ describe('ROLE API', () => {
                 expect(res.body.data.removeRole).toEqual(null);
                 const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ id: setupRole.id });
                 expect(createdRole.deleted).toBe(null);
-            }, global.__ADJUSTED_TIMEOUT__);
+            });
 
             test('delete a non-existent role (admin)', async () => {
                 const res = await admin.post('/graphql').send({
@@ -1907,7 +1922,7 @@ describe('ROLE API', () => {
                 expect(res.body.data.removeRole).toEqual(null);
                 const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ id: setupRole.id });
                 expect(createdRole.deleted).toBe(null);
-            }, global.__ADJUSTED_TIMEOUT__);
+            });
         });
 
         describe('DELETE PROJECT ROLE', () => {
@@ -1950,20 +1965,21 @@ describe('ROLE API', () => {
                 authorisedUserProfile = {
                     username,
                     type: 'STANDARD',
-                    realName: `${username}_realname`,
+                    firstname: `${username}_firstname`,
+                    lastname: `${username}_lastname`,
                     password: '$2b$04$j0aSK.Dyq7Q9N.r6d0uIaOGrOe7sI4rGUn0JNcaXcPCv.49Otjwpi',
-                    createdBy: 'admin',
-                    email: `${username}@user.io`,
+                    otpSecret: 'H6BNKKO27DPLCATGEJAZNWQV4LWOTMRA',
+                    email: `${username}@example.com`,
                     description: 'I am a new user.',
                     emailNotificationsActivated: true,
-                    organisation: 'DSI',
+                    organisation: 'organisation_system',
                     deleted: null,
                     id: `new_user_id_${username}`
                 };
                 await mongoClient.collection(config.database.collections.users_collection).insertOne(authorisedUserProfile);
 
                 authorisedUser = request.agent(app);
-                await connectAgent(authorisedUser, username, 'admin');
+                await connectAgent(authorisedUser, username, 'admin', authorisedUserProfile.otpSecret);
 
                 /* setup: giving authorised user privilege */
                 const roleId = [uuid(), uuid()];
@@ -1991,7 +2007,7 @@ describe('ROLE API', () => {
                     deleted: null
                 };
                 await mongoClient.collection(config.database.collections.roles_collection).insertMany([setupRole, authorisedUserRole]);
-            }, global.__ADJUSTED_TIMEOUT__);
+            });
 
             test('delete a project role (admin)', async () => {
                 const res = await admin.post('/graphql').send({
@@ -2005,7 +2021,7 @@ describe('ROLE API', () => {
                 expect(res.body.data.removeRole).toEqual({ successful: true });
                 const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ id: setupRole.id });
                 expect(typeof createdRole.deleted).toBe('number');
-            }, global.__ADJUSTED_TIMEOUT__);
+            });
 
             test('delete a project role (privileged user)', async () => {
                 const res = await authorisedUser.post('/graphql').send({
@@ -2019,7 +2035,7 @@ describe('ROLE API', () => {
                 expect(res.body.data.removeRole).toEqual({ successful: true });
                 const createdRole = await mongoClient.collection(config.database.collections.roles_collection).findOne({ id: setupRole.id });
                 expect(typeof createdRole.deleted).toBe('number');
-            }, global.__ADJUSTED_TIMEOUT__);
+            });
         });
     });
 });

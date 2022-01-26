@@ -1,5 +1,20 @@
 import { gql } from '@apollo/client';
 
+export const GET_GRANTED_PERMISSIONS = gql`
+    query getGrantedPermissions($studyId: String, $projectId: String) {
+        getGrantedPermissions(studyId: $studyId, projectId: $projectId) {
+            studies {
+                studyId
+                permissions
+            }
+            projects {
+                projectId
+                permissions
+            }
+        }
+    }
+`;
+
 export const EDIT_ROLE = gql`
     mutation editRole(
         $roleId: String!,
@@ -13,10 +28,11 @@ export const EDIT_ROLE = gql`
             studyId
             projectId
             permissions
-                users {
-                    id
-                    organisation
-                    realName
+            users {
+                id
+                organisation
+                firstname
+                lastname
             }
         }
     }
@@ -40,7 +56,8 @@ export const ADD_NEW_ROLE = gql`
             projectId
             users {
                 id
-                realName
+                firstname
+                lastname
                 organisation
             }
         }

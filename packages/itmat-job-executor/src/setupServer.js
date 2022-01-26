@@ -3,6 +3,6 @@ module.exports = () => ({
         bcrypt: 'commonjs bcrypt',
         express: 'commonjs express',
         mongodb: 'commonjs mongodb',
-        'require_optional': 'commonjs require_optional'
+        require_optional: 'commonjs require_optional'
     }],
 });

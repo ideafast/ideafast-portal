@@ -80,14 +80,17 @@ config.test.json
 
 notes/
 coverage/
-reports/
-.stryker-tmp/
 
 dist/
 build/
+
+.vscode/
 
 diagnostics/
 
 kubernetes/*.yaml
 
+itmat-client-old/
 .idea/
+
+target

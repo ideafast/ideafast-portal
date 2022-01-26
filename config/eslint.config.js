@@ -7,11 +7,18 @@ var defaultEnv = {
 
 var defaultPlugins = [
     '@typescript-eslint',
-    'jest'
+    'cypress',
+    'flowtype',
+    'import',
+    'jest',
+    'jsx-a11y',
+    'react',
+    'react-hooks',
 ];
 
 var javascriptExtensions = [
-    'eslint:recommended'
+    'eslint:recommended',
+    'react-app'
 ];
 
 var typescriptExtensions = javascriptExtensions.concat([
@@ -23,19 +30,34 @@ var defaultRules = {
     'indent': [
         'error',
         4,
-        { 'SwitchCase': 1 }
+        { SwitchCase: 1 }
     ],
+    'eol-last': [
+        'error',
+        'always'
+    ],
+    'no-trailing-spaces': 'error',
     'no-unused-vars': [
-        'warn',
-        { 'argsIgnorePattern': '^__unused__' }
+        'off'
     ],
     'quotes': [
         'error',
         'single'
     ],
+    'quote-props': [
+        'error',
+        'consistent-as-needed'
+    ],
+    'jsx-quotes': [
+        'error',
+        'prefer-single'
+    ],
     'semi': [
         'error',
         'always'
+    ],
+    'no-explicit-any': [
+        'off'
     ],
     '@typescript-eslint/camelcase': [
         'off'
@@ -43,16 +65,26 @@ var defaultRules = {
     '@typescript-eslint/interface-name-prefix': [
         'off'
     ],
+    '@typescript-eslint/no-non-null-assertion': [
+        'off'
+    ],
     '@typescript-eslint/no-this-alias': [
         'off'
     ],
+    '@typescript-eslint/no-explicit-any': [
+        'off'
+    ],
+    '@typescript-eslint/explicit-module-boundary-types': [
+        'off'
+    ],
+    '@typescript-eslint/explicit-function-return-type': [
+        'off'
+    ],
     '@typescript-eslint/no-unused-vars': [
-        'warn',
-        { 'argsIgnorePattern': '^__unused__' }
+        'error',
+        { argsIgnorePattern: '^__unused__' }
     ],
 };
-
-console.log('Applying custom ESLint configuration...');
 
 module.exports = {
     env: defaultEnv,
@@ -60,8 +92,15 @@ module.exports = {
     parser: '@typescript-eslint/parser',
     parserOptions: {
         ecmaVersion: 2018,
+        ecmaFeatures: {
+            jsx: true
+        },
         sourceType: 'module'
     },
+    ignorePatterns: [
+        '**/dist/**',
+        '**/build/**'
+    ],
     plugins: defaultPlugins,
     rules: defaultRules,
     overrides: [
@@ -86,8 +125,8 @@ module.exports = {
                 'jest/globals': true
             }),
             globals: {
-                __MINIO_PORT__: 'readonly',
-                __ADJUSTED_TIMEOUT__: 'readonly'
+                hasMinio: 'readonly',
+                minioContainerPort: 'readonly'
             },
             extends: javascriptExtensions,
             rules: defaultRules
@@ -104,8 +143,43 @@ module.exports = {
             globals: {
                 Atomics: 'readonly',
                 SharedArrayBuffer: 'readonly',
-                __MINIO_PORT__: 'readonly',
-                __ADJUSTED_TIMEOUT__: 'readonly'
+                hasMinio: 'readonly',
+                minioContainerPort: 'readonly'
+            },
+            extends: typescriptExtensions,
+            rules: defaultRules
+        },
+        {
+            files: [
+                '**/cypress/**/*.test.js',
+                '**/cypress/**/*.test.jsx',
+                '**/cypress/**/test/**/*.js',
+                '**/cypress/support/index.js'
+            ],
+            env: Object.assign({}, defaultEnv, {
+                'cypress/globals': true
+            }),
+            globals: {
+                hasMinio: true,
+                minioContainerPort: true
+            },
+            extends: javascriptExtensions,
+            rules: defaultRules
+        },
+        {
+            files: [
+                '**/cypress/**/*.test.ts',
+                '**/cypress/**/*.test.tsx',
+                '**/cypress/**/test/**/*.ts'
+            ],
+            env: Object.assign({}, defaultEnv, {
+                'cypress/globals': true
+            }),
+            globals: {
+                Atomics: 'readonly',
+                SharedArrayBuffer: 'readonly',
+                hasMinio: true,
+                minioContainerPort: true
             },
             extends: typescriptExtensions,
             rules: defaultRules

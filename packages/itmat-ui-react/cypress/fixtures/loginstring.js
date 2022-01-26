@@ -9,7 +9,8 @@ const LOGINSTRING = `mutation login($username: String!, $password: String!) {
     id
     username
     type
-    realName
+    firstname
+    lastname
     email
     createdBy
     organisation
@@ -36,7 +37,7 @@ const LOGINSTRING = `mutation login($username: String!, $password: String!) {
 const LOGIN_BODY_ADMIN = {
     operationName: 'login',
     variables: { password: 'admin', username: 'admin' },
-    query: LOGINSTRING,
+    query: LOGINSTRING
 };
 
 

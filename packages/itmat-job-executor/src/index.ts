@@ -1,55 +1,59 @@
 
 // eslint:disable: no-console
-import { Server } from 'http';
+import { Express } from 'express';
 import { Socket } from 'net';
 import os from 'os';
-import { Logger } from '@itmat/utils';
+import http from 'http';
 import ITMATJobExecutorServer from './jobExecutorServer';
 import config from './utils/configManager';
 
 let interfaceIteration = 0;
-let interfaceStarting = false;
+let interfaceServer = new ITMATJobExecutorServer(config);
 let interfaceSockets: Socket[] = [];
-let interfaceServer;
+let interfaceSocket: http.Server;
 let interfaceRouter;
 
 function serverStart() {
-    if (interfaceStarting) return;
     console.info(`Starting server ${interfaceIteration++} ...`);
-    interfaceStarting = true;
-    interfaceServer = new ITMATJobExecutorServer(config);
-    interfaceServer.start().then((itmatRouter: Server) => {
+    interfaceServer.start().then((itmatRouter: Express) => {
+
         interfaceRouter = itmatRouter;
-        interfaceRouter.listen(config.server.port, () => {
+        interfaceSocket = itmatRouter.listen(config.server.port, () => {
             console.info(`Listening at http://${os.hostname()}:${config.server.port}/`);
-            interfaceStarting = false;
         })
             .on('connection', (socket) => {
                 interfaceSockets.push(socket);
             })
             .on('error', (error) => {
                 if (error) {
-                    Logger.error('An error occurred while starting the HTTP server.', error);
+                    console.error('An error occurred while starting the HTTP server.', error);
+                    return;
                 }
             });
+
     }).catch((error) => {
-        Logger.error('An error occurred while starting the ITMAT job executor.', error);
-        Logger.error(error.stack);
+        console.error('An error occurred while starting the ITMAT job executor.', error);
+        if (error.stack)
+            console.error(error.stack);
         return false;
     });
 }
 
 function serverSpinning() {
+
     if (interfaceRouter !== undefined) {
         console.info('Renewing server ...');
+        interfaceServer = new ITMATJobExecutorServer(config);
         console.info(`Destroying ${interfaceSockets.length} sockets ...`);
         interfaceSockets.forEach((socket) => {
             socket.destroy();
         });
         interfaceSockets = [];
-        console.info(`Shuting down server ${interfaceIteration} ...`);
-        interfaceRouter.close(() => {
-            serverStart();
+        interfaceSocket.close(() => {
+            console.info(`Shuting down server ${interfaceIteration} ...`);
+            interfaceRouter?.close?.(() => {
+                serverStart();
+            }) || serverStart();
         });
     } else {
         serverStart();
@@ -59,6 +63,8 @@ function serverSpinning() {
 serverSpinning();
 
 if (module.hot) {
+    module.hot.accept('./index', serverSpinning);
+    module.hot.accept('./jobExecutorServer', serverSpinning);
     module.hot.accept('./index.ts', serverSpinning);
     module.hot.accept('./jobExecutorServer.ts', serverSpinning);
 }

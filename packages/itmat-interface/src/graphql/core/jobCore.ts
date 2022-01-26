@@ -1,4 +1,4 @@
-import { IJobEntry } from '@itmat/commons';
+import { IJobEntry } from 'itmat-commons';
 import { v4 as uuid } from 'uuid';
 import { db } from '../../database/database';
 
@@ -14,7 +14,7 @@ export class JobCore {
             receivedFiles: files,
             status: 'QUEUED',
             error: null,
-            cancelled: false,
+            cancelled: false
         };
         await db.collections!.jobs_collection.insertOne(job);
         return job;

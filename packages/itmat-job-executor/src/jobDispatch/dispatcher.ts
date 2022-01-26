@@ -1,12 +1,12 @@
-import { IJobEntry } from '@itmat/commons';
+import { IJobEntry } from 'itmat-commons';
 import { JobHandler } from '../jobHandlers/jobHandlerInterface';
 
 export class JobDispatcher {
     private _handlerCollection: {
-        [jobType: string]: () => Promise<JobHandler>;
+        [jobType: string]: () => Promise<JobHandler>
     };
 
-    constructor() { // eslint:disable-line
+    constructor() {
         this.dispatch = this.dispatch.bind(this);
         this._handlerCollection = {};
     }
@@ -19,9 +19,9 @@ export class JobDispatcher {
         delete this._handlerCollection[jobType];
     }
 
-    public async dispatch(job: IJobEntry<any>) {
+    public async dispatch(job: IJobEntry<any>): Promise<void> {
         if (!this._handlerCollection[job.jobType]) {
-            // set job to UNPROCESSED
+            //TODO set job to UNPROCESSED
             return;
         }
         await (await this._handlerCollection[job.jobType]()).execute(job);
