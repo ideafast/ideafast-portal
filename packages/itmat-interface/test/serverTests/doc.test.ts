@@ -40,10 +40,11 @@ afterAll(async () => {
 });
 
 beforeAll(async () => { // eslint-disable-line no-undef
+
     /* Creating a in-memory MongoDB instance for testing */
-    mongodb = new MongoMemoryServer();
-    const connectionString = await mongodb.getUri();
-    const database = await mongodb.getDbName();
+    mongodb = await MongoMemoryServer.create();
+    const connectionString = mongodb.getUri();
+    const database = mongodb.instanceInfo.dbName;
     await setupDatabase(connectionString, database);
 
     /* Wiring up the backend server */
@@ -53,10 +54,7 @@ beforeAll(async () => { // eslint-disable-line no-undef
     const router = new Router(config);
 
     /* Connect mongo client (for test setup later / retrieve info later) */
-    mongoConnection = await MongoClient.connect(connectionString, {
-        useNewUrlParser: true,
-        useUnifiedTopology: true
-    });
+    mongoConnection = await MongoClient.connect(connectionString);
     mongoClient = mongoConnection.db(database);
 
     /* Connecting clients for testing later */
@@ -78,7 +76,7 @@ describe('DOC API', () => {
                 title: 'test title0',
                 data: '<p>test data</p>',
                 user: 'test user0',
-                attachments: [{fileName: 'test attachment filename0', fileBase64: 'test attachment filebase640'}]
+                attachments: [{ fileName: 'test attachment filename0', fileBase64: 'test attachment filebase640' }]
             };
             const res = await admin.post('/graphql').set('Content-type', 'application/json').send({
                 query: print(CREATE_DOC),
@@ -101,7 +99,7 @@ describe('DOC API', () => {
                 title: 'test title0',
                 data: '<p>test data</p>',
                 user: 'test user0',
-                attachments: [{fileName: 'test attachment filename0', fileBase64: 'test attachment filebase640'}]
+                attachments: [{ fileName: 'test attachment filename0', fileBase64: 'test attachment filebase640' }]
             };
             const res = await user.post('/graphql').set('Content-type', 'application/json').send({
                 query: print(CREATE_DOC),
@@ -124,7 +122,7 @@ describe('DOC API', () => {
                 lastModifiedAt: 1591134060000,
                 lastModifiedBy: 'test user0',
                 status: DOC_STATUS.DEACTIVATED,
-                attachments:[{id: 'attach1', fileName: 'test attachment filename0', fileBase64: 'test attachment filebase640'}]
+                attachments: [{ id: 'attach1', fileName: 'test attachment filename0', fileBase64: 'test attachment filebase640' }]
             };
             await mongoClient.collection(config.database.collections.docs_collection).insertOne(existedDoc);
             const res = await admin.post('/graphql').set('Content-type', 'application/json').send({
@@ -136,7 +134,7 @@ describe('DOC API', () => {
                     data: '<p>test data modified</p>',
                     user: 'test user1',
                     status: DOC_STATUS.ACTIVATED,
-                    attachments: [{fileName: 'test attachment filename0', fileBase64: 'test attachment filebase640'}]
+                    attachments: [{ fileName: 'test attachment filename0', fileBase64: 'test attachment filebase640' }]
                 }
             });
             expect(res.status).toBe(200);
@@ -158,7 +156,7 @@ describe('DOC API', () => {
                     data: '<p>test data modified</p>',
                     user: 'test user1',
                     status: DOC_STATUS.ACTIVATED,
-                    attachments: [{fileName: 'test attachment filename0', fileBase64: 'test attachment filebase640'}]
+                    attachments: [{ fileName: 'test attachment filename0', fileBase64: 'test attachment filebase640' }]
                 }
             });
             expect(res.status).toBe(200);
