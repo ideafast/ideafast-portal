@@ -20,6 +20,7 @@ export const user_fragment = gql`
             studies {
                 id
                 name
+                type
             }
         },
         createdAt,
@@ -28,8 +29,8 @@ export const user_fragment = gql`
 `;
 
 export const LOGIN = gql`
-mutation login($username: String!, $password: String!, $totp: String!) {
-  login(username: $username, password: $password, totp: $totp) {
+mutation login($username: String!, $password: String!, $totp: String!, $requestexpirydate: Boolean) {
+  login(username: $username, password: $password, totp: $totp, requestexpirydate: $requestexpirydate) {
       ...ALL_FOR_USER
   }
 }
@@ -125,6 +126,28 @@ export const CREATE_USER = gql`
             email: $email
             type: $type
         }) {
+            successful
+        }
+    }
+`;
+
+export const RECOVER_SESSION_EXPIRE_TIME = gql`
+    query recoverSessionExpireTime {
+        recoverSessionExpireTime {
+            successful
+        }
+    }
+`;
+
+export const REQUEST_EXPIRY_DATE = gql`
+    mutation requestExpiryDate(
+        $username: String,
+        $email: String        
+    ) {
+        requestExpiryDate(
+            username: $username,
+            email: $email
+        ) {
             successful
         }
     }

@@ -1,6 +1,6 @@
 import { db } from '../../database/database';
 import { ApolloError } from 'apollo-server-core';
-import { DOC_TYPE, IDocWithoutData, IDoc, DOC_STATUS, attachment} from 'itmat-commons';
+import { DOC_TYPE, IDocWithoutData, IDoc, DOC_STATUS, attachment } from 'itmat-commons';
 import { v4 as uuid } from 'uuid';
 import { errorCodes } from '../errors';
 
@@ -27,7 +27,7 @@ export class DocCore {
             attachments: attachments
         };
         const result = await db.collections!.docs_collection.insertOne(entry);
-        if (result.result.ok === 1) {
+        if (result.acknowledged) {
             const cleared: IDocWithoutData = {
                 id: entry.id,
                 title: entry.title,
@@ -62,7 +62,7 @@ export class DocCore {
             status: status,
             attachments: attachments
         };
-        const result = await db.collections!.docs_collection.findOneAndUpdate({ id }, { $set: fieldsToUpdate }, { returnOriginal: false });
+        const result = await db.collections!.docs_collection.findOneAndUpdate({ id }, { $set: fieldsToUpdate }, { returnDocument: 'after' });
         if (result.ok === 1) {
             return fieldsToUpdate;
         } else {

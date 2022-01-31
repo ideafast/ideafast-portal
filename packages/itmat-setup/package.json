@@ -1,6 +1,6 @@
 {
     "name": "itmat-setup",
-    "version": "0.7.6",
+    "version": "1.0.2",
     "description": "",
     "license": "MIT",
     "author": "Chon Sou",
@@ -19,13 +19,11 @@
         "prepublishOnly": "yarn run build"
     },
     "dependencies": {
-        "mongodb": "3.6.4"
+        "mongodb": "4.3.1"
     },
     "devDependencies": {
-        "@types/mongodb": "3.6.6",
-        "chalk": "4.1.0",
-        "eslint": "7.19.0",
-        "typescript": "4.1.3"
+        "chalk": "4.1.2",
+        "typescript": "4.3.2"
     },
     "eslintConfig": {
         "extends": "./config/eslint.config.js"

@@ -15,7 +15,7 @@ export function rsasigner(privateKey: string, message: string, scheme = 'RSA-SHA
         signer.end();
         return signature;
     }
-    catch(err){
+    catch (err: any) {
         return err;
     }
 }
@@ -42,34 +42,76 @@ export function reGenPkfromSk(privateKey: string, passphrase = 'idea-fast'): str
         });
         return reGenPk.toString('base64');
     }
-    catch(err){
+    catch (err: any) {
         return err;
     }
 }
 
-export function rsaverifier(pubkey: string, signature: string, message = '', scheme = 'RSA-SHA256'): boolean {
-    try {
-        const verifier = crypto.createVerify(scheme);
-        let messageToBeVerified = message;
-        if (messageToBeVerified === '') {
-            //default message = hash of the public key (SHA256). Re-generate the message = hash of the public key
-            const hash = crypto.createHash('sha256');
-            hash.update(pubkey);
-            messageToBeVerified = hash.copy().digest('base64');
-        }
+export async function rsaverifier(pubkey: string, signature: string, message = '', scheme = 'RSA-SHA256') {
+    let messageToBeVerified = message;
+    const ec = new TextEncoder();
+    const pkObject = crypto.createPublicKey({
+        key: pubkey,
+        type: 'spki',
+        format: 'pem'
+    });
 
-        verifier.update(messageToBeVerified);
-        // Verify the signature in supported formats ('binary', 'hex' or 'base64')
-        // The encoded format must be same as the signature
-        return verifier.verify(pubkey, signature, 'base64');
+    if (message === '') {
+        //default message = hash of the public key (SHA256). Re-generate the message = hash of the public key
+        const hash = crypto.createHash('sha256');
+        hash.update(ec.encode(pubkey));
+        messageToBeVerified = hash.digest('base64');
     }
-    catch(err){
+
+    const result = crypto.verify(
+        scheme,
+        Buffer.from(messageToBeVerified, 'base64'),
+        {
+            key: pkObject,
+            saltLength: 32,
+            padding: crypto.constants.RSA_PKCS1_PSS_PADDING
+        },
+        Buffer.from(signature, 'base64')
+    );
+    return result;
+}
+
+export async function rsaSigner_test(privateKey: string, signature: string, message = 'abc', scheme = 'RSA-SHA256') {
+
+    const ec = new TextEncoder();
+
+    const hash3 = crypto.createHash('sha256');
+    hash3.update(ec.encode(message));
+    const messagetobeSigned = hash3.digest('base64');
+
+    const skObject = crypto.createPrivateKey({
+        key: privateKey,
+        type: 'pkcs8',
+        format: 'pem'
+    });
+
+    try {
+        const signer = crypto.createSign(scheme);
+        // Signing
+        signer.update(messagetobeSigned);
+
+        // The signature output_format: HexBase64Latin1Encoding which can be either 'binary', 'hex' or 'base64'
+        signer.sign({
+            key: skObject,
+            saltLength: 32,
+            padding: crypto.constants.RSA_PKCS1_PSS_PADDING
+        }, 'base64');
+        signer.end();
+    }
+    catch (err) {
         return err;
     }
+
+    return false;
 }
 
 export function rsakeygen(passphrase = 'idea-fast', modulusLength = 4096) {
-    const { publicKey, privateKey }  = crypto.generateKeyPairSync('rsa', {
+    const { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', {
         modulusLength: modulusLength,
         publicKeyEncoding: {
             type: 'spki',
@@ -102,26 +144,12 @@ export function eckeygen(curve = 'secp256k1') {
 
 export function tokengen(payload, secret, passphrase = 'idea-fast', algorithm = 'RS256', life = 12000) {
     // Asymmetric JWT is used by default by setting algorithm = RS256.
-    let token;
-    try {
-        token = jwt.sign(payload,
-            { key: secret, passphrase: passphrase },
-            { algorithm: algorithm, expiresIn: life }
-        );
-    }
-    catch(err){
-        return err;
-    }
-    return token;
+    return jwt.sign(payload,
+        { key: secret, passphrase: passphrase },
+        { algorithm: algorithm, expiresIn: life }
+    );
 }
 
 export function tokenverifier(token, secret) {
-    let decoded = '';
-    try {
-        decoded = jwt.verify(token, secret);
-    }
-    catch(err){
-        return err;
-    }
-    return decoded;
+    return jwt.verify(token, secret);
 }

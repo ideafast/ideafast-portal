@@ -18,7 +18,7 @@ import { userCore } from '../core/userCore';
 import { errorCodes } from '../errors';
 //import { makeGenericReponse, IGenericResponse } from '../responses';
 import * as pubkeycrypto from '../../utils/pubkeycrypto';
-
+//import { Key} from '../../../../itmat-ui-react/src/utils/dmpCrypto/dmp.key';
 export const pubkeyResolvers = {
     Query: {
         getPubkeys: async (__unused__parent: Record<string, unknown>, args: any): Promise<IPubkey[]> => {
@@ -47,7 +47,7 @@ export const pubkeyResolvers = {
             const messageToBeSigned = pubkeycrypto.hashdigest(keyPair.publicKey);
             const signature = pubkeycrypto.rsasigner(keyPair.privateKey, messageToBeSigned);
 
-            return {privateKey: keyPair.privateKey, publicKey: keyPair.publicKey, signature: signature};
+            return { privateKey: keyPair.privateKey, publicKey: keyPair.publicKey, signature: signature };
         },
 
         rsaSigner: async (__unused__parent: Record<string, unknown>, { privateKey, message }: { privateKey: string, message: string }): Promise<Signature> => {
@@ -59,14 +59,14 @@ export const pubkeyResolvers = {
                     const reGenPubkey = pubkeycrypto.reGenPkfromSk(privateKey);
                     messageToBeSigned = pubkeycrypto.hashdigest(reGenPubkey);
                 } catch (error) {
-                    throw new UserInputError('Error: private-key incorrect!', error);
+                    throw new UserInputError('Error: private-key incorrect!', error as any);
                 }
 
             } else {
                 messageToBeSigned = message;
             }
             const signature = pubkeycrypto.rsasigner(privateKey, messageToBeSigned);
-            return {signature: signature};
+            return { signature: signature };
         },
 
         issueAccessToken: async (__unused__parent: Record<string, unknown>, { pubkey, signature }: { pubkey: string, signature: string }): Promise<AccessToken> => {
@@ -74,7 +74,7 @@ export const pubkeyResolvers = {
             pubkey = pubkey.replace(/\\n/g, '\n');
 
             /* Validate the signature with the public key */
-            if (!pubkeycrypto.rsaverifier(pubkey, signature)) {
+            if (!await pubkeycrypto.rsaverifier(pubkey, signature)) {
                 throw new UserInputError('Signature vs Public key mismatched.');
             }
 
@@ -95,7 +95,7 @@ export const pubkeyResolvers = {
             const fieldsToUpdate = {
                 refreshCounter: (pubkeyrec.refreshCounter + 1)
             };
-            const updateResult: mongodb.FindAndModifyWriteOpResultObject<any> = await db.collections!.pubkeys_collection.findOneAndUpdate({ pubkey, deleted: null }, { $set: fieldsToUpdate }, { returnOriginal: false });
+            const updateResult = await db.collections!.pubkeys_collection.findOneAndUpdate({ pubkey, deleted: null }, { $set: fieldsToUpdate }, { returnDocument: 'after' });
             if (updateResult.ok !== 1) {
                 throw new ApolloError('Server error; cannot fulfil the JWT request.');
             }
@@ -103,13 +103,13 @@ export const pubkeyResolvers = {
             const accessToken = {
                 accessToken: pubkeycrypto.tokengen(payload, pubkeyrec.jwtSeckey)
             };
+
             return accessToken;
         },
 
         registerPubkey: async (__unused__parent: Record<string, unknown>, { pubkey, signature, associatedUserId }: { pubkey: string, signature: string, associatedUserId: string }, context: any): Promise<IPubkey> => {
             // refine the public-key parameter from browser
             pubkey = pubkey.replace(/\\n/g, '\n');
-
             const alreadyExist = await db.collections!.pubkeys_collection.findOne({ pubkey, deleted: null });
             if (alreadyExist !== null && alreadyExist !== undefined) {
                 throw new UserInputError('This public-key has already been registered.');
@@ -122,8 +122,13 @@ export const pubkeyResolvers = {
             }
 
             /* Validate the signature with the public key */
-            if (!pubkeycrypto.rsaverifier(pubkey, signature)) {
-                throw new UserInputError('Signature vs Public key mismatched.');
+            try {
+                const signature_verifier = await pubkeycrypto.rsaverifier(pubkey, signature);
+                if (!signature_verifier) {
+                    throw new UserInputError('Signature vs Public-key mismatched.');
+                }
+            } catch (error) {
+                throw new UserInputError('Error: Signature or Public-key is incorrect.');
             }
 
             /* Generate a public key-pair for generating and authenticating JWT access token later */
@@ -139,7 +144,7 @@ export const pubkeyResolvers = {
                         jwtPubkey: keypair.publicKey,
                         jwtSeckey: keypair.privateKey
                     };
-                    const updateResult: mongodb.FindAndModifyWriteOpResultObject<any> = await db.collections!.pubkeys_collection.findOneAndUpdate({ associatedUserId, deleted: null }, { $set: fieldsToUpdate }, { returnOriginal: false });
+                    const updateResult: mongodb.ModifyResult<any> = await db.collections!.pubkeys_collection.findOneAndUpdate({ associatedUserId, deleted: null }, { $set: fieldsToUpdate }, { returnDocument: 'after' });
                     if (updateResult.ok === 1) {
                         await mailer.sendMail({
                             from: `${config.appName} <${config.nodemailer.auth.user}>`,

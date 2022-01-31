@@ -24,9 +24,11 @@ Promise.all([
     });
 
     // Binding static resources folder
+    root.use('/favicon.ico', express.static(path.normalize(`${__dirname}/static/favicon.ico`)));
+    root.use('/manifest.json', express.static(path.normalize(`${__dirname}/static/manifest.json`)));
     root.use('/static', express.static(path.normalize(`${__dirname}/static`)));
 
-    root.use(new rateLimit({
+    root.use(rateLimit({
         windowMs: 1 * 60 * 1000,
         max: 500
     }));
