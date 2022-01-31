@@ -3,9 +3,6 @@ const { minioContainerSetup, minioContainerTeardown } = require('../../../config
 const NodeEnvironment = require('jest-environment-jsdom-fourteen');
 
 class CustomEnvironment extends NodeEnvironment {
-    constructor(config, context) {
-        super(config, context);
-    }
 
     async setup() {
         await super.setup();
