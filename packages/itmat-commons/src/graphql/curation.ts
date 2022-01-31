@@ -32,7 +32,7 @@ export const CREATE_FIELD_CURATION_JOB = gql`
             ...ALL_FOR_JOB
         }
     }
-    ${job_fragment}
+    ${JOB_FRAGMENT}
 `;
 
 export const CREATE_QUERY_CURATION_JOB = gql`
