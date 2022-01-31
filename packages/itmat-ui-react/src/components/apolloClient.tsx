@@ -1,49 +1,80 @@
-import { InMemoryCache } from 'apollo-cache-inmemory';
-import { ApolloClient } from 'apollo-client';
-import { from, split } from 'apollo-link';
-import { onError } from 'apollo-link-error';
-import { WebSocketLink } from 'apollo-link-ws';
-import { SubscriptionClient } from 'subscriptions-transport-ws';
+import { InMemoryCache } from '@apollo/client/cache';
+import { ApolloClient, from, ApolloLink } from '@apollo/client';
+import { onError } from '@apollo/client/link/error';
 import { createUploadLink } from 'apollo-upload-client';
-import { getMainDefinition } from 'apollo-utilities';
+import axios from 'axios';
 
-const wsClient = new SubscriptionClient(`${window.location.origin?.replace('http', 'ws')}/graphql`, {
-    reconnect: true
-});
-
-const wsLink = new WebSocketLink(wsClient);
+const customFetch = (uri, options): any => {
+    options.url = uri;
+    options.data = options.body;
+    if (options.body instanceof FormData) {
+        try {
+            const currentOperation = JSON.parse((options.body as FormData).get('operations') as string);
+            if (currentOperation.operationName === 'uploadFile') {
+                const description = JSON.parse(currentOperation.variables.description);
+                options.onUploadProgress = (progressEvent) => {
+                    (window as any).onUploadProgressHackMap?.[`UP_${description.participantId}_${description.deviceId}_${description.startDate}_${description.endDate}`]?.(progressEvent);
+                };
+                options.onDownloadProgress = (progressEvent) => {
+                    (window as any).onUploadProgressHackMap?.[`DOWN_${description.participantId}_${description.deviceId}_${description.startDate}_${description.endDate}`]?.(progressEvent);
+                };
+            }
+        }
+        catch (__unused__exception) {
+            // Do nothing
+        }
+    }
+    // return fetch(uri, options);
+    return axios(options).then(response => ({
+        headers: response.headers,
+        ok: true,
+        redirected: false,
+        status: response.status,
+        statusText: response.statusText,
+        trailer: Promise.resolve(response.headers),
+        type: response.headers?.['Content-Type'],
+        body: response.data,
+        url: uri,
+        text: () => {
+            return Promise.resolve(JSON.stringify(response.data));
+        }
+    }));
+};
 
 const uploadLink = createUploadLink({
-    uri: '/graphql',
-    credentials: 'include'
-});
-
-const link = split(
-    // split based on operation type
-    ({ query }) => {
-        const { kind, operation } = getMainDefinition(query) as any;
-        return kind === 'OperationDefinition' && operation === 'subscription';
-    },
-    wsLink,
-    uploadLink
-);
+    uri: `${window.location.origin}/graphql`,
+    credentials: 'include',
+    fetch: customFetch
+}) as any as ApolloLink;
 
 const cache = new InMemoryCache({
-    dataIdFromObject: (object) => `${object.__typename || 'undefined_typeName'}___${object.id || 'undefined_id'}`
+    dataIdFromObject: (object) => {
+        switch (object.__typename) {
+            case 'OrganisationMetadata':
+                return `${object.siteIDMarker}`;
+            default:
+                return `${object.__typename || 'undefined_typeName'}___${object.id || 'undefined_id'}`;
+
+        }
+    }
 });
 
 export const client = new ApolloClient({
     link: from([
-        onError(({ graphQLErrors, networkError }) => {
+        onError(({ response, graphQLErrors, networkError }) => {
             if (graphQLErrors) {
+                if ((response as any).errors[0].message === 'NOT_LOGGED_IN') {
+                    window.location.reload();
+                }
                 graphQLErrors.map((error) =>
-                    // eslint:disable-next-line: no-console
-                    console.error('[GraphQL error]', error)
+                    console.error('[GraphQL error]', error.message ? error.message : error)
                 );
             }
-            if (networkError) { console.error('[Network error]:', networkError); }
+            if (networkError) {
+                console.error('[Network error]:', networkError.message ? networkError.message : networkError);
+            }
         }),
-        link
+        uploadLink
     ]),
     cache
 });

@@ -27,23 +27,33 @@ This software requires both MongoDB and MinIO to be available. Follow the instal
 
 Both software also have easy to start docker images available for convenience.
 
-### Build the project
+### Install dependencies and build the project
 
 Building the library is easy. First run `yarn install && yarn build`, to build the application. The current application is built ontop of a system called ICL-ITMAT-Broker comprised of multiple components including :
 
 - itmat-commons
+- itmat-docker
 - itmat-interface
 - itmat-job-executor
+- itmat-setup
 - itmat-ui-react
-- itmat-utils
 
 ### Add configuration
 
 You will need to provide database and object store connection details and will have the ability to customised other paramters. We typically recommend that you configure your secrets.
 
 ```bash
-cp packages/itmat-interface/config.sample.json packages/itmat-interface/config.json
-cp packages/itmat-job-executor/config.sample.json packages/itmat-job-executor/config.json
+cp packages/itmat-interface/config/config.sample.json packages/itmat-interface/config/config.json
+cp packages/itmat-job-executor/config/config.sample.json packages/itmat-job-executor/config/config.json
+```
+These config files need to be editted accordingly for Mongodb database (`database{ }`) and MinIO (`objectStore{ }`).
+
+`nodemailer{ }` in `packages/itmat-interface/config/config.json` is also required to configure for email service.
+
+### Initialise mongodb with seed data
+
+```bash
+yarn setupDatabase
 ```
 
 ### Start developing
