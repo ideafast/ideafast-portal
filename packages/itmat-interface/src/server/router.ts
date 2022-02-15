@@ -14,7 +14,9 @@ import http from 'http';
 import passport from 'passport';
 // import { db } from '../database/database';
 import { resolvers } from '../graphql/resolvers';
+import { resolversV1 } from '../graphql/resolversV1';
 import { typeDefs } from '../graphql/typeDefs';
+import { typeDefsV1 } from '../graphql/typeDefsV1';
 import { fileDownloadController } from '../rest/fileDownload';
 import { userLoginUtils } from '../utils/userLoginUtils';
 import { IConfiguration } from '../utils/configManager';
@@ -71,6 +73,89 @@ export class Router {
 
         this.server = http.createServer(this.app);
 
+        /* register apolloserver for graphql requests */
+        const gqlServer = this.createApolloServer(resolvers, typeDefs, '/graphql');
+        const gqlServerV1 = this.createApolloServer(resolversV1, typeDefsV1, '/v1');
+
+        gqlServer.start().then(() => {
+            gqlServer.applyMiddleware({ app: this.app, cors: { credentials: true }, path: '/graphql' });
+        });
+        gqlServerV1.start().then(() => {
+            gqlServerV1.applyMiddleware({ app: this.app, cors: { credentials: true }, path: '/v1' });
+        });
+
+        this.app.use(graphqlUploadExpress());
+
+        /* Bounce all unauthenticated non-graphql HTTP requests */
+        // this.app.use((req: Request, res: Response, next: NextFunction) => {
+        //     if (req.user === undefined || req.user.username === undefined) {
+        //         res.status(401).json(new CustomError('Please log in first.'));
+        //         return;
+        //     }
+        //     next();
+        // });
+
+
+        /* AE proxy middleware */
+        // initial this before graphqlUploadExpress middleware
+        const ae_proxy = createProxyMiddleware({
+            target: config.aeEndpoint,
+            ws: true,
+            xfwd: true,
+            // logLevel: 'debug',
+            autoRewrite: true,
+            changeOrigin: true,
+            onProxyReq: function (preq, req, res) {
+                if (!req.user)
+                    return res.status(403).redirect('/');
+                res.cookie('ae_proxy', req.headers['host']);
+                const data = (req.user as IUser).username + ':token';
+                preq.setHeader('authorization', `Basic ${Buffer.from(data).toString('base64')}`);
+                if (req.method == 'POST' && req.body) {
+                    const contentType = preq.getHeader('Content-Type');
+                    preq.setHeader('origin', config.aeEndpoint);
+                    const writeBody = (bodyData: string) => {
+                        preq.setHeader('Content-Length', Buffer.byteLength(bodyData));
+                        preq.write(bodyData);
+                        preq.end();
+                    };
+
+                    if (contentType === 'application/json') {  // contentType.includes('application/json')
+                        writeBody(JSON.stringify(req.body));
+                    }
+
+                    if (contentType === 'application/x-www-form-urlencoded') {
+                        writeBody(qs.stringify(req.body));
+                    }
+
+                }
+            },
+            onProxyReqWs: function (preq) {
+                const data = 'username:token';
+                preq.setHeader('authorization', `Basic ${Buffer.from(data).toString('base64')}`);
+            },
+            onError: function (err, req, res, target) {
+                console.error(err, target);
+            }
+        });
+
+        this.proxies.push(ae_proxy);
+
+        /* AE routers */
+        // pun for AE portal
+        // node and rnode for AE application
+        // public for public resource like favicon and logo
+        const proxy_routers = ['/pun', '/node', '/rnode', '/public'];
+
+        proxy_routers.forEach(router => {
+            this.app.use(router, ae_proxy);
+        });
+
+        this.app.get('/file/:fileId', fileDownloadController);
+
+    }
+
+    private createApolloServer(resolvers: any, typeDefs: any, endPoints: string) {
         /* putting schema together */
         const schema = makeExecutableSchema({
             typeDefs, resolvers: {
@@ -143,67 +228,6 @@ export class Router {
             }
         });
 
-        /* AE proxy middleware */
-        // initial this before graphqlUploadExpress middleware
-        const ae_proxy = createProxyMiddleware({
-            target: config.aeEndpoint,
-            ws: true,
-            xfwd: true,
-            // logLevel: 'debug',
-            autoRewrite: true,
-            changeOrigin: true,
-            onProxyReq: function (preq, req, res) {
-                if (!req.user)
-                    return res.status(403).redirect('/');
-                res.cookie('ae_proxy', req.headers['host']);
-                const data = (req.user as IUser).username + ':token';
-                preq.setHeader('authorization', `Basic ${Buffer.from(data).toString('base64')}`);
-                if (req.method == 'POST' && req.body) {
-                    const contentType = preq.getHeader('Content-Type');
-                    preq.setHeader('origin', config.aeEndpoint);
-                    const writeBody = (bodyData: string) => {
-                        preq.setHeader('Content-Length', Buffer.byteLength(bodyData));
-                        preq.write(bodyData);
-                        preq.end();
-                    };
-
-                    if (contentType === 'application/json') {  // contentType.includes('application/json')
-                        writeBody(JSON.stringify(req.body));
-                    }
-
-                    if (contentType === 'application/x-www-form-urlencoded') {
-                        writeBody(qs.stringify(req.body));
-                    }
-
-                }
-            },
-            onProxyReqWs: function (preq) {
-                const data = 'username:token';
-                preq.setHeader('authorization', `Basic ${Buffer.from(data).toString('base64')}`);
-            },
-            onError: function (err, req, res, target) {
-                console.error(err, target);
-            }
-        });
-
-        this.proxies.push(ae_proxy);
-
-        /* AE routers */
-        // pun for AE portal
-        // node and rnode for AE application
-        // public for public resource like favicon and logo
-        const proxy_routers = ['/pun', '/node', '/rnode', '/public'];
-
-        proxy_routers.forEach(router => {
-            this.app.use(router, ae_proxy);
-        });
-
-        this.app.use(graphqlUploadExpress());
-
-        gqlServer.start().then(() => {
-            gqlServer.applyMiddleware({ app: this.app, cors: { credentials: true } });
-        });
-
         /* register the graphql subscription functionalities */
         const subscriptionServer = SubscriptionServer.create({
             // This is the `schema` we just created.
@@ -216,20 +240,9 @@ export class Router {
             server: this.server,
             // Pass a different path here if your ApolloServer serves at
             // a different path.
-            path: '/graphql'
+            path: endPoints
         });
-
-        /* Bounce all unauthenticated non-graphql HTTP requests */
-        // this.app.use((req: Request, res: Response, next: NextFunction) => {
-        //     if (req.user === undefined || req.user.username === undefined) {
-        //         res.status(401).json(new CustomError('Please log in first.'));
-        //         return;
-        //     }
-        //     next();
-        // });
-
-        this.app.get('/file/:fileId', fileDownloadController);
-
+        return gqlServer;
     }
 
     public getApp(): Express {

@@ -6,6 +6,11 @@ module.exports = {
         secure: false,
         changeOrigin: true
     },
+    '/v1': {
+        target: API_SERVER,
+        secure: false,
+        changeOrigin: true
+    },
     '/file': {
         target: API_SERVER,
         secure: false,
