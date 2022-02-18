@@ -41,9 +41,7 @@ import {
     studyType,
     UPLOAD_DATA_IN_ARRAY,
     DELETE_DATA_RECORDS,
-    ADD_ONTOLOGY_FIELD,
     GET_DATA_RECORDS,
-    DELETE_ONTOLOGY_FIELD,
     CREATE_NEW_DATA_VERSION,
     CHECK_DATA_COMPLETE,
     CREATE_NEW_FIELD,
@@ -1388,7 +1386,6 @@ describe('STUDY API', () => {
                     jobs: [],
                     description: 'test description',
                     type: studyType.SENSOR,
-                    ontologyTree: null,
                     projects: [
                         {
                             id: createdProject.id,
@@ -1625,6 +1622,8 @@ describe('STUDY API', () => {
                     tableName: null,
                     dataType: enumValueType.STRING,
                     possibleValues: [],
+                    stdRules: null,
+                    ontologyPath: null,
                     unit: 'person',
                     comments: 'mockComments2',
                     dateAdded: '2022-06-18T17:35:15.226Z',
@@ -1639,6 +1638,8 @@ describe('STUDY API', () => {
                     tableName: null,
                     dataType: enumValueType.STRING,
                     possibleValues: [],
+                    stdRules: null,
+                    ontologyPath: null,
                     unit: 'person',
                     comments: 'mockComments1',
                     dateAdded: '2021-05-16T16:32:10.226Z',
@@ -1667,6 +1668,8 @@ describe('STUDY API', () => {
                     tableName: null,
                     dataType: enumValueType.STRING,
                     possibleValues: [],
+                    stdRules: null,
+                    ontologyPath: null,
                     unit: 'person',
                     comments: 'mockComments1',
                     dateAdded: '2021-05-16T16:32:10.226Z',
@@ -1681,6 +1684,8 @@ describe('STUDY API', () => {
                     tableName: null,
                     dataType: enumValueType.STRING,
                     possibleValues: [],
+                    stdRules: null,
+                    ontologyPath: null,
                     unit: 'person',
                     comments: 'mockComments2',
                     dateAdded: '2022-06-18T17:35:15.226Z',
@@ -1729,6 +1734,8 @@ describe('STUDY API', () => {
                 tableName: null,
                 dataType: enumValueType.DECIMAL,
                 possibleValues: [],
+                stdRules: null,
+                    ontologyPath: null,
                 unit: 'kg',
                 comments: 'mockComments3',
                 dateAdded: '2021-05-18T16:32:10.226Z',
@@ -1756,6 +1763,8 @@ describe('STUDY API', () => {
                     tableName: null,
                     dataType: enumValueType.DECIMAL,
                     possibleValues: [],
+                    stdRules: null,
+                    ontologyPath: null,
                     unit: 'kg',
                     comments: 'mockComments3',
                     dateAdded: '2021-05-18T16:32:10.226Z',
@@ -1770,6 +1779,8 @@ describe('STUDY API', () => {
                     tableName: null,
                     dataType: enumValueType.STRING,
                     possibleValues: [],
+                    stdRules: null,
+                    ontologyPath: null,
                     unit: 'person',
                     comments: 'mockComments2',
                     dateAdded: '2022-06-18T17:35:15.226Z',
@@ -1784,6 +1795,8 @@ describe('STUDY API', () => {
                     tableName: null,
                     dataType: enumValueType.STRING,
                     possibleValues: [],
+                    stdRules: null,
+                    ontologyPath: null,
                     unit: 'person',
                     comments: 'mockComments1',
                     dateAdded: '2021-05-16T16:32:10.226Z',
@@ -1810,6 +1823,8 @@ describe('STUDY API', () => {
                     tableName: null,
                     dataType: enumValueType.STRING,
                     possibleValues: [],
+                    stdRules: null,
+                    ontologyPath: null,
                     unit: 'person',
                     comments: 'mockComments2',
                     dateAdded: '2022-06-18T17:35:15.226Z',
@@ -1824,6 +1839,8 @@ describe('STUDY API', () => {
                     tableName: null,
                     dataType: enumValueType.STRING,
                     possibleValues: [],
+                    stdRules: null,
+                    ontologyPath: null,
                     unit: 'person',
                     comments: 'mockComments1',
                     dateAdded: '2021-05-16T16:32:10.226Z',
@@ -1831,6 +1848,8 @@ describe('STUDY API', () => {
                     dataVersion: 'mockDataVersionId'
                 }
             ].sort((a, b) => a.id.localeCompare(b.id)));
+            // clear database
+            await db.collections!.field_dictionary_collection.deleteMany({ dataVersion: null});
         });
 
         test('Edit project approved fields with fields that are not in the field tree (admin) (should fail)', async () => {
@@ -1871,6 +1890,8 @@ describe('STUDY API', () => {
                         tableName: null,
                         dataType: enumValueType.STRING,
                         possibleValues: [],
+                        stdRules: null,
+                        ontologyPath: null,
                         unit: 'person',
                         comments: 'mockComments1',
                         dateAdded: '2021-05-16T16:32:10.226Z',
@@ -1885,6 +1906,8 @@ describe('STUDY API', () => {
                         tableName: null,
                         dataType: enumValueType.STRING,
                         possibleValues: [],
+                        stdRules: null,
+                        ontologyPath: null,
                         unit: 'person',
                         comments: 'mockComments2',
                         dateAdded: '2022-06-18T17:35:15.226Z',
@@ -1950,6 +1973,8 @@ describe('STUDY API', () => {
                         tableName: null,
                         dataType: enumValueType.STRING,
                         possibleValues: [],
+                        stdRules: null,
+                        ontologyPath: null,
                         unit: 'person',
                         comments: 'mockComments1',
                         dateAdded: '2021-05-16T16:32:10.226Z',
@@ -1964,6 +1989,8 @@ describe('STUDY API', () => {
                         tableName: null,
                         dataType: enumValueType.STRING,
                         possibleValues: [],
+                        stdRules: null,
+                        ontologyPath: null,
                         unit: 'person',
                         comments: 'mockComments2',
                         dateAdded: '2022-06-18T17:35:15.226Z',
@@ -2329,149 +2356,6 @@ describe('STUDY API', () => {
             await db.collections!.roles_collection.deleteOne({ id: roleDataCurator.id });
         });
 
-        test('Upload ontologyTree (admin)', async () => {
-            // insert necessary field
-            await db.collections!.field_dictionary_collection.insertMany([
-                {
-                    id: 'fakeid1',
-                    studyId: createdStudy.id,
-                    fieldId: '1',
-                    fieldName: 'Age',
-                    dataType: 'int',
-                    dateAdded: 100000000
-                },
-                {
-                    id: 'fakeid2',
-                    studyId: createdStudy.id,
-                    fieldId: '2',
-                    fieldName: 'Gender',
-                    dataType: 'int',
-                    dateAdded: 100000000
-                },
-                {
-                    id: 'fakeid3',
-                    studyId: createdStudy.id,
-                    fieldId: '3',
-                    fieldName: 'Date',
-                    dataType: 'dat',
-                    dateAdded: 100000000
-                }
-            ]);
-
-            const res = await admin.post('/graphql').send({
-                query: print(ADD_ONTOLOGY_FIELD),
-                variables: {
-                    studyId: createdStudy.id,
-                    ontologyInput: [{
-                        fieldId: '1',
-                        path: ['Metadata', 'Subject', '1']
-                    }, {
-                        fieldId: '2',
-                        path: ['Metadata', 'Subject', '2']
-                    }]
-                }
-            });
-            const study = await db.collections!.studies_collection.findOne({ id: createdStudy.id });
-            expect(res.status).toBe(200);
-            expect(res.body.errors).toBeUndefined();
-            expect(res.body.data.addOntologyField).toEqual([{
-                fieldId: '1',
-                path: ['Metadata', 'Subject', '1']
-            }, {
-                fieldId: '2',
-                path: ['Metadata', 'Subject', '2']
-            }]);
-            expect(study.ontologyTree).toEqual([{
-                fieldId: '1',
-                path: ['Metadata', 'Subject', '1']
-            }, {
-                fieldId: '2',
-                path: ['Metadata', 'Subject', '2']
-            }]);
-
-            const resAddMore = await admin.post('/graphql').send({
-                query: print(ADD_ONTOLOGY_FIELD),
-                variables: {
-                    studyId: createdStudy.id,
-                    ontologyInput: [{
-                        fieldId: '1',
-                        path: ['Metadata', 'SubjectNew', '1']
-                    }, {
-                        fieldId: '3',
-                        path: ['Metadata', 'Subject', '3']
-                    }]
-                }
-            });
-            const studyMore = await db.collections!.studies_collection.findOne({ id: createdStudy.id });
-            expect(resAddMore.status).toBe(200);
-            expect(resAddMore.body.errors).toBeUndefined();
-            expect(resAddMore.body.data.addOntologyField).toEqual([{
-                fieldId: '1',
-                path: ['Metadata', 'SubjectNew', '1']
-            }, {
-                fieldId: '2',
-                path: ['Metadata', 'Subject', '2']
-            }, {
-                fieldId: '3',
-                path: ['Metadata', 'Subject', '3']
-            }]);
-            expect(studyMore.ontologyTree).toEqual([{
-                fieldId: '1',
-                path: ['Metadata', 'SubjectNew', '1']
-            }, {
-                fieldId: '2',
-                path: ['Metadata', 'Subject', '2']
-            }, {
-                fieldId: '3',
-                path: ['Metadata', 'Subject', '3']
-            }]);
-
-            const deleteRes = await admin.post('/graphql').send({
-                query: print(DELETE_ONTOLOGY_FIELD),
-                variables: {
-                    studyId: createdStudy.id,
-                    fieldId: ['1']
-                }
-            });
-            const studyDelete = await db.collections!.studies_collection.findOne({ id: createdStudy.id });
-            expect(deleteRes.status).toBe(200);
-            expect(deleteRes.body.errors).toBeUndefined();
-            expect(deleteRes.body.data.deleteOntologyField).toEqual([{
-                fieldId: '1',
-                path: ['Metadata', 'SubjectNew', '1']
-            }]);
-            expect(studyDelete.ontologyTree).toEqual([{
-                fieldId: '2',
-                path: ['Metadata', 'Subject', '2']
-            }, {
-                fieldId: '3',
-                path: ['Metadata', 'Subject', '3']
-            }]);
-
-            // delete fields
-            await db.collections!.studies_collection.findOneAndUpdate({ id: createdStudy.id }, { $set: { ontologyTree: [] } });
-            await db.collections!.field_dictionary_collection.deleteMany({});
-        });
-
-        test('Upload ontologyTree (user) should fail', async () => {
-            const res = await user.post('/graphql').send({
-                query: print(ADD_ONTOLOGY_FIELD),
-                variables: {
-                    studyId: createdStudy.id,
-                    ontologyInput: [{
-                        fieldId: '1',
-                        path: ['Metadata', 'Subject', 'Age']
-                    }, {
-                        fieldId: '2',
-                        path: ['Metadata', 'Subject', 'Gender']
-                    }]
-                }
-            });
-            expect(res.status).toBe(200);
-            expect(res.body.errors).toHaveLength(1);
-            expect(res.body.errors[0].message).toBe(errorCodes.NO_PERMISSION_ERROR);
-        });
-
         test('Create New fields (admin)', async () => {
             const res = await admin.post('/graphql').send({
                 query: print(CREATE_NEW_FIELD),
@@ -2487,7 +2371,9 @@ describe('STUDY API', () => {
                             possibleValues: [
                                 { code: '1', description: 'NOW' },
                                 { code: '2', description: 'OLD' }
-                            ]
+                            ],
+                            stdRules: null,
+                            ontologyPath: null,
                         },
                         {
                             fieldId: '9',
@@ -2498,7 +2384,9 @@ describe('STUDY API', () => {
                             possibleValues: [
                                 { code: '1', description: 'TRUE' },
                                 { code: '2', description: 'FALSE' }
-                            ]
+                            ],
+                            stdRules: null,
+                            ontologyPath: null,
                         }
                     ]
                 }
@@ -2506,7 +2394,7 @@ describe('STUDY API', () => {
             expect(res.status).toBe(200);
             expect(res.body.errors).toBeUndefined();
             expect(res.body.data.createNewField).toEqual([]);
-            const fieldsInDb = await db.collections!.field_dictionary_collection.find({ studyId: createdStudy.id }).toArray();
+            const fieldsInDb = await db.collections!.field_dictionary_collection.find({ studyId: createdStudy.id, dataVersion: null }).toArray();
             expect(fieldsInDb).toHaveLength(2);
         });
 
@@ -2525,7 +2413,9 @@ describe('STUDY API', () => {
                             possibleValues: [
                                 { code: '1', description: 'NOW' },
                                 { code: '2', description: 'OLD' }
-                            ]
+                            ],
+                            stdRules: null,
+                            ontologyPath: null,
                         },
                         {
                             fieldId: '9',
@@ -2536,7 +2426,9 @@ describe('STUDY API', () => {
                             possibleValues: [
                                 { code: '1', description: 'TRUE' },
                                 { code: '2', description: 'FALSE' }
-                            ]
+                            ],
+                            stdRules: null,
+                            ontologyPath: null,
                         }
                     ]
                 }
@@ -2561,7 +2453,9 @@ describe('STUDY API', () => {
                             possibleValues: [
                                 { code: '1', description: 'NOW' },
                                 { code: '2', description: 'OLD' }
-                            ]
+                            ],
+                            stdRules: null,
+                            ontologyPath: null,
                         },
                         {
                             fieldId: '9',
@@ -2572,7 +2466,9 @@ describe('STUDY API', () => {
                             possibleValues: [
                                 { code: '1', description: 'TRUE' },
                                 { code: '2', description: 'FALSE' }
-                            ]
+                            ],
+                            stdRules: null,
+                            ontologyPath: null,
                         }
                     ]
                 }
@@ -2590,6 +2486,8 @@ describe('STUDY API', () => {
             const fieldsInDb = await db.collections!.field_dictionary_collection.find({ studyId: createdStudy.id, dateDeleted: { $ne: null } }).toArray();
             expect(fieldsInDb).toHaveLength(1);
             expect(fieldsInDb[0].fieldId).toBe('8');
+            // clear database
+            await db.collections!.field_dictionary_collection.deleteMany({ studyId: createdStudy.id, fieldId: { $in: ["8", "9"] } });
         });
 
         test('Delete a versioned field (admin)', async () => {
@@ -2607,7 +2505,9 @@ describe('STUDY API', () => {
                             possibleValues: [
                                 { code: '1', description: 'NOW' },
                                 { code: '2', description: 'OLD' }
-                            ]
+                            ],
+                            stdRules: null,
+                            ontologyPath: null,
                         },
                         {
                             fieldId: '9',
@@ -2618,7 +2518,9 @@ describe('STUDY API', () => {
                             possibleValues: [
                                 { code: '1', description: 'TRUE' },
                                 { code: '2', description: 'FALSE' }
-                            ]
+                            ],
+                            stdRules: null,
+                            ontologyPath: null,
                         }
                     ]
                 }
@@ -2642,6 +2544,8 @@ describe('STUDY API', () => {
             expect(fieldsInDb[0].fieldId).toBe('8');
             expect(fieldsInDb[1].fieldId).toBe('8');
             expect(fieldsInDb[1].dateDeleted).not.toBe(null);
+            // clear database
+            await db.collections!.field_dictionary_collection.deleteMany({ studyId: createdStudy.id, fieldId: { $in: ["8", "9"] } });
         });
     });
 
@@ -2884,6 +2788,8 @@ describe('STUDY API', () => {
                     fieldName: 'Age',
                     dataType: enumValueType.INTEGER,
                     possibleValues: [],
+                    stdRules: null,
+                    ontologyPath: null,
                     unit: 'person',
                     comments: 'mockComments1',
                     dateAdded: 100000000,
@@ -2897,6 +2803,8 @@ describe('STUDY API', () => {
                     fieldName: 'Sex',
                     dataType: enumValueType.STRING,
                     possibleValues: [],
+                    stdRules: null,
+                    ontologyPath: null,
                     unit: 'person',
                     comments: 'mockComments2',
                     dateAdded: 100000000,
@@ -3128,6 +3036,7 @@ describe('STUDY API', () => {
                     }], currentDataVersion: 0
                 }
             });
+            await db.collections!.field_dictionary_collection.deleteMany({ studyId: createdStudy.id, fieldId: { $nin: ['31', '32'] }, dataVersion: null });
         });
 
         test('Upload a data record to study (authorised user)', async () => {

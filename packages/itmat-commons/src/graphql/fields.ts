@@ -14,6 +14,16 @@ export const FIELD_FRAGMENT = gql`
             code
             description
         }
+        stdRules {
+            name
+            source
+            parameter
+            dict
+        }
+        ontologyPath {
+            type
+            value
+        }
         unit
         comments
         dateAdded

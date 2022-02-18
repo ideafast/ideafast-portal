@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { Query } from '@apollo/client/react/components';
 import { useQuery } from '@apollo/client/react/hooks';
-import { GET_PROJECT, IFieldEntry, GET_DATA_RECORDS, GET_STUDY_FIELDS, GET_ONTOLOGY_TREE, enumValueType } from 'itmat-commons';
+import { GET_PROJECT, IFieldEntry, GET_DATA_RECORDS, GET_STUDY_FIELDS, enumValueType } from 'itmat-commons';
 import { FieldListSectionWithFilter } from '../../../reusable/fieldList/fieldList';
 import LoadSpinner from '../../../reusable/loadSpinner';
 import { DeleteOutlined } from '@ant-design/icons';
@@ -24,7 +24,6 @@ import { Button, Table, Modal, Switch } from 'antd';
 export const DataTabContent: React.FunctionComponent<{ studyId: string; projectId: string }> = ({ studyId, projectId }) => {
 
     const { loading: getProjectLoading, error: getProjectError, data: getProjectData } = useQuery(GET_PROJECT, { variables: { projectId: projectId, admin: false } });
-    const { loading: getOntologyTreeLoading, error: getOntologyTreeError, data: getOntologyTreeData } = useQuery(GET_ONTOLOGY_TREE, { variables: { studyId: studyId, projectId: projectId } });
     const { loading: getStudyFieldsLoading, error: getStudyFieldsError, data: getStudyFieldsData } = useQuery(GET_STUDY_FIELDS, { variables: { studyId: studyId, projectId: projectId } });
 
     const [ isDataSelectorShown, setIsDataSelectorShown ] = React.useState(false);
@@ -32,11 +31,11 @@ export const DataTabContent: React.FunctionComponent<{ studyId: string; projectI
     const [ queryOptions, setQueryOptions ] = React.useState<any>({filters: [], returned_fields: [], derivedFields: []});
     const [ viewMode, setViewMode ] = React.useState(true); // dataMode (true): show data in tables; visualMode (false): show data in charts
 
-    if (getProjectLoading || getOntologyTreeLoading || getStudyFieldsLoading) {
+    if (getProjectLoading || getStudyFieldsLoading) {
         return <LoadSpinner />;
     }
 
-    if (getProjectError || getOntologyTreeError || getStudyFieldsError) {
+    if (getProjectError || getStudyFieldsError) {
         return <div className={`${css.tab_page_wrapper} ${css.both_panel} ${css.upload_overlay}`}>
             A error occured, please contact your administrator
         </div>;
@@ -67,7 +66,7 @@ export const DataTabContent: React.FunctionComponent<{ studyId: string; projectI
         >
             <div style={{ width: '100%', display: 'flex' }}>
                 <Subsection title='Fields & Variables'>
-                    <FieldListSelectionStateProject ontologyTree={getOntologyTreeData.getOntologyTree} fields={getProjectData.getProject.fields} checkedFields={checkedFields} onCheck={setCheckedFields} queryOptions={[queryOptions, setQueryOptions]} />
+                    <FieldListSelectionStateProject ontologyTree={null} fields={getProjectData.getProject.fields} checkedFields={checkedFields} onCheck={setCheckedFields} queryOptions={[queryOptions, setQueryOptions]} />
                 </Subsection>
                 <div style={{ width: '50%', marginLeft: 'auto' }}>
                     <Subsection title='Filters'>

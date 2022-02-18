@@ -39,6 +39,46 @@ type ValueCategory {
     description: String
 }
 
+enum StandardizationSource {
+    value, # from a given value
+    data, # from the value of the field
+    fieldDef, # from the definitions of the field
+}
+
+# rules for sources
+# value: parameter is the value itself
+# data: parameter is the key of the data, or paths joined by - for JSON data type;
+#        note the input is a whole data reocrd including the subjectId & visitId
+# fieldDef: parameter is the name of the attribute of the field definition, e.g., unit 
+type StandardizationRule {
+    name: String!
+    source: StandardizationSource!,
+    parameter: String!,
+    dict: JSON
+}
+
+input StandardizationRuleInput {
+    name: String!
+    source: StandardizationSource!,
+    parameter: String!,
+    dict: JSON
+}
+
+enum OntologyNodeType {
+    STRING
+    FIELD
+}
+
+type OntologyPath {
+    type: OntologyNodeType!,
+    value: String!
+}
+
+input OntologyPathInput {
+    type: OntologyNodeType!,
+    value: String!
+}
+
 type Field {
     id: String!
     studyId: String!
@@ -47,6 +87,8 @@ type Field {
     tableName: String
     dataType: FIELD_VALUE_TYPE!
     possibleValues: [ValueCategory]
+    stdRules: StandardizationRule
+    ontologyPath: [OntologyPath] # Either the fieldId or a string
     unit: String
     comments: String
     dataVersion: String
@@ -179,7 +221,6 @@ type Study {
     dataVersions: [DataVersion]!
     description: String
     type: STUDYTYPE,
-    ontologyTree: [OntologyField]
     # external to mongo documents:
     jobs: [Job]!
     projects: [Project]!
@@ -285,7 +326,6 @@ enum LOG_ACTION {
     CREATE_DATA_CURATION_JOB
     CREATE_FIELD_CURATION_JOB
     GET_DATA_RECORDS
-    GET_ONTOLOGY_TREE
     CHECK_DATA_COMPLETE
     CREATE_NEW_DATA_VERSION
     UPLOAD_DATA_IN_ARRAY
@@ -416,18 +456,10 @@ input FieldInput {
     tableName: String
     dataType: FIELD_VALUE_TYPE!
     possibleValues: [ValueCategoryInput]
+    stdRules: StandardizationRuleInput
+    ontologyPath: StringArrayChangesInput
     unit: String
     comments: String
-}
-
-input OntologyFieldInput {
-    fieldId: String!
-    path: [String]!
-}
-
-type OntologyField {
-    fieldId: String!
-    path: [String]!
 }
 
 type SubjectDataRecordSummary {
@@ -454,7 +486,6 @@ type Query {
     getProject(projectId: String!): Project
     getStudyFields(studyId: String!, projectId: String, versionId: String): [Field]
     getDataRecords(studyId: String!, queryString: JSON, versionId: String, projectId: String): JSON
-    getOntologyTree(studyId: String!, projectId: String): [OntologyField]
     checkDataComplete(studyId: String!): [SubjectDataRecordSummary]
     
     # QUERY
@@ -505,8 +536,6 @@ type Mutation {
     createNewField(studyId: String!, fieldInput: [FieldInput]!): [FieldClipError]
     editField(studyId: String!, fieldInput: FieldInput!): Field
     deleteField(studyId: String!, fieldId: String!): Field
-    addOntologyField(studyId: String!, ontologyInput: [OntologyFieldInput]!): [OntologyField]
-    deleteOntologyField(studyId: String!, fieldId: [String]!): [OntologyField]
 
     # PROJECT
     createProject(studyId: String!, projectName: String!, approvedFields: [String]): Project

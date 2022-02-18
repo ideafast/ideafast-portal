@@ -18,10 +18,6 @@ export const GET_STUDY = gql`
             createdBy
             description
             type
-            ontologyTree {
-                fieldId
-                path
-            }
             jobs {
                 ...ALL_FOR_JOB
             }
@@ -74,15 +70,6 @@ export const GET_STUDY = gql`
 export const GET_DATA_RECORDS = gql`
     query getDataRecords($studyId: String!, $queryString: JSON, $versionId: String, $projectId: String) {
         getDataRecords(studyId: $studyId, queryString: $queryString, versionId: $versionId, projectId: $projectId)
-    }
-`;
-
-export const GET_ONTOLOGY_TREE = gql`
-    query getOntologyTree($studyId: String!, $projectId: String) {
-        getOntologyTree(studyId: $studyId, projectId: $projectId) {
-            fieldId
-            path
-        }
     }
 `;
 
@@ -144,24 +131,6 @@ export const DELETE_DATA_RECORDS = gql`
         deleteDataRecords(studyId: $studyId, subjectIds: $subjectIds, visitIds: $visitIds, fieldIds: $fieldIds) {
             code
             description
-        }
-    }
-`;
-
-export const ADD_ONTOLOGY_FIELD = gql`
-    mutation addOntologyField($studyId: String!, $ontologyInput: [OntologyFieldInput]!) {
-        addOntologyField(studyId: $studyId, ontologyInput: $ontologyInput) {
-            fieldId
-            path
-        }
-    }
-`;
-
-export const DELETE_ONTOLOGY_FIELD = gql`
-    mutation deleteOntologyField($studyId: String!, $fieldId: [String]!) {
-        deleteOntologyField(studyId: $studyId, fieldId: $fieldId) {
-            fieldId
-            path
         }
     }
 `;

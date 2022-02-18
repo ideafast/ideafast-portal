@@ -60,7 +60,6 @@ export const apiParameters = {
     KEYPAIRGEN_SIGNATURE: [],
     RSA_SIGNER: [],
     GET_DATA_RECORDS: ['studyId', 'versionId', 'projectId'],
-    GET_ONTOLOGY_TREE: ['studyId', 'projectId'],
     CHECK_DATA_COMPLETE: ['studyId'],
     CREATE_NEW_DATA_VERSION: ['studyId', 'dataVersion', 'tag'],
     UPLOAD_DATA_IN_ARRAY: ['studyId'],
