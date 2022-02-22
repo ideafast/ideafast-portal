@@ -73,6 +73,8 @@ export function validateAndGenerateFieldEntry(fieldEntry: any) {
         possibleValues: fieldEntry.dataType === enumValueType.CATEGORICAL ? fieldEntry.possibleValues : null,
         unit: fieldEntry.unit,
         comments: fieldEntry.comments,
+        stdRules: fieldEntry.stdRules,
+        ontologyPath: fieldEntry.ontologyPath
     };
 
     return { fieldEntry: newField, error: error };

@@ -24,6 +24,7 @@ import { IGenericResponse, makeGenericReponse } from '../responses';
 import { buildPipeline } from '../../utils/query';
 import { IJobEntry } from '../../../../itmat-commons/dist/models/job';
 import { IFile } from '../../../../itmat-commons/dist/models/file';
+import { dataStandardization } from "../../utils/query";
 
 export const studyResolvers = {
     Query: {
@@ -244,7 +245,7 @@ export const studyResolvers = {
             const study = await studyCore.findOneStudy_throwErrorIfNotExist(studyId);
             let availableDataVersions: any;
             // standard users can only access the data of the current version (in this case they shouldn't specify the versionids)
-            if (versionId === null || versionId === undefined) {
+            if (versionId === undefined || versionId === null) {
                 availableDataVersions = (study.currentDataVersion === -1 ? [] : study.dataVersions.filter((__unused__el, index) => index <= study.currentDataVersion)).map(el => el.id);
             } else {
                 if (hasPermission) {
@@ -283,6 +284,7 @@ export const studyResolvers = {
             const pipeline = buildPipeline(queryString, studyId, availableDataVersions, hasPermission && versionId === null, fieldsList);
             const result = await db.collections!.data_collection.aggregate(pipeline).toArray();
             // post processing the data
+            // 1. update to the latest data
             const groupedResult = result.reduce((acc, curr) => {
                 if (acc[curr['m_subjectId']] === undefined) {
                     acc[curr['m_subjectId']] = {};
@@ -299,7 +301,10 @@ export const studyResolvers = {
                 });
                 return acc;
             }, {});
-
+            // 2. adjust format: 1) original (exists) 2) standardized 3) grouped
+            if (queryString['format'] === 'standardized') {
+                return { data: dataStandardization(study, fieldRecords.map(el => el.doc).filter(eh => eh.dateDeleted === null), groupedResult) }
+            }
             return { data: groupedResult };
         }
     },

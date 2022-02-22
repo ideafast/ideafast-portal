@@ -1,3 +1,5 @@
+import { IStudy, IFieldEntry, enumValueType } from 'itmat-commons';
+
 // if has study-level permission, non versioned data will also be returned
 export function buildPipeline(query: any, studyId: string, validDataVersion: string, hasPermission: boolean, fieldsList: any[]) {
     // // parse the input data versions first
@@ -37,6 +39,7 @@ export function buildPipeline(query: any, studyId: string, validDataVersion: str
         }
     }
     let match = {};
+    // We send back the filtered fields values
     if (query['cohort'] !== undefined && query['cohort'] !== null) {
         if (query.cohort.length > 1) {
             const subqueries: any = [];
@@ -180,3 +183,192 @@ function translateCohort(cohort: any) {
     );
     return match;
 }
+
+// attributes are fields that should be included in the standardization result; if not, leave it empty
+// STUDYID ans USUBJID will be joined automatically
+const domains = {
+    DM: {
+        name: 'Demographics',
+        attributes: ['DOMAIN', 'SITEID', 'AGE', 'AGEU', 'SEX', 'RACE'],
+    },
+    MH: {
+        name: 'Medical History',
+        attributes: ['DOMAIN', 'MHSEQ', 'MHTERM', 'MHDTC', 'MHSTDTC', 'MHENDTC'],
+    },
+    VS: {
+        name: 'Vital Sign',
+        attributes: ['DOMAIN', 'VSSEQ', 'VSTESTCD', 'VSTEST', 'VSPOS', 'VSORRES', 'VSORRESU', 'VSSTRESN', 'VSSTRESU', 'VISITNUM', 'VSDTC'],
+    },
+    LB: {
+        name: 'Laboratory Test',
+        attributes: ['DOMAIN', 'LBSEQ', 'LBTESTCD', 'LBTEST', 'LBCAT', 'LBORRES', 'LBORRESU', 'LBSTRESC', 'LBSTRESN', 'LBSPEC', 'VISITNUM'],
+    },
+    QS: {
+        name: 'Questionnaire',
+        attributes: ['DOMAIN', 'QSSEQ', 'QSTESTCD', 'QSTEST', 'QSCAT', 'QSORRES', 'QSORRESU', 'QSSTRESC', 'QSSTRESU', 'QSSTRESN', 'VISITNUM'],
+    },
+    CM: {
+        name: 'Concomitant Medications',
+        attributes: ['DOMAIN', 'CMSEQ', 'CMTRT', 'CMCAT', 'CMDOSTXT', 'CMDOSU'],
+    },
+    FT: {
+        name: 'Function Test',
+        attributes: ['DOMAIN', 'FTSEQ', 'FTCAT', 'FTORRES', 'FTORRESU', 'FTDTC', 'FTTESTCD', 'FTTEST', 'VISITNUM'],
+    }
+}
+
+// fields are obtained from called functions, providing the valid fields
+export function dataStandardization(study: IStudy, fields: IFieldEntry[], data: any) {
+    const records = Object.keys(domains).reduce((acc, curr) => {
+        acc[curr] = [];
+        return acc;
+    }, {})
+    for (const subjectId of Object.keys(data).sort()) {
+        // The sequence number is assigned to each standardized record in order in some domains; thus, the order may change in different versions
+        const seqNumDic: any = Object.keys(domains).reduce((acc, curr) => {
+            acc[curr] = 1;
+            return acc;
+        }, {});
+        for (const visitId of Object.keys(data[subjectId]).sort((a, b) => { return parseFloat(a) - parseFloat(b); })) {
+            for (const fieldId of Object.keys(data[subjectId][visitId]).sort((a, b) => { return parseFloat(a) - parseFloat(b); })) {
+                // check field existing in current data version
+                const fieldDef = fields.filter(el => el.fieldId === fieldId.toString())[0];
+                if (fieldDef === undefined || fieldDef.stdRules === undefined || fieldDef === null) {
+                    continue;
+                }
+                // check if DOMAIN exists
+                const attributeIndexMapping = fieldDef.stdRules.reduce((acc, curr, index) => {
+                    acc[curr['name']] = index;
+                    return acc;
+                }, {});
+                if (!Object.keys(attributeIndexMapping).includes('DOMAIN')) {
+                    continue;
+                }
+                const thisDomainDef = fieldDef.stdRules[attributeIndexMapping['DOMAIN']];
+                // parse VS, LB, QS, FT
+                let dataClip = {};
+                if (['VS', 'LB', 'QS', 'FT'].includes(thisDomainDef['parameter'])) {
+                    fieldDef.stdRules.forEach(el => {
+                        switch (el['source']) {
+                            case 'data': {
+                                // for multiple levels; use -> as delimiter
+                                const chain = el['parameter'] === '' ? [] : el['parameter'].split('->');
+                                let tmpData = data[subjectId][visitId][fieldId];
+                                chain.forEach(el => {
+                                    tmpData = tmpData[el] || '';
+                                });
+                                dataClip[el['name']] = tmpData;
+                                break;
+                            }
+                            case 'fieldDef': {
+                                dataClip[el['name']] = fieldDef[el['parameter']];
+                                break;
+                            }
+                            case 'value': {
+                                dataClip[el['name']] = el['parameter'];
+                                break;
+                            }
+                            case 'inc': {
+                                dataClip[el['name']] = seqNumDic[thisDomainDef['parameter']]++;
+                                break;
+                            }
+                        }
+                        // check if there is a dict
+                        if (el['dict'] !== null) {
+                            dataClip[el['name']] = el['dict'][dataClip[el['name']]] || '';    
+                        }
+                    })
+                    dataClip['VISITNUM'] = visitId;
+                } else if (fieldDef.stdRules[attributeIndexMapping['DOMAIN']]['parameter'] === 'DM') {
+                    // find the DM in records; otherwise create a new one
+                    dataClip = records[fieldDef.stdRules[attributeIndexMapping['DOMAIN']]['parameter']].filter(el => 
+                        el.USUBJID === subjectId)[0];
+                    if (dataClip === undefined) {
+                        dataClip = {};
+                    }
+                    fieldDef.stdRules.forEach(el => {
+                        switch (el['source']) {
+                            case 'data': {
+                                // for multiple levels; use -> as delimiter
+                                const chain = el['parameter'] === '' ? [] : el['parameter'].split('->');
+                                let tmpData = data[subjectId][visitId][fieldId];
+                                chain.forEach(el => {
+                                    tmpData = tmpData[el] || '';
+                                });
+                                dataClip[el['name']] = tmpData;
+                                break;
+                            }
+                            case 'fieldDef': {
+                                dataClip[el['name']] = fieldDef[el['parameter']];
+                                break;
+                            }
+                            case 'value': {
+                                dataClip[el['name']] = el['parameter'];
+                                break;
+                            }
+                        }
+                        // check if there is a dict
+                        if (el['dict'] !== null) {
+                            dataClip[el['name']] = el['dict'][dataClip[el['name']]] || '';    
+                        }
+                    })
+                } else if (fieldDef.stdRules[attributeIndexMapping['DOMAIN']]['parameter'] === 'MH') {
+                    // in the original record, MH is considered as a boolean type for each of the MH term
+                    // if not have, ignore
+                    if (data[subjectId][visitId][fieldId].toString() === '0') {
+                        continue
+                    }
+                    fieldDef.stdRules.forEach(el => {
+                        switch (el['source']) {
+                            case 'data': {
+                                // for multiple levels; use -> as delimiter
+                                const chain = el['parameter'] === '' ? [] : el['parameter'].split('->');
+                                let tmpData = data[subjectId][visitId][fieldId];
+                                chain.forEach(el => {
+                                    tmpData = tmpData[el] || '';
+                                });
+                                dataClip[el['name']] = tmpData;
+                                break;
+                            }
+                            case 'fieldDef': {
+                                dataClip[el['name']] = fieldDef[el['parameter']];
+                                break;
+                            }
+                            case 'value': {
+                                dataClip[el['name']] = el['parameter'];
+                                break;
+                            }
+                        }
+                        // check if there is a dict
+                        if (el['dict'] !== null) {
+                            dataClip[el['name']] = el['dict'][dataClip[el['name']]] || '';    
+                        }
+                    }) 
+                } else {
+                    continue;
+                }
+                dataClip['STUDYID'] = study.name;
+                dataClip['USUBJID'] = subjectId;
+                // check if need to replace the DM record
+                if (thisDomainDef.name === 'DOMAIN' && thisDomainDef.parameter === 'DM') {
+                    const dmIndex = records[fieldDef.stdRules[attributeIndexMapping['DOMAIN']]['parameter']].findIndex(el => 
+                        el.USUBJID === subjectId);
+                    if (dmIndex === -1) {
+                        records[thisDomainDef['parameter']].push(dataClip);    
+                    } else {
+                        records[thisDomainDef['parameter']].splice(dmIndex, 1);
+                        records[thisDomainDef['parameter']].splice(dmIndex, 0, dataClip);
+                    }
+                } else {
+                    records[thisDomainDef['parameter']].push(dataClip);
+                }
+            }
+        }
+    }
+    return records;
+}
+
+// ignore the subjectId, join values with same visitId and fieldId
+// export function dataGrouping(data: any) {
+//     return;
+// }

@@ -6,7 +6,7 @@ export interface IFieldEntry {
     tableName?: string;
     dataType: enumValueType;
     possibleValues?: IValueDescription[];
-    stdRules?: IStandardizationRule;
+    stdRules?: IStandardizationRule[];
     ontologyPath?: IOntologyPath[];
     unit?: string;
     comments?: string;
@@ -40,7 +40,8 @@ export enum enumValueType {
 export enum StandardizationSource {
     value = 'value', 
     data = 'data',
-    fieldDef = 'fieldDef'
+    fieldDef = 'fieldDef',
+    inc = 'inc'
 }
 
 export interface IStandardizationRule {

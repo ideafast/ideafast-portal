@@ -3415,6 +3415,125 @@ describe('STUDY API', () => {
             expect(Object.keys(getRes.body.data.getDataRecords.data)).toHaveLength(2); // unversioned data/field is invisible to project users
         });
 
+        test('Get data records with standardization (user with project privilege)', async () => {
+            const res = await admin.post('/graphql').send({
+                query: print(CREATE_NEW_FIELD),
+                variables: {
+                    studyId: createdStudy.id,
+                    fieldInput: [
+                        {
+                            fieldId: '100',
+                            fieldName: 'test-stdRules-VS',
+                            tableName: 'test',
+                            dataType: 'int',
+                            comments: 'test',
+                            possibleValues: null,
+                            stdRules: [
+                                { name: 'DOMAIN', source: 'value', parameter: 'VS', dict: null },
+                                { name: 'VSSEQ', source: 'inc', parameter: '', dict: null },
+                                { name: 'VSTESTCD', source: 'value', parameter: 'HEIGHT', dict: null },
+                                { name: 'VSORRES', source: 'data', parameter: '', dict: null },
+                                { name: 'VSORRESU', source: 'fieldDef', parameter: 'tableName', dict: { test: 'testDict' } }
+                            ],
+                            ontologyPath: null,
+                        },
+                        {
+                            fieldId: '101',
+                            fieldName: 'test-stdRules-DM-AGE',
+                            tableName: 'test',
+                            dataType: 'int',
+                            comments: 'test',
+                            possibleValues: null,
+                            stdRules: [
+                                { name: 'DOMAIN', source: 'value', parameter: 'DM', dict: null },
+                                { name: 'AGE', source: 'data', parameter: '', dict: null }
+                            ],
+                            ontologyPath: null,
+                        },
+                        {
+                            fieldId: '102',
+                            fieldName: 'test-stdRules-DM-SEX',
+                            tableName: 'test',
+                            dataType: 'str',
+                            comments: 'test',
+                            possibleValues: null,
+                            stdRules: [
+                                { name: 'DOMAIN', source: 'value', parameter: 'DM', dict: null },
+                                { name: 'SEX', source: 'data', parameter: '', dict: null }
+                            ],
+                            ontologyPath: null,
+                        },
+                        {
+                            fieldId: '103',
+                            fieldName: 'test-stdRules-MH-DEMENTIA',
+                            tableName: 'test',
+                            dataType: 'int',
+                            comments: 'test',
+                            possibleValues: [
+                                { code: '0', description: 'No' },
+                                { code: '1', description: 'Yes' }
+                            ],
+                            stdRules: [
+                                { name: 'DOMAIN', source: 'value', parameter: 'MH', dict: null },
+                                { name: 'MHTERM', source: 'data', parameter: '', dict: { 0: '', 1: 'DEMENTIA' } }
+                            ],
+                            ontologyPath: null,
+                        },
+                        {
+                            fieldId: '104',
+                            fieldName: 'test-stdRules-MH-HEMIPLEGIA',
+                            tableName: 'test',
+                            dataType: 'int',
+                            comments: 'test',
+                            possibleValues: [
+                                { code: '0', description: 'No' },
+                                { code: '1', description: 'Yes' }
+                            ],
+                            stdRules: [
+                                { name: 'DOMAIN', source: 'value', parameter: 'MH', dict: null },
+                                { name: 'MHTERM', source: 'data', parameter: '', dict: { 0: '', 1: 'HEMIPLEGIA' } }
+                            ],
+                            ontologyPath: null,
+                        }
+                    ]
+                }
+            });
+            await admin.post('/graphql').send({
+                query: print(UPLOAD_DATA_IN_ARRAY),
+                variables: {
+                    studyId: createdStudy.id, data: [
+                        { fieldId: '100', value: '150', subjectId: 'I7N3G6G', visitId: '0' },
+                        { fieldId: '101', value: '40', subjectId: 'I7N3G6G', visitId: '0' },
+                        { fieldId: '102', value: 'F', subjectId: 'I7N3G6G', visitId: '0' },
+                        { fieldId: '103', value: '0', subjectId: 'I7N3G6G', visitId: '0' },
+                        { fieldId: '104', value: '1', subjectId: 'I7N3G6G', visitId: '0' },
+                    ]
+                }
+            });
+            const getRes = await admin.post('/graphql').send({
+                query: print(GET_DATA_RECORDS),
+                variables: {
+                    studyId: createdStudy.id,
+                    versionId: null,
+                    queryString: {
+                        format: 'standardized',
+                        data_requested: null,
+                        cohort: null,
+                        new_fields: null
+                    }
+                }
+            });
+            expect(getRes.status).toBe(200);
+            expect(getRes.body.errors).toBeUndefined();
+            expect(getRes.body.data.getDataRecords.data.DM).toHaveLength(1);
+            expect(getRes.body.data.getDataRecords.data.MH).toHaveLength(1);
+            expect(getRes.body.data.getDataRecords.data.VS).toHaveLength(1);
+            expect(getRes.body.data.getDataRecords.data.LB).toHaveLength(0);
+            expect(getRes.body.data.getDataRecords.data.QS).toHaveLength(0);
+            expect(getRes.body.data.getDataRecords.data.CM).toHaveLength(0);
+            expect(getRes.body.data.getDataRecords.data.FT).toHaveLength(0);            
+        });
+
         test('Check data complete (admin)', async () => {
             await admin.post('/graphql').send({
                 query: print(UPLOAD_DATA_IN_ARRAY),

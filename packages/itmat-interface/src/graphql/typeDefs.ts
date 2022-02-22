@@ -43,6 +43,7 @@ enum StandardizationSource {
     value, # from a given value
     data, # from the value of the field
     fieldDef, # from the definitions of the field
+    inc # increase by 1
 }
 
 # rules for sources
@@ -50,6 +51,7 @@ enum StandardizationSource {
 # data: parameter is the key of the data, or paths joined by - for JSON data type;
 #        note the input is a whole data reocrd including the subjectId & visitId
 # fieldDef: parameter is the name of the attribute of the field definition, e.g., unit 
+# inc: no parameter needed
 type StandardizationRule {
     name: String!
     source: StandardizationSource!,
@@ -87,7 +89,7 @@ type Field {
     tableName: String
     dataType: FIELD_VALUE_TYPE!
     possibleValues: [ValueCategory]
-    stdRules: StandardizationRule
+    stdRules: [StandardizationRule]
     ontologyPath: [OntologyPath] # Either the fieldId or a string
     unit: String
     comments: String
@@ -456,7 +458,7 @@ input FieldInput {
     tableName: String
     dataType: FIELD_VALUE_TYPE!
     possibleValues: [ValueCategoryInput]
-    stdRules: StandardizationRuleInput
+    stdRules: [StandardizationRuleInput]
     ontologyPath: StringArrayChangesInput
     unit: String
     comments: String
