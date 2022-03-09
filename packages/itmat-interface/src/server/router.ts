@@ -23,7 +23,11 @@ import { spaceFixing } from '../utils/regrex';
 import { BigIntResolver as scalarResolvers } from 'graphql-scalars';
 import jwt from 'jsonwebtoken';
 import { userRetrieval } from '../authentication/pubkeyAuthentication';
+import { Provider } from 'oidc-provider';
 // const MongoStore = connectMongo(session);
+import path from 'path';
+import {oidcConfiguration} from '../utils/oidcConfig';
+import {oidcRoutes} from '../rest/oidcRoutes';
 
 export class Router {
     private readonly app: Express;
@@ -163,6 +167,17 @@ export class Router {
         //     next();
         // });
 
+        // oidc provider
+        // @ts-ignore
+        const oidc = new Provider(config.oidc.issuer, oidcConfiguration);
+        oidc.proxy = true;
+
+        this.app.use('/oidc', oidc.callback);
+
+        this.app.set('views', path.join(__dirname, "../src/views"));
+        this.app.set('view engine', 'ejs');
+
+        oidcRoutes(this.app, oidc);
         this.app.get('/file/:fileId', fileDownloadController);
 
     }
