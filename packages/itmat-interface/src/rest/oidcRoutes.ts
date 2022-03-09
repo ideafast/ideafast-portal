@@ -1,18 +1,6 @@
 import {urlencoded} from "express";
-import querystring from 'querystring';
-import isEmpty from 'lodash/isEmpty';
-import {inspect} from "util";
 
 const body = urlencoded({ extended: false });
-const keys = new Set();
-const debug = (obj) => querystring.stringify(Object.entries(obj).reduce((acc, [key, value]) => {
-    keys.add(key);
-    if (isEmpty(value)) return acc;
-    acc[key] = inspect(value, { depth: null });
-    return acc;
-}, {}), '<br/>', ': ', {
-    encodeURIComponent(value) { return keys.has(value) ? `<strong>${value}</strong>` : value; },
-});
 
 export const oidcRoutes = (app, provider) => {
     const { constructor: { errors: { SessionNotFound } } } = provider;
@@ -51,28 +39,12 @@ export const oidcRoutes = (app, provider) => {
                     return res.render('login', {
                         client,
                         uid,
-                        details: prompt.details,
-                        params,
-                        title: 'Sign-in',
-                        session: session ? debug(session) : undefined,
-                        dbg: {
-                            params: debug(params),
-                            prompt: debug(prompt),
-                        },
                     });
                 }
                 case 'consent': {
                     return res.render('interaction', {
                         client,
                         uid,
-                        details: prompt.details,
-                        params,
-                        title: 'Authorize',
-                        session: session ? debug(session) : undefined,
-                        dbg: {
-                            params: debug(params),
-                            prompt: debug(prompt),
-                        },
                     });
                 }
                 default:
