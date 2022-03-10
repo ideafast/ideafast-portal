@@ -39,12 +39,14 @@ export const oidcRoutes = (app, provider) => {
                     return res.render('login', {
                         client,
                         uid,
+                        title: 'Sign-in',
                     });
                 }
                 case 'consent': {
                     return res.render('interaction', {
                         client,
                         uid,
+                        title: 'Sign-in',
                     });
                 }
                 default:
