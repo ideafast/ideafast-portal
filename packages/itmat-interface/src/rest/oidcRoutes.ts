@@ -60,7 +60,7 @@ export const oidcRoutes = (app, provider) => {
     app.post('/interaction/:uid/login', setNoCache, body, async (req, res, next) => {
         try {
             if (!req.user) {
-                res.redirect('http://localhost:3000')
+                res.redirect(process.env.LoginURL)
             }
             else {
                 // @ts-ignore
