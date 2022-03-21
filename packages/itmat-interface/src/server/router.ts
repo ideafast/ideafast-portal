@@ -168,13 +168,12 @@ export class Router {
         // });
 
         // oidc provider
-        // @ts-ignore
         const oidc = new Provider(config.oidc.issuer, oidcConfiguration);
         oidc.proxy = true;
 
         this.app.use('/oidc', oidc.callback);
 
-        this.app.set('views', path.join(__dirname, "../src/views"));
+        this.app.set('views', path.join(__dirname, '../src/views'));
         this.app.set('view engine', 'ejs');
 
         oidcRoutes(this.app, oidc);

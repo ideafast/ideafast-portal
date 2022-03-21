@@ -1,4 +1,4 @@
-import {urlencoded} from "express";
+import {urlencoded} from 'express';
 import config from '../utils/configManager';
 
 const body = urlencoded({ extended: false });
@@ -30,7 +30,7 @@ export const oidcRoutes = (app, provider) => {
     app.get('/interaction/:uid', setNoCache, async (req, res, next) => {
         try {
             const {
-                uid, prompt, params, session,
+                uid, prompt, params,
             } = await provider.interactionDetails(req, res);
 
             const client = await provider.Client.find(params.client_id);
@@ -61,10 +61,9 @@ export const oidcRoutes = (app, provider) => {
     app.post('/interaction/:uid/login', setNoCache, body, async (req, res, next) => {
         try {
             if (!req.user) {
-                res.redirect(config.oidc.login_url)
+                res.redirect(config.oidc.login_url);
             }
             else {
-                // @ts-ignore
                 const userID = req.user.id;
                 const result = {
                     login: {
@@ -80,7 +79,7 @@ export const oidcRoutes = (app, provider) => {
 
     app.post('/interaction/:uid/confirm', setNoCache, body, async (req, res, next) => {
         try {
-            const { prompt: { name, details } } = await provider.interactionDetails(req, res);
+            // const { prompt: { name, details } } = await provider.interactionDetails(req, res);
             // assert.equal(name, 'consent');
 
             // any scopes you do not wish to grant go in here

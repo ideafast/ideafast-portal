@@ -13,7 +13,7 @@ export const oidcConfiguration = {
         },
     ],
     interactions: {
-        url(ctx, interaction) { // eslint-disable-line no-unused-vars
+        url(ctx) {
             return `/interaction/${ctx.oidc.uid}`;
         },
     },
