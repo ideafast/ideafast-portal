@@ -18,6 +18,7 @@ export interface IConfiguration extends IServerConfig {
         redirect_url: string;
         client_id: string;
         client_secret: string;
+        login_url: string;
     };
 }
 
