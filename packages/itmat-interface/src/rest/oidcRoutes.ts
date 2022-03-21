@@ -1,5 +1,4 @@
 import {urlencoded} from 'express';
-import config from '../utils/configManager';
 import assert from 'assert';
 const body = urlencoded({ extended: false });
 
