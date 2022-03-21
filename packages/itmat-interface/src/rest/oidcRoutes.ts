@@ -1,6 +1,6 @@
 import {urlencoded} from 'express';
 import config from '../utils/configManager';
-
+import assert from 'assert';
 const body = urlencoded({ extended: false });
 
 export const oidcRoutes = (app, provider) => {
@@ -64,10 +64,10 @@ export const oidcRoutes = (app, provider) => {
                 res.redirect(config.oidc.login_url);
             }
             else {
-                const userID = req.user.id;
+                const accountID = req.user.id;
                 const result = {
                     login: {
-                        account: userID,
+                        accountId:accountID
                     },
                 };
                 await provider.interactionFinished(req, res, result, { mergeWithLastSubmission: false });
@@ -79,23 +79,38 @@ export const oidcRoutes = (app, provider) => {
 
     app.post('/interaction/:uid/confirm', setNoCache, body, async (req, res, next) => {
         try {
-            // const { prompt: { name, details } } = await provider.interactionDetails(req, res);
-            // assert.equal(name, 'consent');
+            const interactionDetails = await provider.interactionDetails(req, res);
+            const { prompt: { name, details }, params, session: { accountId } } = interactionDetails;
+            assert.strictEqual(name, 'consent');
 
-            // any scopes you do not wish to grant go in here
-            //   otherwise details.scopes.new.concat(details.scopes.accepted) will be granted
+            let { grantId } = interactionDetails;
+            let grant;
 
-            // any claims you do not wish to grant go in here
-            //   otherwise all claims mapped to granted scopes
-            //   and details.claims.new.concat(details.claims.accepted) will be granted
+            if (grantId) {
+                // we'll be modifying existing grant in existing session
+                grant = await provider.Grant.find(grantId);
+            } else {
+                // we're establishing a new grant
+                grant = new provider.Grant({
+                    accountId,
+                    clientId: params.client_id,
+                });
+            }
 
-            // replace = false means previously rejected scopes and claims remain rejected
-            // changing this to true will remove those rejections in favour of just what you rejected above
-            const consent = {
-                rejectedScopes: [],
-                rejectedClaims: [],
-                replace: false,
-            };
+            if (details.missingOIDCScope) {
+                grant.addOIDCScope(details.missingOIDCScope.join(' '));
+            }
+            if (details.missingOIDCClaims) {
+                grant.addOIDCClaims(details.missingOIDCClaims);
+            }
+
+            grantId = await grant.save();
+
+            const consent = {grantId:undefined,};
+            if (!interactionDetails.grantId) {
+                // we don't have to pass grantId to consent, we're just modifying existing one
+                consent.grantId = grantId;
+            }
 
             const result = { consent };
             await provider.interactionFinished(req, res, result, { mergeWithLastSubmission: true });

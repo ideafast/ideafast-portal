@@ -1,6 +1,15 @@
 import { Account } from './oidcAccount';
 import config from './configManager';
-import jwks from '../../config/jwks.json';
+import sampleJwks from '../../config/jwks.sample.json';
+import fs from 'fs-extra';
+
+let jwks;
+if (fs.existsSync('../../config/jwks.bak.json')) {
+    jwks = fs.readFileSync('../../config/jwks.bak.json', 'utf8');
+}
+else {
+    jwks = sampleJwks
+}
 
 export const oidcConfiguration = {
     clients: [
@@ -12,9 +21,12 @@ export const oidcConfiguration = {
             token_endpoint_auth_method: 'client_secret_basic',
         },
     ],
+    pkce: {
+        required: () => false,
+    },
     interactions: {
-        url(ctx) {
-            return `/interaction/${ctx.oidc.uid}`;
+        url(ctx, interaction) {
+            return `/interaction/${interaction.uid}`;
         },
     },
     cookies: {
