@@ -61,7 +61,7 @@ export const oidcRoutes = (app, provider) => {
     app.post('/interaction/:uid/login', setNoCache, body, async (req, res, next) => {
         try {
             if (!req.user) {
-                res.redirect(config.oidc.login_url);
+                res.redirect('/');
             }
             else {
                 const accountID = req.user.id;
