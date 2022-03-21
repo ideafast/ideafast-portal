@@ -28,6 +28,8 @@ import { Provider } from 'oidc-provider';
 import path from 'path';
 import {oidcConfiguration} from '../utils/oidcConfig';
 import {oidcRoutes} from '../rest/oidcRoutes';
+import csrf from 'csurf';
+import cookieParser from 'cookie-parser';
 
 export class Router {
     private readonly app: Express;
@@ -62,6 +64,9 @@ export class Router {
         this.app.use(passport.session());
         passport.serializeUser(userLoginUtils.serialiseUser);
         passport.deserializeUser(userLoginUtils.deserialiseUser);
+
+        this.app.use(cookieParser());
+        this.app.use(csrf({ cookie: true }));
 
         this.server = http.createServer(this.app);
 

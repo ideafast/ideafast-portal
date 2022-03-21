@@ -1,4 +1,5 @@
 import {urlencoded} from 'express';
+import config from '../utils/configManager';
 import assert from 'assert';
 const body = urlencoded({ extended: false });
 
@@ -60,7 +61,7 @@ export const oidcRoutes = (app, provider) => {
     app.post('/interaction/:uid/login', setNoCache, body, async (req, res, next) => {
         try {
             if (!req.user) {
-                res.redirect('/');
+                res.redirect(config.oidc.login_url);
             }
             else {
                 const accountID = req.user.id;
