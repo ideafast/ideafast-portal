@@ -1,4 +1,5 @@
 import {urlencoded} from "express";
+import config from '../utils/configManager';
 
 const body = urlencoded({ extended: false });
 
@@ -60,7 +61,7 @@ export const oidcRoutes = (app, provider) => {
     app.post('/interaction/:uid/login', setNoCache, body, async (req, res, next) => {
         try {
             if (!req.user) {
-                res.redirect(process.env.LoginURL)
+                res.redirect(config.oidc.login_url)
             }
             else {
                 // @ts-ignore
