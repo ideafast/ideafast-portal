@@ -1,5 +1,5 @@
 import { db } from '../database/database';
-import {UserInputError} from "apollo-server-express";
+import {UserInputError} from 'apollo-server-express';
 
 export class Account {
     static async findAccount(ctx, id) {
