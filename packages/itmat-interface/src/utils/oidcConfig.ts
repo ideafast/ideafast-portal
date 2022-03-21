@@ -8,7 +8,7 @@ if (fs.existsSync('../../config/jwks.bak.json')) {
     jwks = fs.readFileSync('../../config/jwks.bak.json', 'utf8');
 }
 else {
-    jwks = sampleJwks
+    jwks = sampleJwks;
 }
 
 export const oidcConfiguration = {
