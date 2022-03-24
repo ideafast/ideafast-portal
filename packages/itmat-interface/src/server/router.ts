@@ -39,10 +39,10 @@ export class Router {
         this.app = express();
 
         if (process.env.NODE_ENV === 'development')
-            this.app.use(cors({ credentials: true }));
+            this.app.use(cors({credentials: true}));
 
-        this.app.use(bodyParser.json({ limit: '50mb' }));
-        this.app.use(bodyParser.urlencoded({ extended: true }));
+        this.app.use(bodyParser.json({limit: '50mb'}));
+        this.app.use(bodyParser.urlencoded({extended: true}));
 
 
         /* save persistent sessions in mongo */
@@ -66,7 +66,7 @@ export class Router {
         passport.deserializeUser(userLoginUtils.deserialiseUser);
 
         this.app.use(cookieParser());
-        this.app.use(csrf({ cookie: true }));
+        this.app.use(csrf({cookie: true}));
 
         this.server = http.createServer(this.app);
 
@@ -108,9 +108,9 @@ export class Router {
                         };
                     },
                 },
-                ApolloServerPluginDrainHttpServer({ httpServer: this.server })
+                ApolloServerPluginDrainHttpServer({httpServer: this.server})
             ],
-            context: async ({ req, res }) => {
+            context: async ({req, res}) => {
                 /* Bounce all unauthenticated graphql requests */
                 // if (req.user === undefined && req.body.operationName !== 'login' && req.body.operationName !== 'IntrospectionQuery' ) {  // login and schema introspection doesn't need authentication
                 //     throw new ForbiddenError('not logged in');
@@ -132,7 +132,7 @@ export class Router {
                     const associatedUser = await userRetrieval(pubkey);
                     req.user = associatedUser;
                 }
-                return ({ req, res });
+                return ({req, res});
             },
             formatError: (error) => {
                 // TO_DO: generate a ref uuid for errors so the clients can contact admin
@@ -145,7 +145,7 @@ export class Router {
         this.app.use(graphqlUploadExpress());
 
         gqlServer.start().then(() => {
-            gqlServer.applyMiddleware({ app: this.app, cors: { credentials: true } });
+            gqlServer.applyMiddleware({app: this.app, cors: {credentials: true}});
         });
 
         /* register the graphql subscription functionalities */
@@ -173,7 +173,13 @@ export class Router {
         // });
 
         // oidc provider
-        const oidc = new Provider(config.oidc.issuer, oidcConfiguration);
+        let adapter = undefined;
+
+        // if (process.env.prod) {
+        //     adapter = mongoDBAdapter()
+        // }
+
+        const oidc = new Provider(`${config.oidc.issuer}:${config.server.port}`, {adapter, ...oidcConfiguration});
         oidc.proxy = true;
 
         this.app.use('/oidc', oidc.callback());
