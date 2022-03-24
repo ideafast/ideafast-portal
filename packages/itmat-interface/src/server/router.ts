@@ -23,11 +23,11 @@ import { spaceFixing } from '../utils/regrex';
 import { BigIntResolver as scalarResolvers } from 'graphql-scalars';
 import jwt from 'jsonwebtoken';
 import { userRetrieval } from '../authentication/pubkeyAuthentication';
-import { Provider } from 'oidc-provider';
+import { Provider, Configuration } from 'oidc-provider';
 // const MongoStore = connectMongo(session);
 import path from 'path';
-import {oidcConfiguration} from '../utils/oidcConfig';
-import {oidcRoutes} from '../rest/oidcRoutes';
+import { oidcConfiguration } from '../utils/oidcConfig';
+import { oidcRoutes } from '../rest/oidcRoutes';
 
 export class Router {
     private readonly app: Express;
@@ -168,7 +168,13 @@ export class Router {
         // });
 
         // oidc provider
-        const oidc = new Provider(config.oidc.issuer, oidcConfiguration);
+        const adapter = undefined;
+
+        // if (process.env.prod) {
+        //     adapter = mongoDBAdapter()
+        // }
+
+        const oidc = new Provider(`${config.oidc.issuer}:${config.server.port}`, { adapter, ...oidcConfiguration } as Configuration);
         oidc.proxy = true;
 
         this.app.use('/oidc', oidc.callback());

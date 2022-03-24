@@ -23,4 +23,26 @@ module.exports = function (app) {
             changeOrigin: true
         })
     );
+    app.use(
+        '/oidc',
+        createProxyMiddleware({
+            target: {
+                protocol: 'http',
+                host: 'localhost',
+                port: 3003
+            },
+            changeOrigin: true
+        })
+    );
+    app.use(
+        '/interaction',
+        createProxyMiddleware({
+            target: {
+                protocol: 'http',
+                host: 'localhost',
+                port: 3003
+            },
+            changeOrigin: true
+        })
+    );
 };

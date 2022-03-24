@@ -2,6 +2,7 @@ import { Account } from './oidcAccount';
 import config from './configManager';
 import sampleJwks from '../../config/jwks.sample.json';
 import fs from 'fs-extra';
+import { Configuration } from 'oidc-provider';
 
 let jwks;
 if (fs.existsSync('../../config/jwks.bak.json')) {
@@ -11,7 +12,7 @@ else {
     jwks = sampleJwks;
 }
 
-export const oidcConfiguration = {
+export const oidcConfiguration: Configuration = {
     clients: [
         {
             client_id: config.oidc.client_id,
@@ -22,6 +23,7 @@ export const oidcConfiguration = {
         },
     ],
     pkce: {
+        methods: ['S256'],
         required: () => false,
     },
     interactions: {
@@ -29,8 +31,11 @@ export const oidcConfiguration = {
             return `/interaction/${interaction.uid}`;
         },
     },
+    clientDefaults: {
+        default_max_age: (1 * 24 * 60 * 60) * 1000, // 1 day in ms
+    },
     cookies: {
-        long: { signed: true, maxAge: (1 * 24 * 60 * 60) * 1000 }, // 1 day in ms
+        long: { signed: true },
         short: { signed: true },
         keys: ['mod_auth_openidc_session', 'mod_auth_openidc_session_chunks', 'mod_auth_openidc_session_0', 'mod_auth_openidc_session_1'],
     },
