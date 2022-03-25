@@ -173,7 +173,7 @@ export class Router {
         // });
 
         // oidc provider
-        let adapter = undefined;
+        const adapter = undefined;
 
         // if (process.env.prod) {
         //     adapter = mongoDBAdapter()
