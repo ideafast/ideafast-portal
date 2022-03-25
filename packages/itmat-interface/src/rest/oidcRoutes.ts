@@ -1,7 +1,5 @@
-import {urlencoded} from 'express';
 import config from '../utils/configManager';
 import assert from 'assert';
-const body = urlencoded({ extended: false });
 
 export const oidcRoutes = (app, provider) => {
     const { constructor: { errors: { SessionNotFound } } } = provider;
@@ -58,7 +56,7 @@ export const oidcRoutes = (app, provider) => {
         }
     });
 
-    app.post('/interaction/:uid/login', setNoCache, body, async (req, res, next) => {
+    app.post('/interaction/:uid/login', setNoCache, async (req, res, next) => {
         try {
             if (!req.user) {
                 res.redirect(config.oidc.login_url);
@@ -77,7 +75,7 @@ export const oidcRoutes = (app, provider) => {
         }
     });
 
-    app.post('/interaction/:uid/confirm', setNoCache, body, async (req, res, next) => {
+    app.post('/interaction/:uid/confirm', setNoCache, async (req, res, next) => {
         try {
             const interactionDetails = await provider.interactionDetails(req, res);
             const { prompt: { name, details }, params, session: { accountId } } = interactionDetails;

@@ -30,6 +30,7 @@ import {oidcConfiguration} from '../utils/oidcConfig';
 import {oidcRoutes} from '../rest/oidcRoutes';
 import csrf from 'csurf';
 import cookieParser from 'cookie-parser';
+import {MongoAdapter} from '../utils/oidcAdapter';
 
 export class Router {
     private readonly app: Express;
@@ -173,13 +174,8 @@ export class Router {
         // });
 
         // oidc provider
-        const adapter = undefined;
-
-        // if (process.env.prod) {
-        //     adapter = mongoDBAdapter()
-        // }
-
-        const oidc = new Provider(`${config.oidc.issuer}:${config.server.port}`, {adapter, ...oidcConfiguration});
+        MongoAdapter.connect();
+        const oidc = new Provider(`${config.oidc.issuer}:${config.server.port}`, {adapter: MongoAdapter, ...oidcConfiguration});
         oidc.proxy = true;
 
         this.app.use('/oidc', oidc.callback());
