@@ -22,6 +22,7 @@ export const oidcConfiguration = {
         },
     ],
     pkce: {
+        methods: 'plain',
         required: () => false,
     },
     interactions: {
