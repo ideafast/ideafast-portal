@@ -1,6 +1,7 @@
+import config from './configManager';
+
 const { MongoClient } = require('mongodb'); // eslint-disable-line import/no-unresolved
 const snakeCase = require('lodash/snakeCase');
-import config from './configManager';
 
 let DB;
 
