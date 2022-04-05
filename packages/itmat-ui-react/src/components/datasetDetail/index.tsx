@@ -4,7 +4,7 @@ import { NavLink, Route, Switch } from 'react-router-dom';
 import { GET_STUDY, WHO_AM_I, userTypes, studyType } from 'itmat-commons';
 import LoadSpinner from '../reusable/loadSpinner';
 import css from './projectPage.module.css';
-import { DashboardTabContent, DataManagementTabContentFetch, ProjectsTabContent, AdminTabContent } from './tabContent';
+import { DashboardTabContent, DataManagementTabContentFetch, ProjectsTabContent, AdminTabContent, FieldManagementTabContentFetch } from './tabContent';
 import { FileRepositoryTabContent } from './tabContent/files/fileTab';
 
 export const DatasetDetailPage: React.FunctionComponent<{ studyId: string }> = ({ studyId }) => {
@@ -33,6 +33,7 @@ export const DatasetDetailPage: React.FunctionComponent<{ studyId: string }> = (
                                         return (
                                             <>
                                                 <NavLink to={`/datasets/${studyId}/dashboard`} activeClassName={css.active}>DASHBOARD</NavLink>
+                                                <NavLink to={`/datasets/${studyId}/field_management`} activeClassName={css.active}>DATA STANDARDIZATION</NavLink>
                                                 <NavLink to={`/datasets/${studyId}/data_management`} activeClassName={css.active}>DATA MANAGEMENT</NavLink>
                                                 <NavLink to={`/datasets/${studyId}/files`} activeClassName={css.active}>FILES REPOSITORY</NavLink>
                                                 <NavLink to={`/datasets/${studyId}/admin`} activeClassName={css.active}>ADMINISTRATION</NavLink>
@@ -43,8 +44,12 @@ export const DatasetDetailPage: React.FunctionComponent<{ studyId: string }> = (
                                         return (
                                             <>
                                                 <NavLink to={`/datasets/${studyId}/files`} activeClassName={css.active}>FILES REPOSITORY</NavLink>
-                                                {data.getStudy.type === studyType.CLINICAL ?
-                                                    <NavLink to={`/datasets/${studyId}/data_management`} activeClassName={css.active}>DATA MANAGEMENT</NavLink> : null}
+                                                {
+                                                    data.getStudy.type === studyType.CLINICAL ?
+                                                        <>
+                                                            <NavLink to={`/datasets/${studyId}/data_management`} activeClassName={css.active}>DATA MANAGEMENT</NavLink>
+                                                        </>
+                                                        : null }
                                             </>
                                         );
                                     }
@@ -55,6 +60,7 @@ export const DatasetDetailPage: React.FunctionComponent<{ studyId: string }> = (
                     <div className={css.content}>
                         <Switch>
                             <Route path='/datasets/:studyId/dashboard' render={() => <DashboardTabContent studyId={studyId} jobs={data.getStudy.jobs} />} />
+                            <Route path='/datasets/:studyId/field_management' render={({ match }) => <FieldManagementTabContentFetch studyId={match.params.studyId} />} />
                             <Route path='/datasets/:studyId/data_management' render={({ match }) => <DataManagementTabContentFetch studyId={match.params.studyId} />} />
                             <Route path='/datasets/:studyId/files' render={() => <FileRepositoryTabContent studyId={studyId} />} />
                             <Route path='/datasets/:studyId/projects' render={({ match }) => <ProjectsTabContent studyId={match.params.studyId} projectList={data.getStudy.projects} />} />

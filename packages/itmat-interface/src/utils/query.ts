@@ -1,5 +1,12 @@
 import { IStudy, IFieldEntry, enumValueType } from 'itmat-commons';
+/*
+    queryString:
+        format: string                  # returned foramt: raw, standardized, grouped, summary
+        data_requested: array           # returned fields
+        cohort: array[array]            # filters
+        new_fields: array               # new_fields
 
+*/
 // if has study-level permission, non versioned data will also be returned
 export function buildPipeline(query: any, studyId: string, validDataVersion: string, hasPermission: boolean, fieldsList: any[]) {
     // // parse the input data versions first
@@ -74,38 +81,95 @@ export function buildPipeline(query: any, studyId: string, validDataVersion: str
 
 function createNewField(expression: any) {
     let newField = {};
+    // if any parameters === '99999', then ignore this calculation
     switch (expression.op) {
         case '*':
             newField = {
-                $multiply: [createNewField(expression.left), createNewField(expression.right)]
+                $cond: [
+                    {
+                        $or: [
+                            { $eq: [{ $type: createNewField(expression.left) }, 'string'] },
+                            { $eq: [{ $type: createNewField(expression.right) }, 'string'] },
+                        ]
+                    },
+                    '99999',
+                    {
+                        $multiply: [createNewField(expression.left), createNewField(expression.right)]
+                    }
+                ]
             };
             break;
         case '/':
             newField = {
-                $divide: [createNewField(expression.left), createNewField(expression.right)]
+                $cond: [
+                    {
+                        $or: [
+                            { $eq: [{ $type: createNewField(expression.left) }, 'string'] },
+                            { $eq: [{ $type: createNewField(expression.right) }, 'string'] },
+                        ]
+                    },
+                    '99999',
+                    {
+                        $divide: [createNewField(expression.left), createNewField(expression.right)]
+                    }
+                ]
             };
             break;
         case '-':
             newField = {
-                $subtract: [createNewField(expression.left), createNewField(expression.right)]
+                $cond: [
+                    {
+                        $or: [
+                            { $eq: [{ $type: createNewField(expression.left) }, 'string'] },
+                            { $eq: [{ $type: createNewField(expression.right) }, 'string'] },
+                        ]
+                    },
+                    '99999',
+                    {
+                        $subtract: [createNewField(expression.left), createNewField(expression.right)]
+                    }
+                ]
             };
             break;
         case '+':
             newField = {
-                $add: [createNewField(expression.left), createNewField(expression.right)]
+                $cond: [
+                    {
+                        $or: [
+                            { $eq: [{ $type: createNewField(expression.left) }, 'string'] },
+                            { $eq: [{ $type: createNewField(expression.right) }, 'string'] },
+                        ]
+                    },
+                    '99999',
+                    {
+                        $add: [createNewField(expression.left), createNewField(expression.right)]
+                    }
+                ]
             };
             break;
         case '^':
-            // NB the right side my be an integer while the left must be a field !
             newField = {
-                $pow: ['$' + expression.left, parseInt(expression.right, 10)]
+                $cond: [
+                    { $eq: [{ $type: createNewField(expression.left) }, 'string'] },
+                    '99999',
+                    {
+                        // NB the right side my be an integer while the left must be a field !
+                        $pow: ['$' + expression.left, parseInt(expression.right, 10)]
+                    }
+                ]
             };
             break;
         case 'val':
             newField = parseFloat(expression.left);
             break;
         case 'field':
-            newField = '$' + expression.left;
+            newField = {
+                $cond: [
+                    { $eq: [{ $type: createNewField(expression.left) }, 'string'] },
+                    '99999',
+                    '$' + expression.left
+                ]
+            };
             break;
         default:
             break;
@@ -215,14 +279,14 @@ const domains = {
         name: 'Function Test',
         attributes: ['DOMAIN', 'FTSEQ', 'FTCAT', 'FTORRES', 'FTORRESU', 'FTDTC', 'FTTESTCD', 'FTTEST', 'VISITNUM'],
     }
-}
+};
 
 // fields are obtained from called functions, providing the valid fields
 export function dataStandardization(study: IStudy, fields: IFieldEntry[], data: any) {
     const records = Object.keys(domains).reduce((acc, curr) => {
         acc[curr] = [];
         return acc;
-    }, {})
+    }, {});
     for (const subjectId of Object.keys(data).sort()) {
         // The sequence number is assigned to each standardized record in order in some domains; thus, the order may change in different versions
         const seqNumDic: any = Object.keys(domains).reduce((acc, curr) => {
@@ -275,13 +339,13 @@ export function dataStandardization(study: IStudy, fields: IFieldEntry[], data: 
                         }
                         // check if there is a dict
                         if (el['dict'] !== null) {
-                            dataClip[el['name']] = el['dict'][dataClip[el['name']]] || '';    
+                            dataClip[el['name']] = el['dict'][dataClip[el['name']]] || '';
                         }
-                    })
+                    });
                     dataClip['VISITNUM'] = visitId;
                 } else if (fieldDef.stdRules[attributeIndexMapping['DOMAIN']]['parameter'] === 'DM') {
                     // find the DM in records; otherwise create a new one
-                    dataClip = records[fieldDef.stdRules[attributeIndexMapping['DOMAIN']]['parameter']].filter(el => 
+                    dataClip = records[fieldDef.stdRules[attributeIndexMapping['DOMAIN']]['parameter']].filter(el =>
                         el.USUBJID === subjectId)[0];
                     if (dataClip === undefined) {
                         dataClip = {};
@@ -309,14 +373,14 @@ export function dataStandardization(study: IStudy, fields: IFieldEntry[], data: 
                         }
                         // check if there is a dict
                         if (el['dict'] !== null) {
-                            dataClip[el['name']] = el['dict'][dataClip[el['name']]] || '';    
+                            dataClip[el['name']] = el['dict'][dataClip[el['name']]] || '';
                         }
-                    })
+                    });
                 } else if (fieldDef.stdRules[attributeIndexMapping['DOMAIN']]['parameter'] === 'MH') {
                     // in the original record, MH is considered as a boolean type for each of the MH term
                     // if not have, ignore
                     if (data[subjectId][visitId][fieldId].toString() === '0') {
-                        continue
+                        continue;
                     }
                     fieldDef.stdRules.forEach(el => {
                         switch (el['source']) {
@@ -341,9 +405,14 @@ export function dataStandardization(study: IStudy, fields: IFieldEntry[], data: 
                         }
                         // check if there is a dict
                         if (el['dict'] !== null) {
-                            dataClip[el['name']] = el['dict'][dataClip[el['name']]] || '';    
+                            // use default dict
+                            if (Object.keys(el['dict']).length === 0 && fieldDef.dataType === enumValueType.CATEGORICAL && fieldDef.possibleValues !== undefined) {
+                                dataClip[el['name']] = fieldDef.possibleValues[dataClip[el['name']]] || '';
+                            } else {
+                                dataClip[el['name']] = el['dict'][dataClip[el['name']]] || '';
+                            }
                         }
-                    }) 
+                    });
                 } else {
                     continue;
                 }
@@ -351,10 +420,10 @@ export function dataStandardization(study: IStudy, fields: IFieldEntry[], data: 
                 dataClip['USUBJID'] = subjectId;
                 // check if need to replace the DM record
                 if (thisDomainDef.name === 'DOMAIN' && thisDomainDef.parameter === 'DM') {
-                    const dmIndex = records[fieldDef.stdRules[attributeIndexMapping['DOMAIN']]['parameter']].findIndex(el => 
+                    const dmIndex = records[fieldDef.stdRules[attributeIndexMapping['DOMAIN']]['parameter']].findIndex(el =>
                         el.USUBJID === subjectId);
                     if (dmIndex === -1) {
-                        records[thisDomainDef['parameter']].push(dataClip);    
+                        records[thisDomainDef['parameter']].push(dataClip);
                     } else {
                         records[thisDomainDef['parameter']].splice(dmIndex, 1);
                         records[thisDomainDef['parameter']].splice(dmIndex, 0, dataClip);
@@ -368,7 +437,36 @@ export function dataStandardization(study: IStudy, fields: IFieldEntry[], data: 
     return records;
 }
 
-// ignore the subjectId, join values with same visitId and fieldId
-// export function dataGrouping(data: any) {
-//     return;
-// }
+// ignore the subjectId, join values with same visitId and fieldId; with extra info
+export function dataGrouping(data: any, format: string) {
+    const joinedData: any = {};
+    for (const subjectId of Object.keys(data)) {
+        for (const visitId of Object.keys(data[subjectId])) {
+            for (const fieldId of Object.keys(data[subjectId][visitId])) {
+                if (['m_subjectId', 'm_visitId', 'm_versionId'].includes(fieldId)) {
+                    continue;
+                } else {
+                    if (joinedData[fieldId] === undefined) {
+                        joinedData[fieldId] = {};
+                    }
+                    if (joinedData[fieldId][visitId] === undefined) {
+                        joinedData[fieldId][visitId] = {
+                            totalNumOfRecords: 0,
+                            validNumOfRecords: 0,
+                            data: []
+                        };
+                    }
+                    if (data[subjectId][visitId][fieldId] !== '99999') {
+                        joinedData[fieldId][visitId]['validNumOfRecords'] += 1;
+                        // if summary mode; donot return data
+                    }
+                    if (format !== 'summary') {
+                        joinedData[fieldId][visitId]['data'].push(data[subjectId][visitId][fieldId]);
+                    }
+                    joinedData[fieldId][visitId]['totalNumOfRecords'] += 1;
+                }
+            }
+        }
+    }
+    return joinedData;
+}

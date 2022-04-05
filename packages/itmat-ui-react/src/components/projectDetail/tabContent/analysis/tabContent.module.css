@@ -4,7 +4,7 @@
     overflow: auto;
 }
 
-.scaffold_wrapper {
+/* .scaffold_wrapper {
     display: grid;
     grid-template-columns: 33% 33% 33%;
     grid-template-rows: 50% 50%;
@@ -15,21 +15,4 @@
         "a a b"
         "c d d"
         "e e f"
-}
-
-.b {
-    display: grid;
-    grid-area: b;
-    grid-template-columns: 33% 33% 33%;
-    grid-template-rows: 25% 25% 25%;
-}
-
-.b11 {
-    grid-column: 1 / 2;
-    grid-row: 1;
-}
-
-.b12 {
-    grid-column: 3;
-    grid-row: 1;
-}
+} */

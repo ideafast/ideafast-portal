@@ -2,16 +2,14 @@ import 'antd/lib/switch/style/css';
 import * as React from 'react';
 import { useQuery, useMutation } from '@apollo/client/react/hooks';
 import { Query } from '@apollo/client/react/components';
-import { GET_STUDY, GET_STUDY_FIELDS, GET_DATA_RECORDS, CREATE_NEW_DATA_VERSION, SET_DATAVERSION_AS_CURRENT, IStudyDataVersion, WHO_AM_I, userTypes } from 'itmat-commons';
-import { InfoCircleOutlined } from '@ant-design/icons';
+import { GET_STUDY, GET_STUDY_FIELDS, GET_DATA_RECORDS, CREATE_NEW_DATA_VERSION, SET_DATAVERSION_AS_CURRENT, WHO_AM_I, userTypes } from 'itmat-commons';
 import LoadSpinner from '../../../reusable/loadSpinner';
-import { Subsection } from '../../../reusable/subsection/subsection';
+import { Subsection, SubsectionWithComment } from '../../../reusable/subsection/subsection';
 import { DataSummaryVisual } from './dataSummary';
 import { FieldListSection } from '../../../reusable/fieldList/fieldList';
 import css from './tabContent.module.css';
-// import { UploadNewData } from './uploadNewData';
-// import { UploadNewFields } from './uploadNewFields';
-import { Button, Form, Input, Switch, Modal, Table } from 'antd';
+import { Button, Form, Input, Modal, Table, Tooltip, Select } from 'antd';
+const { Option } = Select;
 
 export const DataManagementTabContentFetch: React.FunctionComponent<{ studyId: string }> = ({ studyId }) => {
     const { loading: getStudyLoading, error: getStudyError, data: getStudyData } = useQuery(GET_STUDY, { variables: { studyId: studyId } });
@@ -28,9 +26,8 @@ export const DataManagementTabContentFetch: React.FunctionComponent<{ studyId: s
     const { loading: whoAmILoading, error: whoAmIError, data: whoAmIData } = useQuery(WHO_AM_I);
     const [createNewDataVersion] = useMutation(CREATE_NEW_DATA_VERSION);
     const [setDataVersion, { loading }] = useMutation(SET_DATAVERSION_AS_CURRENT);
-
+    const [selectedDomain, setSelectedDomain] = React.useState('');
     const [selectedVersion, setSelectedVersion] = React.useState(getStudyData.getStudy.currentDataVersion);
-    const [useLinearHistory, setUseLinearHistory] = React.useState(false);
     const [isModalOn, setIsModalOn] = React.useState(false);
     if (getStudyLoading || getStudyFieldsLoading || getDataRecordsLoading || whoAmILoading) {
         return <LoadSpinner />;
@@ -40,7 +37,6 @@ export const DataManagementTabContentFetch: React.FunctionComponent<{ studyId: s
             A error occured, please contact your administrator
         </p>;
     }
-    const currentVersionContent = getStudyData.getStudy.dataVersions[getStudyData.getStudy.currentDataVersion]?.contentId;
     const showSaveVersionButton = true;
 
     // build the table columns for unversioned data
@@ -71,33 +67,20 @@ export const DataManagementTabContentFetch: React.FunctionComponent<{ studyId: s
         {getStudyData.getStudy.currentDataVersion !== -1 ?
             <div className={css.top_panel}>
                 {getStudyData.getStudy.dataVersions.length >= 1 ? <>
-                    <div><h5>Data versions</h5>  <h5>Linear history<InfoCircleOutlined className={css.infocircle} />:  <Switch onChange={(checked) => setUseLinearHistory(checked)} checked={useLinearHistory} className={css.switchButton} /></h5></div>
-
                     {
-                        useLinearHistory ?
-                            (
-                                getStudyData.getStudy.dataVersions.map((el, ind) =>
-                                    <React.Fragment key={el.id}>
-                                        <div
-                                            key={el.id}
-                                            onClick={() => { setSelectedVersion(ind); }}
-                                            className={css.data_version_cube + (ind === selectedVersion ? (ind === getStudyData.getStudy.currentDataVersion ? ` ${css.data_version_cube_current}` : ` ${css.data_version_cube_selected_not_current}`) : '')}>{`${el.version}${el.tag ? ` (${el.tag})` : ''}`}
-                                        </div>
-                                        {ind === getStudyData.getStudy.dataVersions.length - 1 ? null : <span className={css.arrow}>⟶</span>}
-                                    </React.Fragment>
-                                )
-                            )
-                            :
-                            (
-                                removeDuplicateVersion(getStudyData.getStudy.dataVersions).map((el, ind) => <React.Fragment key={el.id}>
-                                    <div
-                                        key={el.id}
-                                        onClick={() => { setSelectedVersion(el.originalPosition); }}
-                                        className={css.data_version_cube + (el.originalPosition === selectedVersion ? (el.contentId === currentVersionContent ? ` ${css.data_version_cube_current}` : ` ${css.data_version_cube_selected_not_current}`) : '')}>{`${el.version}${el.tag ? ` (${el.tag})` : ''}`}
-                                    </div>
-                                    {ind === removeDuplicateVersion(getStudyData.getStudy.dataVersions).length - 1 ? null : <span className={css.arrow}>⟶</span>}
-                                </React.Fragment>)
-                            )
+                        getStudyData.getStudy.dataVersions.map((el, ind) =>
+                            <React.Fragment key={el.id}>
+                                <div
+                                    key={el.id}
+                                    onClick={() => { setSelectedVersion(ind); }}
+                                    className={css.data_version_cube + (ind === selectedVersion ? (ind === getStudyData.getStudy.currentDataVersion ? ` ${css.data_version_cube_current}` : ` ${css.data_version_cube_selected_not_current}`) : '')}>
+                                    {<Tooltip title={el.tag || ''}>
+                                        <span>{el.version}</span>
+                                    </Tooltip>}
+                                </div>
+                                {ind === getStudyData.getStudy.dataVersions.length - 1 ? null : <span className={css.arrow}>⟶</span>}
+                            </React.Fragment>
+                        )
                     }
 
                     {showSaveVersionButton && (selectedVersion !== getStudyData.getStudy.currentDataVersion) ?
@@ -107,19 +90,36 @@ export const DataManagementTabContentFetch: React.FunctionComponent<{ studyId: s
                 </> : null}
             </div> : null}
         <div className={css.tab_page_wrapper + ' ' + css.left_panel}>
-            {/* <Subsection title='Upload New Fields'>
-                <UploadNewFields studyId={studyId} />
-            </Subsection><br /> */}
-            <Subsection title='Fields & Variables'>
+            <SubsectionWithComment title='Fields & Variables' comment={<Select
+                placeholder='Domain'
+                allowClear
+                onSelect={(value: string) => { setSelectedDomain(value); }}
+            >
+                <Option value={''}>All Domains</Option>
+                <Option value={'DM'}>Demographics</Option>
+                <Option value={'MH'}>Medical History</Option>
+                <Option value={'VS'}>Vital Sign</Option>
+                <Option value={'LB'}>Laboratory Test</Option>
+                <Option value={'CM'}>Comcomitant Medications</Option>
+                <Option value={'QS'}>Questionnaires</Option>
+                <Option value={'FT'}>Functional Test</Option>
+            </Select>}>
                 <FieldListSection
                     studyData={getStudyData.getStudy}
                     onCheck={false}
                     checkable={false}
-                    fieldList={getStudyFieldsData.getStudyFields}
+                    fieldList={selectedDomain === '' ? getStudyFieldsData.getStudyFields : getStudyFieldsData.getStudyFields.filter(el => (
+                        el.stdRules !== undefined && el.stdRules !== null && el.stdRules.filter(es => es.name === 'DOMAIN').length > 0 && el.stdRules.filter(es => es.name === 'DOMAIN')[0].parameter === selectedDomain
+                    ))}
+                    verbal={true}
                 ></FieldListSection>
+                {/* <FieldListRadial
+                    studyData={getStudyData.getStudy}
+                    fieldList={getStudyFieldsData.getStudyFields}
+                ></FieldListRadial> */}
                 <br /><br />
 
-            </Subsection>
+            </SubsectionWithComment>
         </div>
 
         <div className={css.tab_page_wrapper + ' ' + css.right_panel}>
@@ -205,18 +205,3 @@ export const DataManagementTabContentFetch: React.FunctionComponent<{ studyId: s
         </div>
     </div>;
 };
-
-function removeDuplicateVersion(versions: IStudyDataVersion[]) {
-    const alreadySeenContent: string[] = [];
-    const uniqueContent: any[] = [];
-    const tmp = [...versions].reverse();
-    tmp.forEach((el, ind) => {
-        if (alreadySeenContent.includes(el.contentId)) {
-            return;
-        } else {
-            alreadySeenContent.push(el.contentId);
-            uniqueContent.push({ ...el, originalPosition: tmp.length - ind - 1 });
-        }
-    });
-    return uniqueContent.reverse();
-}

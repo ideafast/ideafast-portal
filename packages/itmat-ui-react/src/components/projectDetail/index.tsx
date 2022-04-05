@@ -6,6 +6,7 @@ import LoadSpinner from '../reusable/loadSpinner';
 import css_dataset from '../datasetDetail/projectPage.module.css';
 import { AdminTabContent, DashboardTabContent, DataTabContent } from './tabContent';
 import { FileTabContent } from './tabContent/file/fileTab';
+import { AnalysisTabContent } from './tabContent/analysis/analysisTab';
 
 export const ProjectDetailPage: React.FunctionComponent<{ projectId: string }> = ({ projectId }) => {
     return (
@@ -24,6 +25,7 @@ export const ProjectDetailPage: React.FunctionComponent<{ projectId: string }> =
                             <NavLink to={`/projects/${projectId}/dashboard`} activeClassName={css_dataset.active}><div>DASHBOARD</div></NavLink>
                             {/* <NavLink to={`/projects/${projectId}/samples`} activeClassName={css.active}><div>SAMPLE</div></NavLink> */}
                             <NavLink to={`/projects/${projectId}/data`} activeClassName={css_dataset.active}><div>DATA</div></NavLink>
+                            <NavLink to={`/projects/${projectId}/analysis`} activeClassName={css_dataset.active}><div>ANALYSIS</div></NavLink>
                             <NavLink to={`/projects/${projectId}/files`} activeClassName={css_dataset.active}><div>FILE REPOSITORY</div></NavLink>
                             <NavLink to={`/projects/${projectId}/admin`} activeClassName={css_dataset.active}><div>ADMINISTRATION</div></NavLink>
                         </div>
@@ -34,6 +36,7 @@ export const ProjectDetailPage: React.FunctionComponent<{ projectId: string }> =
                             <Route path='/projects/:projectId/admin' render={({ match }) => <AdminTabContent studyId={data.getProject.studyId} projectId={match.params.projectId} roles={data.getProject.roles} />} />
                             {/* <Route path="/projects/:projectId/samples" render={() => <></>} /> */}
                             <Route path='/projects/:projectId/data' render={() => <DataTabContent studyId={data.getProject.studyId} projectId={projectId} />} />
+                            <Route path='/projects/:projectId/analysis' render={() => <AnalysisTabContent studyId={data.getProject.studyId} projectId={projectId} />} />
                             <Route path='/projects/:projectId/files' render={() => <FileTabContent projectId={projectId} studyId={data.getProject.studyId} />} />
                             <Route path='/projects/:projectId/' render={() => <Redirect to={`/projects/${projectId}/dashboard`} />} />
                         </Switch>

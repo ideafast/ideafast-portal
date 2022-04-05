@@ -43,12 +43,13 @@ export interface IProject {
     studyId: string;
     createdBy: string;
     name: string;
+    dataVersion?: IStudyDataVersion | null;
+    summary?: any;
     patientMapping: { [originalId: string]: string };
     approvedFields: string[];
     approvedFiles: string[];
     lastModified: number;
     deleted: number | null;
-    dataVersion: string | null;
 }
 
 export interface IDataClip {

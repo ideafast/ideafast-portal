@@ -1,4 +1,4 @@
-import { IFieldEntry, enumValueType } from 'itmat-commons';
+import { IFieldEntry, enumValueType, IOntologyPath, IStandardizationRule } from 'itmat-commons';
 import { db } from '../../database/database';
 import { v4 as uuid } from 'uuid';
 export class FieldCore {
@@ -65,6 +65,20 @@ export function validateAndGenerateFieldEntry(fieldEntry: any) {
         error.push(`${fieldEntry.fieldId}-${fieldEntry.fieldName}: visitId and subjectId are reserved fields.`);
     }
 
+    const ontologyPath: IOntologyPath[]  = [];
+    const stdRules: IStandardizationRule[] = [];
+    if (fieldEntry.ontologyPath !== undefined && fieldEntry.ontologyPath !== null) {
+        fieldEntry.ontologyPath.forEach(el => {
+            el.id = uuid();
+            ontologyPath.push(el);
+        });
+    }
+    if (fieldEntry.stdRules !== undefined && fieldEntry.stdRules !== null) {
+        fieldEntry.stdRules.forEach(el => {
+            el.id = uuid();
+            stdRules.push(el);
+        });
+    }
     const newField: any = {
         fieldId: fieldEntry.fieldId,
         fieldName: fieldEntry.fieldName,
@@ -73,8 +87,8 @@ export function validateAndGenerateFieldEntry(fieldEntry: any) {
         possibleValues: fieldEntry.dataType === enumValueType.CATEGORICAL ? fieldEntry.possibleValues : null,
         unit: fieldEntry.unit,
         comments: fieldEntry.comments,
-        stdRules: fieldEntry.stdRules,
-        ontologyPath: fieldEntry.ontologyPath
+        stdRules: stdRules,
+        ontologyPath: ontologyPath
     };
 
     return { fieldEntry: newField, error: error };

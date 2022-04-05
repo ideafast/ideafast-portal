@@ -497,7 +497,6 @@ describe('STUDY API', () => {
                 id: createdProject.id,
                 studyId: setupStudy.id,
                 createdBy: adminId,
-                dataVersion: null,
                 name: projectName,
                 patientMapping: {},
                 approvedFields: [],
@@ -586,7 +585,6 @@ describe('STUDY API', () => {
                 id: createdProject.id,
                 studyId: setupStudy.id,
                 createdBy: authorisedUserProfile.id,
-                dataVersion: null,
                 patientMapping: {},
                 name: projectName,
                 approvedFields: [],
@@ -1474,6 +1472,22 @@ describe('STUDY API', () => {
                     name: createdProject.name,
                     approvedFields: [],
                     approvedFiles: [],
+                    dataVersion: {
+                        contentId: 'mockContentId',
+                        id: 'mockDataVersionId',
+                        tag: null,
+                        updateDate: '5000000',
+                        version: '0.0.1'
+                    },
+                    summary: {
+                        subjects: [
+                            'mock_patient1',
+                            'mock_patient2'
+                        ],
+                        visits: [
+                            'mockvisitId'
+                        ]
+                    },
                     jobs: [],
                     roles: [
                         {
@@ -1599,7 +1613,23 @@ describe('STUDY API', () => {
                     jobs: [],
                     iCanEdit: true,
                     fields: [],
-                    files: []
+                    files: [],
+                    dataVersion: {
+                        contentId: 'mockContentId',
+                        id: 'mockDataVersionId',
+                        tag: null,
+                        updateDate: '5000000',
+                        version: '0.0.1'
+                    },
+                    summary: {
+                        subjects: [
+                            'mock_patient1',
+                            'mock_patient2'
+                        ],
+                        visits: [
+                            'mockvisitId'
+                        ]
+                    },
                 });
             }
         });
@@ -1735,7 +1765,7 @@ describe('STUDY API', () => {
                 dataType: enumValueType.DECIMAL,
                 possibleValues: [],
                 stdRules: null,
-                    ontologyPath: null,
+                ontologyPath: null,
                 unit: 'kg',
                 comments: 'mockComments3',
                 dateAdded: '2021-05-18T16:32:10.226Z',
@@ -2487,7 +2517,7 @@ describe('STUDY API', () => {
             expect(fieldsInDb).toHaveLength(1);
             expect(fieldsInDb[0].fieldId).toBe('8');
             // clear database
-            await db.collections!.field_dictionary_collection.deleteMany({ studyId: createdStudy.id, fieldId: { $in: ["8", "9"] } });
+            await db.collections!.field_dictionary_collection.deleteMany({ studyId: createdStudy.id, fieldId: { $in: ['8', '9'] } });
         });
 
         test('Delete a versioned field (admin)', async () => {
@@ -2545,7 +2575,7 @@ describe('STUDY API', () => {
             expect(fieldsInDb[1].fieldId).toBe('8');
             expect(fieldsInDb[1].dateDeleted).not.toBe(null);
             // clear database
-            await db.collections!.field_dictionary_collection.deleteMany({ studyId: createdStudy.id, fieldId: { $in: ["8", "9"] } });
+            await db.collections!.field_dictionary_collection.deleteMany({ studyId: createdStudy.id, fieldId: { $in: ['8', '9'] } });
         });
     });
 
@@ -3416,7 +3446,7 @@ describe('STUDY API', () => {
         });
 
         test('Get data records with standardization (user with project privilege)', async () => {
-            const res = await admin.post('/graphql').send({
+            await admin.post('/graphql').send({
                 query: print(CREATE_NEW_FIELD),
                 variables: {
                     studyId: createdStudy.id,
@@ -3531,7 +3561,7 @@ describe('STUDY API', () => {
             expect(getRes.body.data.getDataRecords.data.LB).toHaveLength(0);
             expect(getRes.body.data.getDataRecords.data.QS).toHaveLength(0);
             expect(getRes.body.data.getDataRecords.data.CM).toHaveLength(0);
-            expect(getRes.body.data.getDataRecords.data.FT).toHaveLength(0);            
+            expect(getRes.body.data.getDataRecords.data.FT).toHaveLength(0);
         });
 
         test('Check data complete (admin)', async () => {

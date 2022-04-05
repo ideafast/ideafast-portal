@@ -15,12 +15,14 @@ export const FIELD_FRAGMENT = gql`
             description
         }
         stdRules {
+            id
             name
             source
             parameter
             dict
         }
         ontologyPath {
+            id
             type
             value
         }

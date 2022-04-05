@@ -53,7 +53,8 @@ enum StandardizationSource {
 # fieldDef: parameter is the name of the attribute of the field definition, e.g., unit 
 # inc: no parameter needed
 type StandardizationRule {
-    name: String!
+    id: String!,
+    name: String!,
     source: StandardizationSource!,
     parameter: String!,
     dict: JSON
@@ -72,6 +73,7 @@ enum OntologyNodeType {
 }
 
 type OntologyPath {
+    id: String!,
     type: OntologyNodeType!,
     value: String!
 }
@@ -238,6 +240,8 @@ type Project {
     id: String!
     studyId: String!
     name: String!
+    dataVersion: DataVersion
+    summary: JSON
 
     #only admin
     patientMapping: JSON!
@@ -459,7 +463,7 @@ input FieldInput {
     dataType: FIELD_VALUE_TYPE!
     possibleValues: [ValueCategoryInput]
     stdRules: [StandardizationRuleInput]
-    ontologyPath: StringArrayChangesInput
+    ontologyPath: [OntologyPathInput]
     unit: String
     comments: String
 }

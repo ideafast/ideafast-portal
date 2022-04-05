@@ -24,7 +24,7 @@ import { IGenericResponse, makeGenericReponse } from '../responses';
 import { buildPipeline } from '../../utils/query';
 import { IJobEntry } from '../../../../itmat-commons/dist/models/job';
 import { IFile } from '../../../../itmat-commons/dist/models/file';
-import { dataStandardization } from "../../utils/query";
+import { dataStandardization, dataGrouping } from '../../utils/query';
 
 export const studyResolvers = {
     Query: {
@@ -303,7 +303,10 @@ export const studyResolvers = {
             }, {});
             // 2. adjust format: 1) original (exists) 2) standardized 3) grouped
             if (queryString['format'] === 'standardized') {
-                return { data: dataStandardization(study, fieldRecords.map(el => el.doc).filter(eh => eh.dateDeleted === null), groupedResult) }
+                return { data: dataStandardization(study, fieldRecords.map(el => el.doc).filter(eh => eh.dateDeleted === null), groupedResult) };
+            }
+            if (queryString['format'] === 'grouped' || queryString['format'] === 'summary') {
+                return { data: dataGrouping(groupedResult, queryString['format']) };
             }
             return { data: groupedResult };
         }
@@ -348,6 +351,27 @@ export const studyResolvers = {
         },
         files: async (project: Omit<IProject, 'patientMapping'>): Promise<Array<IFile>> => {
             return await db.collections!.files_collection.find({ studyId: project.studyId, id: { $in: project.approvedFiles }, deleted: null }).toArray();
+        },
+        dataVersion: async (project: IProject): Promise<IStudyDataVersion | null> => {
+            const study = await db.collections!.studies_collection.findOne({ id: project.studyId, deleted: null });
+            if (study === undefined || study === null) {
+                return null;
+            }
+            if (study.currentDataVersion === -1) {
+                return null;
+            }
+            return study.dataVersions[study?.currentDataVersion];
+        },
+        summary: async (project: IProject): Promise<any> => {
+            const summary: any = {};
+            const study = await db.collections!.studies_collection.findOne({ id: project.studyId});
+            if (study === undefined || study === null || study.currentDataVersion === -1) {
+                return summary;
+            }
+            const availableDataVersions = study.dataVersions.filter(el => study.dataVersions.indexOf(el) <= study.currentDataVersion).map(es => es.id);
+            summary['subjects'] = study.currentDataVersion === -1 ? [] : await db.collections!.data_collection.distinct('m_subjectId', { m_studyId: study.id, m_versionId: { $in: availableDataVersions }});
+            summary['visits'] = study.currentDataVersion === -1 ? [] : await db.collections!.data_collection.distinct('m_visitId', { m_studyId: study.id, m_versionId: { $in: availableDataVersions }});
+            return summary;
         },
         patientMapping: async (project: Omit<IProject, 'patientMapping'>, __unused__args: never, context: any): Promise<any> => {
             const requester: IUser = context.req.user;

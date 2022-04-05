@@ -38,13 +38,14 @@ export enum enumValueType {
 }
 
 export enum StandardizationSource {
-    value = 'value', 
+    value = 'value',
     data = 'data',
     fieldDef = 'fieldDef',
     inc = 'inc'
 }
 
 export interface IStandardizationRule {
+    id: string,
     name: string,
     source: StandardizationSource,
     parameter: string,
@@ -52,11 +53,12 @@ export interface IStandardizationRule {
 }
 
 export enum OntologyNodeType {
-    STRING = 'string',
-    FIELD = 'field'
+    STRING = 'STRING',
+    FIELD = 'FIELD'
 }
 
 export interface IOntologyPath {
+    id: string,
     type: OntologyNodeType,
     value: string
 }
