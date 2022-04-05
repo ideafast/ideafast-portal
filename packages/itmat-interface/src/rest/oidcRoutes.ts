@@ -1,7 +1,5 @@
-import {urlencoded} from 'express';
 import config from '../utils/configManager';
 import assert from 'assert';
-const body = urlencoded({ extended: false });
 
 export const oidcRoutes = (app, provider) => {
     const { constructor: { errors: { SessionNotFound } } } = provider;
@@ -58,7 +56,7 @@ export const oidcRoutes = (app, provider) => {
         }
     });
 
-    app.post('/interaction/:uid/login', setNoCache, body, async (req, res, next) => {
+    app.post('/interaction/:uid/login', setNoCache, async (req, res, next) => {
         try {
             if (!req.user) {
                 res.redirect(config.oidc.login_url);
@@ -67,7 +65,7 @@ export const oidcRoutes = (app, provider) => {
                 const accountID = req.user.id;
                 const result = {
                     login: {
-                        accountId:accountID
+                        accountId: accountID
                     },
                 };
                 await provider.interactionFinished(req, res, result, { mergeWithLastSubmission: false });
@@ -77,7 +75,7 @@ export const oidcRoutes = (app, provider) => {
         }
     });
 
-    app.post('/interaction/:uid/confirm', setNoCache, body, async (req, res, next) => {
+    app.post('/interaction/:uid/confirm', setNoCache, async (req, res, next) => {
         try {
             const interactionDetails = await provider.interactionDetails(req, res);
             const { prompt: { name, details }, params, session: { accountId } } = interactionDetails;
@@ -106,7 +104,7 @@ export const oidcRoutes = (app, provider) => {
 
             grantId = await grant.save();
 
-            const consent = {grantId:undefined,};
+            const consent = { grantId: undefined, };
             if (!interactionDetails.grantId) {
                 // we don't have to pass grantId to consent, we're just modifying existing one
                 consent.grantId = grantId;
