@@ -208,6 +208,6 @@ export const analysisTemplate: any = {
                 }]
             },
         ],
-        comparedFields: ['3075', '2244', '1664', '1665']
+        comparedFields: ['1783', '1784']
     }
 };

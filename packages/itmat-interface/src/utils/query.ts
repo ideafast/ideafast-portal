@@ -278,6 +278,10 @@ const domains = {
     FT: {
         name: 'Function Test',
         attributes: ['DOMAIN', 'FTSEQ', 'FTCAT', 'FTORRES', 'FTORRESU', 'FTDTC', 'FTTESTCD', 'FTTEST', 'VISITNUM'],
+    },
+    IE: {
+        name: 'Inclusion and Exclusion',
+        attributes: ['IESEQ', 'IETESTCD', 'IETEST', 'IECAT', 'IEORRES', 'IEORRESC', 'VISITNUM']
     }
 };
 
@@ -311,7 +315,7 @@ export function dataStandardization(study: IStudy, fields: IFieldEntry[], data: 
                 const thisDomainDef = fieldDef.stdRules[attributeIndexMapping['DOMAIN']];
                 // parse VS, LB, QS, FT
                 let dataClip = {};
-                if (['VS', 'LB', 'QS', 'FT'].includes(thisDomainDef['parameter'])) {
+                if (['VS', 'LB', 'QS', 'FT', 'IE'].includes(thisDomainDef['parameter'])) {
                     fieldDef.stdRules.forEach(el => {
                         switch (el['source']) {
                             case 'data': {

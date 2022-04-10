@@ -784,7 +784,7 @@ export const studyResolvers = {
             }
 
             /* check all the fields are valid */
-            const activefields = await db.collections!.field_dictionary_collection.find({ id: { $in: approvedFields }, dateDeleted: null }).toArray();
+            const activefields = await db.collections!.field_dictionary_collection.find({ id: { $in: approvedFields }, studyId: project.studyId, dateDeleted: null }).toArray();
             if (activefields.length !== approvedFields.length) {
                 throw new ApolloError('Some of the fields provided in your changes are not valid.', errorCodes.CLIENT_MALFORMED_INPUT);
             }

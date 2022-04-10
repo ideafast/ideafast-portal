@@ -122,10 +122,10 @@ export const DemographicsBlock: React.FunctionComponent<{ studyId: string, proje
     }
     const siteField = fields.filter(el => el.fieldId === demographicsFields.genderID)[0];
     obj.SITE = siteField === undefined ? {} : data[demographicsFields.siteID][demographicsFields.visit].data.reduce((acc, curr) => {
-        if (acc.filter(es => es.type === curr).length === 0) {
-            acc.push({ type: curr, value: 0 });
+        if (acc.filter(es => es.type === curr.toString()).length === 0) {
+            acc.push({ type: curr.toString(), value: 0 });
         }
-        acc[acc.findIndex(es => es.type === curr)].value += 1;
+        acc[acc.findIndex(es => es.type === curr.toString())].value += 1;
         return acc;
     }, []);
     obj.SITE.push({
