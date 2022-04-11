@@ -28,7 +28,7 @@ import { Provider, Configuration } from 'oidc-provider';
 import path from 'path';
 import { oidcConfiguration } from '../utils/oidcConfig';
 import { oidcRoutes } from '../rest/oidcRoutes';
-import { MongoAdapter } from '../utils/oidcAdapter';
+import { MemoryAdapter } from '../utils/oidcAdapter';
 
 export class Router {
     private readonly app: Express;
@@ -169,16 +169,16 @@ export class Router {
         // });
 
         // oidc provider
-        MongoAdapter.connect();
-        const oidc = new Provider(`${config.oidc.issuer}:${config.server.port}`, { adapter: MongoAdapter, ...oidcConfiguration } as Configuration);
+        const oidc = new Provider(`${config.oidc.issuer}:${config.server.port}`, { adapter: MemoryAdapter, ...oidcConfiguration } as Configuration);
         oidc.proxy = true;
 
         this.app.use('/oidc', oidc.callback());
 
-        this.app.set('views', path.join(__dirname, '../src/views'));
+        this.app.set('views', path.join(__dirname, './views'));
         this.app.set('view engine', 'ejs');
 
         oidcRoutes(this.app, oidc);
+
         this.app.get('/file/:fileId', fileDownloadController);
 
     }

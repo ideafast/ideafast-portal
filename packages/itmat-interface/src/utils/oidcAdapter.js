@@ -1,135 +1,93 @@
-import config from './configManager';
+const QuickLRU = require('quick-lru');
 
-const { MongoClient } = require('mongodb'); // eslint-disable-line import/no-unresolved
-const snakeCase = require('lodash/snakeCase');
+const epochTime = (date = Date.now()) => Math.floor(date / 1000);
 
-let DB;
+let storage = new QuickLRU({ maxSize: 1000 });
 
-const grantable = new Set([
-    'access_token',
-    'authorization_code',
-    'refresh_token',
-    'device_code',
-    'backchannel_authentication_request',
-]);
-
-class CollectionSet extends Set {
-    add(name) {
-        const nu = this.has(name);
-        super.add(name);
-        if (!nu) {
-            DB.collection(name).createIndexes([
-                ...(grantable.has(name)
-                    ? [{
-                        key: { 'payload.grantId': 1 },
-                    }] : []),
-                ...(name === 'device_code'
-                    ? [{
-                        key: { 'payload.userCode': 1 },
-                        unique: true,
-                    }] : []),
-                ...(name === 'session'
-                    ? [{
-                        key: { 'payload.uid': 1 },
-                        unique: true,
-                    }] : []),
-                {
-                    key: { expiresAt: 1 },
-                    expireAfterSeconds: 0,
-                },
-            ]).catch(console.error); // eslint-disable-line no-console
-        }
-    }
+function grantKeyFor(id) {
+    return `grant:${id}`;
 }
 
-const collections = new CollectionSet();
+function sessionUidKeyFor(id) {
+    return `sessionUid:${id}`;
+}
 
-export class MongoAdapter {
-    constructor(name) {
-        this.name = snakeCase(name);
+function userCodeKeyFor(userCode) {
+    return `userCode:${userCode}`;
+}
 
-        // NOTE: you should never be creating indexes at runtime in production, the following is in
-        //   place just for demonstration purposes of the indexes required
-        collections.add(this.name);
+const grantable = new Set([
+    'AccessToken',
+    'AuthorizationCode',
+    'RefreshToken',
+    'DeviceCode',
+    'BackchannelAuthenticationRequest',
+]);
+
+export class MemoryAdapter {
+    constructor(model) {
+        this.model = model;
     }
 
-    // NOTE: the payload for Session model may contain client_id as keys, make sure you do not use
-    //   dots (".") in your client_id value charset.
-    async upsert(_id, payload, expiresIn) {
-        let expiresAt;
-
-        if (expiresIn) {
-            expiresAt = new Date(Date.now() + (expiresIn * 1000));
-        }
-
-        await this.coll().updateOne(
-            { _id },
-            { $set: { payload, ...(expiresAt ? { expiresAt } : undefined) } },
-            { upsert: true },
-        );
+    key(id) {
+        return `${this.model}:${id}`;
     }
 
-    async find(_id) {
-        const result = await this.coll().find(
-            { _id },
-            { payload: 1 },
-        ).limit(1).next();
-
-        if (!result) return undefined;
-        return result.payload;
+    async destroy(id) {
+        const key = this.key(id);
+        storage.delete(key);
     }
 
-    async findByUserCode(userCode) {
-        const result = await this.coll().find(
-            { 'payload.userCode': userCode },
-            { payload: 1 },
-        ).limit(1).next();
+    async consume(id) {
+        storage.get(this.key(id)).consumed = epochTime();
+    }
 
-        if (!result) return undefined;
-        return result.payload;
+    async find(id) {
+        return storage.get(this.key(id));
     }
 
     async findByUid(uid) {
-        const result = await this.coll().find(
-            { 'payload.uid': uid },
-            { payload: 1 },
-        ).limit(1).next();
-
-        if (!result) return undefined;
-        return result.payload;
+        const id = storage.get(sessionUidKeyFor(uid));
+        return this.find(id);
     }
 
-    async destroy(_id) {
-        await this.coll().deleteOne({ _id });
+    async findByUserCode(userCode) {
+        const id = storage.get(userCodeKeyFor(userCode));
+        return this.find(id);
     }
 
-    async revokeByGrantId(grantId) {
-        await this.coll().deleteMany({ 'payload.grantId': grantId });
+    async upsert(id, payload, expiresIn) {
+        const key = this.key(id);
+
+        if (this.model === 'Session') {
+            storage.set(sessionUidKeyFor(payload.uid), id, expiresIn * 1000);
+        }
+
+        const { grantId, userCode } = payload;
+        if (grantable.has(this.name) && grantId) {
+            const grantKey = grantKeyFor(grantId);
+            const grant = storage.get(grantKey);
+            if (!grant) {
+                storage.set(grantKey, [key]);
+            } else {
+                grant.push(key);
+            }
+        }
+
+        if (userCode) {
+            storage.set(userCodeKeyFor(userCode), id, expiresIn * 1000);
+        }
+
+        storage.set(key, payload, expiresIn * 1000);
     }
 
-    async consume(_id) {
-        await this.coll().findOneAndUpdate(
-            { _id },
-            { $set: { 'payload.consumed': Math.floor(Date.now() / 1000) } },
-        );
-    }
-
-    coll(name) {
-        return this.constructor.coll(name || this.name);
-    }
-
-    static coll(name) {
-        return DB.collection(name);
-    }
-
-    // This is not part of the required or supported API, all initialization should happen before
-    // you pass the adapter to `new Provider`
-    static async connect() {
-        const connection = await MongoClient.connect(config.database.mongo_url, {
-            useNewUrlParser: true,
-        });
-        DB = connection.db(config.database.database);
+    async revokeByGrantId(grantId) { // eslint-disable-line class-methods-use-this
+        const grantKey = grantKeyFor(grantId);
+        const grant = storage.get(grantKey);
+        if (grant) {
+            grant.forEach((token) => storage.delete(token));
+            storage.delete(grantKey);
+        }
     }
 }
 
-// export default MongoAdapter;
