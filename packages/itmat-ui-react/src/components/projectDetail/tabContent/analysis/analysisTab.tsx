@@ -370,22 +370,54 @@ const ResultsVisualization: React.FunctionComponent<{ project: IProject, fields:
             dataIndex: 'pvalue',
             key: 'pvalue',
             render: (__unused__value, record) => {
-                return <Heatmap
+                return signifianceLevel !== undefined ? (<Heatmap
                     data={record.pvalue}
                     xField={'xLabel'}
                     yField={'yLabel'}
                     colorField={'pvalue'}
                     sizeField={'pvalue'}
-                    shape={'square'}
+                    shape={'rect'}
                     legend={{
                         layout: 'horizontal',
                         position: 'bottom',
                         offsetY: 5,
-                        value: signifianceLevel === undefined ? [0.0, 1.0] : [0.0, signifianceLevel],
+                        value: [0.0, 1.0],
                         min: 0,
                         max: 1
                     }}
-                />;
+                    pattern={({pvalue}) => {
+                        if (signifianceLevel >= pvalue) {
+                            return {
+                                type: 'square',
+                                cfg: {
+                                    backgroundColor: 'orange', // custom color
+                                }
+                            };
+                        } else {
+                            return {
+                                type: 'square',
+                                cfg: {
+                                    backgroundColor: 'white', // custom color
+                                }
+                            };
+                        }
+                    }}
+                />) : (<Heatmap
+                    data={record.pvalue}
+                    xField={'xLabel'}
+                    yField={'yLabel'}
+                    colorField={'pvalue'}
+                    sizeField={'pvalue'}
+                    shape={'rect'}
+                    legend={{
+                        layout: 'horizontal',
+                        position: 'bottom',
+                        offsetY: 5,
+                        value: [0.0, 1.0],
+                        min: 0,
+                        max: 1
+                    }}
+                />);
             }
         },
     ];
@@ -422,16 +454,7 @@ const ResultsVisualization: React.FunctionComponent<{ project: IProject, fields:
                     return {
                         ...el,
                         score: el[statisticsType].score,
-                        pvalue: signifianceLevel === undefined ? el[statisticsType].pvalue : el[statisticsType].pvalue.map(es => {
-                            const tmp = {...es};
-                            if (tmp.pvalue < signifianceLevel) {
-                                tmp.pvalue = 0;
-                                return tmp;
-                            } else {
-                                tmp.pvalue = 1;
-                                return tmp;
-                            }
-                        })
+                        pvalue: el[statisticsType].pvalue
                     };
                 })}
                 size='middle'

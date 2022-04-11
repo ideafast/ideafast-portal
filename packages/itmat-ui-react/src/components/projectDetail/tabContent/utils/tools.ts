@@ -8,7 +8,7 @@ export function get_t_test(t_array1: number[], t_array2: number[], digits: numbe
     const meanA = jStat.mean(t_array1);
     const meanB = jStat.mean(t_array2);
     const S2 = (jStat.sum(jStat.pow(jStat.subtract(t_array1,meanA),2)) + jStat.sum(jStat.pow(jStat.subtract(t_array2,meanB),2)))/(t_array1.length+t_array2.length-2);
-    const t_score = Math.abs((meanA - meanB)/Math.sqrt(S2/t_array1.length+S2/t_array2.length));
+    const t_score = (meanA - meanB)/Math.sqrt(S2/t_array1.length+S2/t_array2.length);
     const t_pval = jStat.studentt.cdf(-Math.abs(t_score), t_array1.length+t_array2.length-2) * 2;
     return [parseFloat(t_score.toFixed(digits)), parseFloat(t_pval.toFixed(digits))];
 }
@@ -19,10 +19,10 @@ export function get_z_test(t_array1: number[], t_array2: number[], digits: numbe
     }
     const meanA = jStat.mean(t_array1);
     const meanB = jStat.mean(t_array2);
-    const varA = jStat.variance(t_array1);
-    const varB = jStat.variance(t_array2);
+    const varA = jStat.variance(t_array1, true);
+    const varB = jStat.variance(t_array2, true);
     const z_score = (meanA - meanB) / (Math.sqrt( varA / t_array1.length + varB / t_array2.length ));
-    const z_pval = jStat.normal.cdf(z_score, 0, 1);
+    const z_pval = jStat.ztest(z_score, 2);
     return [parseFloat(z_score.toFixed(digits)), parseFloat(z_pval.toFixed(digits))];
 }
 

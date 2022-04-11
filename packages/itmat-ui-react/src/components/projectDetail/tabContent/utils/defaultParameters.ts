@@ -35,7 +35,7 @@ export const guidelinesOfAnalysis: string[] = [
 ];
 
 export const statisticsTypes: string[] = [
-    'ttest', 'ztest', 'utest'
+    'ttest', 'ztest'
 ];
 
 export const analysisTemplate: any = {
