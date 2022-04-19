@@ -28,7 +28,7 @@ import { Provider, Configuration } from 'oidc-provider';
 import path from 'path';
 import { oidcConfiguration } from '../utils/oidcConfig';
 import { oidcRoutes } from '../rest/oidcRoutes';
-import { MemoryAdapter } from '../utils/oidcAdapter';
+import {MongoAdapter} from '../utils/oidcAdapter';
 
 export class Router {
     private readonly app: Express;
@@ -169,7 +169,8 @@ export class Router {
         // });
 
         // oidc provider
-        const oidc = new Provider(`${config.oidc.issuer}:${config.server.port}`, { adapter: MemoryAdapter, ...oidcConfiguration } as Configuration);
+        MongoAdapter.connect();
+        const oidc = new Provider(`${config.oidc.issuer}:${config.server.port}`, { adapter: MongoAdapter, ...oidcConfiguration } as Configuration);
         oidc.proxy = true;
 
         this.app.use('/oidc', oidc.callback());
