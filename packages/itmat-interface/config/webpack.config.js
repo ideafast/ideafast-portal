@@ -28,7 +28,8 @@ module.exports = {
         'isobject': 'commonjs isobject',
         'bufferutil': 'commonjs bufferutil',
         'utf-8-validate': 'commonjs utf-8-validate',
-        'require_optional': 'commonjs require_optional'
+        'require_optional': 'commonjs require_optional',
+        'oidc-provider': 'commonjs oidc-provider'
     }],
     module: {
         rules: [
