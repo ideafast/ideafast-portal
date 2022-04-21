@@ -16,6 +16,7 @@ COPY ./itmat-docker/launcher.js ./
 COPY ./itmat-interface/build/* ./
 COPY ./itmat-job-executor/build/* ./
 COPY ./itmat-ui-react/build/* ./static/
+COPY ./itmat-interface/src/views ./views/
 
 EXPOSE 3080
 CMD [ "node", "launcher.js" ]

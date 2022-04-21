@@ -175,10 +175,11 @@ export class Router {
 
         this.app.use('/oidc', oidc.callback());
 
-        this.app.set('views', path.join(__dirname, '../src/views'));
+        this.app.set('views', path.join(__dirname, './views'));
         this.app.set('view engine', 'ejs');
 
         oidcRoutes(this.app, oidc);
+
         this.app.get('/file/:fileId', fileDownloadController);
 
     }
