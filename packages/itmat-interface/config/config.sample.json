@@ -24,6 +24,7 @@
     "bcrypt": {
         "saltround": 2
     },
+    "ae_endpoint": "https://localhost:8080",
     "objectStore": {
         "host": "localhost",
         "port": 8080,
@@ -42,7 +43,6 @@
         "issuer": "http://localhost",
         "redirect_url": "http://localhost:8080/oidc",
         "client_id": "dmp.ae",
-        "client_secret": "06138e078dde657e284ba7468a258cc20db215f58878cf02e3c486e5e2101159",
-        "login_url": "http://localhost:3000"
+        "client_secret": "06138e078dde657e284ba7468a258cc20db215f58878cf02e3c486e5e2101159"
     }
 }

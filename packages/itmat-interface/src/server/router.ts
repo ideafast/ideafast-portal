@@ -29,6 +29,7 @@ import path from 'path';
 import { oidcConfiguration } from '../utils/oidcConfig';
 import { oidcRoutes } from '../rest/oidcRoutes';
 import { MongoAdapter } from '../utils/oidcAdapter';
+import httpProxy from 'express-http-proxy';
 
 export class Router {
     private readonly app: Express;
@@ -182,6 +183,8 @@ export class Router {
 
         this.app.get('/file/:fileId', fileDownloadController);
 
+        // AE router
+        this.app.use('/analytical-environment', httpProxy(config.ae_endpoint));
     }
 
     public getApp(): Express {
