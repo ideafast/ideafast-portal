@@ -1,4 +1,3 @@
-import config from '../utils/configManager';
 import assert from 'assert';
 
 export const oidcRoutes = (app, provider) => {
