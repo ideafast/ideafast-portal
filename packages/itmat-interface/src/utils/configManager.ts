@@ -13,12 +13,12 @@ export interface IConfiguration extends IServerConfig {
     aesSecret: string;
     sessionsSecret: string;
     adminEmail: string;
+    ae_endpoint: string;
     oidc: {
         issuer: string;
         redirect_url: string;
         client_id: string;
         client_secret: string;
-        login_url: string;
     };
 }
 

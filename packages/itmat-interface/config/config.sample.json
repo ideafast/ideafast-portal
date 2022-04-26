@@ -24,6 +24,7 @@
     "bcrypt": {
         "saltround": 2
     },
+    "ae_endpoint": "https://localhost:8080",
     "objectStore": {
         "host": "localhost",
         "port": 8080,
