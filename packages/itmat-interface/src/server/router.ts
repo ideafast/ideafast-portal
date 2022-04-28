@@ -29,7 +29,7 @@ import path from 'path';
 import { oidcConfiguration } from '../utils/oidcConfig';
 import { oidcRoutes } from '../rest/oidcRoutes';
 import {MongoAdapter} from '../utils/oidcAdapter';
-import proxy from 'express-http-proxy';
+import  { createProxyMiddleware } from 'http-proxy-middleware';
 
 export class Router {
     private readonly app: Express;
@@ -184,7 +184,7 @@ export class Router {
         this.app.get('/file/:fileId', fileDownloadController);
 
         // AE router
-        this.app.use('/analytical-environment', proxy(config.ae_endpoint));
+        this.app.use('/analytical-environment', createProxyMiddleware({ target: config.ae_endpoint,  changeOrigin: true }));
     }
 
     public getApp(): Express {
