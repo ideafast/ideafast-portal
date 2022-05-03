@@ -40,7 +40,7 @@ export class Database<configType extends IDatabaseBaseConfig, C = { [name in key
     ): Promise<void> {
         this.config = config;
         const shouldOutput = process.env.JEST_WORKER_ID !== undefined;
-        shouldOutput && Logger.log('Connecting to the database..');
+        shouldOutput && Logger.log('Connecting to the database..' + config.mongo_url);
         /* any error throw here will be caught by the server */
         this.localClient = await mongoClientConnect(config.mongo_url);
         shouldOutput && Logger.log('Connected to database.');
