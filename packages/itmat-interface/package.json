@@ -87,9 +87,7 @@
     "jest": {
         "globals": {
             "ts-jest": {
-                "ts-jest": {
-                    "tsconfig": "./tsconfig.json"
-                }
+                "tsconfig": "./tsconfig.json"
             }
         },
         "transform": {
