@@ -39,6 +39,21 @@ type ValueCategory {
     description: String
 }
 
+type Standardization {
+    id: String!,
+    name: String!,
+    metaField: String,
+    stdRules: [StandardizationRule],
+    ontologyPath: [OntologyPath]
+}
+
+input StandardizationInput {
+    name: String!,
+    metaField: String,
+    stdRules: [StandardizationRuleInput],
+    ontologyPath: [OntologyPathInput]
+}
+
 enum StandardizationSource {
     value, # from a given value
     data, # from the value of the field
@@ -57,6 +72,7 @@ type StandardizationRule {
     name: String!,
     source: StandardizationSource!,
     parameter: String!,
+    ignoreValues: [String],
     dict: JSON
 }
 
@@ -64,6 +80,7 @@ input StandardizationRuleInput {
     name: String!
     source: StandardizationSource!,
     parameter: String!,
+    ignoreValues: [String],
     dict: JSON
 }
 
@@ -91,8 +108,7 @@ type Field {
     tableName: String
     dataType: FIELD_VALUE_TYPE!
     possibleValues: [ValueCategory]
-    stdRules: [StandardizationRule]
-    ontologyPath: [OntologyPath] # Either the fieldId or a string
+    standardization: [Standardization]
     unit: String
     comments: String
     dataVersion: String
@@ -462,8 +478,7 @@ input FieldInput {
     tableName: String
     dataType: FIELD_VALUE_TYPE!
     possibleValues: [ValueCategoryInput]
-    stdRules: [StandardizationRuleInput]
-    ontologyPath: [OntologyPathInput]
+    standardization: [StandardizationInput]
     unit: String
     comments: String
 }

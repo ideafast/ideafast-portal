@@ -1652,8 +1652,7 @@ describe('STUDY API', () => {
                     tableName: null,
                     dataType: enumValueType.STRING,
                     possibleValues: [],
-                    stdRules: null,
-                    ontologyPath: null,
+                    standardization: null,
                     unit: 'person',
                     comments: 'mockComments2',
                     dateAdded: '2022-06-18T17:35:15.226Z',
@@ -1668,8 +1667,7 @@ describe('STUDY API', () => {
                     tableName: null,
                     dataType: enumValueType.STRING,
                     possibleValues: [],
-                    stdRules: null,
-                    ontologyPath: null,
+                    standardization: null,
                     unit: 'person',
                     comments: 'mockComments1',
                     dateAdded: '2021-05-16T16:32:10.226Z',
@@ -1698,8 +1696,7 @@ describe('STUDY API', () => {
                     tableName: null,
                     dataType: enumValueType.STRING,
                     possibleValues: [],
-                    stdRules: null,
-                    ontologyPath: null,
+                    standardization: null,
                     unit: 'person',
                     comments: 'mockComments1',
                     dateAdded: '2021-05-16T16:32:10.226Z',
@@ -1714,8 +1711,7 @@ describe('STUDY API', () => {
                     tableName: null,
                     dataType: enumValueType.STRING,
                     possibleValues: [],
-                    stdRules: null,
-                    ontologyPath: null,
+                    standardization: null,
                     unit: 'person',
                     comments: 'mockComments2',
                     dateAdded: '2022-06-18T17:35:15.226Z',
@@ -1764,8 +1760,7 @@ describe('STUDY API', () => {
                 tableName: null,
                 dataType: enumValueType.DECIMAL,
                 possibleValues: [],
-                stdRules: null,
-                ontologyPath: null,
+                standardization: null,
                 unit: 'kg',
                 comments: 'mockComments3',
                 dateAdded: '2021-05-18T16:32:10.226Z',
@@ -1793,8 +1788,7 @@ describe('STUDY API', () => {
                     tableName: null,
                     dataType: enumValueType.DECIMAL,
                     possibleValues: [],
-                    stdRules: null,
-                    ontologyPath: null,
+                    standardization: null,
                     unit: 'kg',
                     comments: 'mockComments3',
                     dateAdded: '2021-05-18T16:32:10.226Z',
@@ -1809,8 +1803,7 @@ describe('STUDY API', () => {
                     tableName: null,
                     dataType: enumValueType.STRING,
                     possibleValues: [],
-                    stdRules: null,
-                    ontologyPath: null,
+                    standardization: null,
                     unit: 'person',
                     comments: 'mockComments2',
                     dateAdded: '2022-06-18T17:35:15.226Z',
@@ -1825,8 +1818,7 @@ describe('STUDY API', () => {
                     tableName: null,
                     dataType: enumValueType.STRING,
                     possibleValues: [],
-                    stdRules: null,
-                    ontologyPath: null,
+                    standardization: null,
                     unit: 'person',
                     comments: 'mockComments1',
                     dateAdded: '2021-05-16T16:32:10.226Z',
@@ -1853,8 +1845,7 @@ describe('STUDY API', () => {
                     tableName: null,
                     dataType: enumValueType.STRING,
                     possibleValues: [],
-                    stdRules: null,
-                    ontologyPath: null,
+                    standardization: null,
                     unit: 'person',
                     comments: 'mockComments2',
                     dateAdded: '2022-06-18T17:35:15.226Z',
@@ -1869,8 +1860,7 @@ describe('STUDY API', () => {
                     tableName: null,
                     dataType: enumValueType.STRING,
                     possibleValues: [],
-                    stdRules: null,
-                    ontologyPath: null,
+                    standardization: null,
                     unit: 'person',
                     comments: 'mockComments1',
                     dateAdded: '2021-05-16T16:32:10.226Z',
@@ -1920,8 +1910,7 @@ describe('STUDY API', () => {
                         tableName: null,
                         dataType: enumValueType.STRING,
                         possibleValues: [],
-                        stdRules: null,
-                        ontologyPath: null,
+                        standardization: null,
                         unit: 'person',
                         comments: 'mockComments1',
                         dateAdded: '2021-05-16T16:32:10.226Z',
@@ -1936,8 +1925,7 @@ describe('STUDY API', () => {
                         tableName: null,
                         dataType: enumValueType.STRING,
                         possibleValues: [],
-                        stdRules: null,
-                        ontologyPath: null,
+                        standardization: null,
                         unit: 'person',
                         comments: 'mockComments2',
                         dateAdded: '2022-06-18T17:35:15.226Z',
@@ -2003,8 +1991,7 @@ describe('STUDY API', () => {
                         tableName: null,
                         dataType: enumValueType.STRING,
                         possibleValues: [],
-                        stdRules: null,
-                        ontologyPath: null,
+                        standardization: null,
                         unit: 'person',
                         comments: 'mockComments1',
                         dateAdded: '2021-05-16T16:32:10.226Z',
@@ -2019,8 +2006,7 @@ describe('STUDY API', () => {
                         tableName: null,
                         dataType: enumValueType.STRING,
                         possibleValues: [],
-                        stdRules: null,
-                        ontologyPath: null,
+                        standardization: null,
                         unit: 'person',
                         comments: 'mockComments2',
                         dateAdded: '2022-06-18T17:35:15.226Z',
@@ -2402,8 +2388,7 @@ describe('STUDY API', () => {
                                 { code: '1', description: 'NOW' },
                                 { code: '2', description: 'OLD' }
                             ],
-                            stdRules: null,
-                            ontologyPath: null,
+                            standardization: null
                         },
                         {
                             fieldId: '9',
@@ -2415,8 +2400,7 @@ describe('STUDY API', () => {
                                 { code: '1', description: 'TRUE' },
                                 { code: '2', description: 'FALSE' }
                             ],
-                            stdRules: null,
-                            ontologyPath: null,
+                            standardization: null
                         }
                     ]
                 }
@@ -2444,8 +2428,7 @@ describe('STUDY API', () => {
                                 { code: '1', description: 'NOW' },
                                 { code: '2', description: 'OLD' }
                             ],
-                            stdRules: null,
-                            ontologyPath: null,
+                            standardization: null
                         },
                         {
                             fieldId: '9',
@@ -2457,8 +2440,7 @@ describe('STUDY API', () => {
                                 { code: '1', description: 'TRUE' },
                                 { code: '2', description: 'FALSE' }
                             ],
-                            stdRules: null,
-                            ontologyPath: null,
+                            standardization: null
                         }
                     ]
                 }
@@ -2484,8 +2466,7 @@ describe('STUDY API', () => {
                                 { code: '1', description: 'NOW' },
                                 { code: '2', description: 'OLD' }
                             ],
-                            stdRules: null,
-                            ontologyPath: null,
+                            standardization: null
                         },
                         {
                             fieldId: '9',
@@ -2497,8 +2478,7 @@ describe('STUDY API', () => {
                                 { code: '1', description: 'TRUE' },
                                 { code: '2', description: 'FALSE' }
                             ],
-                            stdRules: null,
-                            ontologyPath: null,
+                            standardization: null
                         }
                     ]
                 }
@@ -2536,8 +2516,7 @@ describe('STUDY API', () => {
                                 { code: '1', description: 'NOW' },
                                 { code: '2', description: 'OLD' }
                             ],
-                            stdRules: null,
-                            ontologyPath: null,
+                            standardization: null
                         },
                         {
                             fieldId: '9',
@@ -2549,8 +2528,7 @@ describe('STUDY API', () => {
                                 { code: '1', description: 'TRUE' },
                                 { code: '2', description: 'FALSE' }
                             ],
-                            stdRules: null,
-                            ontologyPath: null,
+                            standardization: null
                         }
                     ]
                 }
@@ -3396,6 +3374,7 @@ describe('STUDY API', () => {
                     studyId: createdStudy.id,
                     queryString: {
                         data_requested: ['31', '32'],
+                        format: 'raw',
                         cohort: [[]],
                         new_fields: []
                     }
@@ -3418,7 +3397,8 @@ describe('STUDY API', () => {
             await authorisedUser.post('/graphql').send({
                 query: print(UPLOAD_DATA_IN_ARRAY),
                 variables: {
-                    studyId: createdStudy.id, data: [
+                    studyId: createdStudy.id,
+                    data: [
                         {
                             fieldId: '31',
                             value: '10',
@@ -3435,6 +3415,7 @@ describe('STUDY API', () => {
                     projectId: createdProject.id,
                     queryString: {
                         data_requested: ['31', '32'],
+                        format: 'raw',
                         cohort: [[]],
                         new_fields: []
                     }
@@ -3458,14 +3439,19 @@ describe('STUDY API', () => {
                             dataType: 'int',
                             comments: 'test',
                             possibleValues: null,
-                            stdRules: [
-                                { name: 'DOMAIN', source: 'value', parameter: 'VS', dict: null },
-                                { name: 'VSSEQ', source: 'inc', parameter: '', dict: null },
-                                { name: 'VSTESTCD', source: 'value', parameter: 'HEIGHT', dict: null },
-                                { name: 'VSORRES', source: 'data', parameter: '', dict: null },
-                                { name: 'VSORRESU', source: 'fieldDef', parameter: 'tableName', dict: { test: 'testDict' } }
-                            ],
-                            ontologyPath: null,
+                            standardization: [
+                                {
+                                    name: 'cdisc-sdtm',
+                                    stdRules: [
+                                        { name: 'DOMAIN', source: 'value', parameter: 'VS', dict: null },
+                                        { name: 'VSSEQ', source: 'inc', parameter: '', dict: null },
+                                        { name: 'VSTESTCD', source: 'value', parameter: 'HEIGHT', dict: null },
+                                        { name: 'VSORRES', source: 'data', parameter: '', dict: null },
+                                        { name: 'VSORRESU', source: 'fieldDef', parameter: 'tableName', dict: { test: 'testDict' } }
+                                    ],
+                                    ontologyPath: null,
+                                }
+                            ]
                         },
                         {
                             fieldId: '101',
@@ -3474,11 +3460,16 @@ describe('STUDY API', () => {
                             dataType: 'int',
                             comments: 'test',
                             possibleValues: null,
-                            stdRules: [
-                                { name: 'DOMAIN', source: 'value', parameter: 'DM', dict: null },
-                                { name: 'AGE', source: 'data', parameter: '', dict: null }
-                            ],
-                            ontologyPath: null,
+                            standardization: [
+                                {
+                                    name: 'cdisc-sdtm',
+                                    stdRules: [
+                                        { name: 'DOMAIN', source: 'value', parameter: 'DM', dict: null },
+                                        { name: 'AGE', source: 'data', parameter: '', dict: null }
+                                    ],
+                                    ontologyPath: null,
+                                }
+                            ]
                         },
                         {
                             fieldId: '102',
@@ -3487,11 +3478,16 @@ describe('STUDY API', () => {
                             dataType: 'str',
                             comments: 'test',
                             possibleValues: null,
-                            stdRules: [
-                                { name: 'DOMAIN', source: 'value', parameter: 'DM', dict: null },
-                                { name: 'SEX', source: 'data', parameter: '', dict: null }
-                            ],
-                            ontologyPath: null,
+                            standardization: [
+                                {
+                                    name: 'cdisc-sdtm',
+                                    stdRules: [
+                                        { name: 'DOMAIN', source: 'value', parameter: 'DM', dict: null },
+                                        { name: 'SEX', source: 'data', parameter: '', dict: null }
+                                    ],
+                                    ontologyPath: null,
+                                }
+                            ]
                         },
                         {
                             fieldId: '103',
@@ -3503,11 +3499,16 @@ describe('STUDY API', () => {
                                 { code: '0', description: 'No' },
                                 { code: '1', description: 'Yes' }
                             ],
-                            stdRules: [
-                                { name: 'DOMAIN', source: 'value', parameter: 'MH', dict: null },
-                                { name: 'MHTERM', source: 'data', parameter: '', dict: { 0: '', 1: 'DEMENTIA' } }
-                            ],
-                            ontologyPath: null,
+                            standardization: [
+                                {
+                                    name: 'cdisc-sdtm',
+                                    stdRules: [
+                                        { name: 'DOMAIN', source: 'value', parameter: 'MH', dict: null },
+                                        { name: 'MHTERM', source: 'data', parameter: '', dict: { 0: '', 1: 'DEMENTIA' } }
+                                    ],
+                                    ontologyPath: null,
+                                }
+                            ]
                         },
                         {
                             fieldId: '104',
@@ -3519,11 +3520,16 @@ describe('STUDY API', () => {
                                 { code: '0', description: 'No' },
                                 { code: '1', description: 'Yes' }
                             ],
-                            stdRules: [
-                                { name: 'DOMAIN', source: 'value', parameter: 'MH', dict: null },
-                                { name: 'MHTERM', source: 'data', parameter: '', dict: { 0: '', 1: 'HEMIPLEGIA' } }
-                            ],
-                            ontologyPath: null,
+                            standardization: [
+                                {
+                                    name: 'cdisc-sdtm',
+                                    stdRules: [
+                                        { name: 'DOMAIN', source: 'value', parameter: 'MH', dict: null },
+                                        { name: 'MHTERM', source: 'data', parameter: '', dict: { 0: '', 1: 'HEMIPLEGIA' } }
+                                    ],
+                                    ontologyPath: null,
+                                }
+                            ]
                         }
                     ]
                 }
@@ -3531,7 +3537,8 @@ describe('STUDY API', () => {
             await admin.post('/graphql').send({
                 query: print(UPLOAD_DATA_IN_ARRAY),
                 variables: {
-                    studyId: createdStudy.id, data: [
+                    studyId: createdStudy.id,
+                    data: [
                         { fieldId: '100', value: '150', subjectId: 'I7N3G6G', visitId: '0' },
                         { fieldId: '101', value: '40', subjectId: 'I7N3G6G', visitId: '0' },
                         { fieldId: '102', value: 'F', subjectId: 'I7N3G6G', visitId: '0' },
@@ -3546,7 +3553,7 @@ describe('STUDY API', () => {
                     studyId: createdStudy.id,
                     versionId: null,
                     queryString: {
-                        format: 'standardized',
+                        format: 'cdisc-sdtm',
                         data_requested: null,
                         cohort: null,
                         new_fields: null

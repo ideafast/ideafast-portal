@@ -1,8 +1,8 @@
-import { demographicsFields, guidelinesOfAnalysis, statisticsTypes, analysisTemplate, options } from '../utils/defaultParameters';
+import { demographicsFields, statisticsTypes, analysisTemplate, options } from '../utils/defaultParameters';
 import { get_t_test, get_z_test, filterFields, mannwhitneyu } from '../utils/tools';
 import * as React from 'react';
 import { useQuery, useLazyQuery } from '@apollo/client/react/hooks';
-import { GET_STUDY_FIELDS, GET_PROJECT, GET_DATA_RECORDS, IFieldEntry, IProject, enumValueType } from 'itmat-commons';
+import { GET_STUDY_FIELDS, GET_PROJECT, GET_DATA_RECORDS, IFieldEntry, IProject, enumValueType, IStandardization } from 'itmat-commons';
 import LoadSpinner from '../../../reusable/loadSpinner';
 import { Subsection, SubsectionWithComment } from '../../../reusable/subsection/subsection';
 import css from './tabContent.module.css';
@@ -58,7 +58,13 @@ const FilterSelector: React.FunctionComponent<{ filtersTool: any, fields: IField
                     header={<div>Follow the steps to start an analysis</div>}
                     // footer={<div>Footer</div>}
                     bordered
-                    dataSource={guidelinesOfAnalysis}
+                    dataSource={[
+                        '1. Create groups based on several criteria. These criteria include demographics (age, race, sex, etc.), ' +
+                        'and general variables that can be filtered by a range;',
+                        '2. Click the Analysis button to do an analysis;',
+                        '3. View the analytical results. Users can select on of the two statistics (T test, Z test), and ' +
+                        'download the original data of the results.'
+                    ]}
                     renderItem={item => (
                         <List.Item>
                             <Typography.Text mark></Typography.Text> {item}
@@ -199,7 +205,10 @@ const FilterSelector: React.FunctionComponent<{ filtersTool: any, fields: IField
                             mode='multiple'
                         >
                             {
-                                fields.filter(el => (el.stdRules !== undefined && el.stdRules !== null && el.stdRules.filter(es => es.name === 'DOMAIN')[0]?.parameter === 'MH')).map(el => {
+                                fields.filter(el => {
+                                    const rules: IStandardization | undefined = el.standardization.filter(es => es.name === 'cdisc-sdtm')[0];
+                                    return rules.stdRules !== undefined && rules.stdRules !== null && rules.stdRules.filter(es => es.name === 'DOMAIN')[0]?.parameter === 'MH';
+                                }).map(el => {
                                     return <Option value={el.fieldId}>{el.fieldName}</Option>;
                                 })
                             }

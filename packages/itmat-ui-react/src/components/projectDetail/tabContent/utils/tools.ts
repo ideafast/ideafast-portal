@@ -1,5 +1,5 @@
 import { jStat } from 'jStat';
-import { IFieldEntry } from 'itmat-commons';
+import { IFieldEntry, IStandardization } from 'itmat-commons';
 
 export function get_t_test(t_array1: number[], t_array2: number[], digits: number){
     if (t_array1.length <= 1 || t_array2.length <= 1) {
@@ -27,7 +27,13 @@ export function get_z_test(t_array1: number[], t_array2: number[], digits: numbe
 }
 
 export function filterFields(fields: IFieldEntry[], domain: string[]) {
-    return fields.filter(el => (el.stdRules !== undefined && el.stdRules !== null && domain.includes(el.stdRules.filter(es => es.name === 'DOMAIN')[0]?.parameter)));
+    return fields.filter(el => {
+        const rules: IStandardization = el.standardization?.filter(es => es.name === 'cdisc-sdtm')[0];
+        if (rules === undefined) {
+            return false;
+        }
+        return rules.stdRules !== undefined && rules.stdRules !== null && domain.includes(rules.stdRules.filter(es => es.name === 'DOMAIN')[0]?.parameter);
+    });
 }
 
 const rank = {

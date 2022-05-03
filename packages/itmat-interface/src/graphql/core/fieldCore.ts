@@ -1,4 +1,4 @@
-import { IFieldEntry, enumValueType, IOntologyPath, IStandardizationRule } from 'itmat-commons';
+import { IFieldEntry, enumValueType, IStandardization } from 'itmat-commons';
 import { db } from '../../database/database';
 import { v4 as uuid } from 'uuid';
 export class FieldCore {
@@ -64,20 +64,25 @@ export function validateAndGenerateFieldEntry(fieldEntry: any) {
     if (fieldEntry.fieldName.toString().toUpperCase() === 'SUBJECTID' || fieldEntry.fieldName.toString().toUpperCase() === 'VISITID') {
         error.push(`${fieldEntry.fieldId}-${fieldEntry.fieldName}: visitId and subjectId are reserved fields.`);
     }
-
-    const ontologyPath: IOntologyPath[]  = [];
-    const stdRules: IStandardizationRule[] = [];
-    if (fieldEntry.ontologyPath !== undefined && fieldEntry.ontologyPath !== null) {
-        fieldEntry.ontologyPath.forEach(el => {
-            el.id = uuid();
-            ontologyPath.push(el);
-        });
-    }
-    if (fieldEntry.stdRules !== undefined && fieldEntry.stdRules !== null) {
-        fieldEntry.stdRules.forEach(el => {
-            el.id = uuid();
-            stdRules.push(el);
-        });
+    const formattedStandardization: IStandardization[] = [...(fieldEntry.standardization || [])];
+    if (formattedStandardization.length !== 0) {
+        for (let i=0; i<formattedStandardization.length; i++) {
+            formattedStandardization[i].id = uuid();
+            if (formattedStandardization[i].ontologyPath !== undefined && formattedStandardization[i].ontologyPath !== null) {
+                formattedStandardization[i].ontologyPath.forEach(el => {
+                    el.id = uuid();
+                });
+            } else {
+                formattedStandardization[i].ontologyPath = [];
+            }
+            if (formattedStandardization[i].stdRules !== undefined && formattedStandardization[i].stdRules !== null) {
+                formattedStandardization[i].stdRules.forEach(el => {
+                    el.id = uuid();
+                });
+            } else {
+                formattedStandardization[i].stdRules = [];
+            }
+        }
     }
     const newField: any = {
         fieldId: fieldEntry.fieldId,
@@ -87,8 +92,7 @@ export function validateAndGenerateFieldEntry(fieldEntry: any) {
         possibleValues: fieldEntry.dataType === enumValueType.CATEGORICAL ? fieldEntry.possibleValues : null,
         unit: fieldEntry.unit,
         comments: fieldEntry.comments,
-        stdRules: stdRules,
-        ontologyPath: ontologyPath
+        standardization: formattedStandardization
     };
 
     return { fieldEntry: newField, error: error };

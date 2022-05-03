@@ -2,7 +2,7 @@ import { demographicsFields } from '../utils/defaultParameters';
 import { filterFields } from '../utils/tools';
 import * as React from 'react';
 import { useQuery, useLazyQuery } from '@apollo/client/react/hooks';
-import { GET_STUDY_FIELDS, GET_PROJECT, GET_DATA_RECORDS, IFieldEntry, IProject, enumValueType } from 'itmat-commons';
+import { GET_STUDY_FIELDS, GET_PROJECT, GET_DATA_RECORDS, IFieldEntry, IProject, enumValueType, IStandardization } from 'itmat-commons';
 import { Query } from '@apollo/client/react/components';
 // import { FieldListSectionWithFilter } from '../../../reusable/fieldList/fieldList';
 import LoadSpinner from '../../../reusable/loadSpinner';
@@ -16,13 +16,6 @@ import { Pie, BidirectionalBar, Heatmap, Violin, Column } from '@ant-design/plot
 import { UserOutlined, ProfileOutlined, QuestionCircleTwoTone, DownloadOutlined, DoubleRightOutlined } from '@ant-design/icons';
 const { Option } = Select;
 
-const domains = {
-    LB: 'Laboratory Test',
-    FT: 'Function Test',
-    VS: 'Vital Sign',
-    QS: 'Questionnaires'
-};
-
 export const DataTabContent: React.FunctionComponent<{ studyId: string; projectId: string }> = ({ studyId, projectId }) => {
     const { loading: getStudyFieldsLoading, error: getStudyFieldsError, data: getStudyFieldsData } = useQuery(GET_STUDY_FIELDS, { variables: { studyId: studyId, projectId: projectId } });
     const { loading: getProjectLoading, error: getProjectError, data: getProjectData } = useQuery(GET_PROJECT, { variables: { projectId: projectId, admin: false } });
@@ -35,6 +28,14 @@ export const DataTabContent: React.FunctionComponent<{ studyId: string; projectI
             A error occured, please contact your administrator
         </div>;
     }
+    const domains: string[] = Array.from(new Set(getStudyFieldsData.getStudyFields.reduce((acc, curr) => {
+        const formatIndex: number = curr.standardization?.findIndex(es => es.name === 'cdisc-sdtm');
+        if (formatIndex === undefined || formatIndex === -1) {
+            return acc;
+        }
+        acc.push(curr.standardization[formatIndex].stdRules.filter(es => es.name === 'DOMAIN')[0]?.parameter);
+        return acc;
+    }, [] as string[])));
     return <div className={css.tab_page_wrapper}>
         <div className={css.scaffold_wrapper}>
             <div style={{ gridArea: 'a' }}>
@@ -52,7 +53,7 @@ export const DataTabContent: React.FunctionComponent<{ studyId: string; projectI
             </div>
             <div style={{ gridArea: 'd' }}>
                 <Subsection title='Data Completeness'>
-                    <DataCompletenessBlock studyId={studyId} projectId={projectId} fields={filterFields(getStudyFieldsData.getStudyFields, ['LB', 'FT', 'VS', 'QS'])} />
+                    <DataCompletenessBlock studyId={studyId} projectId={projectId} fields={filterFields(getStudyFieldsData.getStudyFields, domains)} domains={domains} />
                 </Subsection>
             </div>
             <div style={{ gridArea: 'e' }}>
@@ -72,7 +73,7 @@ export const DemographicsBlock: React.FunctionComponent<{ studyId: string, proje
         projectId: projectId,
         queryString: {
             format: 'grouped',
-            data_requested: Object.values(demographicsFields),
+            data_requested: fields.map(el => el.fieldId),
             new_fields: [],
             cohort: [[]],
             subjects_requested: null,
@@ -90,8 +91,13 @@ export const DemographicsBlock: React.FunctionComponent<{ studyId: string, proje
     // process the data
     const obj: any = {};
     const data = getDataRecordsData.getDataRecords.data;
-    const genderField = fields.filter(el => el.fieldId === demographicsFields.genderID)[0];
-    obj.SEX = genderField === undefined ? {} : data[demographicsFields.genderID][demographicsFields.visit].data.reduce((acc, curr) => {
+    const genderField = fields.filter(el => (el.standardization && el.standardization.some(es => (es.metaField && es.metaField === 'GENDER'))))[0];
+    const raceField: IFieldEntry = fields.filter(el => (el.standardization && el.standardization.some(es => (es.metaField && es.metaField === 'RACE'))))[0];
+    const ageField: IFieldEntry = fields.filter(el => (el.standardization && el.standardization.some(es => (es.metaField && es.metaField === 'AGE'))))[0];
+    const siteField: IFieldEntry = fields.filter(el => (el.standardization && el.standardization.some(es => (es.metaField && es.metaField === 'SITE'))))[0];
+    // const genderFie: IFieldEntry = fields.filter(el => el.fieldId === genderFieldId.fieldId)[0];
+
+    obj.SEX = genderField === undefined ? {} : data[genderField.fieldId][demographicsFields.visit].data.reduce((acc, curr) => {
         const thisGender = genderField?.possibleValues?.filter(el => el.code === curr)[0].description || '';
         if (acc.filter(es => es.type === thisGender).length === 0) {
             acc.push({ type: thisGender, value: 0 });
@@ -101,13 +107,13 @@ export const DemographicsBlock: React.FunctionComponent<{ studyId: string, proje
     }, []);
     obj.SEX.push({
         type: 'Missing',
-        value: data[demographicsFields.genderID][demographicsFields.visit].totalNumOfRecords - data[demographicsFields.genderID][demographicsFields.visit].valieNumOfRecords
+        value: data[genderField.fieldId][demographicsFields.visit].totalNumOfRecords - data[genderField.fieldId][demographicsFields.visit].valieNumOfRecords
     });
-    const raceField = fields.filter(el => el.fieldId === demographicsFields.race)[0];
-    if (data[demographicsFields.race] === undefined) {
+
+    if (data[raceField.fieldId] === undefined) {
         obj.RACE = [];
     } else {
-        obj.RACE = genderField === undefined ? {} : data[demographicsFields.race][demographicsFields.visit].data.reduce((acc, curr) => {
+        obj.RACE = genderField === undefined ? {} : data[raceField.fieldId][demographicsFields.visit].data.reduce((acc, curr) => {
             const thisRace = raceField?.possibleValues?.filter(el => el.code === curr)[0].description || '';
             if (acc.filter(es => es.type === thisRace).length === 0) {
                 acc.push({ type: thisRace, value: 0 });
@@ -117,11 +123,11 @@ export const DemographicsBlock: React.FunctionComponent<{ studyId: string, proje
         }, []);
         obj.RACE.push({
             type: 'Missing',
-            value: data[demographicsFields.race][demographicsFields.visit].totalNumOfRecords - data[demographicsFields.race][demographicsFields.visit].valieNumOfRecords
+            value: data[raceField.fieldId][demographicsFields.visit].totalNumOfRecords - data[raceField.fieldId][demographicsFields.visit].valieNumOfRecords
         });
     }
-    const siteField = fields.filter(el => el.fieldId === demographicsFields.genderID)[0];
-    obj.SITE = siteField === undefined ? {} : data[demographicsFields.siteID][demographicsFields.visit].data.reduce((acc, curr) => {
+
+    obj.SITE = siteField === undefined ? {} : data[siteField.fieldId][demographicsFields.visit].data.reduce((acc, curr) => {
         if (acc.filter(es => es.type === curr.toString()).length === 0) {
             acc.push({ type: curr.toString(), value: 0 });
         }
@@ -130,14 +136,14 @@ export const DemographicsBlock: React.FunctionComponent<{ studyId: string, proje
     }, []);
     obj.SITE.push({
         type: 'Missing',
-        value: data[demographicsFields.siteID][demographicsFields.visit].totalNumOfRecords - data[demographicsFields.siteID][demographicsFields.visit].validNumOfRecords
+        value: data[siteField.fieldId][demographicsFields.visit].totalNumOfRecords - data[siteField.fieldId][demographicsFields.visit].validNumOfRecords
     });
-    const ageField = fields.filter(el => el.fieldId === demographicsFields.age)[0];
-    obj.AGE = ageField === undefined ? {} : data[demographicsFields.age][demographicsFields.visit].data.reduce((acc, curr, index) => {
+
+    obj.AGE = ageField === undefined ? {} : data[ageField.fieldId][demographicsFields.visit].data.reduce((acc, curr, index) => {
         if (acc.filter(es => es.age === curr).length === 0) {
             acc.push({ age: curr, Male: 0, Female: 0 });
         }
-        if (data[demographicsFields.genderID][demographicsFields.visit].data[index] === '1') {
+        if (data[genderField.fieldId][demographicsFields.visit].data[index] === '1') {
             acc[acc.findIndex(el => el.age === curr)].Female += 1;
         } else {
             acc[acc.findIndex(el => el.age === curr)].Male += 1;
@@ -289,8 +295,8 @@ export const FieldViewer: React.FunctionComponent<{ fields: IFieldEntry[] }> = (
                         <Col span={24}>
                             <Statistic title='Ontology Chain' prefix={<>
                                 {
-                                    (field.ontologyPath === undefined || field.ontologyPath === null ) ? null :
-                                        field.ontologyPath.slice(0, field.ontologyPath.length-1).map(el => {
+                                    (field.standardization.filter(el => el.name === 'cdisc-sdtm')[0].ontologyPath === undefined || field.standardization.filter(el => el.name === 'cdisc-sdtm')[0].ontologyPath === null ) ? null :
+                                        field.standardization.filter(el => el.name === 'cdisc-sdtm')[0].ontologyPath.slice(0, field.standardization.filter(el => el.name === 'cdisc-sdtm')[0].ontologyPath.length-1).map(el => {
                                             if (el.type === 'STRING') {
                                                 return <span>{el.value} <DoubleRightOutlined /> </span>;
                                             } else if (el.type === 'FIELD') {
@@ -313,14 +319,20 @@ export const FieldViewer: React.FunctionComponent<{ fields: IFieldEntry[] }> = (
     </SubsectionWithComment>);
 };
 
-export const DataCompletenessBlock: React.FunctionComponent<{ studyId: string, projectId: string, fields: IFieldEntry[] }> = ({ studyId, projectId, fields }) => {
+export const DataCompletenessBlock: React.FunctionComponent<{ studyId: string, projectId: string, fields: IFieldEntry[], domains: string[] }> = ({ studyId, projectId, fields, domains }) => {
     const dataCompletenessdPageSize = 20;
     const [selectedDomain, setSelectedDomain] = React.useState('QS');
     const [domainFieldsIndex, setDomainFieldsIndex] = React.useState({
         start: 0,
         end: dataCompletenessdPageSize
     });
-    const domainFieldIds: string[] = fields.filter(el => el.stdRules !== undefined && el.stdRules !== null && el.stdRules[el.stdRules?.findIndex(es => es.name === 'DOMAIN')].parameter === selectedDomain).map(ek => ek.fieldId).sort((a, b) => {
+    const domainFieldIds: string[] = fields.filter(el => {
+        const rules: IStandardization = el.standardization.filter(es => es.name === 'cdisc-sdtm')[0];
+        if (rules === undefined) {
+            return false;
+        }
+        return rules.stdRules !== undefined && rules.stdRules !== null && rules.stdRules[rules.stdRules?.findIndex(es => es.name === 'DOMAIN')].parameter === selectedDomain;
+    }).map(ek => ek.fieldId).sort((a, b) => {
         return parseFloat(a) - parseFloat(b);
     });
     const { loading: getDataRecordsLoading, error: getDataRecordsError, data: getDataRecordsData } = useQuery(GET_DATA_RECORDS, { variables: { studyId: studyId,
@@ -444,7 +456,7 @@ export const DataCompletenessBlock: React.FunctionComponent<{ studyId: string, p
 };
 
 export const DataDetailsBlock: React.FunctionComponent<{ studyId: string, projectId, project: IProject, fields: IFieldEntry[] }> = ({ studyId, projectId, project, fields }) => {
-    const [requestedFieldId, setRequestedFieldId] = React.useState<string>('1788');
+    const [requestedFieldId, setRequestedFieldId] = React.useState<string | undefined>(undefined);
     return (<>
         <Query<any, any> query={GET_DATA_RECORDS} variables={{
             studyId: studyId,
@@ -494,7 +506,7 @@ export const DataDetailsBlock: React.FunctionComponent<{ studyId: string, projec
                             acc.push({ visit: curr, value: 'No Record', count: project.summary.subjects.length - count });
                         }
                         return acc;
-                    }, ([] as any));
+                    }, ([] as any)).sort((a, b) => { return parseFloat(a.value) - parseFloat(b.value); });
                 } else {
                     return null;
                 }
@@ -537,6 +549,7 @@ export const DataDetailsBlock: React.FunctionComponent<{ studyId: string, projec
         >
             {
                 fields.filter(el => [enumValueType.DECIMAL, enumValueType.INTEGER, enumValueType.CATEGORICAL, enumValueType.BOOLEAN].includes(el.dataType))
+                    .sort((a, b) => { return parseFloat(a.fieldId) - parseFloat(b.fieldId); })
                     .map(el => <Option value={el.fieldId}>{el.fieldId.concat('-').concat(el.fieldName)}</Option>)
             }
         </Select>
@@ -567,12 +580,12 @@ export const ProjectMetaDataBlock: React.FunctionComponent<{ project: IProject, 
                     <Statistic title={<>
                         Fields
                         <Tooltip title={
-                            fields.filter(el => (el.stdRules !== undefined && el.stdRules !== null)).length.toString().concat(' of ').concat(fields.length.toString())
+                            fields.filter(el => (el.standardization !== undefined && el.standardization !== null)).length.toString().concat(' of ').concat(fields.length.toString())
                                 .concat(' fields can be standardized')
                         }>
                             <QuestionCircleTwoTone />
                         </Tooltip>
-                    </>} value={fields.filter(el => (el.stdRules !== undefined && el.stdRules !== null)).length} suffix={' / '.concat(fields.length.toString())} />
+                    </>} value={fields.filter(el => (el.standardization !== undefined && el.standardization !== null)).length} suffix={' / '.concat(fields.length.toString())} />
                 </Col>
             </Row><br/>
             <Row gutter={16}>

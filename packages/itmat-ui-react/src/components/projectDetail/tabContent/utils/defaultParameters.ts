@@ -1,16 +1,5 @@
 export const demographicsFields: any = {
-    race: '1725',
-    age: '3321',
-    genderID: '566',
-    siteID: '569',
     visit: '0'
-};
-
-export const domains = {
-    LB: 'Laboratory Test',
-    FT: 'Function Test',
-    VS: 'Vital Sign',
-    QS: 'Questionnaires'
 };
 
 export const options: any = {
@@ -25,14 +14,6 @@ export const options: any = {
         filters: 'purple'
     }
 };
-
-export const guidelinesOfAnalysis: string[] = [
-    '1. Create groups based on several criteria. These criteria include demographics (age, race, sex, etc.), ' +
-    'and general variables that can be filtered by a range;',
-    '2. Click the Analysis button to do an analysis;',
-    '3. View the analytical results. Users can select on of the two statistics (T test, Z test), and ' +
-    'download the original data of the results.'
-];
 
 export const statisticsTypes: string[] = [
     'ttest', 'ztest'

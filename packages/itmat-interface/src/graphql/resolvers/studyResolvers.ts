@@ -24,7 +24,7 @@ import { IGenericResponse, makeGenericReponse } from '../responses';
 import { buildPipeline } from '../../utils/query';
 import { IJobEntry } from '../../../../itmat-commons/dist/models/job';
 import { IFile } from '../../../../itmat-commons/dist/models/file';
-import { dataStandardization, dataGrouping } from '../../utils/query';
+import { dataStandardization } from '../../utils/query';
 
 export const studyResolvers = {
     Query: {
@@ -302,13 +302,9 @@ export const studyResolvers = {
                 return acc;
             }, {});
             // 2. adjust format: 1) original (exists) 2) standardized 3) grouped
-            if (queryString['format'] === 'standardized') {
-                return { data: dataStandardization(study, fieldRecords.map(el => el.doc).filter(eh => eh.dateDeleted === null), groupedResult) };
-            }
-            if (queryString['format'] === 'grouped' || queryString['format'] === 'summary') {
-                return { data: dataGrouping(groupedResult, queryString['format']) };
-            }
-            return { data: groupedResult };
+            const formattedData = dataStandardization(study, fieldRecords.map(el => el.doc).filter(eh => eh.dateDeleted === null),
+                groupedResult, queryString['format'], queryString['derivedRules']);
+            return { data: formattedData };
         }
     },
     Study: {

@@ -1,4 +1,4 @@
-import { IStudy, IFieldEntry, enumValueType } from 'itmat-commons';
+import { IStudy, IFieldEntry, enumValueType, IStandardizationRule, IOntologyPath } from 'itmat-commons';
 /*
     queryString:
         format: string                  # returned foramt: raw, standardized, grouped, summary
@@ -8,6 +8,13 @@ import { IStudy, IFieldEntry, enumValueType } from 'itmat-commons';
 
 */
 // if has study-level permission, non versioned data will also be returned
+
+interface IStandardizationWithoutId {
+    name: string,
+    stdRules: IStandardizationRule[],
+    ontologyPath: IOntologyPath[]
+}
+
 export function buildPipeline(query: any, studyId: string, validDataVersion: string, hasPermission: boolean, fieldsList: any[]) {
     // // parse the input data versions first
     let dataVersionsFilter: any;
@@ -248,6 +255,7 @@ function translateCohort(cohort: any) {
     return match;
 }
 
+
 // attributes are fields that should be included in the standardization result; if not, leave it empty
 // STUDYID ans USUBJID will be joined automatically
 const domains = {
@@ -285,8 +293,19 @@ const domains = {
     }
 };
 
+export function dataStandardization(study:IStudy, fields: IFieldEntry[], data: any, format: string, derivedRules?: IStandardizationWithoutId[]) {
+    if (format === undefined || format === 'raw') {
+        return data;
+    } else if (format === 'grouped' || format === 'summary') {
+        return dataGrouping(data, format);
+    } else if (format === 'cdisc-sdtm') {
+        return cdiscSDTM(study, fields, data, format, derivedRules || []);
+    }
+    return { error: 'Format not recognized.'};
+}
+
 // fields are obtained from called functions, providing the valid fields
-export function dataStandardization(study: IStudy, fields: IFieldEntry[], data: any) {
+export function cdiscSDTM(study: IStudy, fields: IFieldEntry[], data: any, format: string, derivedRules: IStandardizationWithoutId[]) {
     const records = Object.keys(domains).reduce((acc, curr) => {
         acc[curr] = [];
         return acc;
@@ -294,29 +313,46 @@ export function dataStandardization(study: IStudy, fields: IFieldEntry[], data: 
     for (const subjectId of Object.keys(data).sort()) {
         // The sequence number is assigned to each standardized record in order in some domains; thus, the order may change in different versions
         const seqNumDic: any = Object.keys(domains).reduce((acc, curr) => {
-            acc[curr] = 1;
+            acc[curr] = {};
             return acc;
         }, {});
         for (const visitId of Object.keys(data[subjectId]).sort((a, b) => { return parseFloat(a) - parseFloat(b); })) {
-            for (const fieldId of Object.keys(data[subjectId][visitId]).sort((a, b) => { return parseFloat(a) - parseFloat(b); })) {
+            for (const fieldId of Object.keys(data[subjectId][visitId])) {
                 // check field existing in current data version
-                const fieldDef = fields.filter(el => el.fieldId === fieldId.toString())[0];
-                if (fieldDef === undefined || fieldDef.stdRules === undefined || fieldDef === null) {
+                let fieldDef: any = fields.filter(el => el.fieldId === fieldId.toString())[0];
+                if (fieldDef === undefined || fieldDef === null || fieldDef.standardization === undefined) {
+                    // check if it is derived field, if so use the rules from derivedRules
+                    if (derivedRules.filter(el => el.name === fieldId).length === 1) {
+                        fieldDef = {
+                            fieldId: fieldId,
+                            fieldName: fieldId,
+                            standardization: derivedRules.filter(el => el.name === fieldId)[0]
+                        };
+                    } else {
+                        continue;
+                    }
                     continue;
                 }
+                // check if this standard exists
+                if (fieldDef.standardization.filter(el => el.name === format).length !== 1) {
+                    return { error: `${format} is not found or more than one ${format} are defined.` };
+                }
+                const formatIndex: number = fieldDef.standardization.findIndex(el => el.name === format);
                 // check if DOMAIN exists
-                const attributeIndexMapping = fieldDef.stdRules.reduce((acc, curr, index) => {
+                const attributeIndexMapping = fieldDef.standardization[formatIndex].stdRules.reduce((acc, curr, index) => {
                     acc[curr['name']] = index;
                     return acc;
                 }, {});
                 if (!Object.keys(attributeIndexMapping).includes('DOMAIN')) {
                     continue;
                 }
-                const thisDomainDef = fieldDef.stdRules[attributeIndexMapping['DOMAIN']];
+                // set shouldIgnore flag
+                let isIgnored = false;
+                const thisDomainDef = fieldDef.standardization[formatIndex].stdRules[attributeIndexMapping['DOMAIN']];
                 // parse VS, LB, QS, FT
                 let dataClip = {};
                 if (['VS', 'LB', 'QS', 'FT', 'IE'].includes(thisDomainDef['parameter'])) {
-                    fieldDef.stdRules.forEach(el => {
+                    fieldDef.standardization[formatIndex].stdRules.forEach(el => {
                         switch (el['source']) {
                             case 'data': {
                                 // for multiple levels; use -> as delimiter
@@ -326,6 +362,9 @@ export function dataStandardization(study: IStudy, fields: IFieldEntry[], data: 
                                     tmpData = tmpData[el] || '';
                                 });
                                 dataClip[el['name']] = tmpData;
+                                if (el.ignoreValues && el.ignoreValues.includes(tmpData)) {
+                                    isIgnored = true;
+                                }
                                 break;
                             }
                             case 'fieldDef': {
@@ -337,7 +376,10 @@ export function dataStandardization(study: IStudy, fields: IFieldEntry[], data: 
                                 break;
                             }
                             case 'inc': {
-                                dataClip[el['name']] = seqNumDic[thisDomainDef['parameter']]++;
+                                if (seqNumDic[thisDomainDef['parameter']][subjectId] === undefined) {
+                                    seqNumDic[thisDomainDef['parameter']][subjectId] = 1;
+                                }
+                                dataClip[el['name']] = seqNumDic[thisDomainDef['parameter']][subjectId]++;
                                 break;
                             }
                         }
@@ -347,14 +389,14 @@ export function dataStandardization(study: IStudy, fields: IFieldEntry[], data: 
                         }
                     });
                     dataClip['VISITNUM'] = visitId;
-                } else if (fieldDef.stdRules[attributeIndexMapping['DOMAIN']]['parameter'] === 'DM') {
+                } else if (fieldDef.standardization[formatIndex].stdRules[attributeIndexMapping['DOMAIN']]['parameter'] === 'DM') {
                     // find the DM in records; otherwise create a new one
-                    dataClip = records[fieldDef.stdRules[attributeIndexMapping['DOMAIN']]['parameter']].filter(el =>
+                    dataClip = records[fieldDef.standardization[formatIndex].stdRules[attributeIndexMapping['DOMAIN']]['parameter']].filter(el =>
                         el.USUBJID === subjectId)[0];
                     if (dataClip === undefined) {
                         dataClip = {};
                     }
-                    fieldDef.stdRules.forEach(el => {
+                    fieldDef.standardization[formatIndex].stdRules.forEach(el => {
                         switch (el['source']) {
                             case 'data': {
                                 // for multiple levels; use -> as delimiter
@@ -367,7 +409,7 @@ export function dataStandardization(study: IStudy, fields: IFieldEntry[], data: 
                                 break;
                             }
                             case 'fieldDef': {
-                                dataClip[el['name']] = fieldDef[el['parameter']];
+                                dataClip[el['name']] = fieldDef.standardization[formatIndex][el['parameter']];
                                 break;
                             }
                             case 'value': {
@@ -380,13 +422,13 @@ export function dataStandardization(study: IStudy, fields: IFieldEntry[], data: 
                             dataClip[el['name']] = el['dict'][dataClip[el['name']]] || '';
                         }
                     });
-                } else if (fieldDef.stdRules[attributeIndexMapping['DOMAIN']]['parameter'] === 'MH') {
+                } else if (fieldDef.standardization[formatIndex].stdRules[attributeIndexMapping['DOMAIN']]['parameter'] === 'MH') {
                     // in the original record, MH is considered as a boolean type for each of the MH term
                     // if not have, ignore
                     if (data[subjectId][visitId][fieldId].toString() === '0') {
                         continue;
                     }
-                    fieldDef.stdRules.forEach(el => {
+                    fieldDef.standardization[formatIndex].stdRules.forEach(el => {
                         switch (el['source']) {
                             case 'data': {
                                 // for multiple levels; use -> as delimiter
@@ -420,11 +462,15 @@ export function dataStandardization(study: IStudy, fields: IFieldEntry[], data: 
                 } else {
                     continue;
                 }
+                // check if should be ignored
+                if (isIgnored) {
+                    continue;
+                }
                 dataClip['STUDYID'] = study.name;
                 dataClip['USUBJID'] = subjectId;
                 // check if need to replace the DM record
                 if (thisDomainDef.name === 'DOMAIN' && thisDomainDef.parameter === 'DM') {
-                    const dmIndex = records[fieldDef.stdRules[attributeIndexMapping['DOMAIN']]['parameter']].findIndex(el =>
+                    const dmIndex = records[fieldDef.standardization[formatIndex].stdRules[attributeIndexMapping['DOMAIN']]['parameter']].findIndex(el =>
                         el.USUBJID === subjectId);
                     if (dmIndex === -1) {
                         records[thisDomainDef['parameter']].push(dataClip);

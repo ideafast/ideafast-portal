@@ -6,8 +6,7 @@ export interface IFieldEntry {
     tableName?: string;
     dataType: enumValueType;
     possibleValues?: IValueDescription[];
-    stdRules?: IStandardizationRule[];
-    ontologyPath?: IOntologyPath[];
+    standardization: IStandardization[];
     unit?: string;
     comments?: string;
     dateAdded: string;
@@ -37,6 +36,14 @@ export enum enumValueType {
     CATEGORICAL = 'cat'
 }
 
+export interface IStandardization {
+    id: string,
+    name: string,
+    metaField?: string,
+    stdRules: IStandardizationRule[],
+    ontologyPath: IOntologyPath[]
+}
+
 export enum StandardizationSource {
     value = 'value',
     data = 'data',
@@ -49,7 +56,9 @@ export interface IStandardizationRule {
     name: string,
     source: StandardizationSource,
     parameter: string,
-    dict: JSON
+    // if values are to ignore, this value would not be output
+    ignoreValues?: string[],
+    dict?: JSON
 }
 
 export enum OntologyNodeType {

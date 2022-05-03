@@ -58,11 +58,18 @@ export const DataManagementTabContentFetch: React.FunctionComponent<{ studyId: s
             }
         }
     ];
+    const domains: string[] = Array.from(new Set(getStudyFieldsData.getStudyFields.reduce((acc, curr) => {
+        const formatIndex: number = curr.standardization?.findIndex(es => es.name === 'cdisc-sdtm');
+        if (formatIndex === undefined || formatIndex === -1) {
+            return acc;
+        }
+        acc.push(curr.standardization[formatIndex].stdRules.filter(es => es.name === 'DOMAIN')[0]?.parameter);
+        return acc;
+    }, [] as string[])));
     const versions: any = [];
     for (const item of getStudyData.getStudy.dataVersions) {
         versions[item['version']] = item['id'];
     }
-
     return <div className={css.data_management_section}>
         {getStudyData.getStudy.currentDataVersion !== -1 ?
             <div className={css.top_panel}>
@@ -95,22 +102,24 @@ export const DataManagementTabContentFetch: React.FunctionComponent<{ studyId: s
                 allowClear
                 onSelect={(value: string) => { setSelectedDomain(value); }}
             >
-                <Option value={''}>All Domains</Option>
-                <Option value={'DM'}>Demographics</Option>
-                <Option value={'MH'}>Medical History</Option>
-                <Option value={'VS'}>Vital Sign</Option>
-                <Option value={'LB'}>Laboratory Test</Option>
-                <Option value={'CM'}>Comcomitant Medications</Option>
-                <Option value={'QS'}>Questionnaires</Option>
-                <Option value={'FT'}>Functional Test</Option>
+                {
+                    domains.concat('').map(el => <Option value={el}>{el.toString()}</Option>)
+                }
             </Select>}>
                 <FieldListSection
                     studyData={getStudyData.getStudy}
                     onCheck={false}
                     checkable={false}
-                    fieldList={selectedDomain === '' ? getStudyFieldsData.getStudyFields : getStudyFieldsData.getStudyFields.filter(el => (
-                        el.stdRules !== undefined && el.stdRules !== null && el.stdRules.filter(es => es.name === 'DOMAIN').length > 0 && el.stdRules.filter(es => es.name === 'DOMAIN')[0].parameter === selectedDomain
-                    ))}
+                    fieldList={selectedDomain === '' ? getStudyFieldsData.getStudyFields : getStudyFieldsData.getStudyFields.filter(el => {
+                        const formatIndex: number = el.standardization?.findIndex(es => es.name === 'cdisc-sdtm');
+                        if (formatIndex === undefined || formatIndex === -1) {
+                            return false;
+                        }
+                        return el.standardization[formatIndex].stdRules !== undefined
+                            && el.standardization[formatIndex].stdRules !== null
+                            && el.standardization[formatIndex].stdRules.filter(es => es.name === 'DOMAIN').length > 0
+                            && el.standardization[formatIndex].stdRules.filter(es => es.name === 'DOMAIN')[0].parameter === selectedDomain;
+                    })}
                     verbal={true}
                 ></FieldListSection>
                 {/* <FieldListRadial

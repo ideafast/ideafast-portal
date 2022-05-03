@@ -42,11 +42,12 @@ export const FieldManagementTabContentFetch: React.FunctionComponent<{ studyId: 
     const [selectedField, setSelectedField] = React.useState<any>({
         currentIndex: -1,
         currentOntologyIndex: -1,
+        currentFormatIndex: -1,
         fieldId: '',
-        stdRules: [],
-        ontologyPath: [],
+        standardization: []
     });
     const [editMode, setEditMode] = React.useState(false);
+    const [format, setFormat] = React.useState<string | undefined>(undefined);
     if (getStudyFieldsLoading || editFieldLoading) {
         return <LoadSpinner />;
     }
@@ -63,7 +64,7 @@ export const FieldManagementTabContentFetch: React.FunctionComponent<{ studyId: 
             render: (__unused__value, record, index) => {
                 return editMode ? <Input style={{ fontSize: fontSizes.table }} defaultValue={record.name} onChange={(e) => {
                     const tmp: any = JSON.parse(JSON.stringify(selectedField));
-                    tmp.stdRules[index].name = e.target.value;
+                    tmp.standardization[selectedField.currentFormatIndex].stdRules[index].name = e.target.value;
                     setSelectedField(tmp);
                 }} /> : <Typography.Text style={{ fontSize: fontSizes.table }}>
                     {record.name}
@@ -77,7 +78,7 @@ export const FieldManagementTabContentFetch: React.FunctionComponent<{ studyId: 
             render: (__unused__value, record, index) => {
                 return editMode ? <Select style={{ fontSize: fontSizes.table }} defaultValue={record.source} onChange={(value) => {
                     const tmp: any = JSON.parse(JSON.stringify(selectedField));
-                    tmp.stdRules[index].source = value;
+                    tmp.standardization[selectedField.currentFormatIndex].stdRules[index].source = value;
                     setSelectedField(tmp);
                 }}>
                     <Option value='value' >Value</Option>
@@ -97,7 +98,7 @@ export const FieldManagementTabContentFetch: React.FunctionComponent<{ studyId: 
             render: (__unused__value, record, index) => {
                 return editMode ? <Input style={{ fontSize: fontSizes.table }} defaultValue={record.parameter} onChange={(e) => {
                     const tmp: any = JSON.parse(JSON.stringify(selectedField));
-                    tmp.stdRules[index].parameter = e.target.value;
+                    tmp.standardization[selectedField.currentFormatIndex].stdRules[index].parameter = e.target.value;
                     setSelectedField(tmp);
                 }} /> : <Typography.Text style={{ fontSize: fontSizes.table }}>
                     {record.parameter}
@@ -125,15 +126,15 @@ export const FieldManagementTabContentFetch: React.FunctionComponent<{ studyId: 
                         editMode ?
                             <Button type='link' onClick={() => {
                                 const tmp: any = JSON.parse(JSON.stringify(selectedField));
-                                if (tmp.stdRules[selectedField.currentIndex].dict === null) {
-                                    tmp.stdRules[selectedField.currentIndex].dict = [
+                                if (tmp.standardization[selectedField.currentFormatIndex].stdRules[selectedField.currentIndex].dict === null) {
+                                    tmp.standardization[selectedField.currentFormatIndex].stdRules[selectedField.currentIndex].dict = [
                                         {
                                             code: '',
                                             description: ''
                                         }
                                     ];
                                 } else {
-                                    tmp.stdRules[selectedField.currentIndex].dict.splice(tmp.stdRules[selectedField.currentIndex].dict.length, 0, {
+                                    tmp.standardization[selectedField.currentFormatIndex].stdRules[selectedField.currentIndex].dict.splice(tmp.standardization[selectedField.currentFormatIndex].stdRules[selectedField.currentIndex].dict.length, 0, {
                                         code: '',
                                         description: ''
                                     });
@@ -153,7 +154,7 @@ export const FieldManagementTabContentFetch: React.FunctionComponent<{ studyId: 
             render: (__unused__value, __unused__record, index) => {
                 return editMode ? <DeleteOutlined key='delete' onClick={() => {
                     const tmp: any = JSON.parse(JSON.stringify(selectedField));
-                    tmp.stdRules.splice(index, 1);
+                    tmp.standardization[selectedField.currentFormatIndex].stdRules.splice(index, 1);
                     setSelectedField(tmp);
                 }}/> : null;
             }
@@ -194,26 +195,48 @@ export const FieldManagementTabContentFetch: React.FunctionComponent<{ studyId: 
             title: 'Delete',
             dataIndex: 'delete',
             key: 'delete',
-            render: (__unused__value, record, index) => {
+            render: (__unused__value, __unused__record, index) => {
                 return editMode ? <DeleteOutlined key='delete' onClick={() => {
                     const tmp: any = JSON.parse(JSON.stringify(selectedField));
-                    tmp.stdRules[selectedField.currentIndex].dict.splice(index, 1);
+                    tmp.standardization[selectedField.currentFormatIndex].stdRules[selectedField.currentIndex].dict.splice(index, 1);
                     setSelectedField(tmp);
                 }}/> : <></>;
             }
         });
     }
+    console.log(selectedField);
     return <div className={css.tab_page_wrapper}>
         <div className={css.field_management_section}>
             <div style={{ gridArea: 'b' }}>
+                <Select
+                    style={{ width: '20%' }}
+                    placeholder='Select Format'
+                    allowClear
+                    value={format}
+                    onSelect={(value: string) => {
+                        setFormat(value);
+                    }}
+                    showSearch
+                >
+                    {
+                        Array.from(new Set(getStudyFieldsData.getStudyFields.reduce((acc, curr) => {
+                            acc = acc.concat(curr.standardization?.map(es => es.name) || []);
+                            return acc;
+                        }, [] as string[]))).map(el => <Option value={el}>{(el as string).toString()}</Option>)
+                    }
+                </Select>
                 <Select
                     style={{ width: '50%' }}
                     placeholder='Select Field'
                     allowClear
                     onSelect={(value: string) => {
                         const searchedField = getStudyFieldsData.getStudyFields.filter(el => el.fieldId === value)[0] || { fieldId: '' };
-                        const tmp: any = JSON.parse(JSON.stringify(selectedField));
-                        setSelectedField({ ...tmp, ...convertDictToArray(searchedField)}); }
+                        setSelectedField({
+                            currentIndex: -1,
+                            currentOntologyIndex: -1,
+                            currentFormatIndex: searchedField.standardization?.findIndex(el => el.name === format),
+                            ...convertDictToArray(searchedField)});
+                    }
                     }
                     showSearch
                     filterOption={(input, option) =>
@@ -221,7 +244,9 @@ export const FieldManagementTabContentFetch: React.FunctionComponent<{ studyId: 
                     }
                 >
                     {
-                        getStudyFieldsData.getStudyFields.filter(el => (el.stdRules !== undefined && el.stdRules !== null)).map(el => <Option value={el.fieldId}>{el.fieldId.concat('-').concat(el.fieldName)}</Option>)
+                        [...getStudyFieldsData.getStudyFields]
+                            .sort((a, b) => { return parseFloat(a.fieldId) - parseFloat(b.fieldId); })
+                            .map(el => <Option value={el.fieldId}>{el.fieldId.concat('-').concat(el.fieldName)}</Option>)
                     }
                 </Select>
                 <Button onClick={() => {
@@ -236,6 +261,7 @@ export const FieldManagementTabContentFetch: React.FunctionComponent<{ studyId: 
             <div style={{ gridArea: 'b' }}>
                 <SubsectionWithComment title='Standardization Rules' comment={<Button onClick={() => {
                     const editedField = convertArrayToDict(selectedField);
+                    console.log(editedField);
                     editField({ variables: {
                         studyId: studyId,
                         fieldInput: {
@@ -243,9 +269,7 @@ export const FieldManagementTabContentFetch: React.FunctionComponent<{ studyId: 
                             fieldName: editedField.fieldName,
                             tableName: editedField.tableName,
                             dataType: editedField.dataType,
-                            possibleValues: editedField.possibleValues,
-                            stdRules: editedField.stdRules,
-                            ontologyPath: editedField.ontologyPath,
+                            standardization: editedField.standardization,
                             unit: editedField.unit,
                             comments: editedField.comments
                         }
@@ -258,7 +282,7 @@ export const FieldManagementTabContentFetch: React.FunctionComponent<{ studyId: 
                                 <Table
                                     rowKey={(rec) => rec.id}
                                     columns={stdRuleColumns}
-                                    dataSource={selectedField?.stdRules || []}
+                                    dataSource={(selectedField?.standardization?.filter(el => el.name === format)[0] || [])['stdRules'] || []}
                                     size='small'
                                     pagination={false}
                                     onRow={(__unused__record, rowIndex) => {
@@ -276,7 +300,7 @@ export const FieldManagementTabContentFetch: React.FunctionComponent<{ studyId: 
                                     editMode ?
                                         <Button onClick={() => {
                                             const tmp: any = JSON.parse(JSON.stringify(selectedField));
-                                            tmp.stdRules.splice(tmp.stdRules.length, 0, {
+                                            tmp.standardization[selectedField.currentFormatIndex].stdRules.splice(tmp.standardization[selectedField.currentFormatIndex].stdRules.length, 0, {
                                                 name: '',
                                                 source: 'value',
                                                 parameter: '',
@@ -296,16 +320,16 @@ export const FieldManagementTabContentFetch: React.FunctionComponent<{ studyId: 
             <div style={{ gridArea: 'c' }}>
                 <Subsection title='Ontology Path'>
                     {
-                        (selectedField.fieldId !== undefined && selectedField?.ontologyPath.length !== 0) ?
+                        (selectedField.fieldId !== undefined && format !== undefined && selectedField.standardization[selectedField.currentFormatIndex]?.ontologyPath.length !== 0) ?
                             <>
                                 <Timeline>
                                     {
-                                        selectedField.ontologyPath.map((el, index) => {
+                                        selectedField.standardization[selectedField.currentFormatIndex]?.ontologyPath.map((el, index) => {
                                             return (<>
                                                 <Timeline.Item>
                                                     <Typography.Text style={{ fontSize: fontSizes.ontology }}>
                                                         {
-                                                            index !== selectedField.ontologyPath.length -1 ? el.value :
+                                                            index !== selectedField.standardization[selectedField.currentFormatIndex]?.ontologyPath.length -1 ? el.value :
                                                                 getStudyFieldsData.getStudyFields.filter(es => es.fieldId === el.value)[0].fieldName
                                                         }
                                                     </Typography.Text>
@@ -380,7 +404,7 @@ export const FieldManagementTabContentFetch: React.FunctionComponent<{ studyId: 
                 >
                     <span>Ontology Node Type: </span>
                     <Select
-                        value={selectedField.currentOntologyIndex === -1 ? '' : selectedField.ontologyPath[selectedField.currentOntologyIndex].type}
+                        value={selectedField.currentOntologyIndex === -1 ? '' : selectedField.standardization[selectedField.currentFormatIndex]?.ontologyPath[selectedField.currentOntologyIndex].type}
                         onChange={(value) => {
                             const tmp: any = JSON.parse(JSON.stringify(selectedField));
                             tmp.ontologyPath[selectedField.currentOntologyIndex].type = value;
@@ -393,10 +417,10 @@ export const FieldManagementTabContentFetch: React.FunctionComponent<{ studyId: 
                     <span>Ontology Node Value: </span>
                     <Input
                         style={{ width: '80%' }}
-                        value={selectedField.currentOntologyIndex === -1 ? '' : selectedField.ontologyPath[selectedField.currentOntologyIndex].value}
+                        value={selectedField.currentOntologyIndex === -1 ? '' : selectedField.standardization[selectedField.currentFormatIndex]?.ontologyPath[selectedField.currentOntologyIndex].value}
                         onChange={(e) => {
                             const tmp: any = JSON.parse(JSON.stringify(selectedField));
-                            tmp.ontologyPath[selectedField.currentOntologyIndex].value = e.target.value;
+                            tmp.standardization[selectedField.currentFormatIndex].ontologyPath[selectedField.currentOntologyIndex].value = e.target.value;
                             setSelectedField(tmp);
                         }}
                     ></Input>
@@ -432,21 +456,23 @@ export const FieldManagementTabContentFetch: React.FunctionComponent<{ studyId: 
 };
 
 function convertDictToArray(field: any) {
-    if (field === undefined) {
+    if (field === undefined || (field.standardization || []).length === 0) {
         return null;
     }
     const newField = JSON.parse(JSON.stringify(field));
-    if (newField.stdRules !== undefined) {
-        for (let i=0; i<newField.stdRules.length; i++) {
-            if (newField.stdRules[i].dict !== null) {
-                const newDict = Object.keys(newField.stdRules[i].dict).sort().reduce((acc,curr) => {
-                    acc.push({
-                        code: curr,
-                        description: newField.stdRules[i].dict[curr]
-                    });
-                    return acc;
-                }, ([] as any));
-                newField.stdRules[i] = { ...newField.stdRules[i], dict: newDict };
+    for (let i=0; i<newField.standardization.length; i++) {
+        if (newField.standardization[i].stdRules !== undefined) {
+            for (let j=0; j<newField.standardization[i].stdRules.length; j++) {
+                if (newField.standardization[i].stdRules[j].dict !== null) {
+                    const newDict = Object.keys(newField.standardization[i].stdRules[j].dict).sort().reduce((acc,curr) => {
+                        acc.push({
+                            code: curr,
+                            description: newField.standardization[i].stdRules[j].dict[curr]
+                        });
+                        return acc;
+                    }, ([] as any));
+                    newField.standardization[i].stdRules[j] = { ...newField.standardization[i].stdRules[j], dict: newDict };
+                }
             }
         }
     }
@@ -458,28 +484,32 @@ function convertArrayToDict(field: any) {
         return null;
     }
     const newField: any = JSON.parse(JSON.stringify(field));
-    if (newField.stdRules !== undefined) {
-        for (let i=0; i<newField.stdRules.length; i++) {
-            if (newField.stdRules[i].dict !== null) {
-                if (newField.stdRules[i].dict.length === 0) {
-                    newField.stdRules[i].dict = null;
-                } else {
-                    const newDict = newField.stdRules[i].dict.reduce((acc, curr) => {
-                        acc[curr.code] = curr.description;
-                        return acc;
-                    }, {});
-                    newField.stdRules[i].dict = newDict;
+    for (let i=0; i<newField.standardization.length; i++) {
+        if (newField.standardization[i].stdRules !== undefined) {
+            for (let j=0; j<newField.standardization[i].stdRules.length; j++) {
+                if (newField.standardization[i].stdRules[j].dict !== null) {
+                    if (newField.standardization[i].stdRules[j].dict.length === 0) {
+                        newField.standardization[i].stdRules[j].dict = null;
+                    } else {
+                        const newDict = newField.standardization[i].stdRules[j].dict.reduce((acc, curr) => {
+                            acc[curr.code] = curr.description;
+                            return acc;
+                        }, {});
+                        newField.standardization[i].stdRules[j].dict = newDict;
+                    }
                 }
+                delete newField.standardization[i].stdRules[j].id;
+                delete newField.standardization[i].stdRules[j].__typename;
             }
-            delete newField.stdRules[i].id;
-            delete newField.stdRules[i].__typename;
         }
-    }
-    if (newField.ontologyPath !== undefined) {
-        for (let i=0; i<newField.ontologyPath.length; i++) {
-            delete newField.ontologyPath[i].__typename;
-            delete newField.ontologyPath[i].id;
+        if (newField.standardization[i].ontologyPath !== undefined) {
+            for (let j=0; j<newField.standardization[i].ontologyPath.length; j++) {
+                delete newField.standardization[i].ontologyPath[j].__typename;
+                delete newField.standardization[i].ontologyPath[j].id;
+            }
         }
+        delete newField.standardization[i].id;
+        delete newField.standardization[i].__typename;
     }
     return newField;
 }
