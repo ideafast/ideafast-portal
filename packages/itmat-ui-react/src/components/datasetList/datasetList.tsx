@@ -12,7 +12,7 @@ export const DatasetList: React.FunctionComponent = () => {
             query={WHO_AM_I}>
             {({ loading, error, data }) => {
                 if (loading) { return <LoadSpinner />; }
-                if (error) { return <p>Error :( {error}</p>; }
+                if (error) { return <p><>Error :( {error}</></p>; }
                 if (data.whoAmI && data.whoAmI.access && data.whoAmI.access.studies) {
                     const datasets = data.whoAmI.access.studies;
                     if (datasets.length > 0) {

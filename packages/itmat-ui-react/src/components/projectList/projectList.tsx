@@ -9,7 +9,7 @@ export const ProjectList: React.FunctionComponent = () => {
         <Query<any, any> query={WHO_AM_I}>
             {({ loading, error, data }) => {
                 if (loading) { return <p>Loading...</p>; }
-                if (error) { return <p>Error :( {error}</p>; }
+                if (error) { return <p><>Error :( {error}</></p>; }
                 if (data.whoAmI && data.whoAmI.access && data.whoAmI.access.projects) {
                     const projects = data.whoAmI.access.projects;
                     if (projects.length === 1) {
