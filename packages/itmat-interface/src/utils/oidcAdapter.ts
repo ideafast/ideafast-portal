@@ -1,5 +1,3 @@
-import config from './configManager';
-
 import snakeCase from 'lodash/snakeCase';
 import {db} from '../database/database';
 
