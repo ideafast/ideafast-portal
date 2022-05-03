@@ -170,7 +170,6 @@ export class Router {
         // });
 
         // oidc provider
-        MongoAdapter.connect();
         const oidc = new Provider(`${config.oidc.issuer}`, { adapter: MongoAdapter, ...oidcConfiguration } as Configuration);
         oidc.proxy = true;
 

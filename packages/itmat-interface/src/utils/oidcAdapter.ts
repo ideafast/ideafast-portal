@@ -26,7 +26,6 @@ export class MongoAdapter {
     async find(_id) {
         const result = await db.db.collection(this.name).find(
             { _id },
-            { payload: 1 },
         ).limit(1).next();
 
         if (!result) return undefined;
@@ -36,7 +35,6 @@ export class MongoAdapter {
     async findByUserCode(userCode) {
         const result = await db.db.collection(this.name).find(
             { 'payload.userCode': userCode },
-            { payload: 1 },
         ).limit(1).next();
 
         if (!result) return undefined;
@@ -46,7 +44,6 @@ export class MongoAdapter {
     async findByUid(uid) {
         const result = await db.db.collection(this.name).find(
             { 'payload.uid': uid },
-            { payload: 1 },
         ).limit(1).next();
 
         if (!result) return undefined;
