@@ -174,7 +174,7 @@ export class Router {
         const oidc = new Provider(`${config.oidc.issuer}`, { adapter: MongoAdapter, ...oidcConfiguration } as Configuration);
         oidc.proxy = true;
 
-        this.app.use('/oidc', oidc.callback());
+        this.app.use('/openidc', oidc.callback());
 
         this.app.set('views', path.join(__dirname, './views'));
         this.app.set('view engine', 'ejs');
@@ -183,8 +183,11 @@ export class Router {
 
         this.app.get('/file/:fileId', fileDownloadController);
 
-        // AE router
-        this.app.use('/analytical-environment', createProxyMiddleware({ target: config.ae_endpoint,  changeOrigin: true }));
+        // AE proxy
+        this.app.use('/pun', createProxyMiddleware({ target: config.ae_endpoint }));
+
+        // AE redirect uri proxy
+        this.app.use('/oidc', createProxyMiddleware({ target: config.ae_endpoint }));
     }
 
     public getApp(): Express {
