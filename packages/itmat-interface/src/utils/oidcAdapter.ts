@@ -1,9 +1,7 @@
 import config from './configManager';
 
-import { MongoClient } from 'mongodb'; // eslint-disable-line import/no-unresolved
 import snakeCase from 'lodash/snakeCase';
-
-let DB;
+import {db} from '../database/database';
 
 
 export class MongoAdapter {
@@ -20,7 +18,7 @@ export class MongoAdapter {
         if (expiresIn) {
             expiresAt = new Date(Date.now() + (expiresIn * 1000));
         }
-        await DB.collection(this.name).updateOne(
+        await db.db.collection(this.name).updateOne(
             { _id },
             { $set: { payload, ...(expiresAt ? { expiresAt } : undefined) } },
             { upsert: true },
@@ -28,7 +26,7 @@ export class MongoAdapter {
     }
 
     async find(_id) {
-        const result = await DB.collection(this.name).find(
+        const result = await db.db.collection(this.name).find(
             { _id },
             { payload: 1 },
         ).limit(1).next();
@@ -38,7 +36,7 @@ export class MongoAdapter {
     }
 
     async findByUserCode(userCode) {
-        const result = await DB.collection(this.name).find(
+        const result = await db.db.collection(this.name).find(
             { 'payload.userCode': userCode },
             { payload: 1 },
         ).limit(1).next();
@@ -48,7 +46,7 @@ export class MongoAdapter {
     }
 
     async findByUid(uid) {
-        const result = await DB.collection(this.name).find(
+        const result = await db.db.collection(this.name).find(
             { 'payload.uid': uid },
             { payload: 1 },
         ).limit(1).next();
@@ -58,25 +56,19 @@ export class MongoAdapter {
     }
 
     async destroy(_id) {
-        await DB.collection(this.name).deleteOne({ _id });
+        await db.db.collection(this.name).deleteOne({ _id });
     }
 
     async revokeByGrantId(grantId) {
-        await DB.collection(this.name).deleteMany({ 'payload.grantId': grantId });
+        await db.db.collection(this.name).deleteMany({ 'payload.grantId': grantId });
     }
 
     async consume(_id) {
-        await DB.collection(this.name).findOneAndUpdate(
+        await db.db.collection(this.name).findOneAndUpdate(
             { _id },
             { $set: { 'payload.consumed': Math.floor(Date.now() / 1000) } },
         );
     }
 
-    // This is not part of the required or supported API, all initialization should happen before
-    // you pass the adapter to `new Provider`
-    static async connect() {
-        const connection = await MongoClient.connect(config.database.mongo_url);
-        DB = connection.db(config.database.database);
-    }
 }
 
