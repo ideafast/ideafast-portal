@@ -58,11 +58,5 @@ export class MongoAdapter {
             { $set: { 'payload.consumed': Math.floor(Date.now() / 1000) } },
         );
     }
-
-    // This is not part of the required or supported API, all initialization should happen before
-    // you pass the adapter to `new Provider`
-    static async connect() {
-        return db;
-    }
 }
 
