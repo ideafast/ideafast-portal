@@ -23,12 +23,6 @@ import { spaceFixing } from '../utils/regrex';
 import { BigIntResolver as scalarResolvers } from 'graphql-scalars';
 import jwt from 'jsonwebtoken';
 import { userRetrieval } from '../authentication/pubkeyAuthentication';
-import { Provider, Configuration } from 'oidc-provider';
-// const MongoStore = connectMongo(session);
-import path from 'path';
-import { oidcConfiguration } from '../utils/oidcConfig';
-import { oidcRoutes } from '../rest/oidcRoutes';
-import { MongoAdapter } from '../utils/oidcAdapter';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 
 export class Router {
@@ -169,24 +163,20 @@ export class Router {
         //     next();
         // });
 
-        // oidc provider
-        const oidc = new Provider(`${config.oidc.issuer}`, { adapter: MongoAdapter, ...oidcConfiguration } as Configuration);
-        oidc.proxy = true;
-
-        this.app.use('/openidc', oidc.callback());
-
-        this.app.set('views', path.join(__dirname, './views'));
-        this.app.set('view engine', 'ejs');
-
-        oidcRoutes(this.app, oidc);
-
         this.app.get('/file/:fileId', fileDownloadController);
 
-        // AE proxy
-        this.app.use('/pun', createProxyMiddleware({ target: config.ae_endpoint }));
-
         // AE redirect uri proxy
-        this.app.use('/oidc', createProxyMiddleware({ target: config.ae_endpoint }));
+        const ae_proxy_preprocessor = (req, res, next) => {
+            res.cookie('ae_proxy', req.headers['host']);
+            next();
+        };
+        const ae_proxy = createProxyMiddleware({
+            target: config.ae_endpoint,
+            changeOrigin: true,
+            xfwd: true,
+            headers: { authorization: `Basic ${Buffer.from('kai:token').toString('base64')}` }
+        });
+        this.app.use('/pun', ae_proxy_preprocessor, ae_proxy);
     }
 
     public getApp(): Express {

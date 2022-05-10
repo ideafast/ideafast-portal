@@ -91,6 +91,3 @@ itmat-client-old/
 .idea/
 
 target
-
-#oidc jwk
-jwks.json

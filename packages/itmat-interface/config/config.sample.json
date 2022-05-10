@@ -15,8 +15,7 @@
             "roles_collection": "ROLE_COLLECTION",
             "field_dictionary_collection": "FIELD_COLLECTION",
             "files_collection": "FILES_COLLECTION",
-            "pubkeys_collection": "PUBKEY_COLLECTION",
-            "oidc_collection": "OIDC_COLLECTION"
+            "pubkeys_collection": "PUBKEY_COLLECTION"
         }
     },
     "server": {
@@ -39,11 +38,5 @@
     "nodemailer": {
         "auth": {}
     },
-    "adminEmail": "admin_wp5@ideafast.eu",
-    "oidc": {
-        "issuer": "http://localhost",
-        "redirect_url": "http://localhost:8080/oidc",
-        "client_id": "dmp.ae",
-        "client_secret": "06138e078dde657e284ba7468a258cc20db215f58878cf02e3c486e5e2101159"
-    }
+    "adminEmail": "admin_wp5@ideafast.eu"
 }

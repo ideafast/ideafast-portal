@@ -8,8 +8,7 @@ module.exports = function (app) {
                 protocol: 'http',
                 host: 'localhost',
                 port: 3003
-            },
-            changeOrigin: true
+            }
         })
     );
     app.use(
@@ -19,19 +18,18 @@ module.exports = function (app) {
                 protocol: 'http',
                 host: 'localhost',
                 port: 3003
-            },
-            changeOrigin: true
+            }
         })
     );
     app.use(
-        '/oidc',
+        '/pun',
         createProxyMiddleware({
             target: {
                 protocol: 'http',
                 host: 'localhost',
                 port: 3003
             },
-            changeOrigin: true
+            // changeOrigin: true
         })
     );
     app.use(
@@ -41,8 +39,7 @@ module.exports = function (app) {
                 protocol: 'http',
                 host: 'localhost',
                 port: 3003
-            },
-            changeOrigin: true
+            }
         })
     );
 };

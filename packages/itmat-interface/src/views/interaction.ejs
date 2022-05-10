@@ -1,9 +1,0 @@
-<div class="login-client-image">
-  <% if (client.logoUri) { %><img src="<%= client.logoUri %>"><% } %>
-</div>
-
-Authorize analytical environment to use your DMP information.
-
-<form autocomplete="off" action="/interaction/<%= uid %>/confirm" method="post">
-  <button autofocus type="submit" class="login login-submit">Authorize</button>
-</form>

@@ -81,13 +81,6 @@ const collections = {
             { key: { id: 1 }, unique: true },
             { key: { pubkey: 1 }, unique: true },
         ]
-    },
-    oidc_collection: {
-        name: 'OIDC_COLLECTION',
-        indexes: [
-            { key: { id: 1 }, unique: true },
-            { key: { pubkey: 1 }, unique: true },
-        ]
     }
 };
 

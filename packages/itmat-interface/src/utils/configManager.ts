@@ -14,12 +14,6 @@ export interface IConfiguration extends IServerConfig {
     sessionsSecret: string;
     adminEmail: string;
     ae_endpoint: string;
-    oidc: {
-        issuer: string;
-        redirect_url: string;
-        client_id: string;
-        client_secret: string;
-    };
 }
 
 class ConfigurationManager {
