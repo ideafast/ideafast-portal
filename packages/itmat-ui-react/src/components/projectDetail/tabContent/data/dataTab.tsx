@@ -1,65 +1,57 @@
 import { demographicsFields } from '../utils/defaultParameters';
-import { filterFields } from '../utils/tools';
+import { filterFields, generateCascader, findDmField } from '../../../../utils/tools';
 import * as React from 'react';
 import { useQuery, useLazyQuery } from '@apollo/client/react/hooks';
-import { GET_STUDY_FIELDS, GET_PROJECT, GET_DATA_RECORDS, IFieldEntry, IProject, enumValueType, IStandardization } from 'itmat-commons';
+import { GET_STUDY_FIELDS, GET_PROJECT, GET_DATA_RECORDS, IFieldEntry, IProject, enumValueType, GET_ONTOLOGY_TREE, IOntologyTree, IOntologyRoute, GET_STANDARDIZATION } from 'itmat-commons';
 import { Query } from '@apollo/client/react/components';
-// import { FieldListSectionWithFilter } from '../../../reusable/fieldList/fieldList';
 import LoadSpinner from '../../../reusable/loadSpinner';
-// import { DeleteOutlined } from '@ant-design/icons';
 import { Subsection, SubsectionWithComment } from '../../../reusable/subsection/subsection';
 import css from './tabContent.module.css';
-import exportFromJSON from 'export-from-json';
 import { CSVLink } from 'react-csv';
-import { Pagination, Select, Statistic, Row, Col, Tooltip, Button, Table, Empty } from 'antd';
+import { Pagination, Select, Statistic, Row, Col, Button, Table, Empty, Cascader } from 'antd';
 import { Pie, BidirectionalBar, Heatmap, Violin, Column } from '@ant-design/plots';
-import { UserOutlined, ProfileOutlined, QuestionCircleTwoTone, DownloadOutlined, DoubleRightOutlined } from '@ant-design/icons';
+import { UserOutlined, ProfileOutlined, DownloadOutlined } from '@ant-design/icons';
 const { Option } = Select;
 
 export const DataTabContent: React.FunctionComponent<{ studyId: string; projectId: string }> = ({ studyId, projectId }) => {
     const { loading: getStudyFieldsLoading, error: getStudyFieldsError, data: getStudyFieldsData } = useQuery(GET_STUDY_FIELDS, { variables: { studyId: studyId, projectId: projectId } });
     const { loading: getProjectLoading, error: getProjectError, data: getProjectData } = useQuery(GET_PROJECT, { variables: { projectId: projectId, admin: false } });
-
-    if (getStudyFieldsLoading || getProjectLoading) {
+    const { loading: getOntologyTreeLoading, error: getOntologyTreeError, data: getOntologyTreeData } = useQuery(GET_ONTOLOGY_TREE, {
+        variables: {
+            studyId: studyId,
+            projectId: projectId,
+            treeId: null
+        }
+    });
+    if (getStudyFieldsLoading || getProjectLoading || getOntologyTreeLoading) {
         return <LoadSpinner />;
     }
-    if (getStudyFieldsError || getProjectError) {
+    if (getStudyFieldsError || getProjectError || getOntologyTreeError) {
         return <div className={`${css.tab_page_wrapper} ${css.both_panel} ${css.upload_overlay}`}>
             A error occured, please contact your administrator
         </div>;
     }
-    const domains: string[] = Array.from(new Set(getStudyFieldsData.getStudyFields.reduce((acc, curr) => {
-        const formatIndex: number = curr.standardization?.findIndex(es => es.name === 'cdisc-sdtm');
-        if (formatIndex === undefined || formatIndex === -1) {
-            return acc;
-        }
-        acc.push(curr.standardization[formatIndex].stdRules.filter(es => es.name === 'DOMAIN')[0]?.parameter);
-        return acc;
-    }, [] as string[])));
+    if (getOntologyTreeData.getOntologyTree[0] === undefined) {
+        return <span>Ontology Tree Missing!</span>;
+    }
     return <div className={css.tab_page_wrapper}>
         <div className={css.scaffold_wrapper}>
             <div style={{ gridArea: 'a' }}>
                 <Subsection title='Demographics'>
-                    <DemographicsBlock studyId={studyId} projectId={projectId} fields={filterFields(getStudyFieldsData.getStudyFields, ['DM'])} />
+                    <DemographicsBlock ontologyTree={getOntologyTreeData.getOntologyTree[0]} studyId={studyId} projectId={projectId} fields={filterFields(getStudyFieldsData.getStudyFields, getOntologyTreeData.getOntologyTree[0])} />
                 </Subsection>
             </div>
             <div style={{ gridArea: 'b' }}>
-                <Subsection title='Meta Data'>
-                    <ProjectMetaDataBlock project={getProjectData.getProject} fields={getStudyFieldsData.getStudyFields} />
-                </Subsection>
+                <ProjectMetaDataBlock project={getProjectData.getProject} />
             </div>
             <div style={{ gridArea: 'c' }}>
-                <FieldViewer fields={getStudyFieldsData.getStudyFields} />
+                <FieldViewer ontologyTree={getOntologyTreeData.getOntologyTree[0]} fields={getStudyFieldsData.getStudyFields} />
             </div>
             <div style={{ gridArea: 'd' }}>
-                <Subsection title='Data Completeness'>
-                    <DataCompletenessBlock studyId={studyId} projectId={projectId} fields={filterFields(getStudyFieldsData.getStudyFields, domains)} domains={domains} />
-                </Subsection>
+                <DataCompletenessBlock studyId={studyId} projectId={projectId} ontologyTree={getOntologyTreeData.getOntologyTree[0]}/>
             </div>
             <div style={{ gridArea: 'e' }}>
-                <Subsection title='Data Distribution'>
-                    <DataDetailsBlock studyId={studyId} projectId={projectId} project={getProjectData.getProject} fields={getStudyFieldsData.getStudyFields} />
-                </Subsection>
+                <DataDetailsBlock studyId={studyId} projectId={projectId} project={getProjectData.getProject} fields={getStudyFieldsData.getStudyFields} ontologyTree={getOntologyTreeData.getOntologyTree[0]}/>
             </div>
             <div style={{ gridArea: 'f' }}>
                 <DataDownloadBlock project={getProjectData.getProject} />
@@ -68,7 +60,7 @@ export const DataTabContent: React.FunctionComponent<{ studyId: string; projectI
     </div>;
 };
 
-export const DemographicsBlock: React.FunctionComponent<{ studyId: string, projectId: string, fields: IFieldEntry[] }> = ({ studyId, projectId, fields }) => {
+export const DemographicsBlock: React.FunctionComponent<{ ontologyTree: IOntologyTree,studyId: string, projectId: string, fields: IFieldEntry[] }> = ({ ontologyTree, studyId, projectId, fields }) => {
     const { loading: getDataRecordsLoading, error: getDataRecordsError, data: getDataRecordsData } = useQuery(GET_DATA_RECORDS, { variables: { studyId: studyId,
         projectId: projectId,
         queryString: {
@@ -91,68 +83,82 @@ export const DemographicsBlock: React.FunctionComponent<{ studyId: string, proje
     // process the data
     const obj: any = {};
     const data = getDataRecordsData.getDataRecords.data;
-    const genderField = fields.filter(el => (el.standardization && el.standardization.some(es => (es.metaField && es.metaField === 'GENDER'))))[0];
-    const raceField: IFieldEntry = fields.filter(el => (el.standardization && el.standardization.some(es => (es.metaField && es.metaField === 'RACE'))))[0];
-    const ageField: IFieldEntry = fields.filter(el => (el.standardization && el.standardization.some(es => (es.metaField && es.metaField === 'AGE'))))[0];
-    const siteField: IFieldEntry = fields.filter(el => (el.standardization && el.standardization.some(es => (es.metaField && es.metaField === 'SITE'))))[0];
+    const genderField: IFieldEntry | null = findDmField(ontologyTree, fields, 'SEX');
+    const raceField: IFieldEntry | null = findDmField(ontologyTree, fields, 'RACE');
+    const ageField: IFieldEntry | null = findDmField(ontologyTree, fields, 'AGE');
+    const siteField: IFieldEntry | null = findDmField(ontologyTree, fields, 'SITE');
     // const genderFie: IFieldEntry = fields.filter(el => el.fieldId === genderFieldId.fieldId)[0];
 
-    obj.SEX = genderField === undefined ? {} : data[genderField.fieldId][demographicsFields.visit].data.reduce((acc, curr) => {
-        const thisGender = genderField?.possibleValues?.filter(el => el.code === curr)[0].description || '';
-        if (acc.filter(es => es.type === thisGender).length === 0) {
-            acc.push({ type: thisGender, value: 0 });
-        }
-        acc[acc.findIndex(es => es.type === thisGender)].value += 1;
-        return acc;
-    }, []);
-    obj.SEX.push({
-        type: 'Missing',
-        value: data[genderField.fieldId][demographicsFields.visit].totalNumOfRecords - data[genderField.fieldId][demographicsFields.visit].valieNumOfRecords
-    });
-
-    if (data[raceField.fieldId] === undefined) {
-        obj.RACE = [];
+    if (genderField === null) {
+        obj.SEX = [];
+        obj.AGE = [];
     } else {
-        obj.RACE = genderField === undefined ? {} : data[raceField.fieldId][demographicsFields.visit].data.reduce((acc, curr) => {
-            const thisRace = raceField?.possibleValues?.filter(el => el.code === curr)[0].description || '';
-            if (acc.filter(es => es.type === thisRace).length === 0) {
-                acc.push({ type: thisRace, value: 0 });
+        obj.SEX = (data[genderField.fieldId][demographicsFields.visit]?.data || []).reduce((acc, curr) => {
+            const thisGender = genderField?.possibleValues?.filter(el => el.code === curr)[0].description || '';
+            if (acc.filter(es => es.type === thisGender).length === 0) {
+                acc.push({ type: thisGender, value: 0 });
             }
-            acc[acc.findIndex(es => es.type === thisRace)].value += 1;
+            acc[acc.findIndex(es => es.type === thisGender)].value += 1;
             return acc;
         }, []);
-        obj.RACE.push({
+        obj.SEX.push({
             type: 'Missing',
-            value: data[raceField.fieldId][demographicsFields.visit].totalNumOfRecords - data[raceField.fieldId][demographicsFields.visit].valieNumOfRecords
+            value: (data[genderField.fieldId][demographicsFields.visit]?.totalNumOfRecords || 0) - (data[genderField.fieldId][demographicsFields.visit].validNumOfRecords || 0)
+        });
+        if (ageField === null) {
+            obj.AGE = [];
+        } else {
+            obj.AGE = (data[ageField.fieldId][demographicsFields.visit]?.data || []).reduce((acc, curr, index) => {
+                if (acc.filter(es => es.age === curr).length === 0) {
+                    acc.push({ age: curr, Male: 0, Female: 0 });
+                }
+                if (data[genderField.fieldId][demographicsFields.visit].data[index] === '1') {
+                    acc[acc.findIndex(el => el.age === curr)].Female += 1;
+                } else {
+                    acc[acc.findIndex(el => el.age === curr)].Male += 1;
+                }
+                return acc;
+            }, []);
+        }
+    }
+    if (raceField === null) {
+        obj.RACE = [];
+    } else {
+        if (data[raceField.fieldId] === undefined) {
+            obj.RACE = [];
+        } else {
+            obj.RACE = (data[raceField.fieldId][demographicsFields.visit]?.data || []).reduce((acc, curr) => {
+                const thisRace = raceField?.possibleValues?.filter(el => el.code === curr)[0].description || '';
+                if (acc.filter(es => es.type === thisRace).length === 0) {
+                    acc.push({ type: thisRace, value: 0 });
+                }
+                acc[acc.findIndex(es => es.type === thisRace)].value += 1;
+                return acc;
+            }, []);
+            obj.RACE.push({
+                type: 'Missing',
+                value: (data[raceField.fieldId][demographicsFields.visit]?.totalNumOfRecords || 0) - (data[raceField.fieldId][demographicsFields.visit]?.validNumOfRecords || 0)
+            });
+        }
+    }
+    if (siteField === null) {
+        obj.SITE = [];
+    } else {
+        obj.SITE = (data[siteField.fieldId][demographicsFields.visit]?.data || []).reduce((acc, curr) => {
+            if (acc.filter(es => es.type === curr.toString()).length === 0) {
+                acc.push({ type: curr.toString(), value: 0 });
+            }
+            acc[acc.findIndex(es => es.type === curr.toString())].value += 1;
+            return acc;
+        }, []);
+        obj.SITE.push({
+            type: 'Missing',
+            value: (data[siteField.fieldId][demographicsFields.visit]?.totalNumOfRecords || 0) - (data[siteField.fieldId][demographicsFields.visit]?.validNumOfRecords || 0)
         });
     }
-
-    obj.SITE = siteField === undefined ? {} : data[siteField.fieldId][demographicsFields.visit].data.reduce((acc, curr) => {
-        if (acc.filter(es => es.type === curr.toString()).length === 0) {
-            acc.push({ type: curr.toString(), value: 0 });
-        }
-        acc[acc.findIndex(es => es.type === curr.toString())].value += 1;
-        return acc;
-    }, []);
-    obj.SITE.push({
-        type: 'Missing',
-        value: data[siteField.fieldId][demographicsFields.visit].totalNumOfRecords - data[siteField.fieldId][demographicsFields.visit].validNumOfRecords
-    });
-
-    obj.AGE = ageField === undefined ? {} : data[ageField.fieldId][demographicsFields.visit].data.reduce((acc, curr, index) => {
-        if (acc.filter(es => es.age === curr).length === 0) {
-            acc.push({ age: curr, Male: 0, Female: 0 });
-        }
-        if (data[genderField.fieldId][demographicsFields.visit].data[index] === '1') {
-            acc[acc.findIndex(el => el.age === curr)].Female += 1;
-        } else {
-            acc[acc.findIndex(el => el.age === curr)].Male += 1;
-        }
-        return acc;
-    }, []);
     return (<>
         {
-            genderField === undefined ? null :
+            genderField === null ? null :
                 <div style={{ width: '25%', float: 'left' }}>
                     <Pie
                         data={obj.SEX}
@@ -179,7 +185,7 @@ export const DemographicsBlock: React.FunctionComponent<{ studyId: string, proje
                 </div>
         }
         {
-            raceField === undefined ? null :
+            raceField === null ? null :
                 <div style={{ width: '25%', float: 'left' }}>
                     <Pie
                         data={obj.RACE}
@@ -188,7 +194,6 @@ export const DemographicsBlock: React.FunctionComponent<{ studyId: string, proje
                         legend={{
                             layout: 'horizontal',
                             position: 'bottom',
-                            // offsetY: -80
                         }}
                         meta={{
                             count: { min: 0 }
@@ -205,7 +210,7 @@ export const DemographicsBlock: React.FunctionComponent<{ studyId: string, proje
                 </div>
         }
         {
-            siteField === undefined ? null :
+            siteField === null ? null :
                 <div style={{ width: '25%', float: 'left' }}>
                     <Pie
                         data={obj.SITE}
@@ -228,7 +233,7 @@ export const DemographicsBlock: React.FunctionComponent<{ studyId: string, proje
                 </div>
         }
         {
-            ageField === undefined ? null :
+            ageField === null ? null :
                 <div style={{ width: '25%', float: 'left' }}>
                     <BidirectionalBar
                         data={obj.AGE}
@@ -251,21 +256,27 @@ export const DemographicsBlock: React.FunctionComponent<{ studyId: string, proje
     </>);
 };
 
-export const FieldViewer: React.FunctionComponent<{ fields: IFieldEntry[] }> = ({ fields }) => {
-    const [selectedField, setSelectedField] = React.useState<string | undefined>('3321');
-    const field = fields.filter(el => el.fieldId === selectedField)[0];
+export const FieldViewer: React.FunctionComponent<{ ontologyTree:IOntologyTree, fields: IFieldEntry[] }> = ({ ontologyTree, fields }) => {
+    const [selectedPath, setSelectedPath] = React.useState<any[]>([]);
+    const routes: IOntologyRoute[] = ontologyTree.routes?.filter(es => {
+        return JSON.stringify([...es.path, es.name]) === JSON.stringify(selectedPath);
+    }) || [];
+    const field: IFieldEntry | undefined = fields.filter(el => {
+        return el.fieldId.toString() === routes[0]?.field[0]?.replace('$', '');
+    })[0];
+    //construct the cascader
+    const fieldPathOptions: any = [];
+    ontologyTree.routes?.forEach(el => {
+        generateCascader(el, fieldPathOptions, true);
+    });
     return (<SubsectionWithComment title='Field Viewer' comment={<>
-        <Select
-            value={selectedField}
-            style={{ float: 'left' }}
-            placeholder='Select Field'
-            allowClear
-            onSelect={(value: string) => { setSelectedField(value); }}
-        >
-            {
-                fields.map(el => <Option value={el.fieldId}>{el.fieldId.concat('-').concat(el.fieldName)}</Option>)
-            }
-        </Select>
+        <Cascader
+            options={fieldPathOptions}
+            onChange={(value) => {
+                setSelectedPath(value);
+            }}
+            placeholder={'Please select'}
+        />
     </>}>
         {
             field === undefined ? null :
@@ -295,23 +306,9 @@ export const FieldViewer: React.FunctionComponent<{ fields: IFieldEntry[] }> = (
                         <Col span={24}>
                             <Statistic title='Ontology Chain' prefix={<>
                                 {
-                                    (field.standardization.filter(el => el.name === 'cdisc-sdtm')[0].ontologyPath === undefined || field.standardization.filter(el => el.name === 'cdisc-sdtm')[0].ontologyPath === null ) ? null :
-                                        field.standardization.filter(el => el.name === 'cdisc-sdtm')[0].ontologyPath.slice(0, field.standardization.filter(el => el.name === 'cdisc-sdtm')[0].ontologyPath.length-1).map(el => {
-                                            if (el.type === 'STRING') {
-                                                return <span>{el.value} <DoubleRightOutlined /> </span>;
-                                            } else if (el.type === 'FIELD') {
-                                                const thisField = fields.filter(es => es.fieldId === el.value)[0];
-                                                if (thisField === undefined) {
-                                                    return null;
-                                                } else {
-                                                    return <Tooltip title={thisField.fieldId.concat('-').concat(thisField.fieldName)} >{el.value}</Tooltip>;
-                                                }
-                                            } else {
-                                                return <></>;
-                                            }
-                                        })
+                                    routes[0].path.join(' => ')
                                 }
-                            </>} value={field.fieldName} />
+                            </>} value={' => ' + field.fieldName} />
                         </Col>
                     </Row><br/>
                 </>
@@ -319,27 +316,22 @@ export const FieldViewer: React.FunctionComponent<{ fields: IFieldEntry[] }> = (
     </SubsectionWithComment>);
 };
 
-export const DataCompletenessBlock: React.FunctionComponent<{ studyId: string, projectId: string, fields: IFieldEntry[], domains: string[] }> = ({ studyId, projectId, fields, domains }) => {
+export const DataCompletenessBlock: React.FunctionComponent<{ studyId: string, projectId: string, ontologyTree: IOntologyTree }> = ({ studyId, projectId, ontologyTree }) => {
     const dataCompletenessdPageSize = 20;
-    const [selectedDomain, setSelectedDomain] = React.useState('QS');
-    const [domainFieldsIndex, setDomainFieldsIndex] = React.useState({
-        start: 0,
-        end: dataCompletenessdPageSize
-    });
-    const domainFieldIds: string[] = fields.filter(el => {
-        const rules: IStandardization = el.standardization.filter(es => es.name === 'cdisc-sdtm')[0];
-        if (rules === undefined) {
+    const [selectedPath, setSelectedPath] = React.useState<any[]>([]);
+
+    const requestedFields = ontologyTree.routes?.filter(el => {
+        if (JSON.stringify(el.path) === JSON.stringify(selectedPath)) {
+            return true;
+        } else {
             return false;
         }
-        return rules.stdRules !== undefined && rules.stdRules !== null && rules.stdRules[rules.stdRules?.findIndex(es => es.name === 'DOMAIN')].parameter === selectedDomain;
-    }).map(ek => ek.fieldId).sort((a, b) => {
-        return parseFloat(a) - parseFloat(b);
-    });
+    }).map(el => el.field[0].replace('$', '')) || [];
     const { loading: getDataRecordsLoading, error: getDataRecordsError, data: getDataRecordsData } = useQuery(GET_DATA_RECORDS, { variables: { studyId: studyId,
         projectId: projectId,
         queryString: {
             format: 'summary',
-            data_requested: domainFieldIds,
+            data_requested: requestedFields,
             cohort: [[]],
             subjects_requested: null,
             visits_requested: null
@@ -356,7 +348,6 @@ export const DataCompletenessBlock: React.FunctionComponent<{ studyId: string, p
     // process the data
     const data = getDataRecordsData.getDataRecords.data;
     const obj: any[] = [];
-    const domainFields = filterFields(fields, [selectedDomain]);
     for (const fieldId of Object.keys(data)) {
         for (const visitId of Object.keys(data[fieldId])) {
             obj.push({
@@ -391,19 +382,26 @@ export const DataCompletenessBlock: React.FunctionComponent<{ studyId: string, p
         fields: ['visit', 'field', 'percentage'],
         formatter: (datum: any) => {
             return {
-                name: domainFields.filter(el => el.fieldId === datum.field)[0].fieldName
-                    .concat('-')
-                    .concat(datum.visit.toString()),
+                name: '3',
                 value: datum.percentage + '%'
             };
         }
     };
+    //construct the cascader
+    const fieldPathOptions: any = [];
+    ontologyTree.routes?.forEach(el => {
+        generateCascader(el, fieldPathOptions, false);
+    });
     return (
-        <>
+        <SubsectionWithComment title='Data Completeness' comment={
+            <Cascader
+                options={fieldPathOptions}
+                onChange={(value) => setSelectedPath(value)}
+                placeholder={'Please select'}
+            />
+        }>
             <Heatmap
-                data={obj.filter(es => domainFieldIds.filter(el => {
-                    return obj.map(es => es.field).indexOf(el) !== -1;
-                }).slice(domainFieldsIndex.start, domainFieldsIndex.end).includes(es.field))}
+                data={obj}
                 xField={'visit'}
                 yField={'field'}
                 colorField={'percentage'}
@@ -430,40 +428,32 @@ export const DataCompletenessBlock: React.FunctionComponent<{ studyId: string, p
                 style={{ float: 'right' }}
                 defaultCurrent={1}
                 defaultPageSize={1}
-                onChange={(value) => {
-                    setDomainFieldsIndex({
-                        start: (value - 1) * dataCompletenessdPageSize,
-                        end: value * dataCompletenessdPageSize
-                    });
-                }}
-                total={Math.ceil(domainFieldIds.filter(el => {
-                    return obj.map(es => es.field).indexOf(el) !== -1;
-                }).length / dataCompletenessdPageSize)}
+                total={Math.ceil(requestedFields.length / dataCompletenessdPageSize)}
             />
-            <Select
-                value={selectedDomain}
-                style={{ float: 'left' }}
-                placeholder='Select Field'
-                allowClear
-                onSelect={(value: string) => { setSelectedDomain(value); }}
-            >
-                {
-                    Object.keys(domains).map(el => <Option value={el}>{domains[el]}</Option>)
-                }
-            </Select>
-        </>
+        </SubsectionWithComment>
     );
 };
 
-export const DataDetailsBlock: React.FunctionComponent<{ studyId: string, projectId, project: IProject, fields: IFieldEntry[] }> = ({ studyId, projectId, project, fields }) => {
-    const [requestedFieldId, setRequestedFieldId] = React.useState<string | undefined>(undefined);
-    return (<>
+export const DataDetailsBlock: React.FunctionComponent<{ studyId: string, projectId, project: IProject, fields: IFieldEntry[], ontologyTree: IOntologyTree }> = ({ studyId, projectId, project, fields, ontologyTree }) => {
+    const [selectedPath, setSelectedPath] = React.useState<any[]>([]);
+    //construct the cascader
+    const fieldPathOptions: any = [];
+    ontologyTree.routes?.forEach(el => {
+        generateCascader(el, fieldPathOptions, true);
+    });
+    return (<SubsectionWithComment title='Data Distribution' comment={
+        <Cascader
+            options={fieldPathOptions}
+            onChange={(value) => setSelectedPath(value)}
+            placeholder={'Please select'}
+        />
+    }>
         <Query<any, any> query={GET_DATA_RECORDS} variables={{
             studyId: studyId,
             projectId: projectId,
             queryString: {
                 format: 'grouped',
-                data_requested: [requestedFieldId],
+                data_requested: [ontologyTree.routes?.filter(el => el.name === selectedPath[selectedPath.length - 1])[0]?.field[0]?.replace('$', '') || ''],
                 cohort: [[]],
                 subjects_requested: null,
                 visits_requested: null
@@ -536,28 +526,11 @@ export const DataDetailsBlock: React.FunctionComponent<{ studyId: string, projec
             }}
         </Query>
         <br/>
-        <Select
-            value={requestedFieldId}
-            style={{ float: 'left', width: '40%' }}
-            placeholder='Select Field'
-            allowClear
-            onSelect={(value: string) => { setRequestedFieldId(value); }}
-            showSearch
-            filterOption={(input, option) =>
-                option?.props?.children?.toLowerCase().indexOf(input.toLowerCase()) >= 0
-            }
-        >
-            {
-                fields.filter(el => [enumValueType.DECIMAL, enumValueType.INTEGER, enumValueType.CATEGORICAL, enumValueType.BOOLEAN].includes(el.dataType))
-                    .sort((a, b) => { return parseFloat(a.fieldId) - parseFloat(b.fieldId); })
-                    .map(el => <Option value={el.fieldId}>{el.fieldId.concat('-').concat(el.fieldName)}</Option>)
-            }
-        </Select>
-    </>);
+    </SubsectionWithComment>);
 };
 
-export const ProjectMetaDataBlock: React.FunctionComponent<{ project: IProject, fields: IFieldEntry[] }> = ({ project, fields }) => {
-    return (<>
+export const ProjectMetaDataBlock: React.FunctionComponent<{ project: IProject }> = ({ project }) => {
+    return (<Subsection title='Meta Data'>
         <div style={{ gridArea: 'e' }}>
             <Row gutter={16}>
                 <Col span={12}>
@@ -577,15 +550,6 @@ export const ProjectMetaDataBlock: React.FunctionComponent<{ project: IProject, 
             </Row><br/>
             <Row gutter={16}>
                 <Col span={12}>
-                    <Statistic title={<>
-                        Fields
-                        <Tooltip title={
-                            fields.filter(el => (el.standardization !== undefined && el.standardization !== null)).length.toString().concat(' of ').concat(fields.length.toString())
-                                .concat(' fields can be standardized')
-                        }>
-                            <QuestionCircleTwoTone />
-                        </Tooltip>
-                    </>} value={fields.filter(el => (el.standardization !== undefined && el.standardization !== null)).length} suffix={' / '.concat(fields.length.toString())} />
                 </Col>
             </Row><br/>
             <Row gutter={16}>
@@ -594,59 +558,39 @@ export const ProjectMetaDataBlock: React.FunctionComponent<{ project: IProject, 
                 </Col>
             </Row>
         </div>
-    </>);
+    </Subsection>);
 };
 
 export const DataDownloadBlock: React.FunctionComponent<{ project: IProject }> = ({ project }) => {
+    const { loading: getStandardizationLoading, error: getStandardizationError, data: getStandardizationData } = useQuery(GET_STANDARDIZATION, { variables: { studyId: project.studyId } });
     const [ getDataRecordsLazy, { loading: getDataRecordsLoading, data: getDataRecordsData }] = useLazyQuery(GET_DATA_RECORDS, {});
-    const [ selectedDataFormat, setSelectedDataFormat ] = React.useState('standardized');
-    if (getDataRecordsLoading) {
+    const [ selectedDataFormat, setSelectedDataFormat ] = React.useState<string | undefined>(undefined);
+    const [ selectedOutputType, setSelectedOutputType ] = React.useState('JSON');
+    if (getDataRecordsLoading || getStandardizationLoading) {
         return <LoadSpinner />;
     }
-    // getDataRecordsLazy({
-    //     variables: {
-    //         projectId: projectId,
-    //         queryString: {
-    //             format: 'summary',
-    //             data_requested: null,
-    //             cohort: [[]],
-    //             subjects_requested: null,
-    //             visits_requested: null
-    //         }
-    //     }
-    // });
+    if (getStandardizationError) {
+        return <p>
+            A error occured, please contact your administrator
+        </p>;
+    }
+    const availableFormats: string[] = Array.from(new Set(getStandardizationData.getStandardization.map(el => el.type))) || [];
     const dataArray: any[] = [];
-    let data;
-    if (getDataRecordsData !== undefined) {
-        data = getDataRecordsData.getDataRecords.data;
-        if (selectedDataFormat === 'standardized') {
-            Object.keys(data).forEach(domain => {
-                dataArray.push({
-                    domain: domain,
-                    data: data[domain]
-                });
-            });
-        } else {
+    if (getDataRecordsData?.getDataRecords?.data !== undefined) {
+        Object.keys(getDataRecordsData.getDataRecords.data).forEach(domain => {
             dataArray.push({
-                numOfSubjects: Object.keys(data).length
+                path: domain,
+                data: getDataRecordsData.getDataRecords.data[domain]
             });
-        }
+        });
     }
     const downloadColumns = [
         {
-            title: 'DOMAIN',
-            dataIndex: 'domain',
-            key: 'domain',
+            title: 'Path',
+            dataIndex: 'path',
+            key: 'path',
             render: (__unused__value, record) => {
-                return record.domain;
-            }
-        },
-        {
-            title: 'Number of Records',
-            dataIndex: 'numOfRecords',
-            key: 'numOfRecords',
-            render: (__unused__value, record) => {
-                return record.data.length;
+                return record.path;
             }
         },
         {
@@ -654,33 +598,11 @@ export const DataDownloadBlock: React.FunctionComponent<{ project: IProject }> =
             dataIndex: 'download',
             key: 'download',
             render: (__unused__value, record) => {
-                return (<CSVLink data={record.data} filename={record.domain.concat('.csv')} >
+                return (<CSVLink data={record.data} filename={record.path.concat('.csv')} >
                     <DownloadOutlined />
                 </CSVLink>);
             }
         },
-    ];
-    const downloadJsonColumns = [
-        {
-            title: 'Subjects',
-            dataIndex: 'numOfSubjects',
-            key: 'numOfSubjects',
-            render: (__unused__value, record) => {
-                return record.numOfSubjects;
-            }
-        },
-        {
-            title: 'Link',
-            dataIndex: 'download',
-            key: 'download',
-            render: (__unused__value, __unused__record) => {
-                const fileName = 'data.json';
-                const exportType = exportFromJSON.types.json;
-                return (<DownloadOutlined key='download' onClick={() => {
-                    exportFromJSON({data, fileName, exportType});
-                }}/>);
-            }
-        }
     ];
     return (<SubsectionWithComment title='Data Download' comment={<>
         <Select
@@ -688,11 +610,14 @@ export const DataDownloadBlock: React.FunctionComponent<{ project: IProject }> =
             style={{ float: 'left' }}
             placeholder='Select Format'
             allowClear
-            onSelect={(value: string) => { setSelectedDataFormat(value); }}
+            onSelect={(value: string) => {
+                setSelectedDataFormat(value); }}
         >
-            <Option value={'standardized'}>Standardized</Option>
             <Option value={'raw'}>Raw</Option>
             <Option value={'grouped'}>Grouped</Option>
+            {
+                availableFormats.map(el => <Option value={'standardized-' + el}>{el.toString()}</Option>)
+            }
         </Select>
         <Button onClick={() => {
             getDataRecordsLazy({
@@ -700,33 +625,52 @@ export const DataDownloadBlock: React.FunctionComponent<{ project: IProject }> =
                     studyId: project.studyId,
                     projectId: project.id,
                     queryString: {
+                        data_requested: null,
+                        cnew_fields: [],
+                        cohort: [[]],
                         format: selectedDataFormat
                     }
                 }
             });
         }}>Fetch data</Button>
+        <Select
+            value={selectedOutputType}
+            style={{ float: 'left' }}
+            placeholder='Select Format'
+            allowClear
+            onSelect={(value: string) => {
+                setSelectedOutputType(value); }}
+        >
+            <Option value={'JSON'}>JSON</Option>
+            <Option value={'CSV'}>CSV</Option>
+            {
+                availableFormats.map(el => <Option value={'standardized-' + el}>{el.toString()}</Option>)
+            }
+        </Select>
     </>}>
         {
-            (selectedDataFormat === 'standardized' && getDataRecordsData !== undefined) ? <>
-                <Table
-                    scroll={{ x: 'max-content' }}
-                    // rowKey={(rec) => rec.id}
-                    pagination={false}
-                    columns={downloadColumns}
-                    dataSource={dataArray}
-                    size='middle'
-                ></Table>
-            </> : <>
-                <Table
-                    scroll={{ x: 'max-content' }}
-                    // rowKey={(rec) => rec.id}
-                    pagination={false}
-                    columns={downloadJsonColumns}
-                    dataSource={dataArray}
-                    size='middle'
-                ></Table>
-            </>
+            getDataRecordsData?.getDataRecords?.data === undefined ? <h2>No Data Available</h2> :
+                selectedOutputType === 'JSON' ?
+                    <Button type='link' onClick={() => {
+                        const jsonString = `data:text/json;chatset=utf-8,${encodeURIComponent(
+                            JSON.stringify(getDataRecordsData.getDataRecords.data)
+                        )}`;
+                        const link = document.createElement('a');
+                        link.href = jsonString;
+                        link.download = 'data.json';
+
+                        link.click();
+                    }}>
+                Download
+                    </Button> :
+                    <Table
+                        scroll={{ x: 'max-content' }}
+                        // rowKey={(rec) => rec.id}
+                        pagination={false}
+                        columns={downloadColumns}
+                        dataSource={dataArray}
+                        size='middle'
+                    ></Table>
         }
     </SubsectionWithComment>);
 };
-

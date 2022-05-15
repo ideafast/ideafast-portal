@@ -60,6 +60,7 @@ export const apiParameters = {
     KEYPAIRGEN_SIGNATURE: [],
     RSA_SIGNER: [],
     GET_DATA_RECORDS: ['studyId', 'versionId', 'projectId'],
+    GET_ONTOLOGY_TREE: ['studyId', 'projectId'],
     CHECK_DATA_COMPLETE: ['studyId'],
     CREATE_NEW_DATA_VERSION: ['studyId', 'dataVersion', 'tag'],
     UPLOAD_DATA_IN_ARRAY: ['studyId'],
@@ -67,8 +68,11 @@ export const apiParameters = {
     CREATE_NEW_FIELD: ['studyId'],
     EDIT_FIELD: ['studyId', 'fieldIdInput'],
     DELETE_FIELD: ['studyId', 'fieldId'],
-    ADD_ONTOLOGY_FIELD: ['studyId'],
-    DELETE_ONTOLOGY_FIELD: ['studyId', 'fieldId'],
+    CREATE_ONTOLOGY_TREE: ['studyId'],
+    DELETE_ONTOLOGY_TREE: ['studyId', 'treeId'],
+    GET_STANDARDIZATION: ['studyId', 'projetId', 'type'],
+    CREATE_STANDARDIZATION: ['studyId'],
+    DELETE_STANDARDIZATION: ['studyId', 'stdId'],
     CREATE_QUERY_CURATION_JOB: ['queryId', 'studyId', 'projectId']
 };
 

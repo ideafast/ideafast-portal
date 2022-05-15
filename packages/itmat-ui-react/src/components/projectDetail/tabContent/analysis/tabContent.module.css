@@ -4,15 +4,15 @@
     overflow: auto;
 }
 
-/* .scaffold_wrapper {
+.scaffold_wrapper {
     display: grid;
-    grid-template-columns: 33% 33% 33%;
-    grid-template-rows: 50% 50%;
-    height: 100%;
-    grid-row-gap: 5em;
+    /* grid-template-columns: 33% 33% 33%;
+    grid-template-rows: 50% 50% 50%;
+    height: 0%;
+    grid-row-gap: 25em;
     grid-column-gap: 1em;
     grid-template-areas: 
-        "a a b"
-        "c d d"
-        "e e f"
-} */
+        "a a a"
+        "b b b"
+        "e e f" */
+}

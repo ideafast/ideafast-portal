@@ -58,7 +58,8 @@ export class StudyCore {
             dataVersions: [],
             deleted: null,
             description: description,
-            type: type
+            type: type,
+            ontologyTrees: []
         };
         await db.collections!.studies_collection.insertOne(study);
         return study;

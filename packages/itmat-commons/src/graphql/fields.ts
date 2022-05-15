@@ -14,24 +14,6 @@ export const FIELD_FRAGMENT = gql`
             code
             description
         }
-        standardization {
-            id
-            name
-            metaField
-            stdRules {
-                id
-                name
-                source
-                parameter
-                ignoreValues
-                dict
-            }
-            ontologyPath {
-                id
-                type
-                value
-            }
-        }
         unit
         comments
         dateAdded

@@ -11,23 +11,14 @@
     overflow: auto;
 }
 
-.data_management_section {
-    display: grid;
-    grid-template-columns: 60% 40%;
-    grid-template-rows: 0.1fr 6fr;
-    grid-template-areas: 
-    "versions versions"
-    "leftPanel rightPanel"
-}
-
 .field_management_section {
     display: grid;
-    grid-template-columns: 45% 10% 45%;
-    grid-template-rows: 0.1fr 6fr;
+    grid-template-columns: 100%;
+    grid-template-rows: auto;
     grid-template-areas: 
-    "a a a"
-    "b b b"
-    "c empty d"
+    "a a"
+    "left right"
+    "c d"
 }
 
 .left_panel {

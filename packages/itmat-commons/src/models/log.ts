@@ -68,6 +68,7 @@ export enum LOG_ACTION {
     createFieldCurationJob = 'CREATE_FIELD_CREATION_JOB',
     createDataCurationJob = 'CREATE_DATA_CURATION_JOB',
     getDataRecords = 'GET_DATA_RECORDS',
+    getOntologyTree = 'GET_ONTOLOGY_TREE',
     checkDataComplete = 'CHECK_DATA_COMPLETE',
     createNewDataVersion = 'CREATE_NEW_DATA_VERSION',
     uploadDataInArray = 'UPLOAD_DATA_IN_ARRAY',
@@ -75,6 +76,8 @@ export enum LOG_ACTION {
     createNewField = 'CREATE_NEW_FIELD',
     editField = 'EDIT_FIELD',
     deleteField = 'DELETE_FIELD',
+    addOntologyField = 'ADD_ONTOLOGY_FIELD',
+    deleteOntologyField = 'DELETE_ONTOLOGY_FIELD',
 
     // STUDY & PROJECT
     editRole = 'EDIT_ROLE',

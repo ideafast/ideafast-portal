@@ -12,7 +12,8 @@ import {
     IDataClip,
     ISubjectDataRecordSummary,
     DATA_CLIP_ERROR_TYPE,
-    IRole
+    IRole,
+    IOntologyTree
 } from 'itmat-commons';
 import { v4 as uuid } from 'uuid';
 import { db } from '../../database/database';
@@ -119,6 +120,36 @@ export const studyResolvers = {
             }
             ]).toArray();
             return fieldRecords.map(el => el.doc).filter(eh => eh.dateDeleted === null);
+        },
+        getOntologyTree: async (__unused__parent: Record<string, unknown>, { studyId, projectId, treeId }: { studyId: string, projectId: string, treeId: string }, context: any): Promise<IOntologyTree[]> => {
+            /* get studyId by parameter or project */
+            const study = await studyCore.findOneStudy_throwErrorIfNotExist(studyId);
+            if (projectId) {
+                await studyCore.findOneProject_throwErrorIfNotExist(projectId);
+            }
+
+            const requester: IUser = context.req.user;
+
+            /* user can get study if he has readonly permission */
+            const hasPermission = await permissionCore.userHasTheNeccessaryPermission(
+                [permissions.specific_study.specific_study_readonly_access],
+                requester,
+                studyId
+            );
+            const hasProjectLevelPermission = await permissionCore.userHasTheNeccessaryPermission(
+                [permissions.specific_project.specific_project_readonly_access],
+                requester,
+                studyId,
+                projectId
+            );
+            console.log(hasPermission, hasProjectLevelPermission);
+            if (!hasPermission && !hasProjectLevelPermission) { throw new ApolloError(errorCodes.NO_PERMISSION_ERROR); }
+
+            if (treeId) {
+                return study.ontologyTrees?.filter(el => el.id === treeId) || [];
+            } else {
+                return study.ontologyTrees || [];
+            }
         },
         checkDataComplete: async (__unused__parent: Record<string, unknown>, { studyId }: { studyId: string }, context: any): Promise<any> => {
             const requester: IUser = context.req.user;
@@ -301,9 +332,10 @@ export const studyResolvers = {
                 });
                 return acc;
             }, {});
-            // 2. adjust format: 1) original (exists) 2) standardized 3) grouped
+            // 2. adjust format: 1) original (exists) 2) standardized-$name 3) grouped
+            const standardizations = await db.collections!.standardizations_collection.find({ studyId: studyId, type: queryString['format'].split('-')[1], delete: null}).toArray();
             const formattedData = dataStandardization(study, fieldRecords.map(el => el.doc).filter(eh => eh.dateDeleted === null),
-                groupedResult, queryString['format'], queryString['derivedRules']);
+                groupedResult, queryString, standardizations);
             return { data: formattedData };
         }
     },
@@ -700,6 +732,81 @@ export const studyResolvers = {
                 throw new ApolloError('No matched or modified records', errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY);
             }
             return created;
+        },
+        createOntologyTree: async (__unused__parent: Record<string, unknown>, { studyId, ontologyTree }: { studyId: string, ontologyTree: IOntologyTree }, context: any): Promise<IOntologyTree> => {
+            /* check study exists */
+            const study = await studyCore.findOneStudy_throwErrorIfNotExist(studyId);
+
+            const requester: IUser = context.req.user;
+
+            /* user can get study if he has readonly permission */
+            const hasPermission = await permissionCore.userHasTheNeccessaryPermission(
+                [permissions.specific_study.specific_study_data_management],
+                requester,
+                studyId
+            );
+            if (!hasPermission) { throw new ApolloError(errorCodes.NO_PERMISSION_ERROR); }
+
+            // in case of old documents whose ontologyTrees are invalid
+            if (study.ontologyTrees === undefined || ontologyTree === null) {
+                await db.collections!.studies_collection.findOneAndUpdate({ id: studyId, deleted: null }, {
+                    $set: {
+                        ontologyTrees: []
+                    }
+                });
+            }
+            const ontologyTreeWithId: IOntologyTree = { ...ontologyTree };
+            ontologyTreeWithId.id = uuid();
+            ontologyTreeWithId.routes = ontologyTreeWithId.routes || [];
+            ontologyTreeWithId.routes.forEach(el => el.id = uuid());
+            await db.collections!.studies_collection.findOneAndUpdate({ id: studyId, deleted: null, ontologyTrees: {
+                $not: {
+                    $elemMatch: {
+                        name: ontologyTree.name
+                    }
+                }
+            } }, {
+                $addToSet: {
+                    ontologyTrees: ontologyTreeWithId
+                }
+            });
+            await db.collections!.studies_collection.findOneAndUpdate({ 'id': studyId, 'deleted': null, 'ontologyTrees.name': ontologyTree.name }, {
+                $set: {
+                    'ontologyTrees.$.routes': ontologyTreeWithId.routes
+                }
+            });
+
+            return ontologyTreeWithId;
+        },
+        deleteOntologyTree: async (__unused__parent: Record<string, unknown>, { studyId, treeId }: { studyId: string, treeId: string }, context: any): Promise<IGenericResponse> => {
+            /* check study exists */
+            await studyCore.findOneStudy_throwErrorIfNotExist(studyId);
+
+            const requester: IUser = context.req.user;
+
+            /* user can get study if he has readonly permission */
+            const hasPermission = await permissionCore.userHasTheNeccessaryPermission(
+                [permissions.specific_study.specific_study_data_management],
+                requester,
+                studyId
+            );
+            if (!hasPermission) { throw new ApolloError(errorCodes.NO_PERMISSION_ERROR); }
+
+            const result = await db.collections!.studies_collection.findOneAndUpdate({ id: studyId, deleted: null }, {
+                $pull: {
+                    ontologyTrees: {
+                        id: treeId
+                    }
+                }
+            }, {
+                returnDocument: 'after'
+            });
+            if (result.ok === 1 && result.value) {
+                return makeGenericReponse(treeId);
+            } else {
+                throw new ApolloError(errorCodes.DATABASE_ERROR);
+            }
+
         },
         createProject: async (__unused__parent: Record<string, unknown>, { studyId, projectName }: { studyId: string, projectName: string }, context: any): Promise<IProject> => {
             const requester: IUser = context.req.user;

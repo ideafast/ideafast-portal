@@ -18,6 +18,16 @@ export const GET_STUDY = gql`
             createdBy
             description
             type
+            ontologyTrees {
+                id
+                name
+                routes {
+                    id
+                    path
+                    name
+                    field
+                }
+            }
             jobs {
                 ...ALL_FOR_JOB
             }
@@ -70,6 +80,21 @@ export const GET_STUDY = gql`
 export const GET_DATA_RECORDS = gql`
     query getDataRecords($studyId: String!, $queryString: JSON, $versionId: String, $projectId: String) {
         getDataRecords(studyId: $studyId, queryString: $queryString, versionId: $versionId, projectId: $projectId)
+    }
+`;
+
+export const GET_ONTOLOGY_TREE = gql`
+    query getOntologyTree($studyId: String!, $projectId: String, $treeId: String) {
+        getOntologyTree(studyId: $studyId, projectId: $projectId, treeId: $treeId) {
+            id
+            name
+            routes {
+                id
+                path
+                name
+                field
+            }
+        }
     }
 `;
 
@@ -131,6 +156,30 @@ export const DELETE_DATA_RECORDS = gql`
         deleteDataRecords(studyId: $studyId, subjectIds: $subjectIds, visitIds: $visitIds, fieldIds: $fieldIds) {
             code
             description
+        }
+    }
+`;
+
+export const CREATE_ONTOLOGY_TREE = gql`
+    mutation createOntologyTree($studyId: String!, $ontologyTree: OntologyTreeInput!) {
+        createOntologyTree(studyId: $studyId, ontologyTree: $ontologyTree) {
+            id
+            name
+            routes {
+                id
+                path
+                name
+                field
+            }
+        }
+    }
+`;
+
+export const DELETE_ONTOLOGY_TREE = gql`
+    mutation deleteOntologyTree($studyId: String!, $treeId: String!) {
+        deleteOntologyTree(studyId: $studyId, treeId: $treeId) {
+            id
+            successful
         }
     }
 `;

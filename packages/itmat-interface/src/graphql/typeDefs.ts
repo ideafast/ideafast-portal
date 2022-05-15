@@ -34,30 +34,16 @@ enum STUDYTYPE {
 }
 
 type ValueCategory {
-    id: String!,
-    code: String!,
+    id: String!
+    code: String!
     description: String
 }
 
-type Standardization {
-    id: String!,
-    name: String!,
-    metaField: String,
-    stdRules: [StandardizationRule],
-    ontologyPath: [OntologyPath]
-}
-
-input StandardizationInput {
-    name: String!,
-    metaField: String,
-    stdRules: [StandardizationRuleInput],
-    ontologyPath: [OntologyPathInput]
-}
-
-enum StandardizationSource {
-    value, # from a given value
-    data, # from the value of the field
-    fieldDef, # from the definitions of the field
+enum StandardizationRuleSource {
+    value # from a given value
+    data # from the value of the field
+    fieldDef # from the definitions of the field
+    reserved # from the related value entries
     inc # increase by 1
 }
 
@@ -65,39 +51,42 @@ enum StandardizationSource {
 # value: parameter is the value itself
 # data: parameter is the key of the data, or paths joined by - for JSON data type;
 #        note the input is a whole data reocrd including the subjectId & visitId
-# fieldDef: parameter is the name of the attribute of the field definition, e.g., unit 
+# fieldDef: parameter is the name of the attribute of the field definition, e.g., unit
 # inc: no parameter needed
+
+type Standardization {
+    id: String!
+    studyId: String!
+    type: String!
+    field: [String]!
+    path: [String]!
+    joinByKeys: [String]
+    stdRules: [StandardizationRule]
+    deleted: String
+}
+
 type StandardizationRule {
-    id: String!,
-    name: String!,
-    source: StandardizationSource!,
-    parameter: String!,
-    ignoreValues: [String],
-    dict: JSON
+    id: String!
+    entry: String!
+    source: StandardizationRuleSource!
+    parameter: [String]!
+    joinByKeys: [String]
+    filters: JSON
+}
+
+input StandardizationInput {
+    type: String!
+    field: [String]!
+    path: [String]!
+    joinByKeys: [String]
+    stdRules: [StandardizationRuleInput]
 }
 
 input StandardizationRuleInput {
-    name: String!
-    source: StandardizationSource!,
-    parameter: String!,
-    ignoreValues: [String],
-    dict: JSON
-}
-
-enum OntologyNodeType {
-    STRING
-    FIELD
-}
-
-type OntologyPath {
-    id: String!,
-    type: OntologyNodeType!,
-    value: String!
-}
-
-input OntologyPathInput {
-    type: OntologyNodeType!,
-    value: String!
+    entry: String!
+    source: StandardizationRuleSource!
+    parameter: [String]
+    filters: JSON
 }
 
 type Field {
@@ -108,7 +97,6 @@ type Field {
     tableName: String
     dataType: FIELD_VALUE_TYPE!
     possibleValues: [ValueCategory]
-    standardization: [Standardization]
     unit: String
     comments: String
     dataVersion: String
@@ -117,10 +105,10 @@ type Field {
 }
 
 input DataClip {
-    fieldId: String!,
-    value: String!,
-    subjectId: String!,
-    visitId: String!,
+    fieldId: String!
+    value: String!
+    subjectId: String!
+    visitId: String!
 }
 
 enum DATA_CLIP_ERROR_TYPE{
@@ -129,12 +117,12 @@ enum DATA_CLIP_ERROR_TYPE{
 }
 
 type DataClipError {
-    code: DATA_CLIP_ERROR_TYPE!,
+    code: DATA_CLIP_ERROR_TYPE!
     description: String
 }
 
 type FieldClipError {
-    code: DATA_CLIP_ERROR_TYPE!,
+    code: DATA_CLIP_ERROR_TYPE!
     description: String
 }
 
@@ -232,6 +220,30 @@ type DataVersion {
     updateDate: String!
 }
 
+type OntologyTree {
+    id: String!
+    name: String!
+    routes: [OntologyRoute]
+}
+
+type OntologyRoute {
+    id: String!
+    path: [String]!
+    name: String!
+    field: [String]!
+}
+
+input OntologyTreeInput {
+    name: String!
+    routes: [OntologyRouteInput]
+}
+
+input OntologyRouteInput {
+    path: [String]!
+    name: String!
+    field: [String]!
+}
+
 type Study {
     id: String!
     name: String!
@@ -240,7 +252,8 @@ type Study {
     currentDataVersion: Int
     dataVersions: [DataVersion]!
     description: String
-    type: STUDYTYPE,
+    type: STUDYTYPE
+    ontologyTrees: [OntologyTree]
     # external to mongo documents:
     jobs: [Job]!
     projects: [Project]!
@@ -293,7 +306,7 @@ enum LOG_TYPE {
 }
 
 enum USER_AGENT {
-    MOZILLA,
+    MOZILLA
     OTHER
 }
 
@@ -348,6 +361,7 @@ enum LOG_ACTION {
     CREATE_DATA_CURATION_JOB
     CREATE_FIELD_CURATION_JOB
     GET_DATA_RECORDS
+    GET_ONTOLOGY_TREE
     CHECK_DATA_COMPLETE
     CREATE_NEW_DATA_VERSION
     UPLOAD_DATA_IN_ARRAY
@@ -355,8 +369,8 @@ enum LOG_ACTION {
     CREATE_NEW_FIELD
     EDIT_FIELD
     DELETE_FIELD
-    ADD_ONTOLOGY_FIELD
-    DELETE_ONTOLOGY_FIELD
+    ADD_ONTOLOGY_TREE
+    DELETE_ONTOLOGY_TREE
 
     # STUDY & PROJECT
     EDIT_ROLE
@@ -376,31 +390,31 @@ enum LOG_ACTION {
 }
 
 type Log {
-    id: String!,
-    requesterName: String,
-    requesterType: USERTYPE,
-    userAgent: USER_AGENT,
-    logType: LOG_TYPE,
-    actionType: LOG_ACTION,
-    actionData: JSON,
-    time: Float!,
-    status: LOG_STATUS,
+    id: String!
+    requesterName: String
+    requesterType: USERTYPE
+    userAgent: USER_AGENT
+    logType: LOG_TYPE
+    actionType: LOG_ACTION
+    actionData: JSON
+    time: Float!
+    status: LOG_STATUS
     error: String
 }
 
 type QueryEntry {
-    id: String!,
-    queryString: JSON!,
-    studyId: String!,
-    projectId: String,
-    requester: String!,
-    status: String!,
-    error: JSON,
-    cancelled: Boolean,
-    cancelledTime: Int,
-    queryResult: String,
-    data_requested: [String],
-    cohort: JSON,
+    id: String!
+    queryString: JSON!
+    studyId: String!
+    projectId: String
+    requester: String!
+    status: String!
+    error: JSON
+    cancelled: Boolean
+    cancelledTime: Int
+    queryResult: String
+    data_requested: [String]
+    cohort: JSON
     new_fields: JSON
 }
 
@@ -468,7 +482,7 @@ input StringArrayChangesInput {
 }
 
 input ValueCategoryInput {
-    code: String!,
+    code: String!
     description: String
 }
 
@@ -478,7 +492,6 @@ input FieldInput {
     tableName: String
     dataType: FIELD_VALUE_TYPE!
     possibleValues: [ValueCategoryInput]
-    standardization: [StandardizationInput]
     unit: String
     comments: String
 }
@@ -507,6 +520,8 @@ type Query {
     getProject(projectId: String!): Project
     getStudyFields(studyId: String!, projectId: String, versionId: String): [Field]
     getDataRecords(studyId: String!, queryString: JSON, versionId: String, projectId: String): JSON
+    getOntologyTree(studyId: String!, projectId: String, treeId: String): [OntologyTree]
+    getStandardization(studyId: String, projectId: String, type: String): [Standardization]
     checkDataComplete(studyId: String!): [SubjectDataRecordSummary]
     
     # QUERY
@@ -557,6 +572,12 @@ type Mutation {
     createNewField(studyId: String!, fieldInput: [FieldInput]!): [FieldClipError]
     editField(studyId: String!, fieldInput: FieldInput!): Field
     deleteField(studyId: String!, fieldId: String!): Field
+    createOntologyTree(studyId: String!, ontologyTree: OntologyTreeInput!): OntologyTree
+    deleteOntologyTree(studyId: String!, treeId: String!): GenericResponse
+
+    # STANDARDIZATION
+    createStandardization(studyId: String!, standardization: StandardizationInput): Standardization
+    deleteStandardization(studyId: String!, stdId: String!): GenericResponse
 
     # PROJECT
     createProject(studyId: String!, projectName: String!, approvedFields: [String]): Project

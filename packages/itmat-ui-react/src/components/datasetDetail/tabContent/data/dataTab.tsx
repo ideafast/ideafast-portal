@@ -1,14 +1,15 @@
 import 'antd/lib/switch/style/css';
 import * as React from 'react';
+import { generateCascader } from '../../../../utils/tools';
 import { useQuery, useMutation } from '@apollo/client/react/hooks';
 import { Query } from '@apollo/client/react/components';
-import { GET_STUDY, GET_STUDY_FIELDS, GET_DATA_RECORDS, CREATE_NEW_DATA_VERSION, SET_DATAVERSION_AS_CURRENT, WHO_AM_I, userTypes } from 'itmat-commons';
+import { GET_STUDY, GET_STUDY_FIELDS, GET_DATA_RECORDS, CREATE_NEW_DATA_VERSION, SET_DATAVERSION_AS_CURRENT, WHO_AM_I, userTypes, GET_ONTOLOGY_TREE, IOntologyRoute } from 'itmat-commons';
 import LoadSpinner from '../../../reusable/loadSpinner';
 import { Subsection, SubsectionWithComment } from '../../../reusable/subsection/subsection';
 import { DataSummaryVisual } from './dataSummary';
 import { FieldListSection } from '../../../reusable/fieldList/fieldList';
 import css from './tabContent.module.css';
-import { Button, Form, Input, Modal, Table, Tooltip, Select } from 'antd';
+import { Button, Form, Input, Modal, Table, Tooltip, Select, Cascader } from 'antd';
 const { Option } = Select;
 
 export const DataManagementTabContentFetch: React.FunctionComponent<{ studyId: string }> = ({ studyId }) => {
@@ -19,26 +20,33 @@ export const DataManagementTabContentFetch: React.FunctionComponent<{ studyId: s
             studyId: studyId, versionId: null, queryString: {
                 data_requested: null,
                 new_fields: null,
-                cohort: null
+                cohort: null,
+                format: 'raw'
             }
+        }
+    });
+    const { loading: getOntologyTreeLoading, error: getOntologyTreeError, data: getOntologyTreeData } = useQuery(GET_ONTOLOGY_TREE, {
+        variables: {
+            studyId: studyId,
+            treeId: null
         }
     });
     const { loading: whoAmILoading, error: whoAmIError, data: whoAmIData } = useQuery(WHO_AM_I);
     const [createNewDataVersion] = useMutation(CREATE_NEW_DATA_VERSION);
     const [setDataVersion, { loading }] = useMutation(SET_DATAVERSION_AS_CURRENT);
-    const [selectedDomain, setSelectedDomain] = React.useState('');
+    const [selectedPath, setSelectedPath] = React.useState<any[]>([]);
     const [selectedVersion, setSelectedVersion] = React.useState(getStudyData.getStudy.currentDataVersion);
     const [isModalOn, setIsModalOn] = React.useState(false);
-    if (getStudyLoading || getStudyFieldsLoading || getDataRecordsLoading || whoAmILoading) {
+    const [treeId, setTreeId] = React.useState<string>('');
+    if (getStudyLoading || getStudyFieldsLoading || getDataRecordsLoading || whoAmILoading || getOntologyTreeLoading) {
         return <LoadSpinner />;
     }
-    if (getStudyError || getStudyFieldsError || getDataRecordsError || whoAmIError) {
+    if (getStudyError || getStudyFieldsError || getDataRecordsError || whoAmIError || getOntologyTreeError) {
         return <p>
             A error occured, please contact your administrator
         </p>;
     }
     const showSaveVersionButton = true;
-
     // build the table columns for unversioned data
     const columns = [
         {
@@ -58,18 +66,22 @@ export const DataManagementTabContentFetch: React.FunctionComponent<{ studyId: s
             }
         }
     ];
-    const domains: string[] = Array.from(new Set(getStudyFieldsData.getStudyFields.reduce((acc, curr) => {
-        const formatIndex: number = curr.standardization?.findIndex(es => es.name === 'cdisc-sdtm');
-        if (formatIndex === undefined || formatIndex === -1) {
-            return acc;
-        }
-        acc.push(curr.standardization[formatIndex].stdRules.filter(es => es.name === 'DOMAIN')[0]?.parameter);
-        return acc;
-    }, [] as string[])));
+
     const versions: any = [];
     for (const item of getStudyData.getStudy.dataVersions) {
         versions[item['version']] = item['id'];
     }
+
+    //construct the cascader
+    const fieldPathOptions: any = [];
+    getOntologyTreeData.getOntologyTree.filter(el => el.id === treeId)[0]?.routes.forEach(el => {
+        generateCascader(el, fieldPathOptions, false);
+    });
+    const routes: IOntologyRoute[] = getOntologyTreeData.getOntologyTree.filter(es => es.id === treeId)[0]?.routes?.filter(es => {
+        return JSON.stringify(es.path) === JSON.stringify(selectedPath);
+    }) || [];
+    const fields: string[] = routes.length !== 0 ? routes.map(es => JSON.stringify(es.field)) : [];
+
     return <div className={css.data_management_section}>
         {getStudyData.getStudy.currentDataVersion !== -1 ?
             <div className={css.top_panel}>
@@ -97,29 +109,37 @@ export const DataManagementTabContentFetch: React.FunctionComponent<{ studyId: s
                 </> : null}
             </div> : null}
         <div className={css.tab_page_wrapper + ' ' + css.left_panel}>
-            <SubsectionWithComment title='Fields & Variables' comment={<Select
-                placeholder='Domain'
-                allowClear
-                onSelect={(value: string) => { setSelectedDomain(value); }}
-            >
-                {
-                    domains.concat('').map(el => <Option value={el}>{el.toString()}</Option>)
-                }
-            </Select>}>
+            <SubsectionWithComment title='Fields & Variables' comment={
+                <>
+                    <Select
+                        placeholder='Tree'
+                        allowClear
+                        onSelect={(value: string) => { setTreeId(value); }}
+                        value={treeId}
+                    >
+                        {
+                            getOntologyTreeData.getOntologyTree.map(el => <Option value={el.id}>{el.name}</Option>)
+                        }
+                    </Select>
+                    <Cascader
+                        options={fieldPathOptions}
+                        onChange={(value) => setSelectedPath(value)}
+                        placeholder={'Please select'}
+                    />
+                </>}>
                 <FieldListSection
                     studyData={getStudyData.getStudy}
                     onCheck={false}
                     checkable={false}
-                    fieldList={selectedDomain === '' ? getStudyFieldsData.getStudyFields : getStudyFieldsData.getStudyFields.filter(el => {
-                        const formatIndex: number = el.standardization?.findIndex(es => es.name === 'cdisc-sdtm');
-                        if (formatIndex === undefined || formatIndex === -1) {
+                    fieldList={selectedPath.length === 0 ? [] : [...getStudyFieldsData.getStudyFields.filter(el => {
+                        if (!routes) {
                             return false;
                         }
-                        return el.standardization[formatIndex].stdRules !== undefined
-                            && el.standardization[formatIndex].stdRules !== null
-                            && el.standardization[formatIndex].stdRules.filter(es => es.name === 'DOMAIN').length > 0
-                            && el.standardization[formatIndex].stdRules.filter(es => es.name === 'DOMAIN')[0].parameter === selectedDomain;
-                    })}
+                        if (fields.includes(JSON.stringify(['$' + el.fieldId.toString()]))) {
+                            return true;
+                        }
+                        return false;
+                    })]}
                     verbal={true}
                 ></FieldListSection>
                 {/* <FieldListRadial

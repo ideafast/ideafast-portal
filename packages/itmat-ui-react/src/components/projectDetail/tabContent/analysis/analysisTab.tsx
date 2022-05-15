@@ -1,17 +1,18 @@
 import { demographicsFields, statisticsTypes, analysisTemplate, options } from '../utils/defaultParameters';
-import { get_t_test, get_z_test, filterFields, mannwhitneyu } from '../utils/tools';
+import { get_t_test, get_z_test, mannwhitneyu, findDmField, generateCascader } from '../../../../utils/tools';
 import * as React from 'react';
 import { useQuery, useLazyQuery } from '@apollo/client/react/hooks';
-import { GET_STUDY_FIELDS, GET_PROJECT, GET_DATA_RECORDS, IFieldEntry, IProject, enumValueType, IStandardization } from 'itmat-commons';
+import { GET_STUDY_FIELDS, GET_PROJECT, GET_DATA_RECORDS, IFieldEntry, IProject, enumValueType, GET_ONTOLOGY_TREE, IOntologyTree, IOntologyRoute } from 'itmat-commons';
 import LoadSpinner from '../../../reusable/loadSpinner';
 import { Subsection, SubsectionWithComment } from '../../../reusable/subsection/subsection';
 import css from './tabContent.module.css';
 import exportFromJSON from 'export-from-json';
-import { Select, Form, Modal, Divider, Slider, Table, Button, Typography, Input, Tag, Popconfirm, message, Tooltip, List } from 'antd';
+import { Select, Form, Modal, Divider, Slider, Table, Button, Typography, Input, Tag, Popconfirm, message, Tooltip, List, Cascader } from 'antd';
 import { Heatmap, Violin, Column } from '@ant-design/plots';
 import { PlusOutlined, MinusCircleOutlined, CopyOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 const { Option } = Select;
 const { Paragraph, Text } = Typography;
+const { SHOW_CHILD } = Cascader;
 
 export const AnalysisTabContent: React.FunctionComponent<{ studyId: string; projectId: string }> = ({ studyId, projectId }) => {
     const { loading: getStudyFieldsLoading, error: getStudyFieldsError, data: getStudyFieldsData } = useQuery(GET_STUDY_FIELDS, { variables: { studyId: studyId, projectId: projectId } });
@@ -23,23 +24,34 @@ export const AnalysisTabContent: React.FunctionComponent<{ studyId: string; proj
         groups: [],
         comparedFields: []
     });
-    if (getStudyFieldsLoading || getProjectLoading || getDataRecordsLoading) {
+    const { loading: getOntologyTreeLoading, error: getOntologyTreeError, data: getOntologyTreeData } = useQuery(GET_ONTOLOGY_TREE, {
+        variables: {
+            studyId: studyId,
+            projectId: projectId,
+            treeId: null
+        }
+    });
+    if (getStudyFieldsLoading || getProjectLoading || getDataRecordsLoading || getOntologyTreeLoading) {
         return <LoadSpinner />;
     }
-    if (getStudyFieldsError || getProjectError) {
+    if (getStudyFieldsError || getProjectError || getOntologyTreeError) {
         return <div className={`${css.tab_page_wrapper} ${css.both_panel} ${css.upload_overlay}`}>
             A error occured, please contact your administrator
         </div>;
     }
+    const fieldPathOptions: any = [];
+    getOntologyTreeData.getOntologyTree[0]?.routes.forEach(el => {
+        generateCascader(el, fieldPathOptions, true);
+    });
     return ( <div className={css.tab_page_wrapper}>
         <div className={css.scaffold_wrapper}></div>
-        <FilterSelector filtersTool={[filters, setFilters]} fields={getStudyFieldsData.getStudyFields} project={getProjectData.getProject} query={getDataRecords} />
+        <FilterSelector filtersTool={[filters, setFilters]} fields={getStudyFieldsData.getStudyFields} project={getProjectData.getProject} query={getDataRecords} ontologyTree={getOntologyTreeData.getOntologyTree[0]} fieldPathOptions={fieldPathOptions} />
         <ResultsVisualization project={getProjectData.getProject} fields={getStudyFieldsData.getStudyFields} data={divideResults(filters, getDataRecordsData?.getDataRecords.data, getStudyFieldsData.getStudyFields)} />
         <div/>
     </div>);
 };
 
-const FilterSelector: React.FunctionComponent<{ filtersTool: any, fields: IFieldEntry[], project: IProject, query: any }> = ({ filtersTool, fields, project, query }) => {
+const FilterSelector: React.FunctionComponent<{ filtersTool: any, fields: IFieldEntry[], project: IProject, query: any, ontologyTree: IOntologyTree, fieldPathOptions: any }> = ({ filtersTool, fields, project, query, ontologyTree, fieldPathOptions }) => {
     const [isModalOn, setIsModalOn] = React.useState(false);
     const [isTemplateModalOn, setIsTemplateModalOn] = React.useState(false);
     const [templateType, setTemplateType] = React.useState<string | undefined>('NA');
@@ -48,250 +60,244 @@ const FilterSelector: React.FunctionComponent<{ filtersTool: any, fields: IField
     React.useEffect(() => {
         form.setFieldsValue(formInitialValues(form, filtersTool[0], currentGroupIndex));
     });
-    return (<>
-        <Subsection title='Introduction'>
-            <Typography>
-                <Paragraph>
-                    The <Text strong>ANALYSIS</Text> tab allows users to obtain several statistics for a specific group of subjects. Users can also compare these statistics among different groups of subjects.
-                </Paragraph>
-                <List
-                    header={<div>Follow the steps to start an analysis</div>}
-                    // footer={<div>Footer</div>}
-                    bordered
-                    dataSource={[
-                        '1. Create groups based on several criteria. These criteria include demographics (age, race, sex, etc.), ' +
-                        'and general variables that can be filtered by a range;',
-                        '2. Click the Analysis button to do an analysis;',
-                        '3. View the analytical results. Users can select on of the two statistics (T test, Z test), and ' +
-                        'download the original data of the results.'
-                    ]}
-                    renderItem={item => (
-                        <List.Item>
-                            <Typography.Text mark></Typography.Text> {item}
-                        </List.Item>
-                    )}
-                />
-            </Typography><br/>
-            <Button onClick={() => {
-                setIsModalOn(true);
-                setCurrentGroupIndex(-1);
-            }}>Create a new group</Button>
-            <Button onClick={() => {
-                if (currentGroupIndex === -1) {
-                    return;
-                } else {
-                    const newFilters = {...filtersTool[0]};
-                    newFilters.groups = [...filtersTool[0].groups, filtersTool[0].groups[currentGroupIndex]];
-                    filtersTool[1](newFilters);
-                }
-            }}>Paste the {currentGroupIndex.toString()} group</Button>
-            <Button onClick={() => {
-                setIsTemplateModalOn(true);
-            }}>Select a template</Button>
-            <Button style={{ float: 'right' }} type='primary' onClick={() => {
-                query({
-                    variables: {
-                        studyId: project.studyId,
-                        projectId: project.id,
-                        queryString: {
-                            ...combineFilters(fields, filtersTool[0])
-                        }
-                    }
-                });
-            }}>Analysis</Button>
-            <Modal title='Filters' visible={isTemplateModalOn}
-                width={1000}
-                onOk={() => {
-                    setIsTemplateModalOn(false);
-                    if (templateType === undefined) {
+
+    const genderField: IFieldEntry | null = findDmField(ontologyTree, fields, 'SEX');
+    const raceField: IFieldEntry | null = findDmField(ontologyTree, fields, 'RACE');
+    const ageField: IFieldEntry | null = findDmField(ontologyTree, fields, 'AGE');
+    const siteField: IFieldEntry | null = findDmField(ontologyTree, fields, 'SITE');
+    return (<div className={css.scaffold_wrapper}>
+        <div>
+            <Subsection title='Introduction'>
+                <Typography>
+                    <Paragraph>
+                        The <Text strong>ANALYSIS</Text> tab allows users to obtain several statistics for a specific group of subjects. Users can also compare these statistics among different groups of subjects.
+                    </Paragraph>
+                    <List
+                        header={<div>Follow the steps to start an analysis</div>}
+                        // footer={<div>Footer</div>}
+                        bordered
+                        dataSource={[
+                            '1. Create groups based on several criteria. These criteria include demographics (age, race, sex, etc.), ' +
+                            'and general variables that can be filtered by a range;',
+                            '2. Click the Analysis button to do an analysis;',
+                            '3. View the analytical results. Users can select on of the two statistics (T test, Z test), and ' +
+                            'download the original data of the results.'
+                        ]}
+                        renderItem={item => (
+                            <List.Item>
+                                <Typography.Text mark></Typography.Text> {item}
+                            </List.Item>
+                        )}
+                    />
+                </Typography><br/>
+                <Button onClick={() => {
+                    setIsModalOn(true);
+                    setCurrentGroupIndex(-1);
+                }}>Create a new group</Button>
+                <Button onClick={() => {
+                    if (currentGroupIndex === -1) {
                         return;
                     } else {
-                        const newFilters = analysisTemplate[templateType];
-                        delete newFilters.description;
+                        const newFilters = {...filtersTool[0]};
+                        newFilters.groups = [...filtersTool[0].groups, filtersTool[0].groups[currentGroupIndex]];
                         filtersTool[1](newFilters);
-                        setCurrentGroupIndex(newFilters.groups.length - 1);
                     }
-                }}
-                onCancel={() => {
-                    setIsTemplateModalOn(false);
-                }}
-            >
-                <Select
-                    style={{width: '100%'}}
-                    placeholder='Select One Template'
-                    onChange={(value) => {
-                        setTemplateType(value);
+                }}>Paste the {currentGroupIndex.toString()} group</Button>
+                <Button onClick={() => {
+                    setIsTemplateModalOn(true);
+                }}>Select a template</Button>
+                <Button style={{ float: 'right' }} type='primary' onClick={() => {
+                    query({
+                        variables: {
+                            studyId: project.studyId,
+                            projectId: project.id,
+                            queryString: {
+                                ...combineFilters(fields, filtersTool[0], [raceField?.fieldId || '', ageField?.fieldId || '', genderField?.fieldId || '', siteField?.fieldId || ''])
+                            }
+                        }
+                    });
+                }}>Analysis</Button>
+            </Subsection>
+        </div>
+        <div>
+            <Subsection title='Data Selection'>
+                <Modal title='Filters' visible={isTemplateModalOn}
+                    width={1000}
+                    onOk={() => {
+                        setIsTemplateModalOn(false);
+                        if (templateType === undefined) {
+                            return;
+                        } else {
+                            const newFilters = analysisTemplate[templateType];
+                            delete newFilters.description;
+                            filtersTool[1](newFilters);
+                            setCurrentGroupIndex(newFilters.groups.length - 1);
+                        }
+                    }}
+                    onCancel={() => {
+                        setIsTemplateModalOn(false);
                     }}
                 >
-                    {
-                        Object.keys(analysisTemplate).map(el => <Option value={el} >{analysisTemplate[el].description}</Option>)
-                    }
-                </Select>
-            </Modal>
-            <Modal title='Filters' visible={isModalOn}
-                width={1000}
-                onOk={() => {
-                    const newFilters = {...filtersTool[0]};
-                    if (currentGroupIndex === -1) {
-                        newFilters.groups.push(form.getFieldsValue(true));
-                        setCurrentGroupIndex(newFilters.groups.length - 1);
-                        filtersTool[1](newFilters);
-                    } else {
-                        newFilters.groups[currentGroupIndex] = form.getFieldsValue(true);
-                        filtersTool[1](newFilters);
-                    }
-                }}
-                onCancel={() => {
-                    setIsModalOn(false);
-                }}
-            >
-                <Form
-                    layout='horizontal'
-                    form={form}
-                >
-                    <Form.Item label='Select Visit' name='visit'
-                        labelAlign={'left'}
-                        rules={[
-                            {
-                                required: true
-                            }
-                        ]}
-                    >
-                        <Select
-                            style={{width: '100%'}}
-                            placeholder='Select Visit'
-                        >
-                            {[...project.summary.visits].filter(el => el.toString() !== '0').sort((a, b) => { return parseFloat(a) - parseFloat(b); }).map((es) => {
-                                return <Option value={es}>{es.toString()}</Option>;
-                            })}
-                        </Select>
-                    </Form.Item>
-                    <Form.Item label='Select Race' name='race'
-                        labelAlign={'left'}
-                    >
-                        <Select
-                            style={{width: '100%'}}
-                            placeholder='Select Race'
-                            mode='multiple'
-                        >
-                            {
-                                fields.filter(el => el.fieldId === demographicsFields.race)[0].possibleValues?.map(el => {
-                                    return <Option value={el.code}>{el.description.toString()}</Option>;
-                                })
-                            }
-                        </Select>
-                    </Form.Item>
-                    <Form.Item label='Select Gender' name='genderID'
-                        labelAlign={'left'}
-                    >
-                        <Select
-                            style={{width: '100%'}}
-                            placeholder='Select Gender'
-                            mode='multiple'
-                        >
-                            {
-                                fields.filter(el => el.fieldId === demographicsFields.genderID)[0].possibleValues?.map(el => {
-                                    return <Option value={el.code}>{el.description.toString()}</Option>;
-                                })
-                            }
-                        </Select>
-                    </Form.Item>
-                    <Form.Item label='Select Medical History' name='mh'
-                        labelAlign={'left'}
-                    >
-                        <Select
-                            style={{width: '100%'}}
-                            placeholder='Select Medical History'
-                            mode='multiple'
-                        >
-                            {
-                                fields.filter(el => {
-                                    const rules: IStandardization | undefined = el.standardization.filter(es => es.name === 'cdisc-sdtm')[0];
-                                    return rules.stdRules !== undefined && rules.stdRules !== null && rules.stdRules.filter(es => es.name === 'DOMAIN')[0]?.parameter === 'MH';
-                                }).map(el => {
-                                    return <Option value={el.fieldId}>{el.fieldName}</Option>;
-                                })
-                            }
-                        </Select>
-                    </Form.Item>
-                    <Form.Item label='Select Site' name='siteID'
-                        labelAlign={'left'}
-                    >
-                        <Select
-                            style={{width: '100%'}}
-                            placeholder='Select Site'
-                            mode='multiple'
-                        >
-                            <Option value={'N'}>Newcastle (N)</Option>
-                            <Option value={'K'}>Kiel (K)</Option>
-                            <Option value={'G'}>GHI Muenster (G)</Option>
-                            <Option value={'E'}>EMC Rotterdam (E)</Option>
-                        </Select>
-                    </Form.Item>
-                    <Form.Item label='Select Age' name='age'
-                        labelAlign={'left'}
-                    >
-                        <Slider
-                            range={true}
-                            defaultValue={[0, 100]}
-                            disabled={false}
-                        />
-                    </Form.Item>
-                    <Form.List name='filters'>
-                        {(filters, { add, remove }) => {
-                            return (
-                                <div>
-                                    <Divider plain>Variable Filter <PlusOutlined onClick={() => add()} /></Divider>
-                                    {
-                                        filters.length > 0 ?
-                                            <Table
-                                                scroll={{ x: 'max-content' }}
-                                                pagination={false}
-                                                columns={variableFilterColumns(fields, remove)}
-                                                dataSource={filters}
-                                                size='middle'
-                                            ></Table>
-                                            :
-                                            null
-                                    }
-                                </div>
-                            );
+                    <Select
+                        style={{width: '100%'}}
+                        placeholder='Select One Template'
+                        onChange={(value) => {
+                            setTemplateType(value);
                         }}
-                    </Form.List>
-                </Form>
-            </Modal>
-            <Table
-                scroll={{ x: 'max-content' }}
-                // rowKey={(rec) => rec.id}
-                pagination={false}
-                columns={filterTableColumns(fields, filtersTool[0], setIsModalOn, setCurrentGroupIndex)}
-                dataSource={[...(filtersTool[0].groups || [])]}
-                size='middle'
-            ></Table>
-            <Select
-                style={{width: '100%'}}
-                placeholder='Select Fields'
-                showSearch={true}
-                optionFilterProp={'children'}
-                filterOption={(input, option) =>
-                    option?.props?.children?.toLowerCase().indexOf(input.toLowerCase()) >= 0
-                }
-                mode='multiple'
-                onChange={(value) => {
-                    const newFilters = {...filtersTool[0]};
-                    newFilters.comparedFields = [...value];
-                    filtersTool[1](newFilters);
-                }}
-                value={[...(filtersTool[0].comparedFields || [])]}
-            >
-                {
-                    [...fields].sort((a, b) => { return parseFloat(a.fieldId) - parseFloat(b.fieldId); })
-                        .filter(el => [enumValueType.CATEGORICAL, enumValueType.BOOLEAN, enumValueType.INTEGER, enumValueType.DECIMAL].includes(el.dataType))
-                        .map(el => <Option value={el.fieldId} >{el.fieldId.concat('-').concat(el.fieldName)}</Option>)
-                }
-            </Select>
-        </Subsection>
-    </>);
+                    >
+                        {
+                            Object.keys(analysisTemplate).map(el => <Option value={el} >{analysisTemplate[el].description}</Option>)
+                        }
+                    </Select>
+                </Modal>
+                <Modal title='Filters' visible={isModalOn}
+                    width={1000}
+                    onOk={() => {
+                        const data = {...form.getFieldsValue(true)};
+                        for (let i=0; i<data.filters.length; i++) {
+                            const route: IOntologyRoute | undefined = ontologyTree.routes?.filter(el => {
+                                return JSON.stringify(el.path.concat(el.name)) === JSON.stringify(data.filters[i].field);
+                            })[0];
+                            if (route === undefined) {
+                                data.filters.splice(i, 1);
+                            } else {
+                                data.filters[i].field = route.field[0].replace('$', '');
+                            }
+                        }
+                        const newFilters = {...filtersTool[0]};
+                        if (currentGroupIndex === -1) {
+                            newFilters.groups.push(data);
+                            setCurrentGroupIndex(newFilters.groups.length - 1);
+                            filtersTool[1](newFilters);
+                        } else {
+                            newFilters.groups[currentGroupIndex] = data;
+                            filtersTool[1](newFilters);
+                        }
+                    }}
+                    onCancel={() => {
+                        setIsModalOn(false);
+                    }}
+                >
+                    <Form
+                        layout='horizontal'
+                        form={form}
+                    >
+                        <Form.Item label='Select Visit' name='visit'
+                            labelAlign={'left'}
+                            rules={[
+                                {
+                                    required: true
+                                }
+                            ]}
+                        >
+                            <Select
+                                style={{width: '100%'}}
+                                placeholder='Select Visit'
+                            >
+                                {[...project.summary.visits].filter(el => el.toString() !== '0').sort((a, b) => { return parseFloat(a) - parseFloat(b); }).map((es) => {
+                                    return <Option value={es}>{es.toString()}</Option>;
+                                })}
+                            </Select>
+                        </Form.Item>
+                        <Form.Item label='Select Race' name='race'
+                            labelAlign={'left'}
+                        >
+                            <Select
+                                style={{width: '100%'}}
+                                placeholder='Select Race'
+                                mode='multiple'
+                            >
+                                {
+                                    (raceField?.possibleValues || []).map(el => {
+                                        return <Option value={el.code}>{el.description.toString()}</Option>;
+                                    })
+                                }
+                            </Select>
+                        </Form.Item>
+                        <Form.Item label='Select Gender' name='genderID'
+                            labelAlign={'left'}
+                        >
+                            <Select
+                                style={{width: '100%'}}
+                                placeholder='Select Gender'
+                                mode='multiple'
+                            >
+                                {
+                                    (genderField?.possibleValues || []).map(el => {
+                                        return <Option value={el.code}>{el.description.toString()}</Option>;
+                                    })
+                                }
+                            </Select>
+                        </Form.Item>
+                        <Form.Item label='Input Site' name='siteID'
+                            labelAlign={'left'}
+                        >
+                            <Input />
+                        </Form.Item>
+                        <Form.Item label='Select Age' name='age'
+                            labelAlign={'left'}
+                        >
+                            <Slider
+                                range={true}
+                                defaultValue={[0, 100]}
+                                disabled={false}
+                            />
+                        </Form.Item>
+                        <Form.List name='filters'>
+                            {(filters, { add, remove }) => {
+                                return (
+                                    <div>
+                                        <Divider plain>Variable Filter <PlusOutlined onClick={() => add()} /></Divider>
+                                        {
+                                            filters.length > 0 ?
+                                                <Table
+                                                    scroll={{ x: 'max-content' }}
+                                                    pagination={false}
+                                                    columns={variableFilterColumns(fields, remove, fieldPathOptions)}
+                                                    dataSource={filters}
+                                                    size='middle'
+                                                ></Table>
+                                                :
+                                                null
+                                        }
+                                    </div>
+                                );
+                            }}
+                        </Form.List>
+                    </Form>
+                </Modal>
+                <Table
+                    scroll={{ x: 'max-content' }}
+                    // rowKey={(rec) => rec.id}
+                    pagination={false}
+                    columns={filterTableColumns(fields, [genderField, raceField], filtersTool, setIsModalOn, setCurrentGroupIndex)}
+                    dataSource={[...(filtersTool[0].groups || [])]}
+                    size='middle'
+                ></Table>
+                <Cascader
+                    style={{ width: '100%' }}
+                    options={fieldPathOptions}
+                    onChange={(value) => {
+                        const newFields: string[] = [];
+                        value.forEach(el => {
+                            const route: IOntologyRoute | undefined = ontologyTree.routes?.filter(es => {
+                                return JSON.stringify(es.path.concat(es.name)) === JSON.stringify(el);
+                            })[0];
+                            if (route !== undefined) {
+                                newFields.push(route.field[0].replace('$', ''));
+                            }
+                        });
+                        const newFilters = {...filtersTool[0]};
+                        newFilters.comparedFields = [...newFields];
+                        filtersTool[1](newFilters);
+                    }}
+                    multiple
+                    maxTagCount='responsive'
+                    showCheckedStrategy={SHOW_CHILD}
+                />
+            </Subsection>
+        </div>
+    </div>);
 };
 
 const ResultsVisualization: React.FunctionComponent<{ project: IProject, fields: IFieldEntry[], data: any }> = ({ project, fields, data }) => {
@@ -431,9 +437,6 @@ const ResultsVisualization: React.FunctionComponent<{ project: IProject, fields:
         },
     ];
     return (<div>
-        {/* <Subsection title='Metadata'>
-            <RusultsMetaData fields={fields} filters={filters} data={data} />
-        </Subsection> */}
         <SubsectionWithComment title='Results' comment={<>
             <Button style={{ float: 'right' }} onClick={() => {
                 const fileName = 'analyticalResults-v'.concat(project.dataVersion?.version.toString() || '').concat('.json');
@@ -472,7 +475,7 @@ const ResultsVisualization: React.FunctionComponent<{ project: IProject, fields:
     </div>);
 };
 
-function variableFilterColumns(fields: IFieldEntry[], remove: any) {
+function variableFilterColumns(fields: IFieldEntry[], remove: any, fieldPathOptions: any) {
     return [
         {
             title: 'Field',
@@ -484,23 +487,12 @@ function variableFilterColumns(fields: IFieldEntry[], remove: any) {
                 return (
                     <Form.Item
                         name={[index, 'field']}
-                        // label='Field'
                         rules={[{ required: true }]}
                     >
-                        <Select
+                        <Cascader
+                            options={fieldPathOptions}
                             placeholder={'Select Field'}
-                            showSearch={true}
-                            optionFilterProp={'children'}
-                            filterOption={(input, option) =>
-                                option?.props.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
-                            }
-                        >
-                            {
-                                fields.map(el => {
-                                    return <Select.Option value={el.fieldId}>{el.fieldId.concat('-').concat(el.fieldName)}</Select.Option>;
-                                })
-                            }
-                        </Select>
+                        />
                     </Form.Item>
                 );
             }
@@ -538,13 +530,11 @@ function variableFilterColumns(fields: IFieldEntry[], remove: any) {
                 return (
                     <Form.Item
                         name={[index, 'value']}
-                        // label='Value'
                         rules={[
                             {
                                 required: true
                             }
                         ]}
-                    // style={{ display: 'inline-block', width: '20%' }}
                     >
                         <Input placeholder='Input threshold'/>
                     </Form.Item>
@@ -566,12 +556,11 @@ function variableFilterColumns(fields: IFieldEntry[], remove: any) {
     ];
 }
 
-function filterTableColumns(fields: IFieldEntry[], filters?: any, setIsModalOn?: any, setCurrentGroupIndex?: any) {
-    if (filters.groups.length === 0) {
+function filterTableColumns(fields: IFieldEntry[], dmFields: any[], filtersTool?: any, setIsModalOn?: any, setCurrentGroupIndex?: any) {
+    if (filtersTool[0].groups.length === 0) {
         return [];
     }
-    const raceField = fields.filter(el => el.fieldId === demographicsFields.race)[0];
-    const sexField = fields.filter(el => el.fieldId === demographicsFields.genderID)[0];
+    const [genderField, raceField] = dmFields;
     const columns = [
         {
             title: 'Group Index',
@@ -590,8 +579,8 @@ function filterTableColumns(fields: IFieldEntry[], filters?: any, setIsModalOn?:
             }
         }
     ];
-    if (filters !== undefined) {
-        if (filters.groups.some(el => el.race.length !== 0)) {
+    if (filtersTool[0] !== undefined) {
+        if (filtersTool[0].groups.some(el => el.race.length !== 0)) {
             columns.push({
                 title: 'Race',
                 dataIndex: 'race',
@@ -606,8 +595,8 @@ function filterTableColumns(fields: IFieldEntry[], filters?: any, setIsModalOn?:
             });
         }
     }
-    if (filters !== undefined) {
-        if (filters.groups.some(el => el.genderID.length !== 0)) {
+    if (filtersTool[0] !== undefined) {
+        if (filtersTool[0].groups.some(el => el.genderID.length !== 0)) {
             columns.push({
                 title: 'Sex',
                 dataIndex: 'sex',
@@ -615,15 +604,15 @@ function filterTableColumns(fields: IFieldEntry[], filters?: any, setIsModalOn?:
                 render: (__unused__value, record) => {
                     return <div>
                         {
-                            record.genderID.map(el => <Tag color={options.tagColors.race} >{sexField?.possibleValues?.filter(ed => ed.code === el.toString())[0].description}</Tag>)
+                            record.genderID.map(el => <Tag color={options.tagColors.race} >{genderField?.possibleValues?.filter(ed => ed.code === el.toString())[0].description}</Tag>)
                         }
                     </div>;
                 }
             });
         }
     }
-    if (filters !== undefined) {
-        if (filters.groups.some(el => el.mh.length !== 0)) {
+    if (filtersTool[0] !== undefined) {
+        if (filtersTool[0].groups.some(el => el.mh.length !== 0)) {
             columns.push({
                 title: 'Medical History',
                 dataIndex: 'mh',
@@ -641,8 +630,8 @@ function filterTableColumns(fields: IFieldEntry[], filters?: any, setIsModalOn?:
             });
         }
     }
-    if (filters !== undefined) {
-        if (filters.groups.some(el => (el.age[0] !== 0 || el.age[1] !== 100))) {
+    if (filtersTool[0] !== undefined) {
+        if (filtersTool[0].groups.some(el => (el.age[0] !== 0 || el.age[1] !== 100))) {
             columns.push({
                 title: 'Age',
                 dataIndex: 'age',
@@ -653,8 +642,8 @@ function filterTableColumns(fields: IFieldEntry[], filters?: any, setIsModalOn?:
             });
         }
     }
-    if (filters !== undefined) {
-        if (filters.groups.some(el => el.filters.length !== 0)) {
+    if (filtersTool[0] !== undefined) {
+        if (filtersTool[0].groups.some(el => el.filters.length !== 0)) {
             columns.push({
                 title: 'Field Filters',
                 dataIndex: 'filters',
@@ -712,6 +701,9 @@ function filterTableColumns(fields: IFieldEntry[], filters?: any, setIsModalOn?:
                         title='Are you sure to delete this group?'
                         onConfirm={() => {
                             setCurrentGroupIndex(index);
+                            const tmpArr = {...filtersTool[0]};
+                            tmpArr.groups.splice(index, 1);
+                            filtersTool[1](tmpArr);
                         }}
                         onCancel={() => {
                             message.error('Cancelled!');
@@ -721,12 +713,6 @@ function filterTableColumns(fields: IFieldEntry[], filters?: any, setIsModalOn?:
                     >
                         <DeleteOutlined key='delete' />
                     </Popconfirm>
-                    {/* <DeleteOutlined key='delete' onClick={() => {
-                    // const tmpArr = comparedGroup;
-                    // tmpArr.splice(index, 1);
-                    // setcomparedGroup([...tmpArr]);
-                    // setSelectedGroupIndex(-1);
-                    }}/> */}
                 </div>;
             }
         });
@@ -750,12 +736,10 @@ function formInitialValues(form: any, filters: any, index: number) {
     }
 }
 
-// we sent the union of the filters as the filters in the request body
-function combineFilters(fields, filters) {
-    // process mh
-    const mhFieldIds: string[] = filterFields(fields, ['MH']).map(el => el.fieldId);
+// // we sent the union of the filters as the filters in the request body
+function combineFilters(fields: IFieldEntry[], filters: any, dmFields: string[]) {
     const queryString: any = {};
-    queryString.data_requested = Array.from(new Set((filters.groups.map(el => el.filters).flat().map(es => es.field).concat(filters.comparedFields).concat(Object.values(demographicsFields)).concat(mhFieldIds))));
+    queryString.data_requested = Array.from(new Set((filters.groups.map(el => el.filters).flat().map(es => es.field).concat(filters.comparedFields).concat(Object.values(demographicsFields))).concat(dmFields)));
     queryString.newFields = [];
     queryString.cohort = [[{ field: 'm_visitId', op: '=', value: demographicsFields.visit }]];
     queryString.format = 'grouped';

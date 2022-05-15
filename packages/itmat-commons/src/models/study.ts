@@ -15,6 +15,7 @@ export interface IStudy {
     currentDataVersion: number; // index; dataVersions[currentDataVersion] gives current version; // -1 if no data
     dataVersions: IStudyDataVersion[];
     description: string;
+    ontologyTrees?: IOntologyTree[];
     type: studyType;
 }
 
@@ -73,4 +74,17 @@ export interface ISubjectDataRecordSummary {
     subjectId: string,
     visitId?: string,
     errorFields: string[]
+}
+
+export interface IOntologyTree {
+    id: string,
+    name: string,
+    routes?: IOntologyRoute[]
+}
+
+export interface IOntologyRoute {
+    id: string,
+    path: string[],
+    name: string,
+    field: string[],
 }

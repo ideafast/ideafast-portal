@@ -1,5 +1,5 @@
 import { jStat } from 'jStat';
-import { IFieldEntry, IStandardization } from 'itmat-commons';
+import { IFieldEntry, IOntologyTree, IOntologyRoute } from 'itmat-commons';
 
 export function get_t_test(t_array1: number[], t_array2: number[], digits: number){
     if (t_array1.length <= 1 || t_array2.length <= 1) {
@@ -26,14 +26,19 @@ export function get_z_test(t_array1: number[], t_array2: number[], digits: numbe
     return [parseFloat(z_score.toFixed(digits)), parseFloat(z_pval.toFixed(digits))];
 }
 
-export function filterFields(fields: IFieldEntry[], domain: string[]) {
-    return fields.filter(el => {
-        const rules: IStandardization = el.standardization?.filter(es => es.name === 'cdisc-sdtm')[0];
-        if (rules === undefined) {
-            return false;
+export function filterFields(fields: IFieldEntry[], ontologyTree: IOntologyTree) {
+    if (fields.length === 0 || ontologyTree.routes === undefined || ontologyTree.routes?.length === undefined) {
+        return [];
+    }
+
+    const validFields: IFieldEntry[] = [];
+    const validRouteFields: string[] = ontologyTree.routes.map(el => el.field[0].replace('$', ''));
+    fields.forEach(el => {
+        if (validRouteFields.includes(el.fieldId.toString())) {
+            validFields.push(el);
         }
-        return rules.stdRules !== undefined && rules.stdRules !== null && domain.includes(rules.stdRules.filter(es => es.name === 'DOMAIN')[0]?.parameter);
     });
+    return validFields;
 }
 
 const rank = {
@@ -215,4 +220,38 @@ export function mannwhitneyu(x, y, alt, corr) {
     const p = dnorm(-z, 0, 1) * f;
 
     return {U: u.small, p: p};
+}
+
+export function generateCascader(root: any, array: any, includeEnd: boolean) {
+    if (!root) {
+        return;
+    }
+    let arrPointer: any = array;
+    const path = [...root.path];
+    if (includeEnd) {
+        path.push(root.name);
+    }
+    for (const node of path) {
+        const obj = arrPointer.filter((el: { value: any; }) => el.value === node)[0];
+        if (!obj) {
+            arrPointer.push({
+                value: node,
+                label: node,
+                children: []
+            });
+        }
+        arrPointer = arrPointer.filter((el: { value: any; }) => el.value === node)[0].children;
+    }
+}
+
+export function findDmField(ontologyTree: IOntologyTree, fields: IFieldEntry[], key: string) {
+    const node: IOntologyRoute | undefined = ontologyTree.routes?.filter(el => el.name === key)[0];
+    if (!node) {
+        return null;
+    }
+    const field: IFieldEntry = fields.filter(el => JSON.stringify(['$' + el.fieldId]) === JSON.stringify(node.field))[0];
+    if (!field) {
+        return null;
+    }
+    return field;
 }

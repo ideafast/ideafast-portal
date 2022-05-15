@@ -2,7 +2,6 @@ import { Models, enumValueType } from 'itmat-commons';
 import * as React from 'react';
 import { Table, Tooltip } from 'antd';
 import 'antd/lib/tree/style/css';
-// import { RadialTreeGraph } from '@ant-design/charts';
 
 export const FieldListSection: React.FunctionComponent<{ studyData?: any, onCheck?: any; checkedList?: string[]; checkable: boolean; fieldList: Models.Field.IFieldEntry[]; verbal?: boolean }> = ({ onCheck, checkedList, checkable, fieldList, verbal }) => {
     const possibleValuesColumns = [
