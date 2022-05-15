@@ -1,7 +1,3 @@
-export const demographicsFields: any = {
-    visit: '0'
-};
-
 export const options: any = {
     ops: ['=', '!=', '<', '>', '>=', '<='],
     tagColors: {

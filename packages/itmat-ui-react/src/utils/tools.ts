@@ -1,15 +1,15 @@
 import { jStat } from 'jStat';
 import { IFieldEntry, IOntologyTree, IOntologyRoute } from 'itmat-commons';
 
-export function get_t_test(t_array1: number[], t_array2: number[], digits: number){
+export function get_t_test(t_array1: number[], t_array2: number[], digits: number) {
     if (t_array1.length <= 1 || t_array2.length <= 1) {
         return [0, 0];
     }
     const meanA = jStat.mean(t_array1);
     const meanB = jStat.mean(t_array2);
-    const S2 = (jStat.sum(jStat.pow(jStat.subtract(t_array1,meanA),2)) + jStat.sum(jStat.pow(jStat.subtract(t_array2,meanB),2)))/(t_array1.length+t_array2.length-2);
-    const t_score = (meanA - meanB)/Math.sqrt(S2/t_array1.length+S2/t_array2.length);
-    const t_pval = jStat.studentt.cdf(-Math.abs(t_score), t_array1.length+t_array2.length-2) * 2;
+    const S2 = (jStat.sum(jStat.pow(jStat.subtract(t_array1, meanA), 2)) + jStat.sum(jStat.pow(jStat.subtract(t_array2, meanB), 2))) / (t_array1.length + t_array2.length - 2);
+    const t_score = (meanA - meanB) / Math.sqrt(S2 / t_array1.length + S2 / t_array2.length);
+    const t_pval = jStat.studentt.cdf(-Math.abs(t_score), t_array1.length + t_array2.length - 2) * 2;
     return [parseFloat(t_score.toFixed(digits)), parseFloat(t_pval.toFixed(digits))];
 }
 
@@ -21,7 +21,7 @@ export function get_z_test(t_array1: number[], t_array2: number[], digits: numbe
     const meanB = jStat.mean(t_array2);
     const varA = jStat.variance(t_array1, true);
     const varB = jStat.variance(t_array2, true);
-    const z_score = (meanA - meanB) / (Math.sqrt( varA / t_array1.length + varB / t_array2.length ));
+    const z_score = (meanA - meanB) / (Math.sqrt(varA / t_array1.length + varB / t_array2.length));
     const z_pval = jStat.ztest(z_score, 2);
     return [parseFloat(z_score.toFixed(digits)), parseFloat(z_pval.toFixed(digits))];
 }
@@ -47,9 +47,9 @@ const rank = {
      *
      * The MIT License, Copyright (c) 2014 Ben Magyar
      */
-    standard: function(array, key) {
+    standard: function (array, key) {
         // sort the array
-        array = array.sort(function(a, b) {
+        array = array.sort(function (a, b) {
             const x = a[key];
             const y = b[key];
             return ((x < y) ? -1 : ((x > y) ? 1 : 0));
@@ -65,7 +65,7 @@ const rank = {
      *
      * The MIT License, Copyright (c) 2014 Ben Magyar
      */
-    fractional: function(array, key) {
+    fractional: function (array, key) {
         array = this.standard(array, key);
         // now apply fractional
         let pos = 0;
@@ -84,7 +84,7 @@ const rank = {
         }
         return array;
     },
-    rank: function(x, y) {
+    rank: function (x, y) {
         let nx = x.length;
         let ny = y.length;
         const combined: any[] = [];
@@ -105,7 +105,7 @@ const rank = {
     }
 };
 
-const statistic = function(x, y) {
+const statistic = function (x, y) {
     const ranked = rank.rank(x, y);
     const nr = ranked.length;
     const nx = x.length;
@@ -118,7 +118,7 @@ const statistic = function(x, y) {
 
     while (i < nr) {
         if (i > 0) {
-            if (ranked[i].val === ranked[i-1].val) {
+            if (ranked[i].val === ranked[i - 1].val) {
                 nt++;
             } else {
                 if (nt > 1) {
@@ -131,8 +131,8 @@ const statistic = function(x, y) {
         i++;
     }
     const tcf = 1 - (t / (Math.pow(nr, 3) - nr));
-    const ux = nx*ny + (nx*(nx+1)/2) - ranksums.x;
-    const uy = nx*ny - ux;
+    const ux = nx * ny + (nx * (nx + 1) / 2) - ranksums.x;
+    const uy = nx * ny - ux;
 
     return {
         tcf: tcf,
@@ -173,7 +173,7 @@ const erf = function erf(x) {
     return isneg ? res - 1 : 1 - res;
 };
 
-const dnorm = function(x, mean, std) {
+const dnorm = function (x, mean, std) {
     return 0.5 * (1 + erf((x - mean) / Math.sqrt(2 * std * std)));
 };
 
@@ -219,7 +219,7 @@ export function mannwhitneyu(x, y, alt, corr) {
     // compute p-value using CDF of standard normal
     const p = dnorm(-z, 0, 1) * f;
 
-    return {U: u.small, p: p};
+    return { U: u.small, p: p };
 }
 
 export function generateCascader(root: any, array: any, includeEnd: boolean) {
@@ -253,5 +253,8 @@ export function findDmField(ontologyTree: IOntologyTree, fields: IFieldEntry[], 
     if (!field) {
         return null;
     }
-    return field;
+    return {
+        ...field,
+        visitRange: node.visitRange
+    };
 }

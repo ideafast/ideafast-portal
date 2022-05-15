@@ -87,4 +87,5 @@ export interface IOntologyRoute {
     path: string[],
     name: string,
     field: string[],
+    visitRange?: string[]
 }

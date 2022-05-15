@@ -231,6 +231,7 @@ type OntologyRoute {
     path: [String]!
     name: String!
     field: [String]!
+    visitRange: [String]
 }
 
 input OntologyTreeInput {
@@ -242,6 +243,7 @@ input OntologyRouteInput {
     path: [String]!
     name: String!
     field: [String]!
+    visitRange: [String]
 }
 
 type Study {

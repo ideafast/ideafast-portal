@@ -19,6 +19,7 @@ var defaultPlugins = [
 var javascriptExtensions = [
     'eslint:recommended',
     'react-app'
+    // 'react-app/jest'
 ];
 
 var typescriptExtensions = javascriptExtensions.concat([
@@ -30,7 +31,10 @@ var defaultRules = {
     'indent': [
         'error',
         4,
-        { SwitchCase: 1 }
+        {
+            SwitchCase: 1,
+            ignoredNodes: ['VariableDeclaration[declarations.length=0]']
+        }
     ],
     'eol-last': [
         'error',

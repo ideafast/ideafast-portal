@@ -54,10 +54,8 @@ export const studyResolvers = {
 
             /* get project */ // defer patientMapping since it's costly and not available to all users
             const project = await db.collections!.projects_collection.findOne({ id: projectId, deleted: null }, { projection: { patientMapping: 0 } })!;
-
-            if (!project) {
+            if (project === null || project === undefined)
                 throw new ApolloError(errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY);
-            }
 
             /* check if user has permission */
             const hasProjectLevelPermission = await permissionCore.userHasTheNeccessaryPermission(
@@ -333,7 +331,7 @@ export const studyResolvers = {
                 return acc;
             }, {});
             // 2. adjust format: 1) original (exists) 2) standardized-$name 3) grouped
-            const standardizations = await db.collections!.standardizations_collection.find({ studyId: studyId, type: queryString['format'].split('-')[1], delete: null}).toArray();
+            const standardizations = await db.collections!.standardizations_collection.find({ studyId: studyId, type: queryString['format'].split('-')[1], delete: null }).toArray();
             const formattedData = dataStandardization(study, fieldRecords.map(el => el.doc).filter(eh => eh.dateDeleted === null),
                 groupedResult, queryString, standardizations);
             return { data: formattedData };
@@ -392,13 +390,13 @@ export const studyResolvers = {
         },
         summary: async (project: IProject): Promise<any> => {
             const summary: any = {};
-            const study = await db.collections!.studies_collection.findOne({ id: project.studyId});
+            const study = await db.collections!.studies_collection.findOne({ id: project.studyId });
             if (study === undefined || study === null || study.currentDataVersion === -1) {
                 return summary;
             }
             const availableDataVersions = study.dataVersions.filter(el => study.dataVersions.indexOf(el) <= study.currentDataVersion).map(es => es.id);
-            summary['subjects'] = study.currentDataVersion === -1 ? [] : await db.collections!.data_collection.distinct('m_subjectId', { m_studyId: study.id, m_versionId: { $in: availableDataVersions }});
-            summary['visits'] = study.currentDataVersion === -1 ? [] : await db.collections!.data_collection.distinct('m_visitId', { m_studyId: study.id, m_versionId: { $in: availableDataVersions }});
+            summary['subjects'] = study.currentDataVersion === -1 ? [] : await db.collections!.data_collection.distinct('m_subjectId', { m_studyId: study.id, m_versionId: { $in: availableDataVersions } });
+            summary['visits'] = study.currentDataVersion === -1 ? [] : await db.collections!.data_collection.distinct('m_visitId', { m_studyId: study.id, m_versionId: { $in: availableDataVersions } });
             return summary;
         },
         patientMapping: async (project: Omit<IProject, 'patientMapping'>, __unused__args: never, context: any): Promise<any> => {
@@ -758,14 +756,19 @@ export const studyResolvers = {
             const ontologyTreeWithId: IOntologyTree = { ...ontologyTree };
             ontologyTreeWithId.id = uuid();
             ontologyTreeWithId.routes = ontologyTreeWithId.routes || [];
-            ontologyTreeWithId.routes.forEach(el => el.id = uuid());
-            await db.collections!.studies_collection.findOneAndUpdate({ id: studyId, deleted: null, ontologyTrees: {
-                $not: {
-                    $elemMatch: {
-                        name: ontologyTree.name
+            ontologyTreeWithId.routes.forEach(el => {
+                el.id = uuid();
+                el.visitRange = el.visitRange || [];
+            });
+            await db.collections!.studies_collection.findOneAndUpdate({
+                id: studyId, deleted: null, ontologyTrees: {
+                    $not: {
+                        $elemMatch: {
+                            name: ontologyTree.name
+                        }
                     }
                 }
-            } }, {
+            }, {
                 $addToSet: {
                     ontologyTrees: ontologyTreeWithId
                 }

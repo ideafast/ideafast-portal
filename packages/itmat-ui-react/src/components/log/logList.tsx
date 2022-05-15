@@ -19,8 +19,7 @@ export const LogListSection: React.FunctionComponent = () => {
                 if (error) {
                     return (
                         <p>
-                            Error :(
-                            {error.message}
+                            Error {error.message}
                         </p>
                     );
                 }
@@ -58,7 +57,7 @@ const LogList: React.FunctionComponent<{ list: Models.Log.ILogEntry[] }> = ({ li
         return { keyList: keysMap, valueList: valuesMap };
     }
     /* time offset, when filter by time, adjust all date to utc time */
-    const timeOffset = moment().zone() /* minutes */ * 60 /* seconds */ * 1000 /* to UNIX millisec */;
+    const timeOffset = moment().utcOffset() /* minutes */ * 60 /* seconds */ * 1000 /* to UNIX millisec */;
 
     const inputControl = (property: string) => ({
         value: inputs[property],
@@ -286,7 +285,7 @@ const LogList: React.FunctionComponent<{ list: Models.Log.ILogEntry[] }> = ({ li
                 columns={detailColumns}
                 dataSource={[formatActionData(verboseInfo)]}
                 size='small'
-                scroll={{x:true}}
+                scroll={{ x: true }}
             >
             </Table>
         </Modal>

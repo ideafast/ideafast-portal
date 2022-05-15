@@ -1863,7 +1863,7 @@ describe('STUDY API', () => {
                 }
             ].sort((a, b) => a.id.localeCompare(b.id)));
             // clear database
-            await db.collections!.field_dictionary_collection.deleteMany({ dataVersion: null});
+            await db.collections!.field_dictionary_collection.deleteMany({ dataVersion: null });
         });
 
         test('Edit project approved fields with fields that are not in the field tree (admin) (should fail)', async () => {
@@ -2026,20 +2026,6 @@ describe('STUDY API', () => {
 
         test('Edit project approved files (user without privilege) (should fail)', async () => {
             const res = await user.post('/graphql').send({
-                query: print(EDIT_PROJECT_APPROVED_FILES),
-                variables: {
-                    projectId: createdProject.id,
-                    approvedFiles: [mockFiles[0].id]
-                }
-            });
-            expect(res.status).toBe(200);
-            expect(res.body.errors).toHaveLength(1);
-            expect(res.body.errors[0].message).toBe(errorCodes.NO_PERMISSION_ERROR);
-            expect(res.body.data.editProjectApprovedFiles).toEqual(null);
-        });
-
-        test('Edit project approved files (user with project privilege) (should fail)', async () => {
-            const res = await authorisedUser.post('/graphql').send({
                 query: print(EDIT_PROJECT_APPROVED_FILES),
                 variables: {
                     projectId: createdProject.id,
@@ -2237,26 +2223,6 @@ describe('STUDY API', () => {
             await db.collections!.studies_collection.updateOne({ id: createdStudy.id }, { $push: { dataVersions: newMockDataVersion }, $inc: { currentDataVersion: 1 } });
 
             const res = await authorisedUserStudy.post('/graphql').send({
-                query: print(SET_DATAVERSION_AS_CURRENT),
-                variables: {
-                    studyId: createdStudy.id,
-                    dataVersionId: mockDataVersion.id
-                }
-            });
-            expect(res.status).toBe(200);
-            expect(res.body.errors).toHaveLength(1);
-            expect(res.body.data.setDataversionAsCurrent).toEqual(null);
-
-            /* cleanup: reverse setting dataversion */
-            await mongoClient.collection(config.database.collections.studies_collection)
-                .updateOne({ id: createdStudy.id }, { $set: { dataVersions: [mockDataVersion], currentDataVersion: 0 } });
-        });
-
-        test('Set a previous study dataversion as current (user with study "manage project" privilege) (should fail)', async () => {
-            /* setup: add an extra dataversion */
-            await db.collections!.studies_collection.updateOne({ id: createdStudy.id }, { $push: { dataVersions: newMockDataVersion }, $inc: { currentDataVersion: 1 } });
-
-            const res = await authorisedUserStudyManageProject.post('/graphql').send({
                 query: print(SET_DATAVERSION_AS_CURRENT),
                 variables: {
                     studyId: createdStudy.id,
@@ -3315,7 +3281,7 @@ describe('STUDY API', () => {
 
             const deleteRes = await admin.post('/graphql').send({
                 query: print(DELETE_DATA_RECORDS),
-                variables: { studyId: createdStudy.id, subjectIds:  ['I7N3G6G'], visitIds: ['100', '101']}
+                variables: { studyId: createdStudy.id, subjectIds: ['I7N3G6G'], visitIds: ['100', '101'] }
             });
             expect(deleteRes.status).toBe(200);
             expect(deleteRes.body.errors).toBeUndefined();
@@ -3416,11 +3382,13 @@ describe('STUDY API', () => {
                                 path: ['DM', 'm_subjectId', 'm_visitId'],
                                 name: 'AGE',
                                 field: ['$100'],
+                                visitRange: []
                             },
                             {
-                                path: ['QS', 'MFI',  'm_subjectId', 'm_visitId'],
+                                path: ['QS', 'MFI', 'm_subjectId', 'm_visitId'],
                                 name: '',
-                                field: ['$200']
+                                field: ['$200'],
+                                visitRange: []
                             }
                         ]
                     }
@@ -3438,12 +3406,14 @@ describe('STUDY API', () => {
                         path: ['DM', 'm_subjectId', 'm_visitId'],
                         name: 'AGE',
                         field: ['$100'],
+                        visitRange: []
                     },
                     {
                         id: study.ontologyTrees[0].routes[1].id,
-                        path: ['QS', 'MFI',  'm_subjectId', 'm_visitId'],
+                        path: ['QS', 'MFI', 'm_subjectId', 'm_visitId'],
                         name: '',
-                        field: ['$200']
+                        field: ['$200'],
+                        visitRange: []
                     }
                 ]
             });
@@ -3467,11 +3437,13 @@ describe('STUDY API', () => {
                                 path: ['DM', 'm_subjectId', 'm_visitId'],
                                 name: 'AGE',
                                 field: ['$100'],
+                                visitRange: []
                             },
                             {
-                                path: ['QS', 'MFI',  'm_subjectId', 'm_visitId'],
+                                path: ['QS', 'MFI', 'm_subjectId', 'm_visitId'],
                                 name: '',
-                                field: ['$200']
+                                field: ['$200'],
+                                visitRange: []
                             }
                         ]
                     }
@@ -3495,11 +3467,13 @@ describe('STUDY API', () => {
                                 path: ['DM', 'm_subjectId', 'm_visitId'],
                                 name: 'AGE',
                                 field: ['$100'],
+                                visitRange: []
                             },
                             {
-                                path: ['QS', 'MFI',  'm_subjectId', 'm_visitId'],
+                                path: ['QS', 'MFI', 'm_subjectId', 'm_visitId'],
                                 name: '',
-                                field: ['$200']
+                                field: ['$200'],
+                                visitRange: []
                             }
                         ]
                     }
@@ -3534,11 +3508,13 @@ describe('STUDY API', () => {
                                 path: ['DM', 'm_subjectId', 'm_visitId'],
                                 name: 'AGE',
                                 field: ['$100'],
+                                visitRange: []
                             },
                             {
-                                path: ['QS', 'MFI',  'm_subjectId', 'm_visitId'],
+                                path: ['QS', 'MFI', 'm_subjectId', 'm_visitId'],
                                 name: '',
-                                field: ['$200']
+                                field: ['$200'],
+                                visitRange: []
                             }
                         ]
                     }
@@ -3575,11 +3551,13 @@ describe('STUDY API', () => {
                                 path: ['DM', 'm_subjectId', 'm_visitId'],
                                 name: 'AGE',
                                 field: ['$100'],
+                                visitRange: []
                             },
                             {
-                                path: ['QS', 'MFI',  'm_subjectId', 'm_visitId'],
+                                path: ['QS', 'MFI', 'm_subjectId', 'm_visitId'],
                                 name: '',
-                                field: ['$200']
+                                field: ['$200'],
+                                visitRange: []
                             }
                         ]
                     }
@@ -3604,12 +3582,14 @@ describe('STUDY API', () => {
                         path: ['DM', 'm_subjectId', 'm_visitId'],
                         name: 'AGE',
                         field: ['$100'],
+                        visitRange: []
                     },
                     {
                         id: study.ontologyTrees[0].routes[1].id,
-                        path: ['QS', 'MFI',  'm_subjectId', 'm_visitId'],
+                        path: ['QS', 'MFI', 'm_subjectId', 'm_visitId'],
                         name: '',
-                        field: ['$200']
+                        field: ['$200'],
+                        visitRange: []
                     }
                 ]
             });
@@ -3632,11 +3612,13 @@ describe('STUDY API', () => {
                                 path: ['DM', 'm_subjectId', 'm_visitId'],
                                 name: 'AGE',
                                 field: ['$100'],
+                                visitRange: []
                             },
                             {
-                                path: ['QS', 'MFI',  'm_subjectId', 'm_visitId'],
+                                path: ['QS', 'MFI', 'm_subjectId', 'm_visitId'],
                                 name: '',
-                                field: ['$200']
+                                field: ['$200'],
+                                visitRange: []
                             }
                         ]
                     }
@@ -3673,11 +3655,13 @@ describe('STUDY API', () => {
                                 path: ['DM', 'm_subjectId', 'm_visitId'],
                                 name: 'AGE',
                                 field: ['$100'],
+                                visitRange: []
                             },
                             {
-                                path: ['QS', 'MFI',  'm_subjectId', 'm_visitId'],
+                                path: ['QS', 'MFI', 'm_subjectId', 'm_visitId'],
                                 name: '',
-                                field: ['$200']
+                                field: ['$200'],
+                                visitRange: []
                             }
                         ]
                     }
@@ -3703,12 +3687,14 @@ describe('STUDY API', () => {
                         path: ['DM', 'm_subjectId', 'm_visitId'],
                         name: 'AGE',
                         field: ['$100'],
+                        visitRange: []
                     },
                     {
                         id: study.ontologyTrees[0].routes[1].id,
-                        path: ['QS', 'MFI',  'm_subjectId', 'm_visitId'],
+                        path: ['QS', 'MFI', 'm_subjectId', 'm_visitId'],
                         name: '',
-                        field: ['$200']
+                        field: ['$200'],
+                        visitRange: []
                     }
                 ]
             });

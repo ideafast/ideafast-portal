@@ -26,6 +26,7 @@ export const GET_STUDY = gql`
                     path
                     name
                     field
+                    visitRange
                 }
             }
             jobs {
@@ -93,6 +94,7 @@ export const GET_ONTOLOGY_TREE = gql`
                 path
                 name
                 field
+                visitRange
             }
         }
     }
@@ -170,6 +172,7 @@ export const CREATE_ONTOLOGY_TREE = gql`
                 path
                 name
                 field
+                visitRange
             }
         }
     }

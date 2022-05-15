@@ -1,4 +1,3 @@
-import { demographicsFields } from '../utils/defaultParameters';
 import { filterFields, generateCascader, findDmField } from '../../../../utils/tools';
 import * as React from 'react';
 import { useQuery, useLazyQuery } from '@apollo/client/react/hooks';
@@ -11,9 +10,12 @@ import { CSVLink } from 'react-csv';
 import { Pagination, Select, Statistic, Row, Col, Button, Table, Empty, Cascader } from 'antd';
 import { Pie, BidirectionalBar, Heatmap, Violin, Column } from '@ant-design/plots';
 import { UserOutlined, ProfileOutlined, DownloadOutlined } from '@ant-design/icons';
+import { useParams } from 'react-router-dom';
 const { Option } = Select;
 
-export const DataTabContent: React.FunctionComponent<{ studyId: string; projectId: string }> = ({ studyId, projectId }) => {
+export const DataTabContent: React.FunctionComponent<{ studyId: string }> = ({ studyId }) => {
+    const { projectId } = useParams();
+
     const { loading: getStudyFieldsLoading, error: getStudyFieldsError, data: getStudyFieldsData } = useQuery(GET_STUDY_FIELDS, { variables: { studyId: studyId, projectId: projectId } });
     const { loading: getProjectLoading, error: getProjectError, data: getProjectData } = useQuery(GET_PROJECT, { variables: { projectId: projectId, admin: false } });
     const { loading: getOntologyTreeLoading, error: getOntologyTreeError, data: getOntologyTreeData } = useQuery(GET_ONTOLOGY_TREE, {
@@ -26,7 +28,7 @@ export const DataTabContent: React.FunctionComponent<{ studyId: string; projectI
     if (getStudyFieldsLoading || getProjectLoading || getOntologyTreeLoading) {
         return <LoadSpinner />;
     }
-    if (getStudyFieldsError || getProjectError || getOntologyTreeError) {
+    if (!projectId || getStudyFieldsError || getProjectError || getOntologyTreeError) {
         return <div className={`${css.tab_page_wrapper} ${css.both_panel} ${css.upload_overlay}`}>
             A error occured, please contact your administrator
         </div>;
@@ -48,10 +50,10 @@ export const DataTabContent: React.FunctionComponent<{ studyId: string; projectI
                 <FieldViewer ontologyTree={getOntologyTreeData.getOntologyTree[0]} fields={getStudyFieldsData.getStudyFields} />
             </div>
             <div style={{ gridArea: 'd' }}>
-                <DataCompletenessBlock studyId={studyId} projectId={projectId} ontologyTree={getOntologyTreeData.getOntologyTree[0]}/>
+                <DataCompletenessBlock studyId={studyId} projectId={projectId} ontologyTree={getOntologyTreeData.getOntologyTree[0]} />
             </div>
             <div style={{ gridArea: 'e' }}>
-                <DataDetailsBlock studyId={studyId} projectId={projectId} project={getProjectData.getProject} fields={getStudyFieldsData.getStudyFields} ontologyTree={getOntologyTreeData.getOntologyTree[0]}/>
+                <DataDetailsBlock studyId={studyId} projectId={projectId} project={getProjectData.getProject} fields={getStudyFieldsData.getStudyFields} ontologyTree={getOntologyTreeData.getOntologyTree[0]} />
             </div>
             <div style={{ gridArea: 'f' }}>
                 <DataDownloadBlock project={getProjectData.getProject} />
@@ -60,18 +62,21 @@ export const DataTabContent: React.FunctionComponent<{ studyId: string; projectI
     </div>;
 };
 
-export const DemographicsBlock: React.FunctionComponent<{ ontologyTree: IOntologyTree,studyId: string, projectId: string, fields: IFieldEntry[] }> = ({ ontologyTree, studyId, projectId, fields }) => {
-    const { loading: getDataRecordsLoading, error: getDataRecordsError, data: getDataRecordsData } = useQuery(GET_DATA_RECORDS, { variables: { studyId: studyId,
-        projectId: projectId,
-        queryString: {
-            format: 'grouped',
-            data_requested: fields.map(el => el.fieldId),
-            new_fields: [],
-            cohort: [[]],
-            subjects_requested: null,
-            visits_requested: null
+export const DemographicsBlock: React.FunctionComponent<{ ontologyTree: IOntologyTree, studyId: string, projectId: string, fields: IFieldEntry[] }> = ({ ontologyTree, studyId, projectId, fields }) => {
+    const { loading: getDataRecordsLoading, error: getDataRecordsError, data: getDataRecordsData } = useQuery(GET_DATA_RECORDS, {
+        variables: {
+            studyId: studyId,
+            projectId: projectId,
+            queryString: {
+                format: 'grouped',
+                data_requested: fields.map(el => el.fieldId),
+                new_fields: [],
+                cohort: [[]],
+                subjects_requested: null,
+                visits_requested: null
+            }
         }
-    }});
+    });
     if (getDataRecordsLoading) {
         return <LoadSpinner />;
     }
@@ -83,17 +88,17 @@ export const DemographicsBlock: React.FunctionComponent<{ ontologyTree: IOntolog
     // process the data
     const obj: any = {};
     const data = getDataRecordsData.getDataRecords.data;
-    const genderField: IFieldEntry | null = findDmField(ontologyTree, fields, 'SEX');
-    const raceField: IFieldEntry | null = findDmField(ontologyTree, fields, 'RACE');
-    const ageField: IFieldEntry | null = findDmField(ontologyTree, fields, 'AGE');
-    const siteField: IFieldEntry | null = findDmField(ontologyTree, fields, 'SITE');
+    const genderField: any = findDmField(ontologyTree, fields, 'SEX');
+    const raceField: any = findDmField(ontologyTree, fields, 'RACE');
+    const ageField: any = findDmField(ontologyTree, fields, 'AGE');
+    const siteField: any = findDmField(ontologyTree, fields, 'SITE');
     // const genderFie: IFieldEntry = fields.filter(el => el.fieldId === genderFieldId.fieldId)[0];
 
     if (genderField === null) {
         obj.SEX = [];
         obj.AGE = [];
     } else {
-        obj.SEX = (data[genderField.fieldId][demographicsFields.visit]?.data || []).reduce((acc, curr) => {
+        obj.SEX = (data[genderField.fieldId][genderField.visitRange[0]]?.data || []).reduce((acc, curr) => {
             const thisGender = genderField?.possibleValues?.filter(el => el.code === curr)[0].description || '';
             if (acc.filter(es => es.type === thisGender).length === 0) {
                 acc.push({ type: thisGender, value: 0 });
@@ -103,16 +108,16 @@ export const DemographicsBlock: React.FunctionComponent<{ ontologyTree: IOntolog
         }, []);
         obj.SEX.push({
             type: 'Missing',
-            value: (data[genderField.fieldId][demographicsFields.visit]?.totalNumOfRecords || 0) - (data[genderField.fieldId][demographicsFields.visit].validNumOfRecords || 0)
+            value: (data[genderField.fieldId][genderField.visitRange[0]]?.totalNumOfRecords || 0) - (data[genderField.fieldId][genderField.visitRange[0]].validNumOfRecords || 0)
         });
         if (ageField === null) {
             obj.AGE = [];
         } else {
-            obj.AGE = (data[ageField.fieldId][demographicsFields.visit]?.data || []).reduce((acc, curr, index) => {
+            obj.AGE = (data[ageField.fieldId][ageField.visitRange[0]]?.data || []).reduce((acc, curr, index) => {
                 if (acc.filter(es => es.age === curr).length === 0) {
                     acc.push({ age: curr, Male: 0, Female: 0 });
                 }
-                if (data[genderField.fieldId][demographicsFields.visit].data[index] === '1') {
+                if (data[genderField.fieldId][genderField.visitRange[0]].data[index] === '1') {
                     acc[acc.findIndex(el => el.age === curr)].Female += 1;
                 } else {
                     acc[acc.findIndex(el => el.age === curr)].Male += 1;
@@ -127,7 +132,7 @@ export const DemographicsBlock: React.FunctionComponent<{ ontologyTree: IOntolog
         if (data[raceField.fieldId] === undefined) {
             obj.RACE = [];
         } else {
-            obj.RACE = (data[raceField.fieldId][demographicsFields.visit]?.data || []).reduce((acc, curr) => {
+            obj.RACE = (data[raceField.fieldId][raceField.visitRange[0]]?.data || []).reduce((acc, curr) => {
                 const thisRace = raceField?.possibleValues?.filter(el => el.code === curr)[0].description || '';
                 if (acc.filter(es => es.type === thisRace).length === 0) {
                     acc.push({ type: thisRace, value: 0 });
@@ -137,14 +142,14 @@ export const DemographicsBlock: React.FunctionComponent<{ ontologyTree: IOntolog
             }, []);
             obj.RACE.push({
                 type: 'Missing',
-                value: (data[raceField.fieldId][demographicsFields.visit]?.totalNumOfRecords || 0) - (data[raceField.fieldId][demographicsFields.visit]?.validNumOfRecords || 0)
+                value: (data[raceField.fieldId][raceField.visitRange[0]]?.totalNumOfRecords || 0) - (data[raceField.fieldId][raceField.visitRange[0]]?.validNumOfRecords || 0)
             });
         }
     }
     if (siteField === null) {
         obj.SITE = [];
     } else {
-        obj.SITE = (data[siteField.fieldId][demographicsFields.visit]?.data || []).reduce((acc, curr) => {
+        obj.SITE = (data[siteField.fieldId][siteField.visitRange[0]]?.data || []).reduce((acc, curr) => {
             if (acc.filter(es => es.type === curr.toString()).length === 0) {
                 acc.push({ type: curr.toString(), value: 0 });
             }
@@ -153,7 +158,7 @@ export const DemographicsBlock: React.FunctionComponent<{ ontologyTree: IOntolog
         }, []);
         obj.SITE.push({
             type: 'Missing',
-            value: (data[siteField.fieldId][demographicsFields.visit]?.totalNumOfRecords || 0) - (data[siteField.fieldId][demographicsFields.visit]?.validNumOfRecords || 0)
+            value: (data[siteField.fieldId][siteField.visitRange[0]]?.totalNumOfRecords || 0) - (data[siteField.fieldId][siteField.visitRange[0]]?.validNumOfRecords || 0)
         });
     }
     return (<>
@@ -181,7 +186,7 @@ export const DemographicsBlock: React.FunctionComponent<{ ontologyTree: IOntolog
                             },
                         ]}
                     />
-                    <h1 style={{textAlign: 'center'}} >Sex</h1>
+                    <h1 style={{ textAlign: 'center' }} >Sex</h1>
                 </div>
         }
         {
@@ -206,7 +211,7 @@ export const DemographicsBlock: React.FunctionComponent<{ ontologyTree: IOntolog
                             },
                         ]}
                     />
-                    <h1 style={{textAlign: 'center'}} >Race</h1>
+                    <h1 style={{ textAlign: 'center' }} >Race</h1>
                 </div>
         }
         {
@@ -229,7 +234,7 @@ export const DemographicsBlock: React.FunctionComponent<{ ontologyTree: IOntolog
                             },
                         ]}
                     />
-                    <h1 style={{textAlign: 'center'}} >Site</h1>
+                    <h1 style={{ textAlign: 'center' }} >Site</h1>
                 </div>
         }
         {
@@ -250,13 +255,13 @@ export const DemographicsBlock: React.FunctionComponent<{ ontologyTree: IOntolog
                             showMarkers: false
                         }}
                     />
-                    <h1 style={{textAlign: 'center'}} >Age</h1>
+                    <h1 style={{ textAlign: 'center' }} >Age</h1>
                 </div>
         }
     </>);
 };
 
-export const FieldViewer: React.FunctionComponent<{ ontologyTree:IOntologyTree, fields: IFieldEntry[] }> = ({ ontologyTree, fields }) => {
+export const FieldViewer: React.FunctionComponent<{ ontologyTree: IOntologyTree, fields: IFieldEntry[] }> = ({ ontologyTree, fields }) => {
     const [selectedPath, setSelectedPath] = React.useState<any[]>([]);
     const routes: IOntologyRoute[] = ontologyTree.routes?.filter(es => {
         return JSON.stringify([...es.path, es.name]) === JSON.stringify(selectedPath);
@@ -288,7 +293,7 @@ export const FieldViewer: React.FunctionComponent<{ ontologyTree:IOntologyTree, 
                         <Col span={12}>
                             <Statistic title='Field Name' value={field?.fieldName || 'NA'} />
                         </Col>
-                    </Row><br/>
+                    </Row><br />
                     <Row gutter={16}>
                         <Col span={12}>
                             <Statistic title='Data Type' value={field?.dataType || 'NA'} />
@@ -296,12 +301,12 @@ export const FieldViewer: React.FunctionComponent<{ ontologyTree:IOntologyTree, 
                         <Col span={12}>
                             <Statistic title='Unit' value={field?.unit || 'NA'} />
                         </Col>
-                    </Row><br/>
+                    </Row><br />
                     <Row gutter={16}>
                         <Col span={12}>
                             <Statistic title='Comments' value={field?.comments || 'NA'} />
                         </Col>
-                    </Row><br/>
+                    </Row><br />
                     <Row gutter={16}>
                         <Col span={24}>
                             <Statistic title='Ontology Chain' prefix={<>
@@ -310,7 +315,7 @@ export const FieldViewer: React.FunctionComponent<{ ontologyTree:IOntologyTree, 
                                 }
                             </>} value={' => ' + field.fieldName} />
                         </Col>
-                    </Row><br/>
+                    </Row><br />
                 </>
         }
     </SubsectionWithComment>);
@@ -327,16 +332,19 @@ export const DataCompletenessBlock: React.FunctionComponent<{ studyId: string, p
             return false;
         }
     }).map(el => el.field[0].replace('$', '')) || [];
-    const { loading: getDataRecordsLoading, error: getDataRecordsError, data: getDataRecordsData } = useQuery(GET_DATA_RECORDS, { variables: { studyId: studyId,
-        projectId: projectId,
-        queryString: {
-            format: 'summary',
-            data_requested: requestedFields,
-            cohort: [[]],
-            subjects_requested: null,
-            visits_requested: null
+    const { loading: getDataRecordsLoading, error: getDataRecordsError, data: getDataRecordsData } = useQuery(GET_DATA_RECORDS, {
+        variables: {
+            studyId: studyId,
+            projectId: projectId,
+            queryString: {
+                format: 'summary',
+                data_requested: requestedFields,
+                cohort: [[]],
+                subjects_requested: null,
+                visits_requested: null
+            }
         }
-    }});
+    });
     if (getDataRecordsLoading) {
         return <LoadSpinner />;
     }
@@ -469,7 +477,7 @@ export const DataDetailsBlock: React.FunctionComponent<{ studyId: string, projec
                     return <Empty description={'No Data Found'} />;
                 }
                 if ([enumValueType.INTEGER, enumValueType.DECIMAL].includes(fields.filter(el => el.fieldId === fieldIdFromData)[0].dataType)) {
-                    data = Object.keys(data.getDataRecords.data[fieldIdFromData]).reduce((acc,curr) => {
+                    data = Object.keys(data.getDataRecords.data[fieldIdFromData]).reduce((acc, curr) => {
                         data.getDataRecords.data[fieldIdFromData][curr].data.forEach(el => {
                             if (el === '99999') {
                                 return;
@@ -479,7 +487,7 @@ export const DataDetailsBlock: React.FunctionComponent<{ studyId: string, projec
                         return acc;
                     }, ([] as any));
                 } else if ([enumValueType.CATEGORICAL, enumValueType.BOOLEAN].includes(fields.filter(el => el.fieldId === fieldIdFromData)[0].dataType)) {
-                    data = Object.keys(data.getDataRecords.data[fieldIdFromData]).reduce((acc,curr) => {
+                    data = Object.keys(data.getDataRecords.data[fieldIdFromData]).reduce((acc, curr) => {
                         let count = 0;
                         data.getDataRecords.data[fieldIdFromData][curr].data.forEach(el => {
                             if (acc.filter(es => (es.visit === curr && es.value === el)).length === 0) {
@@ -525,7 +533,7 @@ export const DataDetailsBlock: React.FunctionComponent<{ studyId: string, projec
                 </>);
             }}
         </Query>
-        <br/>
+        <br />
     </SubsectionWithComment>);
 };
 
@@ -539,7 +547,7 @@ export const ProjectMetaDataBlock: React.FunctionComponent<{ project: IProject }
                 <Col span={12}>
                     <Statistic title='Data Version' value={project.dataVersion?.version} />
                 </Col>
-            </Row><br/>
+            </Row><br />
             <Row gutter={16}>
                 <Col span={12}>
                     <Statistic title='Visits' value={project.summary.visits.length} prefix={<ProfileOutlined />} />
@@ -547,14 +555,14 @@ export const ProjectMetaDataBlock: React.FunctionComponent<{ project: IProject }
                 <Col span={12}>
                     <Statistic title='Version Tag' value={project.dataVersion?.tag} />
                 </Col>
-            </Row><br/>
+            </Row><br />
             <Row gutter={16}>
                 <Col span={12}>
                 </Col>
-            </Row><br/>
+            </Row><br />
             <Row gutter={16}>
                 <Col span={24}>
-                    <Statistic title='Updated At' value={ project.dataVersion?.updateDate === undefined ? 'NA' : (new Date(parseFloat(project.dataVersion?.updateDate))).toUTCString() } />
+                    <Statistic title='Updated At' value={project.dataVersion?.updateDate === undefined ? 'NA' : (new Date(parseFloat(project.dataVersion?.updateDate))).toUTCString()} />
                 </Col>
             </Row>
         </div>
@@ -563,9 +571,9 @@ export const ProjectMetaDataBlock: React.FunctionComponent<{ project: IProject }
 
 export const DataDownloadBlock: React.FunctionComponent<{ project: IProject }> = ({ project }) => {
     const { loading: getStandardizationLoading, error: getStandardizationError, data: getStandardizationData } = useQuery(GET_STANDARDIZATION, { variables: { studyId: project.studyId } });
-    const [ getDataRecordsLazy, { loading: getDataRecordsLoading, data: getDataRecordsData }] = useLazyQuery(GET_DATA_RECORDS, {});
-    const [ selectedDataFormat, setSelectedDataFormat ] = React.useState<string | undefined>(undefined);
-    const [ selectedOutputType, setSelectedOutputType ] = React.useState('JSON');
+    const [getDataRecordsLazy, { loading: getDataRecordsLoading, data: getDataRecordsData }] = useLazyQuery(GET_DATA_RECORDS, {});
+    const [selectedDataFormat, setSelectedDataFormat] = React.useState<string | undefined>(undefined);
+    const [selectedOutputType, setSelectedOutputType] = React.useState('JSON');
     if (getDataRecordsLoading || getStandardizationLoading) {
         return <LoadSpinner />;
     }
@@ -611,7 +619,8 @@ export const DataDownloadBlock: React.FunctionComponent<{ project: IProject }> =
             placeholder='Select Format'
             allowClear
             onSelect={(value: string) => {
-                setSelectedDataFormat(value); }}
+                setSelectedDataFormat(value);
+            }}
         >
             <Option value={'raw'}>Raw</Option>
             <Option value={'grouped'}>Grouped</Option>
@@ -639,7 +648,8 @@ export const DataDownloadBlock: React.FunctionComponent<{ project: IProject }> =
             placeholder='Select Format'
             allowClear
             onSelect={(value: string) => {
-                setSelectedOutputType(value); }}
+                setSelectedOutputType(value);
+            }}
         >
             <Option value={'JSON'}>JSON</Option>
             <Option value={'CSV'}>CSV</Option>
@@ -661,7 +671,7 @@ export const DataDownloadBlock: React.FunctionComponent<{ project: IProject }> =
 
                         link.click();
                     }}>
-                Download
+                        Download
                     </Button> :
                     <Table
                         scroll={{ x: 'max-content' }}

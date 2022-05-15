@@ -10,9 +10,11 @@ import { DataSummaryVisual } from './dataSummary';
 import { FieldListSection } from '../../../reusable/fieldList/fieldList';
 import css from './tabContent.module.css';
 import { Button, Form, Input, Modal, Table, Tooltip, Select, Cascader } from 'antd';
+import { useParams } from 'react-router-dom';
 const { Option } = Select;
 
-export const DataManagementTabContentFetch: React.FunctionComponent<{ studyId: string }> = ({ studyId }) => {
+export const DataManagementTabContentFetch: React.FunctionComponent = () => {
+    const { studyId } = useParams();
     const { loading: getStudyLoading, error: getStudyError, data: getStudyData } = useQuery(GET_STUDY, { variables: { studyId: studyId } });
     const { loading: getStudyFieldsLoading, error: getStudyFieldsError, data: getStudyFieldsData } = useQuery(GET_STUDY_FIELDS, { variables: { studyId: studyId } });
     const { loading: getDataRecordsLoading, error: getDataRecordsError, data: getDataRecordsData } = useQuery(GET_DATA_RECORDS, {
@@ -41,7 +43,7 @@ export const DataManagementTabContentFetch: React.FunctionComponent<{ studyId: s
     if (getStudyLoading || getStudyFieldsLoading || getDataRecordsLoading || whoAmILoading || getOntologyTreeLoading) {
         return <LoadSpinner />;
     }
-    if (getStudyError || getStudyFieldsError || getDataRecordsError || whoAmIError || getOntologyTreeError) {
+    if (!studyId || getStudyError || getStudyFieldsError || getDataRecordsError || whoAmIError || getOntologyTreeError) {
         return <p>
             A error occured, please contact your administrator
         </p>;

@@ -1,3 +1,6 @@
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-nocheck
+
 import request from 'supertest';
 import { print } from 'graphql';
 import { connectAdmin, connectUser, connectAgent } from './_loginHelper';
@@ -859,7 +862,7 @@ describe('STUDY API', () => {
         });
 
         test('Get standardized data (authorised user)', async () => {
-            const y = await authorisedUserStudy.post('/graphql').send({
+            await authorisedUserStudy.post('/graphql').send({
                 query: print(CREATE_NEW_FIELD),
                 variables: {
                     studyId: createdStudy.id,
@@ -939,27 +942,31 @@ describe('STUDY API', () => {
                                 path: ['QS', 'MFI'],
                                 name: 'AGE',
                                 field: ['$100'],
+                                visitRange: []
                             },
                             {
                                 path: ['QS', 'MFI'],
                                 name: '',
-                                field: ['$101']
+                                field: ['$101'],
+                                visitRange: []
                             },
                             {
                                 path: ['DM'],
                                 name: '',
-                                field: ['$110']
+                                field: ['$110'],
+                                visitRange: []
                             },
                             {
                                 path: ['DM'],
                                 name: '',
-                                field: ['$111']
+                                field: ['$111'],
+                                visitRange: []
                             }
                         ]
                     }
                 }
             });
-            const x = await admin.post('/graphql').send({
+            await admin.post('/graphql').send({
                 query: print(CREATE_NEW_DATA_VERSION),
                 variables: { studyId: createdStudy.id, dataVersion: '1', tag: 'testTag' }
             });
@@ -1134,76 +1141,76 @@ describe('STUDY API', () => {
             expect(res.status).toBe(200);
             expect(res.body.errors).toBeUndefined();
             expect(res.body.data.getDataRecords.data).toEqual({
-                QS:[
+                QS: [
                     {
-                        entry_value:'fakeValue100',
-                        entry_reserved:'GR6R4AR',
-                        entry_inc:1,
-                        entry_data:'2',
-                        entry_field:'test'
+                        entry_value: 'fakeValue100',
+                        entry_reserved: 'GR6R4AR',
+                        entry_inc: 1,
+                        entry_data: '2',
+                        entry_field: 'test'
                     },
                     {
-                        entry_value:'fakeValue101',
-                        entry_reserved:'GR6R4AR',
-                        entry_inc:2,
-                        entry_data:'1',
-                        entry_field:'test'
+                        entry_value: 'fakeValue101',
+                        entry_reserved: 'GR6R4AR',
+                        entry_inc: 2,
+                        entry_data: '1',
+                        entry_field: 'test'
                     },
                     {
-                        entry_value:'fakeValue100',
-                        entry_reserved:'GR6R4AR',
-                        entry_inc:4,
-                        entry_data:'1',
-                        entry_field:'test'
+                        entry_value: 'fakeValue100',
+                        entry_reserved: 'GR6R4AR',
+                        entry_inc: 4,
+                        entry_data: '1',
+                        entry_field: 'test'
                     },
                     {
-                        entry_value:'fakeValue101',
-                        entry_reserved:'GR6R4AR',
-                        entry_inc:5,
-                        entry_data:'2',
-                        entry_field:'test'
+                        entry_value: 'fakeValue101',
+                        entry_reserved: 'GR6R4AR',
+                        entry_inc: 5,
+                        entry_data: '2',
+                        entry_field: 'test'
                     },
                     {
-                        entry_value:'fakeValue100',
-                        entry_reserved:'I7N3G6G',
-                        entry_inc:1,
-                        entry_data:'1',
-                        entry_field:'test'
+                        entry_value: 'fakeValue100',
+                        entry_reserved: 'I7N3G6G',
+                        entry_inc: 1,
+                        entry_data: '1',
+                        entry_field: 'test'
                     },
                     {
-                        entry_value:'fakeValue101',
-                        entry_reserved:'I7N3G6G',
-                        entry_inc:2,
-                        entry_data:'2',
-                        entry_field:'test'
+                        entry_value: 'fakeValue101',
+                        entry_reserved: 'I7N3G6G',
+                        entry_inc: 2,
+                        entry_data: '2',
+                        entry_field: 'test'
                     },
                     {
-                        entry_value:'fakeValue100',
-                        entry_reserved:'I7N3G6G',
-                        entry_inc:4,
-                        entry_data:'1',
-                        entry_field:'test'
+                        entry_value: 'fakeValue100',
+                        entry_reserved: 'I7N3G6G',
+                        entry_inc: 4,
+                        entry_data: '1',
+                        entry_field: 'test'
                     },
                     {
-                        entry_value:'fakeValue101',
-                        entry_reserved:'I7N3G6G',
-                        entry_inc:5,
-                        entry_data:'2',
-                        entry_field:'test'
+                        entry_value: 'fakeValue101',
+                        entry_reserved: 'I7N3G6G',
+                        entry_inc: 5,
+                        entry_data: '2',
+                        entry_field: 'test'
                     }
                 ],
-                DM:[
+                DM: [
                     {
-                        entry_reserved:'GR6R4AR',
-                        entry_inc:3,
-                        entry_data_age:35,
-                        entry_data_gender:'F'
+                        entry_reserved: 'GR6R4AR',
+                        entry_inc: 3,
+                        entry_data_age: 35,
+                        entry_data_gender: 'F'
                     },
                     {
-                        entry_reserved:'I7N3G6G',
-                        entry_inc:3,
-                        entry_data_age:25,
-                        entry_data_gender:'M'
+                        entry_reserved: 'I7N3G6G',
+                        entry_inc: 3,
+                        entry_data_age: 25,
+                        entry_data_gender: 'M'
                     }
                 ]
             });
