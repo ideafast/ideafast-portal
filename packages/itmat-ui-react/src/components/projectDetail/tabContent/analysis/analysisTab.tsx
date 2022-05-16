@@ -801,7 +801,7 @@ function divideResults(filters, results, fields, dmFields: any[]) {
             }
             const dataByVisit = results[el][es.visit]?.data;
             // check demographics
-            let valid = true;
+            let valid;
             for (let i = 0; i < dataByVisit.length; i++) {
                 valid = true;
                 for (const key of Object.keys(dms)) {
