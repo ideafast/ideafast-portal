@@ -15,11 +15,12 @@
             "field_dictionary_collection": "1FIELD_COLLECTION",
             "files_collection": "1FILES_COLLECTION",
             "pubkeys_collection": "1PUBKEY_COLLECTION",
+            "standardizations_collection": "STANDARDIZATION_COLLECTION",
             "docs_collection": "DOC_COLLECTION"
         }
     },
     "server": {
-        "port": 3333
+        "port": 3003
     },
     "objectStore": {
         "host": "localhost",

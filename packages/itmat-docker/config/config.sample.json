@@ -15,6 +15,7 @@
             "roles_collection": "ROLE_COLLECTION",
             "field_dictionary_collection": "FIELD_COLLECTION",
             "files_collection": "FILES_COLLECTION",
+            "standardizations_collection": "STANDARDIZATION_COLLECTION",
             "pubkeys_collection": "PUBKEY_COLLECTION",
             "docs_collection": "DOC_COLLECTION"
         }
@@ -35,5 +36,6 @@
     },
     "sessionsSecret": "Change_Me",
     "aesSecret": "change_this",
-    "nodemailer": {}
+    "nodemailer": {},
+    "aeEndpoint": "http://localhost:9090"
 }

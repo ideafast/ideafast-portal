@@ -7,9 +7,9 @@ import { connectAdmin, connectUser, connectAgent } from './_loginHelper';
 import { db } from '../../src/database/database';
 import { Router } from '../../src/server/router';
 import { errorCodes } from '../../src/graphql/errors';
-import { MongoClient } from 'mongodb';
+import { Db, MongoClient } from 'mongodb';
 import { MongoMemoryServer } from 'mongodb-memory-server';
-import { setupDatabase } from 'itmat-setup';
+import { setupDatabase } from '@itmat-broker/itmat-setup';
 import config from '../../config/config.sample.json';
 import { v4 as uuid } from 'uuid';
 import {
@@ -28,35 +28,41 @@ import {
     DELETE_PROJECT,
     EDIT_PROJECT_APPROVED_FILES,
     SET_DATAVERSION_AS_CURRENT,
-    userTypes,
+    EDIT_STUDY,
+    UPLOAD_DATA_IN_ARRAY,
+    DELETE_DATA_RECORDS,
+    GET_DATA_RECORDS,
+    CREATE_NEW_DATA_VERSION,
+    CHECK_DATA_COMPLETE,
+    CREATE_NEW_FIELD,
+    DELETE_FIELD,
+    CREATE_ONTOLOGY_TREE,
+    DELETE_ONTOLOGY_TREE,
+    GET_ONTOLOGY_TREE
+} from '@itmat-broker/itmat-models';
+import {
     permissions,
+    userTypes,
+    studyType,
+    enumValueType,
     IDataEntry,
     IUser,
     IFile,
     IFieldEntry,
     IStudyDataVersion,
     IStudy,
-    enumValueType,
-    EDIT_STUDY,
-    studyType,
-    UPLOAD_DATA_IN_ARRAY,
-    DELETE_DATA_RECORDS,
-    ADD_ONTOLOGY_FIELD,
-    GET_DATA_RECORDS,
-    DELETE_ONTOLOGY_FIELD,
-    CREATE_NEW_DATA_VERSION,
-    CHECK_DATA_COMPLETE,
-    CREATE_NEW_FIELD,
-    DELETE_FIELD
-} from 'itmat-commons';
+    IProject,
+    IRole
+} from '@itmat-broker/itmat-types';
+import { Express } from 'express';
 
 
-let app;
-let mongodb;
-let admin;
-let user;
-let mongoConnection;
-let mongoClient;
+let app: Express;
+let mongodb: MongoMemoryServer;
+let admin: request.SuperTest<request.Test>;
+let user: request.SuperTest<request.Test>;
+let mongoConnection: MongoClient;
+let mongoClient: Db;
 
 afterAll(async () => {
     await db.closeConnection();
@@ -69,20 +75,20 @@ afterAll(async () => {
 
 beforeAll(async () => { // eslint-disable-line no-undef
     /* Creating a in-memory MongoDB instance for testing */
-    mongodb = await MongoMemoryServer.create();
+    const dbName = uuid();
+    mongodb = await MongoMemoryServer.create({ instance: { dbName } });
     const connectionString = mongodb.getUri();
-    const database = mongodb.instanceInfo.dbName;
-    await setupDatabase(connectionString, database);
+    await setupDatabase(connectionString, dbName);
 
     /* Wiring up the backend server */
     config.database.mongo_url = connectionString;
-    config.database.database = database;
+    config.database.database = dbName;
     await db.connect(config.database, MongoClient.connect as any);
     const router = new Router(config);
 
     /* Connect mongo client (for test setup later / retrieve info later) */
     mongoConnection = await MongoClient.connect(connectionString);
-    mongoClient = mongoConnection.db(database);
+    mongoClient = mongoConnection.db(dbName);
 
     /* Connecting clients for testing later */
     app = router.getApp();
@@ -96,12 +102,12 @@ beforeAll(async () => { // eslint-disable-line no-undef
 });
 
 describe('STUDY API', () => {
-    let adminId;
+    let adminId: any;
 
     beforeAll(async () => {
         /* setup: first retrieve the generated user id */
-        const result = await mongoClient.collection(config.database.collections.users_collection).find({}, { projection: { id: 1, username: 1 } }).toArray();
-        adminId = result.filter(e => e.username === 'admin')[0].id;
+        const result = await mongoClient.collection<IUser>(config.database.collections.users_collection).find({}, { projection: { id: 1, username: 1 } }).toArray();
+        adminId = result.filter((e: { username: string; }) => e.username === 'admin')[0].id;
     });
 
     describe('MANIPULATING STUDIES EXISTENCE', () => {
@@ -114,7 +120,7 @@ describe('STUDY API', () => {
             expect(res.status).toBe(200);
             expect(res.body.errors).toBeUndefined();
 
-            const createdStudy = await mongoClient.collection(config.database.collections.studies_collection).findOne({ name: studyName });
+            const createdStudy = await mongoClient.collection<IStudy>(config.database.collections.studies_collection).findOne({ name: studyName });
             expect(res.body.data.createStudy).toEqual({
                 id: createdStudy.id,
                 name: studyName,
@@ -148,7 +154,7 @@ describe('STUDY API', () => {
             });
 
             /* cleanup: delete study */
-            await mongoClient.collection(config.database.collections.studies_collection).findOneAndUpdate({ name: studyName, deleted: null }, { $set: { deleted: new Date().valueOf() } });
+            await mongoClient.collection<IStudy>(config.database.collections.studies_collection).findOneAndUpdate({ name: studyName, deleted: null }, { $set: { deleted: new Date().valueOf() } });
         });
 
         test('Edit study (admin)', async () => {
@@ -160,7 +166,7 @@ describe('STUDY API', () => {
             expect(res.status).toBe(200);
             expect(res.body.errors).toBeUndefined();
 
-            const createdStudy = await mongoClient.collection(config.database.collections.studies_collection).findOne({ name: studyName });
+            const createdStudy = await mongoClient.collection<IStudy>(config.database.collections.studies_collection).findOne({ name: studyName });
             expect(res.body.data.createStudy).toEqual({
                 id: createdStudy.id,
                 name: studyName,
@@ -180,7 +186,7 @@ describe('STUDY API', () => {
             });
 
             /* cleanup: delete study */
-            await mongoClient.collection(config.database.collections.studies_collection).findOneAndUpdate({ name: studyName, deleted: null }, { $set: { deleted: new Date().valueOf() } });
+            await mongoClient.collection<IStudy>(config.database.collections.studies_collection).findOneAndUpdate({ name: studyName, deleted: null }, { $set: { deleted: new Date().valueOf() } });
         });
 
         test('Create study that violate unique name constraint (admin)', async () => {
@@ -194,7 +200,7 @@ describe('STUDY API', () => {
                 currentDataVersion: -1,
                 dataVersions: []
             };
-            await mongoClient.collection(config.database.collections.studies_collection).insertOne(newStudy);
+            await mongoClient.collection<IStudy>(config.database.collections.studies_collection).insertOne(newStudy);
 
             const res = await admin.post('/graphql').send({
                 query: print(CREATE_STUDY),
@@ -206,11 +212,11 @@ describe('STUDY API', () => {
             expect(res.body.data.createStudy).toBe(null);
 
             /* should be only one study in database */
-            const study = await mongoClient.collection(config.database.collections.studies_collection).find({ name: studyName }).toArray();
+            const study = await mongoClient.collection<IStudy>(config.database.collections.studies_collection).find({ name: studyName }).toArray();
             expect(study).toEqual([newStudy]);
 
             /* cleanup: delete study */
-            await mongoClient.collection(config.database.collections.studies_collection).findOneAndUpdate({ name: studyName, deleted: null }, { $set: { deleted: new Date().valueOf() } });
+            await mongoClient.collection<IStudy>(config.database.collections.studies_collection).findOneAndUpdate({ name: studyName, deleted: null }, { $set: { deleted: new Date().valueOf() } });
         });
 
         test('Create study that violate unique name constraint (case insensitive) (admin)', async () => {
@@ -224,7 +230,7 @@ describe('STUDY API', () => {
                 currentDataVersion: -1,
                 dataVersions: []
             };
-            await mongoClient.collection(config.database.collections.studies_collection).insertOne(newStudy);
+            await mongoClient.collection<IStudy>(config.database.collections.studies_collection).insertOne(newStudy);
 
             const res = await admin.post('/graphql').send({
                 query: print(CREATE_STUDY),
@@ -236,11 +242,11 @@ describe('STUDY API', () => {
             expect(res.body.data.createStudy).toBe(null);
 
             /* should be only one study in database */
-            const study = await mongoClient.collection(config.database.collections.studies_collection).find({ name: { $in: [studyName, studyName.toUpperCase()] } }).toArray();
+            const study = await mongoClient.collection<IStudy>(config.database.collections.studies_collection).find({ name: { $in: [studyName, studyName.toUpperCase()] } }).toArray();
             expect(study).toEqual([newStudy]);
 
             /* cleanup: delete study */
-            await mongoClient.collection(config.database.collections.studies_collection).findOneAndUpdate({ name: studyName, deleted: null }, { $set: { deleted: new Date().valueOf() } });
+            await mongoClient.collection<IStudy>(config.database.collections.studies_collection).findOneAndUpdate({ name: studyName, deleted: null }, { $set: { deleted: new Date().valueOf() } });
         });
 
         test('Create study (user) (should fail)', async () => {
@@ -254,7 +260,7 @@ describe('STUDY API', () => {
             expect(res.body.errors).toHaveLength(1);
             expect(res.body.errors[0].message).toBe(errorCodes.NO_PERMISSION_ERROR);
 
-            const createdStudy = await mongoClient.collection(config.database.collections.studies_collection).findOne({ name: studyName });
+            const createdStudy = await mongoClient.collection<IStudy>(config.database.collections.studies_collection).findOne({ name: studyName });
             expect(createdStudy).toBe(null);
         });
 
@@ -267,7 +273,7 @@ describe('STUDY API', () => {
             expect(res.status).toBe(200);
             expect(res.body.errors).toBeUndefined();
 
-            const createdStudy = await mongoClient.collection(config.database.collections.studies_collection).findOne({ name: studyName });
+            const createdStudy = await mongoClient.collection<IStudy>(config.database.collections.studies_collection).findOne({ name: studyName });
             expect(res.body.data.createStudy).toEqual({
                 id: createdStudy.id,
                 name: studyName,
@@ -285,7 +291,7 @@ describe('STUDY API', () => {
             expect(editStudy.body.errors[0].message).toBe(errorCodes.NO_PERMISSION_ERROR);
 
             /* cleanup: delete study */
-            await mongoClient.collection(config.database.collections.studies_collection).findOneAndUpdate({ name: studyName, deleted: null }, { $set: { deleted: new Date().valueOf() } });
+            await mongoClient.collection<IStudy>(config.database.collections.studies_collection).findOneAndUpdate({ name: studyName, deleted: null }, { $set: { deleted: new Date().valueOf() } });
         });
 
         test('Delete study (no projects) (admin)', async () => {
@@ -301,7 +307,7 @@ describe('STUDY API', () => {
                 dataVersions: [],
                 type: studyType.SENSOR
             };
-            await mongoClient.collection(config.database.collections.studies_collection).insertOne(newStudy);
+            await mongoClient.collection<IStudy>(config.database.collections.studies_collection).insertOne(newStudy);
 
             const resWhoAmI = await admin.post('/graphql').send({ query: print(WHO_AM_I) });
             expect(resWhoAmI.status).toBe(200);
@@ -340,7 +346,7 @@ describe('STUDY API', () => {
                 successful: true
             });
 
-            const study = await mongoClient.collection(config.database.collections.studies_collection).findOne({ id: newStudy.id });
+            const study = await mongoClient.collection<IStudy>(config.database.collections.studies_collection).findOne({ id: newStudy.id });
             expect(typeof study.deleted).toBe('number');
 
             const resWhoAmIAfter = await admin.post('/graphql').send({ query: print(WHO_AM_I) });
@@ -377,7 +383,7 @@ describe('STUDY API', () => {
                 currentDataVersion: -1,
                 dataVersions: []
             };
-            await mongoClient.collection(config.database.collections.studies_collection).insertOne(newStudy);
+            await mongoClient.collection<IStudy>(config.database.collections.studies_collection).insertOne(newStudy);
 
             /* test */
             const res = await admin.post('/graphql').send({
@@ -413,7 +419,7 @@ describe('STUDY API', () => {
                 currentDataVersion: -1,
                 dataVersions: []
             };
-            await mongoClient.collection(config.database.collections.studies_collection).insertOne(newStudy);
+            await mongoClient.collection<IStudy>(config.database.collections.studies_collection).insertOne(newStudy);
 
             const res = await user.post('/graphql').send({
                 query: print(DELETE_STUDY),
@@ -425,18 +431,18 @@ describe('STUDY API', () => {
             expect(res.body.errors[0].message).toBe(errorCodes.NO_PERMISSION_ERROR);
 
             /* confirms that the created study is still alive */
-            const createdStudy = await mongoClient.collection(config.database.collections.studies_collection).findOne({ name: studyName });
+            const createdStudy = await mongoClient.collection<IStudy>(config.database.collections.studies_collection).findOne({ name: studyName });
             expect(createdStudy.deleted).toBe(null);
 
             /* cleanup: delete study */
-            await mongoClient.collection(config.database.collections.studies_collection).findOneAndUpdate({ name: studyName, deleted: null }, { $set: { deleted: new Date().valueOf() } });
+            await mongoClient.collection<IStudy>(config.database.collections.studies_collection).findOneAndUpdate({ name: studyName, deleted: null }, { $set: { deleted: new Date().valueOf() } });
         });
     });
 
     describe('MANIPULATING PROJECTS EXISTENCE', () => {
         let testCounter = 0;
-        let setupStudy;
-        let setupProject;
+        let setupStudy: { id: any; name?: string; createdBy?: string; lastModified?: number; deleted?: null; currentDataVersion?: number; dataVersions?: { id: string; contentId: string; version: string; tag: string; updateDate: string; }[]; };
+        let setupProject: { id: any; studyId?: string; createdBy?: string; name?: string; patientMapping?: { patient001: string; }; approvedFields?: never[]; approvedFiles?: never[]; lastModified?: number; deleted?: null; };
         beforeEach(async () => {
             testCounter++;
             /* setup: creating a study */
@@ -458,7 +464,7 @@ describe('STUDY API', () => {
                     }
                 ]
             };
-            await mongoClient.collection(config.database.collections.studies_collection).insertOne(setupStudy);
+            await mongoClient.collection<IStudy>(config.database.collections.studies_collection).insertOne(setupStudy);
 
             /* setup: creating a project */
             const projectName = uuid() + 'PROJECTNAME_manipulating_project_existentce_' + testCounter;
@@ -473,12 +479,12 @@ describe('STUDY API', () => {
                 lastModified: 20000002,
                 deleted: null
             };
-            await mongoClient.collection(config.database.collections.projects_collection).insertOne(setupProject);
+            await mongoClient.collection<IProject>(config.database.collections.projects_collection).insertOne(setupProject);
         });
 
         afterEach(async () => {
-            await mongoClient.collection(config.database.collections.studies_collection).updateOne({ id: setupStudy.id }, { $set: { deleted: 10000 } });
-            await mongoClient.collection(config.database.collections.projects_collection).updateOne({ id: setupProject.id }, { $set: { deleted: 10000 } });
+            await mongoClient.collection<IStudy>(config.database.collections.studies_collection).updateOne({ id: setupStudy.id }, { $set: { deleted: 10000 } });
+            await mongoClient.collection<IProject>(config.database.collections.projects_collection).updateOne({ id: setupProject.id }, { $set: { deleted: 10000 } });
         });
 
         test('Create project (no existing patients in study) (admin)', async () => {
@@ -493,13 +499,12 @@ describe('STUDY API', () => {
             expect(res.status).toBe(200);
             expect(res.body.errors).toBeUndefined();
 
-            const createdProject = await mongoClient.collection(config.database.collections.projects_collection).findOne({ name: projectName });
+            const createdProject = await mongoClient.collection<IProject>(config.database.collections.projects_collection).findOne({ name: projectName });
             expect(createdProject).toEqual({
                 _id: createdProject._id,
                 id: createdProject.id,
                 studyId: setupStudy.id,
                 createdBy: adminId,
-                dataVersion: null,
                 name: projectName,
                 patientMapping: {},
                 approvedFields: [],
@@ -515,7 +520,7 @@ describe('STUDY API', () => {
             });
 
             /* cleanup: delete project */
-            await mongoClient.collection(config.database.collections.projects_collection).updateOne({ id: createdProject.id }, { $set: { deleted: 10000 } });
+            await mongoClient.collection<IProject>(config.database.collections.projects_collection).updateOne({ id: createdProject.id }, { $set: { deleted: 10000 } });
         });
 
         test('Create project (user with no privilege) (should fail)', async () => {
@@ -552,7 +557,7 @@ describe('STUDY API', () => {
                 createdAt: 1591134065000,
                 expiredAt: 1991134065000
             };
-            await mongoClient.collection(config.database.collections.users_collection).insertOne(authorisedUserProfile);
+            await mongoClient.collection<IUser>(config.database.collections.users_collection).insertOne(authorisedUserProfile);
 
             const roleId = uuid();
             const newRole = {
@@ -566,7 +571,7 @@ describe('STUDY API', () => {
                 users: [authorisedUserProfile.id],
                 deleted: null
             };
-            await mongoClient.collection(config.database.collections.roles_collection).insertOne(newRole);
+            await mongoClient.collection<IRole>(config.database.collections.roles_collection).insertOne(newRole);
 
             const authorisedUser = request.agent(app);
             await connectAgent(authorisedUser, username, 'admin', authorisedUserProfile.otpSecret);
@@ -582,13 +587,12 @@ describe('STUDY API', () => {
             });
             expect(res.status).toBe(200);
             expect(res.body.errors).toBeUndefined();
-            const createdProject = await mongoClient.collection(config.database.collections.projects_collection).findOne({ name: projectName });
+            const createdProject = await mongoClient.collection<IProject>(config.database.collections.projects_collection).findOne({ name: projectName });
             expect(createdProject).toEqual({
                 _id: createdProject._id,
                 id: createdProject.id,
                 studyId: setupStudy.id,
                 createdBy: authorisedUserProfile.id,
-                dataVersion: null,
                 patientMapping: {},
                 name: projectName,
                 approvedFields: [],
@@ -604,7 +608,7 @@ describe('STUDY API', () => {
             });
 
             /* cleanup: delete project */
-            await mongoClient.collection(config.database.collections.projects_collection).updateOne({ id: createdProject.id }, { $set: { deleted: 10000 } });
+            await mongoClient.collection<IProject>(config.database.collections.projects_collection).updateOne({ id: createdProject.id }, { $set: { deleted: 10000 } });
         });
 
         test('Delete project (user without privilege) (should fail)', async () => {
@@ -657,7 +661,7 @@ describe('STUDY API', () => {
                 createdAt: 1591134065000,
                 expiredAt: 1991134065000
             };
-            await mongoClient.collection(config.database.collections.users_collection).insertOne(authorisedUserProfile);
+            await mongoClient.collection<IUser>(config.database.collections.users_collection).insertOne(authorisedUserProfile);
 
             const roleId = uuid();
             const newRole = {
@@ -671,7 +675,7 @@ describe('STUDY API', () => {
                 users: [authorisedUserProfile.id],
                 deleted: null
             };
-            await mongoClient.collection(config.database.collections.roles_collection).insertOne(newRole);
+            await mongoClient.collection<IRole>(config.database.collections.roles_collection).insertOne(newRole);
 
             const authorisedUser = request.agent(app);
             await connectAgent(authorisedUser, username, 'admin', authorisedUserProfile.otpSecret);
@@ -707,17 +711,20 @@ describe('STUDY API', () => {
     });
 
     describe('MINI END-TO-END API TEST, NO UI, NO DATA', () => {
-        let createdProject;
-        let createdStudy;
-        let createdRole_study;
-        let createdRole_study_manageProject;
-        let createdRole_project;
-        let createdUserAuthorised;  // profile
-        let createdUserAuthorisedStudy;  // profile
-        let createdUserAuthorisedStudyManageProjects;  // profile
-        let authorisedUser; // client
-        let authorisedUserStudy; // client
-        let authorisedUserStudyManageProject; // client
+        let createdProject: { id: any; name: any; patientMapping: { mock_patient1: any; mock_patient2: any; }; };
+        let createdStudy: { id: any; name: any; };
+        let createdRole_study: { _id: any; id: any; name: any; };
+        let createdRole_study_manageProject: { _id: any; id: any; name: any; };
+        let createdRole_study_self_access: { _id: any; id: any; name: any; };
+        let createdRole_project: { _id: any; id: any; name: any; };
+        let createdUserAuthorised: { id: any; firstname: any; lastname: any; username: string; otpSecret: string; };  // profile
+        let createdUserAuthorisedStudy: { id: any; firstname: any; lastname: any; username: string; otpSecret: string; };  // profile
+        let createdUserAuthorisedStudyManageProjects: { id: any; firstname: any; lastname: any; username: string; otpSecret: string; };  // profile
+        let createdUserAuthorisedToOneOrg: { id: any; firstname: any; lastname: any; username: string; otpSecret: string; }; // profile
+        let authorisedUser: request.SuperTest<request.Test>; // client
+        let authorisedUserStudy: request.SuperTest<request.Test>; // client
+        let authorisedUserStudyManageProject: request.SuperTest<request.Test>; // client
+        let authorisedUserToOneOrg: request.SuperTest<request.Test>; // client
         let mockFields: IFieldEntry[];
         let mockFiles: IFile[];
         let mockDataVersion: IStudyDataVersion;
@@ -726,7 +733,7 @@ describe('STUDY API', () => {
             contentId: 'mockContentId2',
             version: '0.0.2',
             updateDate: '5000000',
-            tag: 'hey',
+            tag: 'hey'
         };
 
         beforeAll(async () => {
@@ -740,7 +747,7 @@ describe('STUDY API', () => {
                 });
                 expect(res.status).toBe(200);
                 expect(res.body.errors).toBeUndefined();
-                createdStudy = await mongoClient.collection(config.database.collections.studies_collection).findOne({ name: studyName });
+                createdStudy = await mongoClient.collection<IStudy>(config.database.collections.studies_collection).findOne({ name: studyName });
                 expect(res.body.data.createStudy).toEqual({
                     id: createdStudy.id,
                     name: studyName,
@@ -755,7 +762,7 @@ describe('STUDY API', () => {
                     id: 'mockDataVersionId',
                     contentId: 'mockContentId',
                     version: '0.0.1',
-                    updateDate: '5000000',
+                    updateDate: '5000000'
                 };
                 const mockData: IDataEntry[] = [
                     {
@@ -811,7 +818,7 @@ describe('STUDY API', () => {
                 mockFiles = [
                     {
                         id: 'mockfile1_id',
-                        fileName: 'mockfile1_name',
+                        fileName: 'I7N3G6G-MMM7N3G6G-20200704-20210429.txt',
                         studyId: createdStudy.id,
                         fileSize: '1000',
                         description: 'Just a test file1',
@@ -819,11 +826,11 @@ describe('STUDY API', () => {
                         uploadedBy: adminId,
                         uri: 'fakeuri',
                         deleted: null,
-                        hash: '4ae25be36354ee0aec8dc8deac3f279d2e9d6415361da996cf57eb6142cfb1a2'
+                        hash: 'b0dc2ae76cdea04dcf4be7fcfbe36e2ce8d864fe70a1895c993ce695274ba7a0'
                     },
                     {
                         id: 'mockfile2_id',
-                        fileName: 'mockfile2_name',
+                        fileName: 'GR6R4AR-MMMS3JSPP-20200601-20200703.json',
                         studyId: createdStudy.id,
                         fileSize: '1000',
                         description: 'Just a test file2',
@@ -848,12 +855,12 @@ describe('STUDY API', () => {
                     variables: {
                         studyId: createdStudy.id,
                         projectName: projectName,
-                        dataVersion: mockDataVersion.id,
+                        dataVersion: mockDataVersion.id
                     }
                 });
                 expect(res.status).toBe(200);
                 expect(res.body.errors).toBeUndefined();
-                createdProject = await mongoClient.collection(config.database.collections.projects_collection).findOne({ name: projectName });
+                createdProject = await mongoClient.collection<IProject>(config.database.collections.projects_collection).findOne({ name: projectName });
                 expect(res.body.data.createProject).toEqual({
                     id: createdProject.id,
                     studyId: createdStudy.id,
@@ -876,7 +883,7 @@ describe('STUDY API', () => {
                 expect(res.status).toBe(200);
                 expect(res.body.errors).toBeUndefined();
 
-                createdRole_study = await mongoClient.collection(config.database.collections.roles_collection).findOne({ name: roleName });
+                createdRole_study = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({ name: roleName });
                 expect(createdRole_study).toEqual({
                     _id: createdRole_study._id,
                     id: createdRole_study.id,
@@ -911,7 +918,7 @@ describe('STUDY API', () => {
                 expect(res.status).toBe(200);
                 expect(res.body.errors).toBeUndefined();
 
-                createdRole_study_manageProject = await mongoClient.collection(config.database.collections.roles_collection).findOne({ name: roleName });
+                createdRole_study_manageProject = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({ name: roleName });
                 expect(createdRole_study_manageProject).toEqual({
                     _id: createdRole_study_manageProject._id,
                     id: createdRole_study_manageProject.id,
@@ -933,6 +940,42 @@ describe('STUDY API', () => {
                 });
             }
 
+            /* create another role for access data with self organisation only */
+            {
+                const roleName = uuid();
+                const res = await admin.post('/graphql').send({
+                    query: print(ADD_NEW_ROLE),
+                    variables: {
+                        roleName,
+                        studyId: createdStudy.id,
+                        projectId: null
+                    }
+                });
+                expect(res.status).toBe(200);
+                expect(res.body.errors).toBeUndefined();
+
+                createdRole_study_self_access = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({ name: roleName });
+                expect(createdRole_study_self_access).toEqual({
+                    _id: createdRole_study_self_access._id,
+                    id: createdRole_study_self_access.id,
+                    projectId: null,
+                    studyId: createdStudy.id,
+                    name: roleName,
+                    permissions: [],
+                    createdBy: adminId,
+                    users: [],
+                    deleted: null
+                });
+                expect(res.body.data.addRoleToStudyOrProject).toEqual({
+                    id: createdRole_study_self_access.id,
+                    name: roleName,
+                    permissions: [],
+                    studyId: createdStudy.id,
+                    projectId: null,
+                    users: []
+                });
+            }
+
             /* 4. create roles for project */
             {
                 const roleName = uuid();
@@ -946,7 +989,7 @@ describe('STUDY API', () => {
                 });
                 expect(res.status).toBe(200);
                 expect(res.body.errors).toBeUndefined();
-                createdRole_project = await mongoClient.collection(config.database.collections.roles_collection).findOne({ name: roleName });
+                createdRole_project = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({ name: roleName });
                 expect(createdRole_project).toEqual({
                     _id: createdRole_project._id,
                     id: createdRole_project.id,
@@ -988,8 +1031,8 @@ describe('STUDY API', () => {
                     createdAt: 1591134065000,
                     expiredAt: 1991134065000
                 };
-                await mongoClient.collection(config.database.collections.users_collection).insertOne(newUser);
-                createdUserAuthorised = await mongoClient.collection(config.database.collections.users_collection).findOne({ username });
+                await mongoClient.collection<IUser>(config.database.collections.users_collection).insertOne(newUser);
+                createdUserAuthorised = await mongoClient.collection<IUser>(config.database.collections.users_collection).findOne({ username });
             }
 
             /* 6. add authorised user to role */
@@ -1072,8 +1115,8 @@ describe('STUDY API', () => {
                     createdAt: 1591134065000,
                     expiredAt: 1991134065000
                 };
-                await mongoClient.collection(config.database.collections.users_collection).insertOne(newUser);
-                createdUserAuthorisedStudy = await mongoClient.collection(config.database.collections.users_collection).findOne({ username });
+                await mongoClient.collection<IUser>(config.database.collections.users_collection).insertOne(newUser);
+                createdUserAuthorisedStudy = await mongoClient.collection<IUser>(config.database.collections.users_collection).findOne({ username });
             }
 
             /* 6. add authorised user to role */
@@ -1160,8 +1203,33 @@ describe('STUDY API', () => {
                     expiredAt: 1991134065000
                 };
 
-                await mongoClient.collection(config.database.collections.users_collection).insertOne(newUser);
-                createdUserAuthorisedStudyManageProjects = await mongoClient.collection(config.database.collections.users_collection).findOne({ username });
+                await mongoClient.collection<IUser>(config.database.collections.users_collection).insertOne(newUser);
+                createdUserAuthorisedStudyManageProjects = await mongoClient.collection<IUser>(config.database.collections.users_collection).findOne({ username });
+            }
+
+            /* 5. create an authorised study user that can access data from self organisation only */
+            {
+                const username = uuid();
+                const newUser: IUser = {
+                    username: username,
+                    type: userTypes.STANDARD,
+                    firstname: `${username}_firstname`,
+                    lastname: `${username}_lastname`,
+                    password: '$2b$04$j0aSK.Dyq7Q9N.r6d0uIaOGrOe7sI4rGUn0JNcaXcPCv.49Otjwpi',
+                    otpSecret: 'H6BNKKO27DPLCATGEJAZNWQV4LWOTMRA',
+                    email: `${username}'@user.io'`,
+                    resetPasswordRequests: [],
+                    description: 'I am an authorised study user to access self org data.',
+                    emailNotificationsActivated: true,
+                    organisation: 'organisation_user',
+                    deleted: null,
+                    id: `AuthorisedStudyUserManageProject_${username}`,
+                    createdAt: 1591134065000,
+                    expiredAt: 1991134065000
+                };
+
+                await mongoClient.collection<IUser>(config.database.collections.users_collection).insertOne(newUser);
+                createdUserAuthorisedToOneOrg = await mongoClient.collection<IUser>(config.database.collections.users_collection).findOne({ username });
             }
 
             /* 6. add authorised user to role */
@@ -1226,6 +1294,68 @@ describe('STUDY API', () => {
                     }
                 });
             }
+            /* 7. add authorised user to role */
+            {
+                const res = await admin.post('/graphql').send({
+                    query: print(EDIT_ROLE),
+                    variables: {
+                        roleId: createdRole_study_self_access.id,
+                        userChanges: {
+                            add: [createdUserAuthorisedToOneOrg.id],
+                            remove: []
+                        },
+                        permissionChanges: {
+                            add: [permissions.specific_study.specific_study_readonly_access, permissions.specific_study.specific_study_data_own_organisation_only, permissions.specific_study.specific_study_projects_management],
+                            remove: []
+                        }
+                    }
+                });
+                expect(res.status).toBe(200);
+                expect(res.body.errors).toBeUndefined();
+                expect(res.body.data.editRole).toEqual({
+                    id: createdRole_study_self_access.id,
+                    name: createdRole_study_self_access.name,
+                    studyId: createdStudy.id,
+                    projectId: null,
+                    permissions: [permissions.specific_study.specific_study_readonly_access, permissions.specific_study.specific_study_data_own_organisation_only, permissions.specific_study.specific_study_projects_management],
+                    users: [{
+                        id: createdUserAuthorisedToOneOrg.id,
+                        organisation: 'organisation_user',
+                        firstname: createdUserAuthorisedToOneOrg.firstname,
+                        lastname: createdUserAuthorisedToOneOrg.lastname
+                    }]
+                });
+                const resUser = await admin.post('/graphql').send({
+                    query: print(GET_USERS),
+                    variables: {
+                        fetchDetailsAdminOnly: false,
+                        userId: createdUserAuthorisedToOneOrg.id,
+                        fetchAccessPrivileges: true
+                    }
+                });
+                expect(resUser.status).toBe(200);
+                expect(resUser.body.errors).toBeUndefined();
+                expect(resUser.body.data.getUsers).toHaveLength(1);
+                expect(resUser.body.data.getUsers[0]).toEqual({
+                    id: createdUserAuthorisedToOneOrg.id,
+                    type: userTypes.STANDARD,
+                    firstname: `${createdUserAuthorisedToOneOrg.username}_firstname`,
+                    lastname: `${createdUserAuthorisedToOneOrg.username}_lastname`,
+                    organisation: 'organisation_user',
+                    access: {
+                        id: `user_access_obj_user_id_${createdUserAuthorisedToOneOrg.id}`,
+                        projects: [{
+                            id: createdProject.id,
+                            name: createdProject.name,
+                            studyId: createdStudy.id
+                        }],
+                        studies: [{
+                            id: createdStudy.id,
+                            name: createdStudy.name
+                        }]
+                    }
+                });
+            }
             /* fsdafs: admin who am i */
             {
                 const res = await admin.post('/graphql').send({ query: print(WHO_AM_I) });
@@ -1262,6 +1392,8 @@ describe('STUDY API', () => {
             await connectAgent(authorisedUserStudy, createdUserAuthorisedStudy.username, 'admin', createdUserAuthorisedStudy.otpSecret);
             authorisedUserStudyManageProject = request.agent(app);
             await connectAgent(authorisedUserStudyManageProject, createdUserAuthorisedStudyManageProjects.username, 'admin', createdUserAuthorisedStudyManageProjects.otpSecret);
+            authorisedUserToOneOrg = request.agent(app);
+            await connectAgent(authorisedUserToOneOrg, createdUserAuthorisedToOneOrg.username, 'admin', createdUserAuthorisedToOneOrg.otpSecret);
         });
 
         afterAll(async () => {
@@ -1388,7 +1520,6 @@ describe('STUDY API', () => {
                     jobs: [],
                     description: 'test description',
                     type: studyType.SENSOR,
-                    ontologyTree: null,
                     projects: [
                         {
                             id: createdProject.id,
@@ -1424,23 +1555,37 @@ describe('STUDY API', () => {
                                 lastname: createdUserAuthorisedStudyManageProjects.lastname,
                                 username: createdUserAuthorisedStudyManageProjects.username
                             }]
+                        },
+                        {
+                            id: createdRole_study_self_access.id,
+                            name: createdRole_study_self_access.name,
+                            permissions: [permissions.specific_study.specific_study_readonly_access, permissions.specific_study.specific_study_data_own_organisation_only, permissions.specific_study.specific_study_projects_management],
+                            projectId: null,
+                            studyId: createdStudy.id,
+                            users: [{
+                                id: createdUserAuthorisedToOneOrg.id,
+                                organisation: 'organisation_user',
+                                firstname: createdUserAuthorisedToOneOrg.firstname,
+                                lastname: createdUserAuthorisedToOneOrg.lastname,
+                                username: createdUserAuthorisedToOneOrg.username
+                            }]
                         }
                     ],
                     files: [
                         {
                             id: 'mockfile1_id',
-                            fileName: 'mockfile1_name',
+                            fileName: 'I7N3G6G-MMM7N3G6G-20200704-20210429.txt',
                             studyId: createdStudy.id,
                             projectId: null,
                             fileSize: '1000',
                             description: 'Just a test file1',
                             uploadTime: '1599345644000',
                             uploadedBy: adminId,
-                            hash: '4ae25be36354ee0aec8dc8deac3f279d2e9d6415361da996cf57eb6142cfb1a2'
+                            hash: 'b0dc2ae76cdea04dcf4be7fcfbe36e2ce8d864fe70a1895c993ce695274ba7a0'
                         },
                         {
                             id: 'mockfile2_id',
-                            fileName: 'mockfile2_name',
+                            fileName: 'GR6R4AR-MMMS3JSPP-20200601-20200703.json',
                             studyId: createdStudy.id,
                             projectId: null,
                             fileSize: '1000',
@@ -1450,6 +1595,7 @@ describe('STUDY API', () => {
                             hash: '4ae25be36354ee0aec8dc8deac3f279d2e9d6415361da996cf57eb6142cfb1a3'
                         }
                     ],
+                    ontologyTrees: [],
                     numOfRecords: 2,
                     subjects: ['mock_patient1', 'mock_patient2'],
                     visits: ['mockvisitId'],
@@ -1460,7 +1606,7 @@ describe('STUDY API', () => {
                         version: '0.0.1',
                         // fileSize: '10000',
                         updateDate: '5000000',
-                        tag: null,
+                        tag: null
                     }]
                 });
             }
@@ -1477,6 +1623,22 @@ describe('STUDY API', () => {
                     name: createdProject.name,
                     approvedFields: [],
                     approvedFiles: [],
+                    dataVersion: {
+                        contentId: 'mockContentId',
+                        id: 'mockDataVersionId',
+                        tag: null,
+                        updateDate: '5000000',
+                        version: '0.0.1'
+                    },
+                    summary: {
+                        subjects: [
+                            'mock_patient1',
+                            'mock_patient2'
+                        ],
+                        visits: [
+                            'mockvisitId'
+                        ]
+                    },
                     jobs: [],
                     roles: [
                         {
@@ -1499,6 +1661,27 @@ describe('STUDY API', () => {
                     files: []
                 });
             }
+        });
+
+        test('Get study (user that can only access self org data)', async () => {
+            const res = await authorisedUserToOneOrg.post('/graphql').send({
+                query: print(GET_STUDY),
+                variables: { studyId: createdStudy.id }
+            });
+            expect(res.status).toBe(200);
+            // expect(res.body.errors).toBeUndefined();
+            expect(res.body.data.getStudy.files[0]).toEqual({
+                id: 'mockfile1_id',
+                fileName: 'I7N3G6G-MMM7N3G6G-20200704-20210429.txt',
+                studyId: createdStudy.id,
+                projectId: null,
+                fileSize: '1000',
+                description: 'Just a test file1',
+                uploadTime: '1599345644000',
+                uploadedBy: adminId,
+                hash: 'b0dc2ae76cdea04dcf4be7fcfbe36e2ce8d864fe70a1895c993ce695274ba7a0'
+            }
+            );
         });
 
         test('Get patient mapping (admin)', async () => {
@@ -1602,7 +1785,23 @@ describe('STUDY API', () => {
                     jobs: [],
                     iCanEdit: true,
                     fields: [],
-                    files: []
+                    files: [],
+                    dataVersion: {
+                        contentId: 'mockContentId',
+                        id: 'mockDataVersionId',
+                        tag: null,
+                        updateDate: '5000000',
+                        version: '0.0.1'
+                    },
+                    summary: {
+                        subjects: [
+                            'mock_patient1',
+                            'mock_patient2'
+                        ],
+                        visits: [
+                            'mockvisitId'
+                        ]
+                    }
                 });
             }
         });
@@ -1616,7 +1815,7 @@ describe('STUDY API', () => {
             });
             expect(res.status).toBe(200);
             expect(res.body.errors).toBeUndefined();
-            expect(res.body.data.getStudyFields.sort((a, b) => a.id.localeCompare(b.id))).toEqual([ // as the api will sort the results, the order is changed
+            expect(res.body.data.getStudyFields.sort((a: { id: string; }, b: { id: any; }) => a.id.localeCompare(b.id))).toEqual([ // as the api will sort the results, the order is changed
                 {
                     id: 'mockfield2',
                     studyId: createdStudy.id,
@@ -1658,7 +1857,7 @@ describe('STUDY API', () => {
             });
             expect(res.status).toBe(200);
             expect(res.body.errors).toBeUndefined();
-            expect(res.body.data.getStudyFields.sort((a, b) => a.id.localeCompare(b.id))).toEqual([ // as the api will sort the results, the order is changed
+            expect(res.body.data.getStudyFields.sort((a: { id: string; }, b: { id: any; }) => a.id.localeCompare(b.id))).toEqual([ // as the api will sort the results, the order is changed
                 {
                     id: 'mockfield1',
                     studyId: createdStudy.id,
@@ -1718,7 +1917,7 @@ describe('STUDY API', () => {
                 comments: 'mockComments1',
                 dateAdded: '2021-05-18T16:32:10.226Z',
                 dateDeleted: '2021-05-18T16:32:10.226Z',
-                dataVersion: null,
+                dataVersion: null
             });
 
             await db.collections!.field_dictionary_collection.insertOne({
@@ -1733,7 +1932,7 @@ describe('STUDY API', () => {
                 comments: 'mockComments3',
                 dateAdded: '2021-05-18T16:32:10.226Z',
                 dateDeleted: null,
-                dataVersion: null,
+                dataVersion: null
             });
 
             // user with study privilege can access all latest field, including unversioned
@@ -1747,7 +1946,7 @@ describe('STUDY API', () => {
             });
             expect(res.status).toBe(200);
             expect(res.body.errors).toBeUndefined();
-            expect(res.body.data.getStudyFields.sort((a, b) => a.id.localeCompare(b.id))).toEqual([ // as the api will sort the results, the order is changed
+            expect(res.body.data.getStudyFields.sort((a: { id: string; }, b: { id: any; }) => a.id.localeCompare(b.id))).toEqual([ // as the api will sort the results, the order is changed
                 {
                     id: 'mockfield3',
                     studyId: createdStudy.id,
@@ -1760,7 +1959,7 @@ describe('STUDY API', () => {
                     comments: 'mockComments3',
                     dateAdded: '2021-05-18T16:32:10.226Z',
                     dateDeleted: null,
-                    dataVersion: null,
+                    dataVersion: null
                 },
                 {
                     id: 'mockfield2',
@@ -1801,7 +2000,7 @@ describe('STUDY API', () => {
             });
             expect(res2.status).toBe(200);
             expect(res2.body.errors).toBeUndefined();
-            expect(res2.body.data.getStudyFields.sort((a, b) => a.id.localeCompare(b.id))).toEqual([ // as the api will sort the results, the order is changed
+            expect(res2.body.data.getStudyFields.sort((a: { id: string; }, b: { id: any; }) => a.id.localeCompare(b.id))).toEqual([ // as the api will sort the results, the order is changed
                 {
                     id: 'mockfield2',
                     studyId: createdStudy.id,
@@ -1831,6 +2030,8 @@ describe('STUDY API', () => {
                     dataVersion: 'mockDataVersionId'
                 }
             ].sort((a, b) => a.id.localeCompare(b.id)));
+            // clear database
+            await db.collections!.field_dictionary_collection.deleteMany({ dataVersion: null });
         });
 
         test('Edit project approved fields with fields that are not in the field tree (admin) (should fail)', async () => {
@@ -2019,20 +2220,6 @@ describe('STUDY API', () => {
             expect(res.body.data.editProjectApprovedFiles).toEqual(null);
         });
 
-        test('Edit project approved files (user with project privilege) (should fail)', async () => {
-            const res = await authorisedUser.post('/graphql').send({
-                query: print(EDIT_PROJECT_APPROVED_FILES),
-                variables: {
-                    projectId: createdProject.id,
-                    approvedFiles: [mockFiles[0].id]
-                }
-            });
-            expect(res.status).toBe(200);
-            expect(res.body.errors).toHaveLength(1);
-            expect(res.body.errors[0].message).toBe(errorCodes.NO_PERMISSION_ERROR);
-            expect(res.body.data.editProjectApprovedFiles).toEqual(null);
-        });
-
         test('Edit project approved files (user with study read-only privilege) (should fail)', async () => {
             const res = await authorisedUserStudy.post('/graphql').send({
                 query: print(EDIT_PROJECT_APPROVED_FILES),
@@ -2079,7 +2266,7 @@ describe('STUDY API', () => {
             expect(typeof editProjectApprovedFiles.files[0].uploadedBy).toEqual('string');
 
             /* cleanup: reverse adding project approvedfiles */
-            await mongoClient.collection(config.database.collections.projects_collection).updateOne({ id: createdProject.id }, { $set: { approvedFiles: [] } });
+            await mongoClient.collection<IProject>(config.database.collections.projects_collection).updateOne({ id: createdProject.id }, { $set: { approvedFiles: [] } });
         });
 
         test('Edit project approved files (admin)', async () => {
@@ -2114,7 +2301,7 @@ describe('STUDY API', () => {
             expect(typeof editProjectApprovedFiles.files[0].uploadedBy).toEqual('string');
 
             /* cleanup: reverse adding project approvedfiles */
-            await mongoClient.collection(config.database.collections.projects_collection).updateOne({ id: createdProject.id }, { $set: { approvedFiles: [] } });
+            await mongoClient.collection<IProject>(config.database.collections.projects_collection).updateOne({ id: createdProject.id }, { $set: { approvedFiles: [] } });
         });
 
         test('Edit project approved files for non-existnet file (admin)', async () => {
@@ -2155,7 +2342,7 @@ describe('STUDY API', () => {
             });
 
             /* cleanup: reverse setting dataversion */
-            await mongoClient.collection(config.database.collections.studies_collection)
+            await mongoClient.collection<IStudy>(config.database.collections.studies_collection)
                 .updateOne({ id: createdStudy.id }, { $set: { dataVersions: [mockDataVersion], currentDataVersion: 0 } });
         });
 
@@ -2175,7 +2362,7 @@ describe('STUDY API', () => {
             expect(res.body.data.setDataversionAsCurrent).toEqual(null);
 
             /* cleanup: reverse setting dataversion */
-            await mongoClient.collection(config.database.collections.studies_collection)
+            await mongoClient.collection<IStudy>(config.database.collections.studies_collection)
                 .updateOne({ id: createdStudy.id }, { $set: { dataVersions: [mockDataVersion], currentDataVersion: 0 } });
         });
 
@@ -2195,7 +2382,7 @@ describe('STUDY API', () => {
             expect(res.body.data.setDataversionAsCurrent).toEqual(null);
 
             /* cleanup: reverse setting dataversion */
-            await mongoClient.collection(config.database.collections.studies_collection)
+            await mongoClient.collection<IStudy>(config.database.collections.studies_collection)
                 .updateOne({ id: createdStudy.id }, { $set: { dataVersions: [mockDataVersion], currentDataVersion: 0 } });
         });
 
@@ -2215,7 +2402,7 @@ describe('STUDY API', () => {
             expect(res.body.data.setDataversionAsCurrent).toEqual(null);
 
             /* cleanup: reverse setting dataversion */
-            await mongoClient.collection(config.database.collections.studies_collection)
+            await mongoClient.collection<IStudy>(config.database.collections.studies_collection)
                 .updateOne({ id: createdStudy.id }, { $set: { dataVersions: [mockDataVersion], currentDataVersion: 0 } });
         });
 
@@ -2235,27 +2422,7 @@ describe('STUDY API', () => {
             expect(res.body.data.setDataversionAsCurrent).toEqual(null);
 
             /* cleanup: reverse setting dataversion */
-            await mongoClient.collection(config.database.collections.studies_collection)
-                .updateOne({ id: createdStudy.id }, { $set: { dataVersions: [mockDataVersion], currentDataVersion: 0 } });
-        });
-
-        test('Set a previous study dataversion as current (user with study "manage project" privilege) (should fail)', async () => {
-            /* setup: add an extra dataversion */
-            await db.collections!.studies_collection.updateOne({ id: createdStudy.id }, { $push: { dataVersions: newMockDataVersion }, $inc: { currentDataVersion: 1 } });
-
-            const res = await authorisedUserStudyManageProject.post('/graphql').send({
-                query: print(SET_DATAVERSION_AS_CURRENT),
-                variables: {
-                    studyId: createdStudy.id,
-                    dataVersionId: mockDataVersion.id
-                }
-            });
-            expect(res.status).toBe(200);
-            expect(res.body.errors).toHaveLength(1);
-            expect(res.body.data.setDataversionAsCurrent).toEqual(null);
-
-            /* cleanup: reverse setting dataversion */
-            await mongoClient.collection(config.database.collections.studies_collection)
+            await mongoClient.collection<IStudy>(config.database.collections.studies_collection)
                 .updateOne({ id: createdStudy.id }, { $set: { dataVersions: [mockDataVersion], currentDataVersion: 0 } });
         });
 
@@ -2321,155 +2488,12 @@ describe('STUDY API', () => {
             });
 
             /* cleanup: reverse setting dataversion */
-            await mongoClient.collection(config.database.collections.studies_collection)
+            await mongoClient.collection<IStudy>(config.database.collections.studies_collection)
                 .updateOne({ id: createdStudy.id }, { $set: { dataVersions: [mockDataVersion], currentDataVersion: 0 } });
 
             /* cleanup: delete user and role */
             await db.collections!.users_collection.deleteOne({ id: userDataCurator.id });
             await db.collections!.roles_collection.deleteOne({ id: roleDataCurator.id });
-        });
-
-        test('Upload ontologyTree (admin)', async () => {
-            // insert necessary field
-            await db.collections!.field_dictionary_collection.insertMany([
-                {
-                    id: 'fakeid1',
-                    studyId: createdStudy.id,
-                    fieldId: '1',
-                    fieldName: 'Age',
-                    dataType: 'int',
-                    dateAdded: 100000000
-                },
-                {
-                    id: 'fakeid2',
-                    studyId: createdStudy.id,
-                    fieldId: '2',
-                    fieldName: 'Gender',
-                    dataType: 'int',
-                    dateAdded: 100000000
-                },
-                {
-                    id: 'fakeid3',
-                    studyId: createdStudy.id,
-                    fieldId: '3',
-                    fieldName: 'Date',
-                    dataType: 'dat',
-                    dateAdded: 100000000
-                }
-            ]);
-
-            const res = await admin.post('/graphql').send({
-                query: print(ADD_ONTOLOGY_FIELD),
-                variables: {
-                    studyId: createdStudy.id,
-                    ontologyInput: [{
-                        fieldId: '1',
-                        path: ['Metadata', 'Subject', '1']
-                    }, {
-                        fieldId: '2',
-                        path: ['Metadata', 'Subject', '2']
-                    }]
-                }
-            });
-            const study = await db.collections!.studies_collection.findOne({ id: createdStudy.id });
-            expect(res.status).toBe(200);
-            expect(res.body.errors).toBeUndefined();
-            expect(res.body.data.addOntologyField).toEqual([{
-                fieldId: '1',
-                path: ['Metadata', 'Subject', '1']
-            }, {
-                fieldId: '2',
-                path: ['Metadata', 'Subject', '2']
-            }]);
-            expect(study.ontologyTree).toEqual([{
-                fieldId: '1',
-                path: ['Metadata', 'Subject', '1']
-            }, {
-                fieldId: '2',
-                path: ['Metadata', 'Subject', '2']
-            }]);
-
-            const resAddMore = await admin.post('/graphql').send({
-                query: print(ADD_ONTOLOGY_FIELD),
-                variables: {
-                    studyId: createdStudy.id,
-                    ontologyInput: [{
-                        fieldId: '1',
-                        path: ['Metadata', 'SubjectNew', '1']
-                    }, {
-                        fieldId: '3',
-                        path: ['Metadata', 'Subject', '3']
-                    }]
-                }
-            });
-            const studyMore = await db.collections!.studies_collection.findOne({ id: createdStudy.id });
-            expect(resAddMore.status).toBe(200);
-            expect(resAddMore.body.errors).toBeUndefined();
-            expect(resAddMore.body.data.addOntologyField).toEqual([{
-                fieldId: '1',
-                path: ['Metadata', 'SubjectNew', '1']
-            }, {
-                fieldId: '2',
-                path: ['Metadata', 'Subject', '2']
-            }, {
-                fieldId: '3',
-                path: ['Metadata', 'Subject', '3']
-            }]);
-            expect(studyMore.ontologyTree).toEqual([{
-                fieldId: '1',
-                path: ['Metadata', 'SubjectNew', '1']
-            }, {
-                fieldId: '2',
-                path: ['Metadata', 'Subject', '2']
-            }, {
-                fieldId: '3',
-                path: ['Metadata', 'Subject', '3']
-            }]);
-
-            const deleteRes = await admin.post('/graphql').send({
-                query: print(DELETE_ONTOLOGY_FIELD),
-                variables: {
-                    studyId: createdStudy.id,
-                    fieldId: ['1']
-                }
-            });
-            const studyDelete = await db.collections!.studies_collection.findOne({ id: createdStudy.id });
-            expect(deleteRes.status).toBe(200);
-            expect(deleteRes.body.errors).toBeUndefined();
-            expect(deleteRes.body.data.deleteOntologyField).toEqual([{
-                fieldId: '1',
-                path: ['Metadata', 'SubjectNew', '1']
-            }]);
-            expect(studyDelete.ontologyTree).toEqual([{
-                fieldId: '2',
-                path: ['Metadata', 'Subject', '2']
-            }, {
-                fieldId: '3',
-                path: ['Metadata', 'Subject', '3']
-            }]);
-
-            // delete fields
-            await db.collections!.studies_collection.findOneAndUpdate({ id: createdStudy.id }, { $set: { ontologyTree: [] } });
-            await db.collections!.field_dictionary_collection.deleteMany({});
-        });
-
-        test('Upload ontologyTree (user) should fail', async () => {
-            const res = await user.post('/graphql').send({
-                query: print(ADD_ONTOLOGY_FIELD),
-                variables: {
-                    studyId: createdStudy.id,
-                    ontologyInput: [{
-                        fieldId: '1',
-                        path: ['Metadata', 'Subject', 'Age']
-                    }, {
-                        fieldId: '2',
-                        path: ['Metadata', 'Subject', 'Gender']
-                    }]
-                }
-            });
-            expect(res.status).toBe(200);
-            expect(res.body.errors).toHaveLength(1);
-            expect(res.body.errors[0].message).toBe(errorCodes.NO_PERMISSION_ERROR);
         });
 
         test('Create New fields (admin)', async () => {
@@ -2506,7 +2530,7 @@ describe('STUDY API', () => {
             expect(res.status).toBe(200);
             expect(res.body.errors).toBeUndefined();
             expect(res.body.data.createNewField).toEqual([]);
-            const fieldsInDb = await db.collections!.field_dictionary_collection.find({ studyId: createdStudy.id }).toArray();
+            const fieldsInDb = await db.collections!.field_dictionary_collection.find({ studyId: createdStudy.id, dataVersion: null }).toArray();
             expect(fieldsInDb).toHaveLength(2);
         });
 
@@ -2590,6 +2614,8 @@ describe('STUDY API', () => {
             const fieldsInDb = await db.collections!.field_dictionary_collection.find({ studyId: createdStudy.id, dateDeleted: { $ne: null } }).toArray();
             expect(fieldsInDb).toHaveLength(1);
             expect(fieldsInDb[0].fieldId).toBe('8');
+            // clear database
+            await db.collections!.field_dictionary_collection.deleteMany({ studyId: createdStudy.id, fieldId: { $in: ['8', '9'] } });
         });
 
         test('Delete a versioned field (admin)', async () => {
@@ -2642,20 +2668,22 @@ describe('STUDY API', () => {
             expect(fieldsInDb[0].fieldId).toBe('8');
             expect(fieldsInDb[1].fieldId).toBe('8');
             expect(fieldsInDb[1].dateDeleted).not.toBe(null);
+            // clear database
+            await db.collections!.field_dictionary_collection.deleteMany({ studyId: createdStudy.id, fieldId: { $in: ['8', '9'] } });
         });
     });
 
     describe('UPLOAD/DELETE DATA RECORDS DIRECTLY VIA API', () => {
-        let createdStudy;
-        let createdProject;
+        let createdStudy: { id: any; name: any; };
+        let createdProject: { id: any; name: any; studyId: any; };
         let createdRole_study_accessData;
         let createdRole_project;
         let createdUserAuthorisedProject;  // profile
         let createdUserNoAuthorisedProfile;
         let createdUserAuthorisedProfile;
-        let authorisedUser;
-        let authorisedProjectUser;
-        let unauthorisedUser;
+        let authorisedUser: request.SuperTest<request.Test>;
+        let authorisedProjectUser: request.SuperTest<request.Test>;
+        let unauthorisedUser: request.SuperTest<request.Test>;
         let mockFields: any[];
         let mockDataVersion: IStudyDataVersion;
         const fieldTreeId = uuid();
@@ -2715,7 +2743,7 @@ describe('STUDY API', () => {
                 });
                 expect(res.status).toBe(200);
                 expect(res.body.errors).toBeUndefined();
-                createdStudy = await mongoClient.collection(config.database.collections.studies_collection).findOne({ name: studyName });
+                createdStudy = await mongoClient.collection<IStudy>(config.database.collections.studies_collection).findOne({ name: studyName });
                 expect(res.body.data.createStudy).toEqual({
                     id: createdStudy.id,
                     name: studyName,
@@ -2738,7 +2766,7 @@ describe('STUDY API', () => {
                 expect(res.status).toBe(200);
                 expect(res.body.errors).toBeUndefined();
 
-                createdRole_study_accessData = await mongoClient.collection(config.database.collections.roles_collection).findOne({ name: roleName });
+                createdRole_study_accessData = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({ name: roleName });
                 expect(createdRole_study_accessData).toEqual({
                     _id: createdRole_study_accessData._id,
                     id: createdRole_study_accessData.id,
@@ -2781,8 +2809,8 @@ describe('STUDY API', () => {
                     expiredAt: 1991134065000
                 };
 
-                await mongoClient.collection(config.database.collections.users_collection).insertOne(newUser);
-                createdUserNoAuthorisedProfile = await mongoClient.collection(config.database.collections.users_collection).findOne({ username });
+                await mongoClient.collection<IUser>(config.database.collections.users_collection).insertOne(newUser);
+                createdUserNoAuthorisedProfile = await mongoClient.collection<IUser>(config.database.collections.users_collection).findOne({ username });
             }
 
             /* 3. create an authorised study user that can manage projects (no role yet) */
@@ -2806,8 +2834,8 @@ describe('STUDY API', () => {
                     expiredAt: 1991134065000
                 };
 
-                await mongoClient.collection(config.database.collections.users_collection).insertOne(newUser);
-                createdUserAuthorisedProfile = await mongoClient.collection(config.database.collections.users_collection).findOne({ username });
+                await mongoClient.collection<IUser>(config.database.collections.users_collection).insertOne(newUser);
+                createdUserAuthorisedProfile = await mongoClient.collection<IUser>(config.database.collections.users_collection).findOne({ username });
             }
 
             /* 4. add authorised user to role */
@@ -2821,7 +2849,7 @@ describe('STUDY API', () => {
                             remove: []
                         },
                         permissionChanges: {
-                            add: [permissions.specific_study.specific_study_data_management],
+                            add: [permissions.specific_study.specific_study_data_management, permissions.specific_study.specific_study_readonly_access],
                             remove: []
                         }
                     }
@@ -2833,7 +2861,7 @@ describe('STUDY API', () => {
                     name: createdRole_study_accessData.name,
                     studyId: createdStudy.id,
                     projectId: null,
-                    permissions: [permissions.specific_study.specific_study_data_management],
+                    permissions: [permissions.specific_study.specific_study_data_management, permissions.specific_study.specific_study_readonly_access],
                     users: [{
                         id: createdUserAuthorisedProfile.id,
                         organisation: 'organisation_system',
@@ -2874,7 +2902,7 @@ describe('STUDY API', () => {
                 id: 'mockDataVersionId',
                 contentId: 'mockContentId',
                 version: '0.0.1',
-                updateDate: '5000000',
+                updateDate: '5000000'
             };
             mockFields = [
                 {
@@ -2915,12 +2943,12 @@ describe('STUDY API', () => {
                     variables: {
                         studyId: createdStudy.id,
                         projectName: projectName,
-                        dataVersion: mockDataVersion.id,
+                        dataVersion: mockDataVersion.id
                     }
                 });
                 expect(res.status).toBe(200);
                 expect(res.body.errors).toBeUndefined();
-                createdProject = await mongoClient.collection(config.database.collections.projects_collection).findOne({ name: projectName });
+                createdProject = await mongoClient.collection<IProject>(config.database.collections.projects_collection).findOne({ name: projectName });
                 expect(res.body.data.createProject).toEqual({
                     id: createdProject.id,
                     studyId: createdStudy.id,
@@ -2949,8 +2977,8 @@ describe('STUDY API', () => {
                     createdAt: 1591134065000,
                     expiredAt: 1991134065000
                 };
-                await mongoClient.collection(config.database.collections.users_collection).insertOne(newUser);
-                createdUserAuthorisedProject = await mongoClient.collection(config.database.collections.users_collection).findOne({ username });
+                await mongoClient.collection<IUser>(config.database.collections.users_collection).insertOne(newUser);
+                createdUserAuthorisedProject = await mongoClient.collection<IUser>(config.database.collections.users_collection).findOne({ username });
             }
 
             /* 4. create roles for project */
@@ -2966,7 +2994,7 @@ describe('STUDY API', () => {
                 });
                 expect(res.status).toBe(200);
                 expect(res.body.errors).toBeUndefined();
-                createdRole_project = await mongoClient.collection(config.database.collections.roles_collection).findOne({ name: roleName });
+                createdRole_project = await mongoClient.collection<IRole>(config.database.collections.roles_collection).findOne({ name: roleName });
                 expect(createdRole_project).toEqual({
                     _id: createdRole_project._id,
                     id: createdRole_project.id,
@@ -3124,10 +3152,11 @@ describe('STUDY API', () => {
                         id: 'mockDataVersionId',
                         contentId: 'mockContentId',
                         version: '0.0.1',
-                        updateDate: '5000000',
+                        updateDate: '5000000'
                     }], currentDataVersion: 0
                 }
             });
+            await db.collections!.field_dictionary_collection.deleteMany({ studyId: createdStudy.id, fieldId: { $nin: ['31', '32'] }, dataVersion: null });
         });
 
         test('Upload a data record to study (authorised user)', async () => {
@@ -3162,9 +3191,9 @@ describe('STUDY API', () => {
                     fieldId: '31',
                     value: 'wrong',
                     subjectId: 'I7N3G6G',
-                    visitId: '1'
+                    visitId: '2'
                 },
-                // lilegal subject id
+                // illegal subject id
                 {
                     fieldId: '31',
                     value: '10',
@@ -3179,9 +3208,9 @@ describe('STUDY API', () => {
             expect(res.status).toBe(200);
             expect(res.body.errors).toBeUndefined();
             expect(res.body.data.uploadDataInArray).toEqual([
-                { code: 'MALFORMED_INPUT', description: 'Field 33: Field Not found' },
+                { code: 'ACTION_ON_NON_EXISTENT_ENTRY', description: 'Field 33: Field Not found' },
                 { code: 'MALFORMED_INPUT', description: 'Field 31: Cannot parse as integer.' },
-                { code: 'ACTION_ON_NON_EXISTENT_ENTRY', description: 'Subject ID I777770 is illegal.' }
+                { code: 'MALFORMED_INPUT', description: 'Subject ID I777770 is illegal.' }
             ]);
 
             const dataInDb = await db.collections!.data_collection.find({ deleted: null }).toArray();
@@ -3320,7 +3349,7 @@ describe('STUDY API', () => {
             expect(createRes.body.errors[0].message).toBe(errorCodes.NO_PERMISSION_ERROR);
         });
 
-        test('Delete data reocrds: (unauthorised user) should fail', async () => {
+        test('Delete data records: (unauthorised user) should fail', async () => {
             const res = await authorisedUser.post('/graphql').send({
                 query: print(UPLOAD_DATA_IN_ARRAY),
                 variables: { studyId: createdStudy.id, data: multipleRecords }
@@ -3337,14 +3366,13 @@ describe('STUDY API', () => {
             expect(deleteRes.body.errors[0].message).toBe(errorCodes.NO_PERMISSION_ERROR);
         });
 
-        test('Delete data reocrds: subjectId (user with study privilege)', async () => {
+        test('Delete data records: subjectId (user with study privilege)', async () => {
             const res = await authorisedUser.post('/graphql').send({
                 query: print(UPLOAD_DATA_IN_ARRAY),
                 variables: { studyId: createdStudy.id, data: multipleRecords }
             });
             expect(res.status).toBe(200);
             expect(res.body.errors).toBeUndefined();
-
             const deleteRes = await authorisedUser.post('/graphql').send({
                 query: print(DELETE_DATA_RECORDS),
                 variables: { studyId: createdStudy.id, subjectIds: ['I7N3G6G'] }
@@ -3352,7 +3380,9 @@ describe('STUDY API', () => {
             expect(deleteRes.status).toBe(200);
             expect(deleteRes.body.errors).toBeUndefined();
             expect(deleteRes.body.data.deleteDataRecords).toEqual([]);
-            const dataInDb = await db.collections!.data_collection.find({}).sort({ uploadedAt: -1 }).limit(2).toArray();
+            const dataInDb = (await db.collections!.data_collection.find({}).sort({ uploadedAt: -1 }).limit(2).toArray()).sort((a, b) => {
+                return parseFloat(a.m_visitId) - parseFloat(b.m_visitId);
+            });
             expect(dataInDb[0]['31']).toBe(null);
             expect(dataInDb[0]['32']).toBe(null);
             expect(dataInDb[0]['m_subjectId']).toBe('I7N3G6G');
@@ -3363,7 +3393,7 @@ describe('STUDY API', () => {
             expect(dataInDb[1]['m_visitId']).toBe('2');
         });
 
-        test('Delete data reocrds: visitId (admin)', async () => {
+        test('Delete data records: visitId (admin)', async () => {
             const res = await authorisedUser.post('/graphql').send({
                 query: print(UPLOAD_DATA_IN_ARRAY),
                 variables: { studyId: createdStudy.id, data: multipleRecords }
@@ -3388,7 +3418,7 @@ describe('STUDY API', () => {
             expect(Array.from(new Set(dataInDb.map(el => el.m_subjectId))).length).toBe(2);
         });
 
-        test('Delete data reocrds: studyId (admin)', async () => {
+        test('Delete data records: studyId (admin)', async () => {
             const res = await authorisedUser.post('/graphql').send({
                 query: print(UPLOAD_DATA_IN_ARRAY),
                 variables: { studyId: createdStudy.id, data: multipleRecords }
@@ -3405,7 +3435,27 @@ describe('STUDY API', () => {
             expect(deleteRes.body.errors).toBeUndefined();
             expect(deleteRes.body.data.deleteDataRecords).toEqual([]);
             const dataInDb = await db.collections!.data_collection.find({ 31: null }).sort({ uploadedAt: -1 }).toArray();
-            expect(dataInDb).toHaveLength(3);
+            expect(dataInDb).toHaveLength(4); // 2 visits * 2 subjects = 4 records
+        });
+
+        test('Delete data records: records not exist', async () => {
+            const res = await authorisedUser.post('/graphql').send({
+                query: print(UPLOAD_DATA_IN_ARRAY),
+                variables: { studyId: createdStudy.id, data: multipleRecords }
+            });
+            expect(res.status).toBe(200);
+            expect(res.body.errors).toBeUndefined();
+            expect(res.body.data.uploadDataInArray).toEqual([]);
+
+            const deleteRes = await admin.post('/graphql').send({
+                query: print(DELETE_DATA_RECORDS),
+                variables: { studyId: createdStudy.id, subjectIds: ['I7N3G6G'], visitIds: ['100', '101'] }
+            });
+            expect(deleteRes.status).toBe(200);
+            expect(deleteRes.body.errors).toBeUndefined();
+            expect(deleteRes.body.data.deleteDataRecords).toEqual([]);
+            const dataInDb = await db.collections!.data_collection.find({ m_subjectId: 'I7N3G6G' }).sort({ uploadedAt: -1 }).toArray();
+            expect(dataInDb).toHaveLength(4); // two data records, two deleted records
         });
 
         test('Get data records (user with study privilege)', async () => {
@@ -3436,6 +3486,7 @@ describe('STUDY API', () => {
                     studyId: createdStudy.id,
                     queryString: {
                         data_requested: ['31', '32'],
+                        format: 'raw',
                         cohort: [[]],
                         new_fields: []
                     }
@@ -3458,7 +3509,8 @@ describe('STUDY API', () => {
             await authorisedUser.post('/graphql').send({
                 query: print(UPLOAD_DATA_IN_ARRAY),
                 variables: {
-                    studyId: createdStudy.id, data: [
+                    studyId: createdStudy.id,
+                    data: [
                         {
                             fieldId: '31',
                             value: '10',
@@ -3475,6 +3527,7 @@ describe('STUDY API', () => {
                     projectId: createdProject.id,
                     queryString: {
                         data_requested: ['31', '32'],
+                        format: 'raw',
                         cohort: [[]],
                         new_fields: []
                     }
@@ -3482,7 +3535,342 @@ describe('STUDY API', () => {
             });
             expect(getRes.status).toBe(200);
             expect(getRes.body.errors).toBeUndefined();
-            expect(Object.keys(getRes.body.data.getDataRecords.data)).toHaveLength(2); // unversioned data/field is invisible to project users
+            expect(Object.keys(getRes.body.data.getDataRecords.data)).toHaveLength(2);
+        });
+
+        test('Create an ontology tree (authorised user)', async () => {
+            const res = await authorisedUser.post('/graphql').send({
+                query: print(CREATE_ONTOLOGY_TREE),
+                variables: {
+                    studyId: createdStudy.id,
+                    ontologyTree: {
+                        name: 'fakeTree',
+                        routes: [
+                            {
+                                path: ['DM', 'm_subjectId', 'm_visitId'],
+                                name: 'AGE',
+                                field: ['$100'],
+                                visitRange: []
+                            },
+                            {
+                                path: ['QS', 'MFI', 'm_subjectId', 'm_visitId'],
+                                name: '',
+                                field: ['$200'],
+                                visitRange: []
+                            }
+                        ]
+                    }
+                }
+            });
+            const study = await db.collections!.studies_collection.findOne({ id: createdStudy.id, deleted: null });
+            expect(res.status).toBe(200);
+            expect(res.body.errors).toBeUndefined();
+            expect(res.body.data.createOntologyTree).toEqual({
+                id: study.ontologyTrees[0].id,
+                name: 'fakeTree',
+                routes: [
+                    {
+                        id: study.ontologyTrees[0].routes[0].id,
+                        path: ['DM', 'm_subjectId', 'm_visitId'],
+                        name: 'AGE',
+                        field: ['$100'],
+                        visitRange: []
+                    },
+                    {
+                        id: study.ontologyTrees[0].routes[1].id,
+                        path: ['QS', 'MFI', 'm_subjectId', 'm_visitId'],
+                        name: '',
+                        field: ['$200'],
+                        visitRange: []
+                    }
+                ]
+            });
+            // clear ontologyTrees
+            await db.collections!.studies_collection.findOneAndUpdate({ id: createdStudy.id, deleted: null }, {
+                $set: {
+                    ontologyTrees: []
+                }
+            });
+        });
+
+        test('Create an ontology tree (unauthorised user), should fail', async () => {
+            const res = await user.post('/graphql').send({
+                query: print(CREATE_ONTOLOGY_TREE),
+                variables: {
+                    studyId: createdStudy.id,
+                    ontologyTree: {
+                        name: 'fakeTree',
+                        routes: [
+                            {
+                                path: ['DM', 'm_subjectId', 'm_visitId'],
+                                name: 'AGE',
+                                field: ['$100'],
+                                visitRange: []
+                            },
+                            {
+                                path: ['QS', 'MFI', 'm_subjectId', 'm_visitId'],
+                                name: '',
+                                field: ['$200'],
+                                visitRange: []
+                            }
+                        ]
+                    }
+                }
+            });
+            expect(res.status).toBe(200);
+            expect(res.body.data.createOntologyTree).toBe(null);
+            expect(res.body.errors).toHaveLength(1);
+            expect(res.body.errors[0].message).toBe(errorCodes.NO_PERMISSION_ERROR);
+        });
+
+        test('Delete an ontology tree (authorised user)', async () => {
+            await authorisedUser.post('/graphql').send({
+                query: print(CREATE_ONTOLOGY_TREE),
+                variables: {
+                    studyId: createdStudy.id,
+                    ontologyTree: {
+                        name: 'fakeTree',
+                        routes: [
+                            {
+                                path: ['DM', 'm_subjectId', 'm_visitId'],
+                                name: 'AGE',
+                                field: ['$100'],
+                                visitRange: []
+                            },
+                            {
+                                path: ['QS', 'MFI', 'm_subjectId', 'm_visitId'],
+                                name: '',
+                                field: ['$200'],
+                                visitRange: []
+                            }
+                        ]
+                    }
+                }
+            });
+            const study: IStudy = await db.collections!.studies_collection.findOne({ id: createdStudy.id, deleted: null });
+            const res = await authorisedUser.post('/graphql').send({
+                query: print(DELETE_ONTOLOGY_TREE),
+                variables: {
+                    studyId: createdStudy.id,
+                    treeId: study.ontologyTrees[0].id
+                }
+            });
+            expect(res.status).toBe(200);
+            expect(res.body.data.deleteOntologyTree).toEqual({
+                id: study.ontologyTrees[0].id,
+                successful: true
+            });
+            const updatedStudy: IStudy = await db.collections!.studies_collection.findOne({ id: createdStudy.id, deleted: null });
+            expect(updatedStudy.ontologyTrees.length).toBe(0);
+        });
+
+        test('Delete an ontology tree (unauthorised user), should fail', async () => {
+            await authorisedUser.post('/graphql').send({
+                query: print(CREATE_ONTOLOGY_TREE),
+                variables: {
+                    studyId: createdStudy.id,
+                    ontologyTree: {
+                        name: 'fakeTree',
+                        routes: [
+                            {
+                                path: ['DM', 'm_subjectId', 'm_visitId'],
+                                name: 'AGE',
+                                field: ['$100'],
+                                visitRange: []
+                            },
+                            {
+                                path: ['QS', 'MFI', 'm_subjectId', 'm_visitId'],
+                                name: '',
+                                field: ['$200'],
+                                visitRange: []
+                            }
+                        ]
+                    }
+                }
+            });
+            const study: IStudy = await db.collections!.studies_collection.findOne({ id: createdStudy.id, deleted: null });
+            const res = await user.post('/graphql').send({
+                query: print(DELETE_ONTOLOGY_TREE),
+                variables: {
+                    studyId: createdStudy.id,
+                    treeId: study.ontologyTrees[0].id
+                }
+            });
+            expect(res.status).toBe(200);
+            expect(res.body.data.deleteOntologyTree).toBe(null);
+            expect(res.body.errors).toHaveLength(1);
+            expect(res.body.errors[0].message).toBe(errorCodes.NO_PERMISSION_ERROR);
+            await db.collections!.studies_collection.findOneAndUpdate({ studyId: createdStudy.id, deleted: null }, {
+                $set: {
+                    ontologyTrees: []
+                }
+            });
+        });
+
+        test('Get an ontology tree (authorised user)', async () => {
+            await authorisedUser.post('/graphql').send({
+                query: print(CREATE_ONTOLOGY_TREE),
+                variables: {
+                    studyId: createdStudy.id,
+                    ontologyTree: {
+                        name: 'fakeTree',
+                        routes: [
+                            {
+                                path: ['DM', 'm_subjectId', 'm_visitId'],
+                                name: 'AGE',
+                                field: ['$100'],
+                                visitRange: []
+                            },
+                            {
+                                path: ['QS', 'MFI', 'm_subjectId', 'm_visitId'],
+                                name: '',
+                                field: ['$200'],
+                                visitRange: []
+                            }
+                        ]
+                    }
+                }
+            });
+            const study: IStudy = await db.collections!.studies_collection.findOne({ id: createdStudy.id, deleted: null });
+            const res = await authorisedUser.post('/graphql').send({
+                query: print(GET_ONTOLOGY_TREE),
+                variables: {
+                    studyId: createdStudy.id,
+                    treeId: null
+                }
+            });
+            expect(res.status).toBe(200);
+            expect(res.body.data.getOntologyTree).toHaveLength(1);
+            expect(res.body.data.getOntologyTree[0]).toEqual({
+                id: study.ontologyTrees[0].id,
+                name: 'fakeTree',
+                routes: [
+                    {
+                        id: study.ontologyTrees[0].routes[0].id,
+                        path: ['DM', 'm_subjectId', 'm_visitId'],
+                        name: 'AGE',
+                        field: ['$100'],
+                        visitRange: []
+                    },
+                    {
+                        id: study.ontologyTrees[0].routes[1].id,
+                        path: ['QS', 'MFI', 'm_subjectId', 'm_visitId'],
+                        name: '',
+                        field: ['$200'],
+                        visitRange: []
+                    }
+                ]
+            });
+            await db.collections!.studies_collection.findOneAndUpdate({ studyId: createdStudy.id, deleted: null }, {
+                $set: {
+                    ontologyTrees: []
+                }
+            });
+        });
+
+        test('Get an ontology tree from project (authorised user)', async () => {
+            await authorisedUser.post('/graphql').send({
+                query: print(CREATE_ONTOLOGY_TREE),
+                variables: {
+                    studyId: createdStudy.id,
+                    ontologyTree: {
+                        name: 'fakeTree',
+                        routes: [
+                            {
+                                path: ['DM', 'm_subjectId', 'm_visitId'],
+                                name: 'AGE',
+                                field: ['$100'],
+                                visitRange: []
+                            },
+                            {
+                                path: ['QS', 'MFI', 'm_subjectId', 'm_visitId'],
+                                name: '',
+                                field: ['$200'],
+                                visitRange: []
+                            }
+                        ]
+                    }
+                }
+            });
+            const res = await user.post('/graphql').send({
+                query: print(GET_ONTOLOGY_TREE),
+                variables: {
+                    studyId: createdProject.studyId,
+                    projectId: createdProject.id,
+                    treeId: null
+                }
+            });
+            expect(res.status).toBe(200);
+            expect(res.body.data.getOntologyTree).toBe(null);
+            expect(res.body.errors).toHaveLength(1);
+            expect(res.body.errors[0].message).toBe(errorCodes.NO_PERMISSION_ERROR);
+            await db.collections!.studies_collection.findOneAndUpdate({ studyId: createdStudy.id, deleted: null }, {
+                $set: {
+                    ontologyTrees: []
+                }
+            });
+        });
+
+        test('Get an ontology tree (unauthorised user), should fail', async () => {
+            await authorisedUser.post('/graphql').send({
+                query: print(CREATE_ONTOLOGY_TREE),
+                variables: {
+                    studyId: createdStudy.id,
+                    ontologyTree: {
+                        name: 'fakeTree',
+                        routes: [
+                            {
+                                path: ['DM', 'm_subjectId', 'm_visitId'],
+                                name: 'AGE',
+                                field: ['$100'],
+                                visitRange: []
+                            },
+                            {
+                                path: ['QS', 'MFI', 'm_subjectId', 'm_visitId'],
+                                name: '',
+                                field: ['$200'],
+                                visitRange: []
+                            }
+                        ]
+                    }
+                }
+            });
+            const study: IStudy = await db.collections!.studies_collection.findOne({ id: createdStudy.id, deleted: null });
+            const res = await authorisedUser.post('/graphql').send({
+                query: print(GET_ONTOLOGY_TREE),
+                variables: {
+                    studyId: createdProject.studyId,
+                    projectId: createdProject.id,
+                    treeId: null
+                }
+            });
+            expect(res.status).toBe(200);
+            expect(res.body.data.getOntologyTree).toHaveLength(1);
+            expect(res.body.data.getOntologyTree[0]).toEqual({
+                id: study.ontologyTrees[0].id,
+                name: 'fakeTree',
+                routes: [
+                    {
+                        id: study.ontologyTrees[0].routes[0].id,
+                        path: ['DM', 'm_subjectId', 'm_visitId'],
+                        name: 'AGE',
+                        field: ['$100'],
+                        visitRange: []
+                    },
+                    {
+                        id: study.ontologyTrees[0].routes[1].id,
+                        path: ['QS', 'MFI', 'm_subjectId', 'm_visitId'],
+                        name: '',
+                        field: ['$200'],
+                        visitRange: []
+                    }
+                ]
+            });
+            await db.collections!.studies_collection.findOneAndUpdate({ studyId: createdStudy.id, deleted: null }, {
+                $set: {
+                    ontologyTrees: []
+                }
+            });
         });
 
         test('Check data complete (admin)', async () => {

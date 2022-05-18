@@ -1,5 +1,5 @@
 import { ApolloError } from 'apollo-server-core';
-import { IProject, IStudy, studyType, IStudyDataVersion, DATA_CLIP_ERROR_TYPE } from 'itmat-commons';
+import { IProject, IStudy, studyType, IStudyDataVersion, IDataEntry, IDataClip, DATA_CLIP_ERROR_TYPE } from '@itmat-broker/itmat-types';
 import { v4 as uuid } from 'uuid';
 import { db } from '../../database/database';
 import { errorCodes } from '../errors';
@@ -7,7 +7,6 @@ import { PermissionCore, permissionCore } from './permissionCore';
 import { validate } from '@ideafast/idgen';
 import { parseValue } from 'graphql';
 import type { MatchKeysAndValues } from 'mongodb';
-import { IDataEntry } from '../../../../itmat-commons/dist/models/data';
 
 export class StudyCore {
     constructor(private readonly localPermissionCore: PermissionCore) { }
@@ -58,7 +57,8 @@ export class StudyCore {
             dataVersions: [],
             deleted: null,
             description: description,
-            type: type
+            type: type,
+            ontologyTrees: []
         };
         await db.collections!.studies_collection.insertOne(study);
         return study;
@@ -81,7 +81,7 @@ export class StudyCore {
             m_versionId: null
         }, {
             $set: {
-                m_versionId: newDataVersionId
+                m_versionId: newDataVersionId as any
             }
         });
         // if field is modified, need to modified the approved fields of each related project
@@ -140,7 +140,7 @@ export class StudyCore {
             contentId: newContentId, // same content = same id - used in reverting data, version control
             version: dataVersion,
             tag: tag,
-            updateDate: (new Date().valueOf()).toString(),
+            updateDate: (new Date().valueOf()).toString()
         };
         await db.collections!.studies_collection.updateOne({ id: studyId }, {
             $push: { dataVersions: newDataVersion },
@@ -151,118 +151,126 @@ export class StudyCore {
         return newDataVersion;
     }
 
-    public async uploadOneDataClip(studyId: string, fieldList: any[], dataClip: any): Promise<any> {
-        const fieldInDb = fieldList.filter(el => el.fieldId === dataClip.fieldId);
-        if (!fieldInDb) {
-            return { code: DATA_CLIP_ERROR_TYPE.ACTION_ON_NON_EXISTENT_ENTRY, description: `Field ${dataClip.fieldId}: FieldId is not registered. Please define this fieldId first.` };
-        }
-        // check subjectId
-        if (!validate(dataClip.subjectId?.replace('-', '').substr(1) ?? '')) {
-            return { code: DATA_CLIP_ERROR_TYPE.ACTION_ON_NON_EXISTENT_ENTRY, description: `Subject ID ${dataClip.subjectId} is illegal.` };
-        }
+    public async uploadOneDataClip(studyId: string, fieldList: any[], data: IDataClip[]): Promise<any> {
+        const errors: any[] = [];
+        const bulk = db.collections!.data_collection.initializeUnorderedBulkOp();
+        // remove duplicates by subjectId, visitId and fieldId
+        const keysToCheck: Array<keyof IDataClip> = ['visitId', 'subjectId', 'fieldId'];
+        const filteredData = data.filter(
+            (s => o => (k => !s.has(k) && s.add(k))(keysToCheck.map(k => o[k]).join('|')))(new Set())
+        );
+        for (const dataClip of filteredData) {
+            const fieldInDb = fieldList.filter(el => el.fieldId === dataClip.fieldId)[0];
+            if (!fieldInDb) {
+                errors.push({ code: DATA_CLIP_ERROR_TYPE.ACTION_ON_NON_EXISTENT_ENTRY, description: `Field ${dataClip.fieldId}: Field Not found` });
+                continue;
+            }
+            // check subjectId
+            if (!validate(dataClip.subjectId?.replace('-', '').substr(1) ?? '')) {
+                errors.push({ code: DATA_CLIP_ERROR_TYPE.MALFORMED_INPUT, description: `Subject ID ${dataClip.subjectId} is illegal.` });
+                continue;
+            }
 
-        // check value is valid
-        let error;
-        let parsedValue;
-        if (fieldInDb.length === 0) {
-            error = `Field ${dataClip.fieldId}: Field Not found`;
-        } else if (dataClip.value.toString() === '99999') { // agreement with other WPs, 99999 refers to missing
-            parsedValue = '99999';
-        } else {
-            switch (fieldInDb[0].dataType) {
-                case 'dec': {// decimal
-                    if (!/^\d+(.\d+)?$/.test(dataClip.value)) {
-                        error = `Field ${dataClip.fieldId}: Cannot parse as decimal.`;
+            // check value is valid
+            let error;
+            let parsedValue;
+            if (dataClip.value.toString() === '99999') { // agreement with other WPs, 99999 refers to missing
+                parsedValue = '99999';
+            } else {
+                switch (fieldInDb.dataType) {
+                    case 'dec': {// decimal
+                        if (!/^\d+(.\d+)?$/.test(dataClip.value)) {
+                            error = `Field ${dataClip.fieldId}: Cannot parse as decimal.`;
+                            break;
+                        }
+                        parsedValue = parseFloat(dataClip.value);
                         break;
                     }
-                    parsedValue = parseFloat(dataClip.value);
-                    break;
-                }
-                case 'int': {// integer
-                    if (!/^-?\d+$/.test(dataClip.value)) {
-                        error = `Field ${dataClip.fieldId}: Cannot parse as integer.`;
+                    case 'int': {// integer
+                        if (!/^-?\d+$/.test(dataClip.value)) {
+                            error = `Field ${dataClip.fieldId}: Cannot parse as integer.`;
+                            break;
+                        }
+                        parsedValue = parseInt(dataClip.value, 10);
                         break;
                     }
-                    parsedValue = parseInt(dataClip.value, 10);
-                    break;
-                }
-                case 'bool': {// boolean
-                    if (dataClip.value.toLowerCase() === 'true' || dataClip.value.toLowerCase() === 'false') {
-                        parsedValue = dataClip.value.toLowerCase() === 'true';
-                    } else {
-                        error = `Field ${dataClip.fieldId}: Cannot parse as boolean.`;
+                    case 'bool': {// boolean
+                        if (dataClip.value.toLowerCase() === 'true' || dataClip.value.toLowerCase() === 'false') {
+                            parsedValue = dataClip.value.toLowerCase() === 'true';
+                        } else {
+                            error = `Field ${dataClip.fieldId}: Cannot parse as boolean.`;
+                            break;
+                        }
                         break;
                     }
-                    break;
-                }
-                case 'str': {
-                    parsedValue = dataClip.value.toString();
-                    break;
-                }
-                // 01/02/2021 00:00:00
-                case 'date': {
-                    const matcher = /^(-?(?:[1-9][0-9]*)?[0-9]{4})-(1[0-2]|0[1-9])-(3[01]|0[1-9]|[12][0-9])T(2[0-3]|[01][0-9]):([0-5][0-9]):([0-5][0-9])(.[0-9]+)?(Z)?/;
-                    if (!dataClip.value.match(matcher)) {
-                        error = `Field ${dataClip.fieldId}: Cannot parse as data. Value for date type must be in ISO format.`;
-                        break;
-                    }
-                    parsedValue = dataClip.value.toString();
-                    break;
-                }
-                case 'json': {
-                    parsedValue = dataClip.value;
-                    break;
-                }
-                case 'file': {
-                    const file = await db.collections!.files_collection.findOne({ id: parseValue });
-                    if (!file) {
-                        error = `Field ${dataClip.fieldId}: Cannot parse as file or file does not exist.`;
-                        break;
-                    } else {
+                    case 'str': {
                         parsedValue = dataClip.value.toString();
-                    }
-                    break;
-                }
-                case 'cat': {
-                    if (!fieldInDb[0].possibleValues.map(el => el.code).includes(dataClip.value.toString())) {
-                        error = `Field ${dataClip.fieldId}: Cannot parse as categorical, value not in value list.`;
                         break;
-                    } else {
-                        parsedValue = dataClip.value.toString();
                     }
-                    break;
-                }
-                default: {
-                    error = (`Field ${dataClip.fieldId}: Invalid data Type.`);
-                    break;
+                    // 01/02/2021 00:00:00
+                    case 'date': {
+                        const matcher = /^(-?(?:[1-9][0-9]*)?[0-9]{4})-(1[0-2]|0[1-9])-(3[01]|0[1-9]|[12][0-9])T(2[0-3]|[01][0-9]):([0-5][0-9]):([0-5][0-9])(.[0-9]+)?(Z)?/;
+                        if (!dataClip.value.match(matcher)) {
+                            error = `Field ${dataClip.fieldId}: Cannot parse as data. Value for date type must be in ISO format.`;
+                            break;
+                        }
+                        parsedValue = dataClip.value.toString();
+                        break;
+                    }
+                    case 'json': {
+                        parsedValue = dataClip.value;
+                        break;
+                    }
+                    case 'file': {
+                        const file = await db.collections!.files_collection.findOne({ id: parseValue });
+                        if (!file) {
+                            error = `Field ${dataClip.fieldId}: Cannot parse as file or file does not exist.`;
+                            break;
+                        } else {
+                            parsedValue = dataClip.value.toString();
+                        }
+                        break;
+                    }
+                    case 'cat': {
+                        if (!fieldInDb.possibleValues.map((el: any) => el.code).includes(dataClip.value.toString())) {
+                            error = `Field ${dataClip.fieldId}: Cannot parse as categorical, value not in value list.`;
+                            break;
+                        } else {
+                            parsedValue = dataClip.value.toString();
+                        }
+                        break;
+                    }
+                    default: {
+                        error = (`Field ${dataClip.fieldId}: Invalid data Type.`);
+                        break;
+                    }
                 }
             }
+            if (error !== undefined) {
+                errors.push({ code: DATA_CLIP_ERROR_TYPE.MALFORMED_INPUT, description: error });
+                continue;
+            }
+            const obj = {
+                m_studyId: studyId,
+                m_subjectId: dataClip.subjectId,
+                m_versionId: undefined,
+                m_visitId: dataClip.visitId
+            };
+            const objWithData: Partial<MatchKeysAndValues<IDataEntry>> = {
+                ...obj,
+                id: uuid(),
+                uploadedAt: (new Date()).valueOf()
+            };
+            objWithData[dataClip.fieldId] = parsedValue;
+            bulk.find(obj).upsert().updateOne({ $set: objWithData });
         }
-        if (error !== undefined) {
-            return { code: DATA_CLIP_ERROR_TYPE.MALFORMED_INPUT, description: error };
-        }
-        const obj = {
-            m_studyId: studyId,
-            m_subjectId: dataClip.subjectId,
-            m_versionId: undefined,
-            m_visitId: dataClip.visitId,
-        };
-        const objWithData: MatchKeysAndValues<IDataEntry> = {
-            ...obj,
-            id: uuid(),
-            uploadedAt: (new Date()).valueOf()
-        };
-        objWithData[dataClip.fieldId] = parsedValue;
-        await db.collections!.data_collection.findOneAndUpdate(obj, { $set: objWithData }, {
-            upsert: true
-        });
-        return null;
+        await bulk.execute();
+        return errors;
     }
 
     public async createProjectForStudy(studyId: string, projectName: string, requestedBy: string, approvedFields?: string[], approvedFiles?: string[]): Promise<IProject> {
         const project: IProject = {
             id: uuid(),
-            dataVersion: null,
             studyId,
             createdBy: requestedBy,
             name: projectName,
@@ -309,7 +317,7 @@ export class StudyCore {
             await this.localPermissionCore.removeRoleFromStudyOrProject({ studyId });
 
             /* delete all files belong to the study*/
-            await db.collections!.files_collection.updateMany({ studyId, deleted: null }, { $set: { lastModified: timestamp, deleted: timestamp } });
+            await db.collections!.files_collection.updateMany({ studyId, deleted: null }, { $set: { deleted: timestamp } });
 
             await session.commitTransaction();
             session.endSession();

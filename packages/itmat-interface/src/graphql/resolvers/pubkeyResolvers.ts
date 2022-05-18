@@ -1,15 +1,6 @@
 import { ApolloError, UserInputError } from 'apollo-server-express';
 import { mailer } from '../../emailer/emailer';
-import {
-    //Models,
-    //Logger,
-    IUser,
-    //IUserWithoutToken,
-    IPubkey,
-    AccessToken,
-    KeyPairwSignature,
-    Signature
-} from 'itmat-commons';
+import { IUser, IPubkey, AccessToken, KeyPairwSignature, Signature } from '@itmat-broker/itmat-types';
 //import { v4 as uuid } from 'uuid';
 import mongodb from 'mongodb';
 import { db } from '../../database/database';
@@ -18,7 +9,6 @@ import { userCore } from '../core/userCore';
 import { errorCodes } from '../errors';
 //import { makeGenericReponse, IGenericResponse } from '../responses';
 import * as pubkeycrypto from '../../utils/pubkeycrypto';
-//import { Key} from '../../../../itmat-ui-react/src/utils/dmpCrypto/dmp.key';
 export const pubkeyResolvers = {
     Query: {
         getPubkeys: async (__unused__parent: Record<string, unknown>, args: any): Promise<IPubkey[]> => {
@@ -40,7 +30,7 @@ export const pubkeyResolvers = {
     },
 
     Mutation: {
-        keyPairGenwSignature: async (__unused__parent: Record<string, unknown>): Promise<KeyPairwSignature> => {
+        keyPairGenwSignature: async (): Promise<KeyPairwSignature> => {
             // Generate RSA key-pair with Signature for robot user
             const keyPair = pubkeycrypto.rsakeygen();
             //default message = hash of the public key (SHA256)
