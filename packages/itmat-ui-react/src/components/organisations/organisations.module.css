@@ -1,0 +1,7 @@
+.page_container {
+    grid-template-columns: 100% 0%;
+    grid-template-rows: 100%;
+    display: grid;
+    height: 100%;
+    grid-template-areas: "orgList"
+}
