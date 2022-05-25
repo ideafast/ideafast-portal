@@ -620,6 +620,9 @@ export const DataDownloadBlock: React.FunctionComponent<{ project: IProject }> =
             allowClear
             onSelect={(value: string) => {
                 setSelectedDataFormat(value);
+                if (!value.startsWith('standardized')) {
+                    setSelectedOutputType('JSON');
+                }
             }}
         >
             <Option value={'raw'}>Raw</Option>
@@ -652,9 +655,8 @@ export const DataDownloadBlock: React.FunctionComponent<{ project: IProject }> =
             }}
         >
             <Option value={'JSON'}>JSON</Option>
-            <Option value={'CSV'}>CSV</Option>
             {
-                availableFormats.map(el => <Option value={'standardized-' + el}>{el.toString()}</Option>)
+                availableFormats.includes(selectedDataFormat?.split('-')[1] || '') ? <Option value={'CSV'}>CSV</Option> : null
             }
         </Select>
     </>}>
