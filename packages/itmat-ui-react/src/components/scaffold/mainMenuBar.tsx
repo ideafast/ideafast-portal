@@ -68,12 +68,6 @@ export const MainMenuBar: React.FunctionComponent<MainMenuBarProps> = ({ project
         </div>
 
         <div>
-            <NavLink to='/organisations' title='Organisations' className={({ isActive }) => isActive ? css.clickedButton : undefined}>
-                <div className={css.button}><SettingOutlined />Organisations</div>
-            </NavLink>
-        </div>
-
-        <div>
             <NavLink title='Logout' to='/'>
                 <Mutation<any, any>
                     mutation={LOGOUT}

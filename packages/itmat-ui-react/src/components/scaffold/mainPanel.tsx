@@ -7,7 +7,6 @@ import { ProjectListPage } from '../projectList';
 import { UserPage } from '../users';
 import { LogPage } from '../log';
 import { ProfilePage } from '../profile';
-import { OrganisationPage } from '../organisations';
 import css from './scaffold.module.css';
 
 export const MainPanel: React.FunctionComponent = () => {
@@ -22,7 +21,6 @@ export const MainPanel: React.FunctionComponent = () => {
                 <Route path='/users/:userId' element={<UserPage />} />
                 <Route path='/logs' element={<LogPage />} />
                 <Route path='/profile' element={<ProfilePage />} />
-                <Route path='/organisations' element={<OrganisationPage />} />
                 <Route path='*' element={<Navigate to='/datasets' />} />
             </Routes>
         </div>

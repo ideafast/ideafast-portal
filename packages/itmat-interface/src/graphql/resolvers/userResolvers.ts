@@ -581,7 +581,6 @@ export const userResolvers = {
             if (requester.type !== Models.UserModels.userTypes.ADMIN) {
                 throw new ApolloError(errorCodes.NO_PERMISSION_ERROR);
             }
-
             // if the org already exists, update it; the existence is checked by the name
             const createdOrganisation = await userCore.createOrganisation({
                 name,
