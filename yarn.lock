@@ -11725,10 +11725,10 @@ mongodb-memory-server@8.6.0:
     mongodb-memory-server-core "8.6.0"
     tslib "^2.4.0"
 
-mongodb@4.6.0, mongodb@^4.5.0:
-  version "4.6.0"
-  resolved "https://registry.yarnpkg.com/mongodb/-/mongodb-4.6.0.tgz#a69216da61f4cb1498d68cb396c52313fa39cef6"
-  integrity sha512-1gsxVXmjFTPJ+CkMG9olE4bcVsyY8lBJN9m5B5vj+LZ7wkBqq3PO8RVmNX9GwCBOBz1KV0zM00vPviUearSv7A==
+mongodb@4.7.0, mongodb@^4.5.0:
+  version "4.7.0"
+  resolved "https://registry.yarnpkg.com/mongodb/-/mongodb-4.7.0.tgz#99f7323271d93659067695b60e7b4efee2de9bf0"
+  integrity sha512-HhVar6hsUeMAVlIbwQwWtV36iyjKd9qdhY+s4wcU8K6TOj4Q331iiMy+FoPuxEntDIijTYWivwFJkLv8q/ZgvA==
   dependencies:
     bson "^4.6.3"
     denque "^2.0.1"
@@ -11866,10 +11866,10 @@ node-domexception@^1.0.0:
   resolved "https://registry.yarnpkg.com/node-domexception/-/node-domexception-1.0.0.tgz#6888db46a1f71c0b76b3f7555016b63fe64766e5"
   integrity sha512-/jKZoMpw0F8GRwl4/eLROPA3cfcXtLApP0QzLmUT/HuPCZWyB7IY9ZrMeKw2O/nFIqPQB3PVM9aYm0F312AXDQ==
 
-node-fetch@*, node-fetch@3.2.4:
-  version "3.2.4"
-  resolved "https://registry.yarnpkg.com/node-fetch/-/node-fetch-3.2.4.tgz#3fbca2d8838111048232de54cb532bd3cf134947"
-  integrity sha512-WvYJRN7mMyOLurFR2YpysQGuwYrJN+qrrpHjJDuKMcSPdfFccRUla/kng2mz6HWSBxJcqPbvatS6Gb4RhOzCJw==
+node-fetch@*, node-fetch@3.2.5:
+  version "3.2.5"
+  resolved "https://registry.yarnpkg.com/node-fetch/-/node-fetch-3.2.5.tgz#7d31da657804db5185540ddac7ddd516a9a2bd26"
+  integrity sha512-u7zCHdJp8JXBwF09mMfo2CL6kp37TslDl1KP3hRGTlCInBtag+UO3LGVy+NF0VzvnL3PVMpA2hXh1EtECFnyhQ==
   dependencies:
     data-uri-to-buffer "^4.0.0"
     fetch-blob "^3.1.4"
