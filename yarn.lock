@@ -4504,10 +4504,10 @@ apollo-server-caching@^3.3.0:
   dependencies:
     lru-cache "^6.0.0"
 
-apollo-server-core@^3.8.1:
-  version "3.8.1"
-  resolved "https://registry.yarnpkg.com/apollo-server-core/-/apollo-server-core-3.8.1.tgz#51baba3a1073ad7aa950ffbfc5e3bbb5740d013c"
-  integrity sha512-7A6F+HWmz/1gIW/MvE/0yq/UwrYG/dQCyfk2areoWkvSmg86oV2umuvlnEvTbLE2LiJHBoDP4T+PIqv6pnlLGw==
+apollo-server-core@^3.8.2:
+  version "3.8.2"
+  resolved "https://registry.yarnpkg.com/apollo-server-core/-/apollo-server-core-3.8.2.tgz#a065e00220d6c709b11b824197520adee6d897d2"
+  integrity sha512-cbzG928HG27W+juMVCIL1O//iyAj/Q2hnOu6YwrGrcqeE75ZIJSgSBm/gPHK20cI7nEjK2IWACx8Hj1nGAQ5Zg==
   dependencies:
     "@apollo/utils.logger" "^1.0.0"
     "@apollo/utils.usagereporting" "^1.0.0"
@@ -4544,10 +4544,10 @@ apollo-server-errors@^3.3.1:
   resolved "https://registry.yarnpkg.com/apollo-server-errors/-/apollo-server-errors-3.3.1.tgz#ba5c00cdaa33d4cbd09779f8cb6f47475d1cd655"
   integrity sha512-xnZJ5QWs6FixHICXHxUfm+ZWqqxrNuPlQ+kj5m6RtEgIpekOPssH/SD9gf2B4HuWV0QozorrygwZnux8POvyPA==
 
-apollo-server-express@3.8.1:
-  version "3.8.1"
-  resolved "https://registry.yarnpkg.com/apollo-server-express/-/apollo-server-express-3.8.1.tgz#79a979c60a6e6d49ae5396c13aeb467389831500"
-  integrity sha512-58QJFFbLoBfQ3SOp+0PHOqJWVxHf2WzjB3DU2MlVxHi/CfrDbjf7EYjuWTtuvIuzuoEG6kAWLGn2zEDlLmXk1A==
+apollo-server-express@3.8.2:
+  version "3.8.2"
+  resolved "https://registry.yarnpkg.com/apollo-server-express/-/apollo-server-express-3.8.2.tgz#51285279f8a52eb7d88a4f4145261b6f69b12ba6"
+  integrity sha512-UIpjs0qwOGJ0U1IokrtfjgpQVoirr7E1w446mx6B0EqV8sIFgdEE253utxtHi80va37h/xuEIUuAZFRQaY6ClQ==
   dependencies:
     "@types/accepts" "^1.3.5"
     "@types/body-parser" "1.19.2"
@@ -4555,7 +4555,7 @@ apollo-server-express@3.8.1:
     "@types/express" "4.17.13"
     "@types/express-serve-static-core" "4.17.28"
     accepts "^1.3.5"
-    apollo-server-core "^3.8.1"
+    apollo-server-core "^3.8.2"
     apollo-server-types "^3.6.0"
     body-parser "^1.19.0"
     cors "^2.8.5"
@@ -11866,10 +11866,10 @@ node-domexception@^1.0.0:
   resolved "https://registry.yarnpkg.com/node-domexception/-/node-domexception-1.0.0.tgz#6888db46a1f71c0b76b3f7555016b63fe64766e5"
   integrity sha512-/jKZoMpw0F8GRwl4/eLROPA3cfcXtLApP0QzLmUT/HuPCZWyB7IY9ZrMeKw2O/nFIqPQB3PVM9aYm0F312AXDQ==
 
-node-fetch@*, node-fetch@3.2.4:
-  version "3.2.4"
-  resolved "https://registry.yarnpkg.com/node-fetch/-/node-fetch-3.2.4.tgz#3fbca2d8838111048232de54cb532bd3cf134947"
-  integrity sha512-WvYJRN7mMyOLurFR2YpysQGuwYrJN+qrrpHjJDuKMcSPdfFccRUla/kng2mz6HWSBxJcqPbvatS6Gb4RhOzCJw==
+node-fetch@*, node-fetch@3.2.5:
+  version "3.2.5"
+  resolved "https://registry.yarnpkg.com/node-fetch/-/node-fetch-3.2.5.tgz#7d31da657804db5185540ddac7ddd516a9a2bd26"
+  integrity sha512-u7zCHdJp8JXBwF09mMfo2CL6kp37TslDl1KP3hRGTlCInBtag+UO3LGVy+NF0VzvnL3PVMpA2hXh1EtECFnyhQ==
   dependencies:
     data-uri-to-buffer "^4.0.0"
     fetch-blob "^3.1.4"
