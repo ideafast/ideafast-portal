@@ -2185,10 +2185,10 @@
     tunnel-agent "^0.6.0"
     uuid "^8.3.2"
 
-"@cypress/webpack-preprocessor@5.11.1":
-  version "5.11.1"
-  resolved "https://registry.yarnpkg.com/@cypress/webpack-preprocessor/-/webpack-preprocessor-5.11.1.tgz#697d830e40eab7b63d37981863f6319098e6b78e"
-  integrity sha512-kfdF+W/Tns81rFplnqlgZ+t6V+FJ7vegeQCYolLyhh0nJ8eG3s5HvV/ak/zSlbQnaOmAuYiZIChJFVZLUWuNOA==
+"@cypress/webpack-preprocessor@5.12.0":
+  version "5.12.0"
+  resolved "https://registry.yarnpkg.com/@cypress/webpack-preprocessor/-/webpack-preprocessor-5.12.0.tgz#231f6c86423237e17eaf12ce6193d4b67290b852"
+  integrity sha512-D/eLKKlgx6c/307FaCmjZGjFA64G29aA8KcCy6WqpNK/bSnRdPquMW2plemIsT/B80TK2DDKzZX/H3FcS41ZDA==
   dependencies:
     bluebird "3.7.1"
     debug "^4.3.2"
@@ -3645,10 +3645,10 @@
   dependencies:
     node-fetch "*"
 
-"@types/node@*", "@types/node@17.0.38":
-  version "17.0.38"
-  resolved "https://registry.yarnpkg.com/@types/node/-/node-17.0.38.tgz#f8bb07c371ccb1903f3752872c89f44006132947"
-  integrity sha512-5jY9RhV7c0Z4Jy09G+NIDTsCZ5G0L5n+Z+p+Y7t5VJHM30bgwzSjVtlcBxqAj+6L/swIlvtOSzr8rBk/aNyV2g==
+"@types/node@*", "@types/node@17.0.41":
+  version "17.0.41"
+  resolved "https://registry.yarnpkg.com/@types/node/-/node-17.0.41.tgz#1607b2fd3da014ae5d4d1b31bc792a39348dfb9b"
+  integrity sha512-xA6drNNeqb5YyV5fO3OAEsnXLfO7uF0whiOfPTz5AeDo8KeZFmODKnvwPymMNO8qE/an8pVY/O50tig2SQCrGw==
 
 "@types/node@^10.1.0":
   version "10.17.60"
@@ -6815,10 +6815,10 @@ cypress-react-unit-test@4.17.2:
     semver "7.3.2"
     unfetch "4.1.0"
 
-cypress@9.7.0:
-  version "9.7.0"
-  resolved "https://registry.yarnpkg.com/cypress/-/cypress-9.7.0.tgz#bf55b2afd481f7a113ef5604aa8b693564b5e744"
-  integrity sha512-+1EE1nuuuwIt/N1KXRR2iWHU+OiIt7H28jJDyyI4tiUftId/DrXYEwoDa5+kH2pki1zxnA0r6HrUGHV5eLbF5Q==
+cypress@10.0.3:
+  version "10.0.3"
+  resolved "https://registry.yarnpkg.com/cypress/-/cypress-10.0.3.tgz#889b4bef863b7d1ef1b608b85b964394ad350c5f"
+  integrity sha512-8C82XTybsEmJC9POYSNITGUhMLCRwB9LadP0x33H+52QVoBjhsWvIzrI+ybCe0+TyxaF0D5/9IL2kSTgjqCB9A==
   dependencies:
     "@cypress/request" "^2.88.10"
     "@cypress/xvfb" "^1.2.4"
