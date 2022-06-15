@@ -2709,12 +2709,12 @@
   dependencies:
     nx "14.2.1"
 
-"@nrwl/cli@14.2.4":
-  version "14.2.4"
-  resolved "https://registry.yarnpkg.com/@nrwl/cli/-/cli-14.2.4.tgz#382592fe8cf5f5d5572dddbb366e55f2a2e23145"
-  integrity sha512-Ak6mmM9W39DSVaRDxt0yqMwHWg5yL9+QqhSB7q464EAKS6r4NPr6Z+avAjqAfoS/H8WsEPlwJnsaaJiP/gBwWQ==
+"@nrwl/cli@14.3.3":
+  version "14.3.3"
+  resolved "https://registry.yarnpkg.com/@nrwl/cli/-/cli-14.3.3.tgz#c860dfbe9877cace57dca353c06de7f0652b84ba"
+  integrity sha512-jiOWIUqWuMEP4fvLDL8x9xpiaH7IkcYWMEUmKGuKusmgv0KBjpKJ0mJCSrwFC/dFhl1uEWMcIF+YQZ4B7F4wpA==
   dependencies:
-    nx "14.2.4"
+    nx "14.3.3"
 
 "@nrwl/devkit@14.2.1":
   version "14.2.1"
@@ -2775,12 +2775,12 @@
   dependencies:
     nx "14.2.1"
 
-"@nrwl/tao@14.2.4":
-  version "14.2.4"
-  resolved "https://registry.yarnpkg.com/@nrwl/tao/-/tao-14.2.4.tgz#cbe8ea61e12027be9b78534b1325df77168c2759"
-  integrity sha512-wnrS+Go1Moa+jkOKqxoR/+YihDSoMlbUemBBoa1P2JQ6gvCnCrsvCx3qosJ0HfSdqQy8tkoUqd624RcGUyDUbg==
+"@nrwl/tao@14.3.3":
+  version "14.3.3"
+  resolved "https://registry.yarnpkg.com/@nrwl/tao/-/tao-14.3.3.tgz#1a9da08fec47d843f76ee0b3cdd99e0aea115da8"
+  integrity sha512-++t53j4KOrcCl9L+g8/ULP5bg8dRYCuKEDsiaqjlvWO1dJ6vhiJ7muWxITUqFAIUsi57Xzv7U+fI3pG/YjqIvA==
   dependencies:
-    nx "14.2.4"
+    nx "14.3.3"
 
 "@nrwl/workspace@14.2.1":
   version "14.2.1"
@@ -10558,6 +10558,13 @@ js-yaml@3.14.0:
     argparse "^1.0.7"
     esprima "^4.0.0"
 
+js-yaml@4.1.0, js-yaml@^4.1.0:
+  version "4.1.0"
+  resolved "https://registry.yarnpkg.com/js-yaml/-/js-yaml-4.1.0.tgz#c1fb65f8f5017901cdd2c951864ba18458a10602"
+  integrity sha512-wpxZs9NoxZaJESJGIZTyDEaYpl0FKSA+FB9aJiyemKhMwkxQg63h4T1KJgUGHpTqPDNRcmmYLugrRjJlBtWvRA==
+  dependencies:
+    argparse "^2.0.1"
+
 js-yaml@^3.13.1:
   version "3.14.1"
   resolved "https://registry.yarnpkg.com/js-yaml/-/js-yaml-3.14.1.tgz#dae812fdb3825fa306609a8717383c50c36a0537"
@@ -10565,13 +10572,6 @@ js-yaml@^3.13.1:
   dependencies:
     argparse "^1.0.7"
     esprima "^4.0.0"
-
-js-yaml@^4.1.0:
-  version "4.1.0"
-  resolved "https://registry.yarnpkg.com/js-yaml/-/js-yaml-4.1.0.tgz#c1fb65f8f5017901cdd2c951864ba18458a10602"
-  integrity sha512-wpxZs9NoxZaJESJGIZTyDEaYpl0FKSA+FB9aJiyemKhMwkxQg63h4T1KJgUGHpTqPDNRcmmYLugrRjJlBtWvRA==
-  dependencies:
-    argparse "^2.0.1"
 
 jsbn@~0.1.0:
   version "0.1.1"
@@ -11938,13 +11938,13 @@ nx@14.2.1:
     yargs "^17.4.0"
     yargs-parser "21.0.1"
 
-nx@14.2.4:
-  version "14.2.4"
-  resolved "https://registry.yarnpkg.com/nx/-/nx-14.2.4.tgz#0cf1ffff9535157845b24d65ad00bb1bc680c1e8"
-  integrity sha512-/LnPgHSckncvS+azP17F0sskDWeiEdBG3eMpAauX8dol4ECG01xPlkiuMTCw4URes6J1TObZTbaEk4eP2uWrag==
+nx@14.3.3:
+  version "14.3.3"
+  resolved "https://registry.yarnpkg.com/nx/-/nx-14.3.3.tgz#9c4e655b1cee641a8383f5f669ac326df48a6377"
+  integrity sha512-PzPknkmsYXiV1iO2PcIrS/jr5SeeAQXGTTrJXQwdlCyCKh2177nu35pKlbl78GFPSNj0S3x6wYHqlXs9vn+Mfg==
   dependencies:
-    "@nrwl/cli" "14.2.4"
-    "@nrwl/tao" "14.2.4"
+    "@nrwl/cli" "14.3.3"
+    "@nrwl/tao" "14.3.3"
     "@parcel/watcher" "2.0.4"
     chalk "4.1.0"
     chokidar "^3.5.1"
@@ -11959,6 +11959,7 @@ nx@14.2.4:
     fs-extra "^10.1.0"
     glob "7.1.4"
     ignore "^5.0.4"
+    js-yaml "4.1.0"
     jsonc-parser "3.0.0"
     minimatch "3.0.5"
     npm-run-path "^4.0.1"
