@@ -1,28 +1,52 @@
 import * as React from 'react';
-import { Route, Routes, useParams, Navigate } from 'react-router-dom';
+import { useQuery } from '@apollo/client/react/hooks';
+import { Route, Routes, useParams, Navigate, NavLink } from 'react-router-dom';
 import { Subsection } from '../../../reusable/subsection/subsection';
 import { ProjectDetail } from './detailSections/projectDetail';
 import { ProjectListSection, AddNewProject } from './projectListSection';
+import LoadSpinner from '../../../reusable/loadSpinner';
+import { WHO_AM_I, userTypes } from 'itmat-commons';
+import { Button } from 'antd';
 import css from './tabContent.module.css';
 
 export const ProjectsTabContent: React.FunctionComponent<{ projectList: { id: string; name: string }[] }> = ({ projectList }) => {
     const { studyId } = useParams();
+    const { loading: whoAmILoading, error: whoAmIError, data: whoAmIData } = useQuery(WHO_AM_I);
+    if (whoAmILoading) {
+        return <LoadSpinner />;
+    }
+    if (!studyId || whoAmIError) {
+        return <p>
+            An error occured, please contact your administrator
+        </p>;
+    }
     if (!studyId)
         return <Navigate to='/datasets' />;
-    return <Routes>
-        <Route path=':projectId/*' element={<ProjectDetail />} />
-        <Route path='/' element={<div className={`${css.tab_page_wrapper} ${css.left_panel} fade_in`}>
-            <div>
-                <Subsection title='Projects'>
-                    <ProjectListSection studyId={studyId} projectList={projectList} />
-                </Subsection>
-            </div>
-            <div>
-                <Subsection title='Add new project'>
-                    <AddNewProject studyId={studyId} />
-                </Subsection>
-            </div>
-        </div>} />
-        <Route path='*' element={<Navigate to='projects' />} />
-    </Routes>;
+    if (whoAmIData.whoAmI.type === userTypes.ADMIN) {
+        return <Routes>
+            <Route path=':projectId/*' element={<ProjectDetail />} />
+            <Route path='/' element={<div className={`${css.tab_page_wrapper} ${css.left_panel} fade_in`}>
+                <div>
+                    <Subsection title='Projects'>
+                        <ProjectListSection studyId={studyId} projectList={projectList} />
+                    </Subsection>
+                </div>
+                <div>
+                    <Subsection title='Add new project'>
+                        <AddNewProject studyId={studyId} />
+                    </Subsection>
+                </div>
+            </div>} />
+            <Route path='*' element={<Navigate to='projects' />} />
+        </Routes>;
+    } else {
+        return <>
+            You have access to two or more projects. Please pick the one you would like to access: <br /><br /><br />
+            {projectList.map((el) =>
+                <NavLink key={el.id} to={`/projects/${el.id}/dashboard`}>
+                    <Button>{el.name}</Button>
+                </NavLink>
+            )}
+        </>;
+    }
 };
