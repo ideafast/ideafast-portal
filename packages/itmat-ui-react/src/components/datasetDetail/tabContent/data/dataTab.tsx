@@ -144,6 +144,10 @@ export const DataManagementTabContentFetch: React.FunctionComponent = () => {
                     })]}
                     verbal={true}
                 ></FieldListSection>
+                {/* <FieldListRadial
+                    studyData={getStudyData.getStudy}
+                    fieldList={getStudyFieldsData.getStudyFields}
+                ></FieldListRadial> */}
                 <br /><br />
 
             </SubsectionWithComment>

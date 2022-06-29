@@ -30,7 +30,7 @@ export const DataTabContent: React.FunctionComponent<{ studyId: string }> = ({ s
     if (!projectId || getStudyFieldsError || getProjectError || getOntologyTreeError) {
         return <div className={`${css.tab_page_wrapper} ${css.both_panel} ${css.upload_overlay}`}>
             An error occured, please contact your administrator
-        </div>;
+        </div >;
     }
     if (getOntologyTreeData.getOntologyTree[0] === undefined) {
         return <span>Ontology Tree Missing!</span>;
@@ -60,7 +60,7 @@ export const DataTabContent: React.FunctionComponent<{ studyId: string }> = ({ s
                 <DataDownloadBlock project={getProjectData.getProject} />
             </div>
         </div>
-    </div>;
+    </div >;
 };
 
 export const DemographicsBlock: React.FunctionComponent<{ ontologyTree: IOntologyTree, studyId: string, projectId: string, fields: IFieldEntry[] }> = ({ ontologyTree, studyId, projectId, fields }) => {
@@ -292,7 +292,7 @@ export const FieldViewer: React.FunctionComponent<{ ontologyTree: IOntologyTree,
             }}
             placeholder={'Please select'}
         />
-    </>} float={'center'}>
+    </>} float={'center'} >
         {
             field === undefined ? null :
                 <>
@@ -328,7 +328,7 @@ export const FieldViewer: React.FunctionComponent<{ ontologyTree: IOntologyTree,
                     </Row><br />
                 </>
         }
-    </SubsectionWithComment>);
+    </SubsectionWithComment >);
 };
 
 export const DataCompletenessBlock: React.FunctionComponent<{ studyId: string, projectId: string, ontologyTree: IOntologyTree, fields: IFieldEntry[] }> = ({ studyId, projectId, ontologyTree, fields }) => {
@@ -360,7 +360,7 @@ export const DataCompletenessBlock: React.FunctionComponent<{ studyId: string, p
     if (getDataRecordsError) {
         return <div className={`${css.tab_page_wrapper} ${css.both_panel} ${css.upload_overlay}`}>
             An error occured, please contact your administrator
-        </div>;
+        </div >;
     }
     // process the data
     const data = getDataRecordsData.getDataRecords.data;
@@ -605,6 +605,29 @@ export const DataDetailsBlock: React.FunctionComponent<{ studyId: string, projec
                         }
                     </>);
                 }
+                return (<>
+                    {
+                        [enumValueType.INTEGER, enumValueType.DECIMAL].includes(fields.filter(el => el.fieldId === fieldIdFromData)[0].dataType) ?
+                            <Violin
+                                data={data}
+                                xField={'x'}
+                                yField={'y'}
+                            />
+                            :
+                            <Column
+                                data={data}
+                                xField={'visit'}
+                                yField={'count'}
+                                seriesField={'value'}
+                                isPercent={true}
+                                isStack={true}
+                                interactions={[
+                                    { type: 'element-highlight-by-color' },
+                                    { type: 'element-link' }
+                                ]}
+                            />
+                    }
+                </>);
             }}
         </Query>
         <br />
@@ -656,7 +679,7 @@ export const DataDownloadBlock: React.FunctionComponent<{ project: IProject }> =
     if (getStandardizationError) {
         return <p>
             An error occured, please contact your administrator
-        </p>;
+        </p >;
     }
     const availableFormats: string[] = Array.from(new Set(getStandardizationData.getStandardization.map(el => el.type))) || [];
     const dataArray: any[] = [];
@@ -709,7 +732,7 @@ export const DataDownloadBlock: React.FunctionComponent<{ project: IProject }> =
             {
                 availableFormats.map(el => <Option value={'standardized-' + el}>{el.toString()}</Option>)
             }
-        </Select>
+        </ Select>
         <Button onClick={() => {
             getDataRecordsLazy({
                 variables: {
@@ -764,5 +787,5 @@ export const DataDownloadBlock: React.FunctionComponent<{ project: IProject }> =
                         size='middle'
                     ></Table>
         }
-    </SubsectionWithComment>);
+    </SubsectionWithComment >);
 };
