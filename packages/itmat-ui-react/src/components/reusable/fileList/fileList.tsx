@@ -256,7 +256,7 @@ export const FileList: React.FunctionComponent<{ type: studyType, files: IFile[]
                 const startDate = moment(file.startDate).format('YYYYMMDD');
                 const endDate = moment(file.endDate).format('YYYYMMDD');
                 return <Button icon={<CloudDownloadOutlined />} download={`${file.participantId}-${file.deviceId}-${startDate}-${endDate}.${ext}`} href={`/file/${record.id}`}>
-                        Download
+                    Download
                 </Button>;
             },
             width: '10rem',
@@ -285,7 +285,7 @@ export const FileList: React.FunctionComponent<{ type: studyType, files: IFile[]
             }
         ]);
 
-    return (type === studyType.ANY || type === studyType.CLINICAL) ?
+    return type === studyType.ANY ?
         <>
             <Table
                 rowKey={(rec) => rec.id}
@@ -301,7 +301,7 @@ export const FileList: React.FunctionComponent<{ type: studyType, files: IFile[]
                 columns={fileNameColumns}
                 dataSource={files}
                 size='small' />
-            {variablesListFiles.length ===0 ? null :
+            {variablesListFiles.length === 0 ? null :
                 <Table
                     rowKey={(rec) => rec.id}
                     columns={fileNameColumns}
