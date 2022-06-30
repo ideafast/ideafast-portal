@@ -2833,10 +2833,10 @@
     tmp "~0.2.1"
     tslib "^2.3.0"
 
-"@nrwl/nx-cloud@14.1.2":
-  version "14.1.2"
-  resolved "https://registry.yarnpkg.com/@nrwl/nx-cloud/-/nx-cloud-14.1.2.tgz#f09a372dccbeb649b294fcfbf13d42aa33177cdf"
-  integrity sha512-ZMxxx+NNp06IDPJ8cbQDPNMNRuH+pM/RoC7ZsCriotDG3kpzour41OGf0UpnXSXcTJPlDyHG6Xi0XuPdjmpNSw==
+"@nrwl/nx-cloud@14.1.3":
+  version "14.1.3"
+  resolved "https://registry.yarnpkg.com/@nrwl/nx-cloud/-/nx-cloud-14.1.3.tgz#0252290893763afc4e47e28a1180f1950029ac98"
+  integrity sha512-8Kn2xeKLTnifsZrNimOwl8Q1dJUWx+HwOC/0MeFgTySKcKE0eim81ST8xiaysNw6EyYT6y/vhPGMxby22wtqYQ==
   dependencies:
     axios "^0.21.1"
     chalk "4.1.0"
@@ -6761,10 +6761,10 @@ csstype@^3.0.2, csstype@^3.0.3, csstype@^3.0.6, csstype@^3.0.8:
   resolved "https://registry.yarnpkg.com/csstype/-/csstype-3.1.0.tgz#4ddcac3718d787cf9df0d1b7d15033925c8f29f2"
   integrity sha512-uX1KG+x9h5hIJsaKR9xHUeUraxf8IODOwq9JLNPq6BwB04a/xgpq3rcx47l5BZu5zBPlgD342tdke3Hom/nJRA==
 
-csv-parse@5.2.0:
-  version "5.2.0"
-  resolved "https://registry.yarnpkg.com/csv-parse/-/csv-parse-5.2.0.tgz#492b5ca2e5e87e3672ca834e83ab3a0e2486d5cb"
-  integrity sha512-ZuLjTp3Qx2gycoB7FKS9q11KgDL3f0wQszTlNOajS3fHa0jypN/zgjmkam+rczX5dXw5z7+KrDW2hWkM4542Ug==
+csv-parse@5.2.1:
+  version "5.2.1"
+  resolved "https://registry.yarnpkg.com/csv-parse/-/csv-parse-5.2.1.tgz#51eed6eb07e0c3948f5f816a762a16fa7758bb54"
+  integrity sha512-6JA4UDz7Vvs66ZZWUxR0uD6BR6Oh07rRaKjsZpoqcI7vDdoNpCHgJ58QpAZ8si/y7yK2qTeqOK+ZhrVsR28icQ==
 
 cypress-file-upload@5.0.8:
   version "5.0.8"
@@ -6790,10 +6790,10 @@ cypress-react-unit-test@4.17.2:
     semver "7.3.2"
     unfetch "4.1.0"
 
-cypress@10.2.0:
-  version "10.2.0"
-  resolved "https://registry.yarnpkg.com/cypress/-/cypress-10.2.0.tgz#ca078abfceb13be2a33cbba6e0e80ded770f542a"
-  integrity sha512-+i9lY5ENlfi2mJwsggzR+XASOIgMd7S/Gd3/13NCpv596n3YSplMAueBTIxNLcxDpTcIksp+9pM3UaDrJDpFqA==
+cypress@10.3.0:
+  version "10.3.0"
+  resolved "https://registry.yarnpkg.com/cypress/-/cypress-10.3.0.tgz#fae8d32f0822fcfb938e79c7c31ef344794336ae"
+  integrity sha512-txkQWKzvBVnWdCuKs5Xc08gjpO89W2Dom2wpZgT9zWZT5jXxqPIxqP/NC1YArtkpmp3fN5HW8aDjYBizHLUFvg==
   dependencies:
     "@cypress/request" "^2.88.10"
     "@cypress/xvfb" "^1.2.4"
@@ -11712,10 +11712,10 @@ mongodb-connection-string-url@^2.5.2:
     "@types/whatwg-url" "^8.2.1"
     whatwg-url "^11.0.0"
 
-mongodb-memory-server-core@8.7.1:
-  version "8.7.1"
-  resolved "https://registry.yarnpkg.com/mongodb-memory-server-core/-/mongodb-memory-server-core-8.7.1.tgz#6ee68b5ed3a0b7527258775e50377e936d1c811e"
-  integrity sha512-ysMg0G8EqvjkWjO1i7s7mLSJDgLUdq5rms9IhpHX9TkiuRz475j7EUPSvdJGBby7qvgEockZCyEBOil7GlvZSg==
+mongodb-memory-server-core@8.7.2:
+  version "8.7.2"
+  resolved "https://registry.yarnpkg.com/mongodb-memory-server-core/-/mongodb-memory-server-core-8.7.2.tgz#1bc8586d7392cf4d5e150d80484288583df2e3e6"
+  integrity sha512-ScYLuxJ9NFhxatu+d+1T0ncJI1aeLFIXYaGGi7Gg5jTbnYvldOdZaabxD/LIigFurJOHFFBReJ0A++njOssdIw==
   dependencies:
     "@types/tmp" "^0.2.3"
     async-mutex "^0.3.2"
@@ -11734,12 +11734,12 @@ mongodb-memory-server-core@8.7.1:
     uuid "^8.3.1"
     yauzl "^2.10.0"
 
-mongodb-memory-server@8.7.1:
-  version "8.7.1"
-  resolved "https://registry.yarnpkg.com/mongodb-memory-server/-/mongodb-memory-server-8.7.1.tgz#55bcfb9eae72a816db7a44bf7f011f6880f7d57d"
-  integrity sha512-NIn5pL3Q/bK9H/KRSanpgFuZWrNiTn3y3XUyxE6qm1nFq46z7rmwU0IYZ3STy0O8Gg7r8DzC9xx4/UVFP5HnxA==
+mongodb-memory-server@8.7.2:
+  version "8.7.2"
+  resolved "https://registry.yarnpkg.com/mongodb-memory-server/-/mongodb-memory-server-8.7.2.tgz#d688354f50d7eb505f27601ed74e23dfe4e20419"
+  integrity sha512-uD1lyrCQ40MAxkJTZVLjy+WomHGcmCWxuXqlKujXP64CSH+vPMXRWqRbcfxNesc2C98h6IU7yrHbMp0SmTbvdQ==
   dependencies:
-    mongodb-memory-server-core "8.7.1"
+    mongodb-memory-server-core "8.7.2"
     tslib "^2.4.0"
 
 mongodb@4.7.0, mongodb@^4.7.0:
@@ -11930,10 +11930,10 @@ node-releases@^2.0.5:
   resolved "https://registry.yarnpkg.com/node-releases/-/node-releases-2.0.5.tgz#280ed5bc3eba0d96ce44897d8aee478bfb3d9666"
   integrity sha512-U9h1NLROZTq9uE1SNffn6WuPDg8icmi3ns4rEl/oTfIle4iLjTliCzgTsbaIFMq/Xn078/lfY/BL0GWZ+psK4Q==
 
-nodemailer@6.7.5:
-  version "6.7.5"
-  resolved "https://registry.yarnpkg.com/nodemailer/-/nodemailer-6.7.5.tgz#b30b1566f5fa2249f7bd49ced4c58bec6b25915e"
-  integrity sha512-6VtMpwhsrixq1HDYSBBHvW0GwiWawE75dS3oal48VqRhUvKJNnKnJo2RI/bCVQubj1vgrgscMNW4DHaD6xtMCg==
+nodemailer@6.7.6:
+  version "6.7.6"
+  resolved "https://registry.yarnpkg.com/nodemailer/-/nodemailer-6.7.6.tgz#d3de8f644eaa0dad784d1be1375c596de492f3fc"
+  integrity sha512-/6KF/umU7r7X21Y648/yiRLrgkfz0dmpyuo4BfgYWIpnT/jCbkPTvegMfxCsDAu+O810p2L1BGXieMTPp3nJVA==
 
 nopt@^5.0.0:
   version "5.0.0"
