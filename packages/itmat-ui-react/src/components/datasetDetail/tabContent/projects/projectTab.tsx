@@ -1,12 +1,11 @@
 import * as React from 'react';
 import { useQuery } from '@apollo/client/react/hooks';
-import { Route, Routes, useParams, Navigate, NavLink } from 'react-router-dom';
+import { Route, Routes, useParams, Navigate } from 'react-router-dom';
 import { Subsection } from '../../../reusable/subsection/subsection';
 import { ProjectDetail } from './detailSections/projectDetail';
 import { ProjectListSection, AddNewProject } from './projectListSection';
 import LoadSpinner from '../../../reusable/loadSpinner';
 import { WHO_AM_I, userTypes } from 'itmat-commons';
-import { Button } from 'antd';
 import css from './tabContent.module.css';
 
 export const ProjectsTabContent: React.FunctionComponent<{ projectList: { id: string; name: string }[] }> = ({ projectList }) => {
@@ -15,12 +14,7 @@ export const ProjectsTabContent: React.FunctionComponent<{ projectList: { id: st
     if (whoAmILoading) {
         return <LoadSpinner />;
     }
-    if (!studyId || whoAmIError) {
-        return <p>
-            An error occured, please contact your administrator
-        </p>;
-    }
-    if (!studyId)
+    if (!studyId || whoAmIError)
         return <Navigate to='/datasets' />;
     if (whoAmIData.whoAmI.type === userTypes.ADMIN) {
         return <Routes>
@@ -39,14 +33,6 @@ export const ProjectsTabContent: React.FunctionComponent<{ projectList: { id: st
             </div>} />
             <Route path='*' element={<Navigate to='projects' />} />
         </Routes>;
-    } else {
-        return <>
-            You have access to two or more projects. Please pick the one you would like to access: <br /><br /><br />
-            {projectList.map((el) =>
-                <NavLink key={el.id} to={`/projects/${el.id}/dashboard`}>
-                    <Button>{el.name}</Button>
-                </NavLink>
-            )}
-        </>;
-    }
+    } else
+        return <Navigate to='projects' />;
 };

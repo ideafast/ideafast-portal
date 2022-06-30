@@ -566,7 +566,7 @@ export const DataDetailsBlock: React.FunctionComponent<{ studyId: string, projec
                     };
                 });
                 console.log(boxData);
-                if ([enumValueType.INTEGER, enumValueType.DECIMAL].includes(fields.filter(el => el.fieldId === fieldIdFromData)[0].dataType)) {
+                if ([enumValueType.INTEGER, enumValueType.DECIMAL].includes(fields.filter(el => el.fieldId === fieldIdFromData)[0].dataType))
                     return (<>
                         {
                             selectedGraphType === 'violin' ? <Violin
@@ -585,7 +585,7 @@ export const DataDetailsBlock: React.FunctionComponent<{ studyId: string, projec
                             /> : null
                         }
                     </>);
-                } else {
+                else
                     return (<>
                         {
                             selectedGraphType === 'stackedColumn' || selectedGraphType === 'groupedColumn' ?
@@ -604,30 +604,6 @@ export const DataDetailsBlock: React.FunctionComponent<{ studyId: string, projec
                                 /> : null
                         }
                     </>);
-                }
-                return (<>
-                    {
-                        [enumValueType.INTEGER, enumValueType.DECIMAL].includes(fields.filter(el => el.fieldId === fieldIdFromData)[0].dataType) ?
-                            <Violin
-                                data={data}
-                                xField={'x'}
-                                yField={'y'}
-                            />
-                            :
-                            <Column
-                                data={data}
-                                xField={'visit'}
-                                yField={'count'}
-                                seriesField={'value'}
-                                isPercent={true}
-                                isStack={true}
-                                interactions={[
-                                    { type: 'element-highlight-by-color' },
-                                    { type: 'element-link' }
-                                ]}
-                            />
-                    }
-                </>);
             }}
         </Query>
         <br />
