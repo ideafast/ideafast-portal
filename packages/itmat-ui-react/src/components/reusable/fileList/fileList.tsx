@@ -53,7 +53,7 @@ export const FileList: React.FunctionComponent<{ type: studyType, files: IFile[]
         return <LoadSpinner />;
 
     if (getOrgsError || getUsersError)
-        return <>A error occured, please contact your administrator: {(getOrgsError as any).message} {(getUsersError as any).message}</>;
+        return <>An error occured, please contact your administrator: {(getOrgsError as any).message} {(getUsersError as any).message}</>;
 
     const userIdNameMapping = getUsersData.getUsers.reduce((a, b) => { a[b['id']] = b['firstname'].concat(' ').concat(b['lastname']); return a; }, {});
 
