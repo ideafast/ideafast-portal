@@ -141,7 +141,6 @@ export const studyResolvers = {
                 studyId,
                 projectId
             );
-            console.log(hasPermission, hasProjectLevelPermission);
             if (!hasPermission && !hasProjectLevelPermission) { throw new ApolloError(errorCodes.NO_PERMISSION_ERROR); }
 
             if (treeId) {
@@ -372,8 +371,6 @@ export const studyResolvers = {
                 return await db.collections!.files_collection.find({ studyId: study.id, deleted: null }).toArray();
             } else {
                 const siteIDMarker: string | undefined = (await db.collections!.organisations_collection.findOne({ id: requester.organisation }))?.metadata?.siteIDMarker;
-                console.log('siteIDMarker', siteIDMarker);
-                console.log(await db.collections!.files_collection.find({ studyId: study.id, deleted: null, fileName: { $regex: new RegExp('^' + siteIDMarker + '(.{6})-(.{3})(.{6})-(\\d{8})-(\\d{8})\\.(.*)$') } }).toArray());
                 if (!siteIDMarker) {
                     return [];
                 } else {
