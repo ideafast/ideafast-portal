@@ -548,7 +548,10 @@ export const FileRepositoryTabContent: React.FunctionComponent<{ studyId: string
                         <span>Total Files: {numberOfFiles}</span>
                         <span>Total Size: {formatBytes(sizeOfFiles)}</span>
                         <span>Total Participants: {participantOfFiles}</span>
-                        <Button onClick={() => setIsFileSummaryShown(true)}>File Details</Button>
+                        {
+                            getStudyData.getStudy.type === studyType.ANY ? null :
+                                <Button onClick={() => setIsFileSummaryShown(true)}>File Details</Button>
+                        }
                     </Space>}
                 >
                     <Modal visible={isFileSummaryShown} onCancel={() => setIsFileSummaryShown(false)} onOk={() => setIsFileSummaryShown(false)} width={'100%'}>
