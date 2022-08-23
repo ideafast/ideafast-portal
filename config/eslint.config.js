@@ -84,8 +84,7 @@ var defaultRules = {
         'off'
     ],
     '@typescript-eslint/no-unused-vars': [
-        'error',
-        { argsIgnorePattern: '^__unused__' }
+        'off'
     ],
 };
 
