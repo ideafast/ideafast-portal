@@ -321,10 +321,6 @@ export const DemographicsBlock: React.FunctionComponent<{ ontologyTree: IOntolog
                                 { type: 'active-region' }
                             ]}
                             yField={['Male', 'Female']}
-                            tooltip={{
-                                shared: true,
-                                showMarkers: false
-                            }}
                         />
                         <div className={css.grid_col_center}><Text style={{ fontSize: '32px' }} strong>Age</Text></div>
                     </div>
@@ -654,7 +650,7 @@ export const DataCompletenessBlock: React.FunctionComponent<{ studyId: string, p
             }
         }
     };
-    const tooltipConfig = {
+    const tooltipConfig: any = {
         showTitle: false,
         fields: ['visit', 'field', 'percentage'],
         formatter: (datum: any) => {

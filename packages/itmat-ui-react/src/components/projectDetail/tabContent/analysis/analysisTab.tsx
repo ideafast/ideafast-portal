@@ -87,8 +87,6 @@ const FilterSelector: React.FunctionComponent<{ guideTool: any, filtersTool: any
     React.useEffect(() => {
         form.setFieldsValue(formInitialValues(form, filtersTool[0], currentGroupIndex));
     });
-    React.useEffect(() => { return undefined; }, [guideTool[0]]);
-
     const [genderField, raceField] = dmFields;
 
     return (<div className={css.scaffold_wrapper}>
