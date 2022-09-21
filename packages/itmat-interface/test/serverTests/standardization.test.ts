@@ -1217,7 +1217,7 @@ describe('STUDY API', () => {
                     entry_data: '2',
                     entry_field: 'test',
                     visit: '2'
-                }
+                },
             ]);
             expect(res.body.data.getDataRecords.data.DM.sort((a: { entry_reserved: string; entry_inc: number; }, b: { entry_reserved: any; entry_inc: number; }) => {
                 return a.entry_reserved !== b.entry_reserved ? a.entry_reserved.localeCompare(b.entry_reserved)
@@ -1225,13 +1225,13 @@ describe('STUDY API', () => {
             })).toEqual([
                 {
                     entry_reserved: 'GR6R4AR',
-                    index: 1,
+                    index: 2,
                     entry_data_age: 35,
                     entry_data_gender: 'F'
                 },
                 {
                     entry_reserved: 'I7N3G6G',
-                    index: 2,
+                    index: 1,
                     entry_data_age: 25,
                     entry_data_gender: 'M'
                 }
