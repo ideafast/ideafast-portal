@@ -1152,7 +1152,6 @@ describe('STUDY API', () => {
             });
             expect(res.status).toBe(200);
             expect(res.body.errors).toBeUndefined();
-            console.log(res.body.data.getDataRecords.data);
             expect(res.body.data.getDataRecords.data.QS).toEqual([
                 {
                     entry_value: 'fakeValue101',
