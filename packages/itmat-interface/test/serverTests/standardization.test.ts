@@ -1217,7 +1217,7 @@ describe('STUDY API', () => {
                     entry_data: '2',
                     entry_field: 'test',
                     visit: '2'
-                },
+                }
             ]);
             expect(res.body.data.getDataRecords.data.DM.sort((a: { entry_reserved: string; entry_inc: number; }, b: { entry_reserved: any; entry_inc: number; }) => {
                 return a.entry_reserved !== b.entry_reserved ? a.entry_reserved.localeCompare(b.entry_reserved)

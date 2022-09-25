@@ -338,7 +338,7 @@ export const studyResolvers = {
             const result = await db.collections!.data_collection.aggregate(pipeline).toArray();
             // post processing the data
             // 1. update to the latest data; start from latest record
-            const groupedResult = {};
+            const groupedResult: any = {};
             for (let i = 0; i < result.length; i++) {
                 if (groupedResult[result[i]['m_subjectId']] === undefined) {
                     groupedResult[result[i]['m_subjectId']] = {};
