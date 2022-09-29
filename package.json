@@ -37,7 +37,7 @@
         "@nrwl/workspace": "14.8.0",
         "@swc/cli": "~0.1.57",
         "@swc/core": "^1.3.3",
-        "@swc/jest": "0.2.22",
+        "@swc/jest": "0.2.23",
         "@testing-library/react": "13.4.0",
         "@types/apollo-upload-client": "17.0.1",
         "@types/bcrypt": "5.0.0",
