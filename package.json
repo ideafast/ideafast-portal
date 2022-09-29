@@ -23,7 +23,7 @@
         "lint-fix": "nx affected --target=lint --fix"
     },
     "devDependencies": {
-        "@nrwl/cypress": "14.8.0",
+        "@nrwl/cypress": "14.8.1",
         "@nrwl/esbuild": "^14.8.0",
         "@nrwl/eslint-plugin-nx": "14.8.0",
         "@nrwl/express": "14.8.0",
