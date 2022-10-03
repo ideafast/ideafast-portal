@@ -1,11 +1,10 @@
 import { ApolloError } from 'apollo-server-express';
-import { IUser, IRole } from 'itmat-commons';
+import { task_required_permissions, permissions, IUser, IRole } from '@itmat-broker/itmat-types';
 import { db } from '../../database/database';
 import { permissionCore } from '../core/permissionCore';
 import { studyCore } from '../core/studyCore';
 import { errorCodes } from '../errors';
 import { IGenericResponse, makeGenericReponse } from '../responses';
-import { task_required_permissions, permissions } from 'itmat-commons';
 
 export const permissionResolvers = {
     Query: {
@@ -34,8 +33,7 @@ export const permissionResolvers = {
     },
     StudyOrProjectUserRole: {
         users: async (role: IRole): Promise<IUser[]> => {
-            //TODO variable role.users here is not actually of type IRole.IUser
-            const listOfUsers = role.users as any as string[];
+            const listOfUsers = role.users;
             return await (db.collections!.users_collection.find({ id: { $in: listOfUsers } }, { projection: { _id: 0, password: 0, email: 0 } }).toArray());
         }
     },

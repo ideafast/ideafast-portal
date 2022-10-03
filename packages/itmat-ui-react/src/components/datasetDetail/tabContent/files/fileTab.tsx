@@ -1,26 +1,27 @@
-import React, { useState, useEffect, useRef, useContext } from 'react';
-import { Button, Upload, notification, Tag, Table, Form, Input, DatePicker } from 'antd';
-import { RcFile } from 'antd/lib/upload';
+import { FunctionComponent, useState, useEffect, useRef, useContext, Fragment, HTMLAttributes, createContext, ReactNode } from 'react';
+import { Button, Upload, notification, Tag, Table, Form, Input, InputRef, DatePicker, Space, Modal } from 'antd';
+import { RcFile } from 'antd/es/upload';
 import { UploadOutlined, DeleteOutlined } from '@ant-design/icons';
 import { Query } from '@apollo/client/react/components';
 import { useApolloClient, useMutation, useQuery } from '@apollo/client/react/hooks';
 import { useDropzone } from 'react-dropzone';
-import { GET_STUDY, UPLOAD_FILE, GET_ORGANISATIONS, GET_USERS, IFile, EDIT_STUDY, WHO_AM_I, userTypes, studyType } from 'itmat-commons';
+import { GET_STUDY, UPLOAD_FILE, GET_ORGANISATIONS, GET_USERS, EDIT_STUDY, WHO_AM_I } from '@itmat-broker/itmat-models';
+import { IFile, userTypes, studyType } from '@itmat-broker/itmat-types';
 import { FileList, formatBytes } from '../../../reusable/fileList/fileList';
 import LoadSpinner from '../../../reusable/loadSpinner';
 import { Subsection, SubsectionWithComment } from '../../../reusable/subsection/subsection';
 import css from './tabContent.module.css';
 import { ApolloError } from '@apollo/client/errors';
 import { validate } from '@ideafast/idgen';
-import moment, { Moment } from 'moment';
+import dayjs, { Dayjs } from 'dayjs';
 import { v4 as uuid } from 'uuid';
 
 type StudyFile = RcFile & {
     uuid: string;
     participantId?: string;
     deviceId?: string;
-    startDate?: Moment;
-    endDate?: Moment;
+    startDate?: Dayjs;
+    endDate?: Dayjs;
 }
 
 export const deviceTypes = {
@@ -49,7 +50,7 @@ export const deviceTypes = {
 const { RangePicker } = DatePicker;
 let progressReports: any[] = [];
 
-export const FileRepositoryTabContent: React.FunctionComponent<{ studyId: string }> = ({ studyId }) => {
+export const FileRepositoryTabContent: FunctionComponent<{ studyId: string }> = ({ studyId }) => {
 
     const [uploadMovement, setUploadMovement] = useState(0);
     const [isDropOverlayShowing, setisDropOverlayShowing] = useState(false);
@@ -61,8 +62,9 @@ export const FileRepositoryTabContent: React.FunctionComponent<{ studyId: string
     const { loading: getUsersLoading, error: getUsersError, data: getUsersData } = useQuery(GET_USERS, { variables: { fetchDetailsAdminOnly: false, fetchAccessPrivileges: false } });
     const { loading: whoAmILoading, error: whoAmIError, data: whoAmIData } = useQuery(WHO_AM_I);
     const [searchTerm, setSearchTerm] = useState('');
-    const [isEditingDescription, setIsEditingDescription] = React.useState(false);
-    const [datasetDescription, setDatasetDescription] = React.useState('');
+    const [isEditingDescription, setIsEditingDescription] = useState(false);
+    const [datasetDescription, setDatasetDescription] = useState('');
+    const [isFileSummaryShown, setIsFileSummaryShown] = useState(false);
     const [editStudy] = useMutation(EDIT_STUDY, {
         onCompleted: () => { window.location.reload(); },
         onError: () => { return; }
@@ -90,7 +92,7 @@ export const FileRepositoryTabContent: React.FunctionComponent<{ studyId: string
                 message: 'Upload error!',
                 description: error.message ?? 'Unknown Error Occurred!',
                 placement: 'topRight',
-                duration: 0,
+                duration: 0
             });
         }
     });
@@ -130,7 +132,7 @@ export const FileRepositoryTabContent: React.FunctionComponent<{ studyId: string
 
     const fileFilter = (files: StudyFile[]) => {
         files.forEach((file) => {
-            if (getStudyData.getStudy.type === studyType.SENSOR || getStudyData.getStudy.type === null) {
+            if (getStudyData.getStudy.type === undefined || getStudyData.getStudy.type === null || getStudyData.getStudy.type === studyType.SENSOR || getStudyData.getStudy.type === studyType.CLINICAL) {
                 const matcher = /(.{1})(.{6})-(.{3})(.{6})-(\d{8})-(\d{8})\.(.*)/;
                 const particules = file.name.match(matcher);
                 if (particules?.length === 8) {
@@ -140,32 +142,25 @@ export const FileRepositoryTabContent: React.FunctionComponent<{ studyId: string
                     if (Object.keys(deviceTypes).includes(particules[3].toUpperCase())
                         && validate(particules[4].toUpperCase()))
                         file.deviceId = `${particules[3].toUpperCase()}${particules[4].toUpperCase()}`;
-                    const startDate = moment(particules[5], 'YYYYMMDD');
-                    const endDate = moment(particules[6], 'YYYYMMDD');
-                    if (startDate.isSameOrBefore(endDate)) {
+                    const startDate = dayjs(particules[5], 'YYYYMMDD');
+                    const endDate = dayjs(particules[6], 'YYYYMMDD');
+                    if (startDate.isSame(endDate) || startDate.isBefore(endDate)) {
                         if (startDate.isValid())
                             file.startDate = startDate;
-                        if (endDate.isValid() && endDate.isSameOrBefore(moment()))
+                        if (endDate.isValid() && (endDate.isSame(dayjs()) || endDate.isBefore(dayjs())))
                             file.endDate = endDate;
                     }
                 }
                 progressReports[`UP_${file.participantId}_${file.deviceId}_${file.startDate?.valueOf()}_${file.endDate?.valueOf()}`] = undefined;
-            } else if (getStudyData.getStudy.type === studyType.CLINICAL) {
-                const matcher = /(.{1})(.{6}).(.*)/;
-                const particules = file.name.match(matcher);
-                if (particules?.length === 4) {
-                    if (Object.keys(sites).includes(particules[1].toUpperCase())
-                        && validate(particules[2].toUpperCase()))
-                        file.participantId = `${particules[1].toUpperCase()}${particules[2].toUpperCase()}`;
-                }
-                progressReports[`UP_${file.participantId}`] = undefined;
+            } else if (getStudyData.getStudy.type === studyType.ANY) {
+                progressReports[`UP_${file.name}`] = undefined;
             }
             file.uuid = uuid();
             fileList.push(file);
         });
         setFileList([...fileList]);
     };
-    const validFile = (getStudyData.getStudy.type === studyType.SENSOR || getStudyData.getStudy.type === null) ? fileList.filter((file) => file.deviceId && file.participantId && file.startDate && file.endDate)
+    const validFile = (getStudyData.getStudy.type === undefined || getStudyData.getStudy.type === null || getStudyData.getStudy.type === studyType.SENSOR) ? fileList.filter((file) => file.deviceId && file.participantId && file.startDate && file.endDate)
         : fileList.filter((file) => file.name);
     const uploadHandler = () => {
 
@@ -174,7 +169,7 @@ export const FileRepositoryTabContent: React.FunctionComponent<{ studyId: string
         validFile.forEach(file => {
             let description: any;
             let uploadMapHackName: any;
-            if (getStudyData.getStudy.type === studyType.SENSOR || getStudyData.getStudy.type === null) {
+            if (getStudyData.getStudy.type === undefined || getStudyData.getStudy.type === null || getStudyData.getStudy.type === studyType.SENSOR || getStudyData.getStudy.type === studyType.CLINICAL) {
                 description = {
                     participantId: file.participantId?.trim().toUpperCase(),
                     deviceId: file.deviceId?.trim().toUpperCase(),
@@ -182,9 +177,6 @@ export const FileRepositoryTabContent: React.FunctionComponent<{ studyId: string
                     endDate: file.endDate?.valueOf()
                 };
                 uploadMapHackName = `UP_${description.participantId}_${description.deviceId}_${description.startDate}_${description.endDate}`;
-            } else if (getStudyData.getStudy.type === studyType.CLINICAL) {
-                description = {};
-                uploadMapHackName = `UP_${description.participantId}`;
             } else {
                 description = {};
                 uploadMapHackName = `UP_${file.name}`;
@@ -212,7 +204,7 @@ export const FileRepositoryTabContent: React.FunctionComponent<{ studyId: string
                 notification.success({
                     message: 'Upload succeeded!',
                     description: `File ${result.data.uploadFile.fileName} was successfully uploaded!`,
-                    placement: 'topRight',
+                    placement: 'topRight'
                 });
             }).catch(error => {
                 delete (window as any).onUploadProgressHackMap[uploadMapHackName];
@@ -221,7 +213,7 @@ export const FileRepositoryTabContent: React.FunctionComponent<{ studyId: string
                     message: 'Upload error!',
                     description: error?.message ?? error ?? 'Unknown Error Occurred!',
                     placement: 'topRight',
-                    duration: 0,
+                    duration: 0
                 });
             }));
         });
@@ -271,7 +263,7 @@ export const FileRepositoryTabContent: React.FunctionComponent<{ studyId: string
             render: (value, record) => {
                 const progress = progressReports[`UP_${record.participantId}_${record.deviceId}_${record.startDate?.valueOf()}_${record.endDate?.valueOf()}`];
                 if (progress)
-                    return <React.Fragment key={uploadMovement}>{Math.round(1000 * (progress.loaded - 1) / progress.total) / 10}%</React.Fragment>;
+                    return <Fragment key={uploadMovement}>{Math.round(1000 * (progress.loaded - 1) / progress.total) / 10}%</Fragment>;
                 return value;
             }
         },
@@ -329,7 +321,7 @@ export const FileRepositoryTabContent: React.FunctionComponent<{ studyId: string
                     dataIndex: col.dataIndex,
                     title: col.title,
                     handleSave
-                }),
+                })
             };
         });
 
@@ -342,7 +334,7 @@ export const FileRepositoryTabContent: React.FunctionComponent<{ studyId: string
             render: (value, record) => {
                 const progress = progressReports[`UP_${record.participantId}_${record.deviceId}_${record.startDate?.valueOf()}_${record.endDate?.valueOf()}`];
                 if (progress)
-                    return <React.Fragment key={uploadMovement}>{Math.round(1000 * (progress.loaded - 1) / progress.total) / 10}%</React.Fragment>;
+                    return <Fragment key={uploadMovement}>{Math.round(1000 * (progress.loaded - 1) / progress.total) / 10}%</Fragment>;
                 return value;
             }
         },
@@ -363,7 +355,7 @@ export const FileRepositoryTabContent: React.FunctionComponent<{ studyId: string
                 dataIndex: col.dataIndex,
                 title: col.title,
                 handleSave
-            }),
+            })
         }
         ));
 
@@ -372,7 +364,7 @@ export const FileRepositoryTabContent: React.FunctionComponent<{ studyId: string
 
     if (getOrgsError || getStudyError || getUsersError || whoAmIError)
         return <div className={`${css.tab_page_wrapper} ${css.both_panel} ${css.upload_overlay}`}>
-            A error occured, please contact your administrator
+            An error occured, please contact your administrator
         </div>;
 
     const userIdNameMapping = getUsersData.getUsers.reduce((a, b) => { a[b['id']] = b['firstname'].concat(' ').concat(b['lastname']); return a; }, {});
@@ -421,7 +413,52 @@ export const FileRepositoryTabContent: React.FunctionComponent<{ studyId: string
         return values;
     }, { set: {}, count: 0 }).count;
 
-    return <div {...getRootProps() as React.HTMLAttributes<HTMLDivElement>} className={`${css.scaffold_wrapper} ${isDropOverlayShowing ? css.drop_overlay : ''}`}>
+    // format the file structure
+    const availableSites: string[] = Array.from(new Set(getStudyData.getStudy.files.map(el => JSON.parse(el.description).participantId[0]).sort()));
+    const availableDeviceTypes: string[] = Array.from(new Set(getStudyData.getStudy.files.map(el => JSON.parse(el.description).deviceId.substr(0, 3)).sort()));
+    const categoryColumns: any[] = [
+        {
+            title: 'Site',
+            dataIndex: 'site',
+            key: 'site',
+            render: (__unused__value, record) => sites[record.site] ? sites[record.site].concat(' (').concat(record.site).concat(')') : record.site
+        }
+    ];
+    for (const deviceType of availableDeviceTypes) {
+        categoryColumns.push({
+            title: deviceType,
+            dataIndex: deviceType,
+            key: deviceType,
+            render: (__unused__value, record) => record[deviceType] ? record[deviceType].toString() : deviceTypes[record[deviceType]]
+        });
+    }
+    categoryColumns.push({
+        title: 'Total',
+        dataIndex: 'Total',
+        key: 'total',
+        render: (__unused__value, record) => record.total
+    });
+    const fileSummary: any[] = [];
+    for (const site of availableSites) {
+        const tmpData: any = {
+            site: site
+        };
+        for (const deviceType of availableDeviceTypes) {
+            tmpData[deviceType] = getStudyData.getStudy.files.filter(el => (JSON.parse(el.description).participantId[0] === site
+                && JSON.parse(el.description).deviceId.substr(0, 3) === deviceType)).length;
+        }
+        tmpData.total = getStudyData.getStudy.files.filter(el => JSON.parse(el.description).participantId[0] === site).length;
+        fileSummary.push(tmpData);
+    }
+    const tmpData: any = {
+        site: 'Total',
+        total: getStudyData.getStudy.files.length
+    };
+    for (const deviceType of availableDeviceTypes) {
+        tmpData[deviceType] = getStudyData.getStudy.files.filter(el => JSON.parse(el.description).deviceId.substr(0, 3) === deviceType).length;
+    }
+    fileSummary.push(tmpData);
+    return <div {...getRootProps() as HTMLAttributes<HTMLDivElement>} className={`${css.scaffold_wrapper} ${isDropOverlayShowing ? css.drop_overlay : ''}`}>
         <input title='fileTabDropZone' {...getInputProps()} />
         {fileList.length > 0
             ?
@@ -436,7 +473,7 @@ export const FileRepositoryTabContent: React.FunctionComponent<{ studyId: string
                         rowKey={(rec) => rec.uuid}
                         rowClassName={() => css.editable_row}
                         pagination={false}
-                        columns={(getStudyData.getStudy.type === studyType.ANY || getStudyData.getStudy.type === studyType.CLINICAL) ? fileNameColumns : fileDetailsColumns}
+                        columns={getStudyData.getStudy.type === studyType.ANY ? fileNameColumns : fileDetailsColumns}
                         dataSource={fileList}
                         size='small'
                         components={{ body: { row: EditableRow, cell: EditableCell } }} />
@@ -471,13 +508,11 @@ export const FileRepositoryTabContent: React.FunctionComponent<{ studyId: string
                                     >{'Cancel'}
                                     </Button>
                                 </> :
-                                <>
-                                    <Button
-                                        type='primary'
-                                        onClick={() => { setIsEditingDescription(true); }}
-                                    >{'Edit Description'}
-                                    </Button>
-                                </>
+                                <Button
+                                    type='primary'
+                                    onClick={() => { setIsEditingDescription(true); }}
+                                >{'Edit Description'}
+                                </Button>
                             }
                         </> : null
                 }>
@@ -506,24 +541,48 @@ export const FileRepositoryTabContent: React.FunctionComponent<{ studyId: string
                     <br />
                     <br />
                 </Subsection>
-                <SubsectionWithComment title='Existing files' comment={'Total Files: ' + numberOfFiles + '\t\tTotal Size: ' + formatBytes(sizeOfFiles) + '\t\tTotal Participants: ' + participantOfFiles}>
+                <SubsectionWithComment
+                    title='Existing files'
+                    comment={<Space size={'large'}>
+                        <span>Total Files: {numberOfFiles}</span>
+                        <span>Total Size: {formatBytes(sizeOfFiles)}</span>
+                        <span>Total Participants: {participantOfFiles}</span>
+                        {
+                            getStudyData.getStudy.type === studyType.ANY ? null :
+                                <Button onClick={() => setIsFileSummaryShown(true)}>File Details</Button>
+                        }
+                    </Space>}
+                >
+                    <Modal visible={isFileSummaryShown} onCancel={() => setIsFileSummaryShown(false)} onOk={() => setIsFileSummaryShown(false)} width={'100%'}>
+                        <div>Number of files associated to sites and device types.</div><br />
+                        <Table
+                            pagination={false}
+                            columns={categoryColumns}
+                            dataSource={fileSummary}
+                            size='small'
+                        /><br />
+                        <Space wrap={true}>
+                            {Object.keys(deviceTypes).sort().map(el => <Tag>{`${el}: ${deviceTypes[el]}`}</Tag>)}
+                        </Space>
+                    </Modal>
                     <Input.Search allowClear placeholder='Search' onChange={({ target: { value } }) => setSearchTerm(value?.toUpperCase())} />
                     <FileList type={getStudyData.getStudy.type} files={sortedFiles} searchTerm={searchTerm}></FileList>
                     <br />
                     <br />
                 </SubsectionWithComment>
 
-            </div>}
-    </div>;
+            </div>
+        }
+    </div >;
 };
 
-const EditableContext = React.createContext<any>({});
+const EditableContext = createContext<any>({});
 
 type EditableRowProps = {
     index: number;
 }
 
-const EditableRow: React.FC<EditableRowProps> = ({ index: __unused__index, ...props }) => {
+const EditableRow: FunctionComponent<EditableRowProps> = ({ index, ...props }) => {
     const [form] = Form.useForm();
 
     useEffect(() => {
@@ -533,7 +592,7 @@ const EditableRow: React.FC<EditableRowProps> = ({ index: __unused__index, ...pr
     return (
         <Form form={form} component={false}>
             <EditableContext.Provider value={form}>
-                <tr {...props} />
+                <tr key={index} {...props} />
             </EditableContext.Provider>
         </Form>
     );
@@ -541,13 +600,13 @@ const EditableRow: React.FC<EditableRowProps> = ({ index: __unused__index, ...pr
 
 interface EditableCellProps {
     editable: boolean;
-    children: React.ReactNode;
+    children: ReactNode;
     dataIndex: string;
     record: StudyFile;
     handleSave: (__unused__record: StudyFile) => void;
 }
 
-const EditableCell: React.FC<EditableCellProps> = ({
+const EditableCell: FunctionComponent<EditableCellProps> = ({
     editable,
     children,
     dataIndex,
@@ -556,7 +615,7 @@ const EditableCell: React.FC<EditableCellProps> = ({
     ...restProps
 }) => {
     const [editing, setEditing] = useState(false);
-    const inputRef = useRef<Input>(null);
+    const inputRef = useRef<InputRef>(null);
     const rangeRef = useRef<any>(null);
     const form = useContext(EditableContext);
     const { loading: getOrgsLoading, error: getOrgsError, data: getOrgsData } = useQuery(GET_ORGANISATIONS);
@@ -582,7 +641,7 @@ const EditableCell: React.FC<EditableCellProps> = ({
 
     if (getOrgsError)
         return <div className={`${css.tab_page_wrapper} ${css.both_panel} ${css.upload_overlay}`}>
-            A error occured, please contact your administrator: {getOrgsError.message}
+            An error occured, please contact your administrator: {getOrgsError.message}
         </div>;
 
     const sites = getOrgsData.getOrganisations.filter(org => org.metadata?.siteIDMarker).reduce((prev, current) => ({
@@ -621,12 +680,12 @@ const EditableCell: React.FC<EditableCellProps> = ({
                                 if (getFieldValue('startDate') && getFieldValue('endDate'))
                                     return Promise.resolve();
                                 return Promise.reject('Missing dates');
-                            },
+                            }
                         })
                     ]}
                 >
                     <RangePicker id={`period_${record.uuid}`} allowClear={false} ref={rangeRef} defaultValue={[record.startDate ?? null, record.endDate ?? null]} disabledDate={(currentDate) => {
-                        return moment().isBefore(currentDate);
+                        return dayjs().isBefore(currentDate);
                     }} onCalendarChange={(dates) => {
                         if (dates === null)
                             return;
@@ -660,6 +719,7 @@ const EditableCell: React.FC<EditableCellProps> = ({
                                 return Promise.resolve();
                             }
                         }
+                        return Promise.resolve();
                     }
                 }]}
             >
