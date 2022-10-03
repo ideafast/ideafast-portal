@@ -13,7 +13,17 @@ import { IUser } from '@itmat-broker/itmat-types';
 import { logResolvers } from './logResolvers';
 import { standardizationResolvers } from './standardizationResolvers';
 
-const modules = [
+const modulesV0 = [
+    studyResolvers,
+    userResolvers,
+    queryResolvers,
+    permissionResolvers,
+    jobResolvers,
+    fileResolvers,
+    organisationResolvers
+];
+
+const modulesV1 = [
     studyResolvers,
     userResolvers,
     queryResolvers,
@@ -25,6 +35,7 @@ const modules = [
     logResolvers,
     standardizationResolvers
 ];
+
 
 // const loggingDecorator = (reducerFunction: Function) => {
 //     return async (parent: any, args: any, context: any, info: any) => {
@@ -46,21 +57,26 @@ const bounceNotLoggedInDecorator = (reducerFunction: any) => {
     };
 };
 
-
-const reduceInit: any = { JSON: GraphQLJSON };
-export const resolvers = modules.reduce((a, e) => {
-    const types = Object.keys(e);
-    for (const each of types) {  // types can be Subscription | Query | Mutation | {{TYPE}}
-        if (a[each] === undefined) {  // if a doesnt have types then create a empty obj
-            a[each] = {};
-        }
-        for (const funcName of Object.keys((e as any)[each])) {
-            if (each === 'Subscription') {
-                (a as any)[each][funcName] = (e as any)[each][funcName];
-            } else {
-                (a as any)[each][funcName] = bounceNotLoggedInDecorator((e as any)[each][funcName]);
+function constructResolvers(modules: any) {
+    const reduceInit: any = { JSON: GraphQLJSON };
+    const resolvers = modules.reduce((a, e) => {
+        const types = Object.keys(e);
+        for (const each of types) {  // types can be Subscription | Query | Mutation | {{TYPE}}
+            if (a[each] === undefined) {  // if a doesnt have types then create a empty obj
+                a[each] = {};
+            }
+            for (const funcName of Object.keys((e as any)[each])) {
+                if (each === 'Subscription') {
+                    (a as any)[each][funcName] = (e as any)[each][funcName];
+                } else {
+                    (a as any)[each][funcName] = bounceNotLoggedInDecorator((e as any)[each][funcName]);
+                }
             }
         }
-    }
-    return a;
-}, reduceInit);
+        return a;
+    }, reduceInit);
+    return resolvers;
+}
+
+export const resolversV0 = constructResolvers(modulesV0);
+export const resolversV1 = constructResolvers(modulesV1);

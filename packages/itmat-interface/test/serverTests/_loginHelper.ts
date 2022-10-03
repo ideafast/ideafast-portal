@@ -2,6 +2,10 @@ import { print } from 'graphql';
 import { LOGIN, LOGOUT } from '@itmat-broker/itmat-models';
 import * as mfa from '../../src/utils/mfa';
 import { SuperTest, Test } from 'supertest';
+import config from '../../config/config.sample.json';
+
+/* Choose API version tp use */
+const apiPath = '/api/'.concat(config.apiVersions[config.apiVersions.length - 1]);
 
 export function connectAdmin(agent: SuperTest<Test>): Promise<void> {
     const adminSecret = 'H6BNKKO27DPLCATGEJAZNWQV4LWOTMRA';
@@ -15,7 +19,7 @@ export function connectUser(agent: SuperTest<Test>): Promise<void> {
 
 export function connectAgent(agent: SuperTest<Test>, user: string, pw: string, secret: string): Promise<void> {
     const otp = mfa.generateTOTP(secret).toString();
-    return new Promise((resolve, reject) => agent.post('/graphql')
+    return new Promise((resolve, reject) => agent.post(apiPath)
         .set('Content-type', 'application/json')
         .send({
             query: print(LOGIN),
@@ -29,7 +33,7 @@ export function connectAgent(agent: SuperTest<Test>, user: string, pw: string, s
 }
 
 export function disconnectAgent(agent: SuperTest<Test>): Promise<void> {
-    return new Promise((resolve, reject) => agent.post('/graphql')
+    return new Promise((resolve, reject) => agent.post(apiPath)
         .send({
             query: print(LOGOUT)
         })

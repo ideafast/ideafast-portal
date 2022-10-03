@@ -40,6 +40,7 @@ let admin: request.SuperTest<request.Test>;
 let user: request.SuperTest<request.Test>;
 let mongoConnection: MongoClient;
 let mongoClient: Db;
+let apiPath: string;
 
 afterAll(async () => {
     await db.closeConnection();
@@ -105,7 +106,7 @@ describe('STUDY API', () => {
             /* 1. create study */
             {
                 const studyName = uuid();
-                const res = await admin.post('/graphql').send({
+                const res = await admin.post(apiPath).send({
                     query: print(CREATE_STUDY),
                     variables: { name: studyName, description: 'test description', type: studyType.SENSOR }
                 });
@@ -123,7 +124,7 @@ describe('STUDY API', () => {
             /* 2. create projects for the study */
             {
                 const projectName = uuid();
-                const res = await admin.post('/graphql').send({
+                const res = await admin.post(apiPath).send({
                     query: print(CREATE_PROJECT),
                     variables: {
                         studyId: createdStudy.id,
@@ -144,7 +145,7 @@ describe('STUDY API', () => {
             /* 3. create roles for study */
             {
                 const roleName = uuid();
-                const res = await admin.post('/graphql').send({
+                const res = await admin.post(apiPath).send({
                     query: print(ADD_NEW_ROLE),
                     variables: {
                         roleName,
@@ -179,7 +180,7 @@ describe('STUDY API', () => {
             /* create another role for study (this time it will have "manage project" privilege - equivalent to PI */
             {
                 const roleName = uuid();
-                const res = await admin.post('/graphql').send({
+                const res = await admin.post(apiPath).send({
                     query: print(ADD_NEW_ROLE),
                     variables: {
                         roleName,
@@ -215,7 +216,7 @@ describe('STUDY API', () => {
             /* 4. create roles for project */
             {
                 const roleName = uuid();
-                const res = await admin.post('/graphql').send({
+                const res = await admin.post(apiPath).send({
                     query: print(ADD_NEW_ROLE),
                     variables: {
                         roleName,
@@ -273,7 +274,7 @@ describe('STUDY API', () => {
 
             /* 6. add authorised user to role */
             {
-                const res = await admin.post('/graphql').send({
+                const res = await admin.post(apiPath).send({
                     query: print(EDIT_ROLE),
                     variables: {
                         roleId: createdRole_project.id,
@@ -302,7 +303,7 @@ describe('STUDY API', () => {
                         lastname: createdUserAuthorised.lastname
                     }]
                 });
-                const resUser = await admin.post('/graphql').send({
+                const resUser = await admin.post(apiPath).send({
                     query: print(GET_USERS),
                     variables: {
                         fetchDetailsAdminOnly: false,
@@ -357,7 +358,7 @@ describe('STUDY API', () => {
 
             /* 6. add authorised user to role */
             {
-                const res = await admin.post('/graphql').send({
+                const res = await admin.post(apiPath).send({
                     query: print(EDIT_ROLE),
                     variables: {
                         roleId: createdRole_study.id,
@@ -386,7 +387,7 @@ describe('STUDY API', () => {
                         lastname: createdUserAuthorisedStudy.lastname
                     }]
                 });
-                const resUser = await admin.post('/graphql').send({
+                const resUser = await admin.post(apiPath).send({
                     query: print(GET_USERS),
                     variables: {
                         fetchDetailsAdminOnly: false,
@@ -445,7 +446,7 @@ describe('STUDY API', () => {
 
             /* 6. add authorised user to role */
             {
-                const res = await admin.post('/graphql').send({
+                const res = await admin.post(apiPath).send({
                     query: print(EDIT_ROLE),
                     variables: {
                         roleId: createdRole_study_manageProject.id,
@@ -474,7 +475,7 @@ describe('STUDY API', () => {
                         lastname: createdUserAuthorisedStudyManageProjects.lastname
                     }]
                 });
-                const resUser = await admin.post('/graphql').send({
+                const resUser = await admin.post(apiPath).send({
                     query: print(GET_USERS),
                     variables: {
                         fetchDetailsAdminOnly: false,
@@ -507,7 +508,7 @@ describe('STUDY API', () => {
             }
             /* fsdafs: admin who am i */
             {
-                const res = await admin.post('/graphql').send({ query: print(WHO_AM_I) });
+                const res = await admin.post(apiPath).send({ query: print(WHO_AM_I) });
                 expect(res.body.data.whoAmI).toStrictEqual({
                     username: 'admin',
                     type: userTypes.ADMIN,
@@ -546,7 +547,7 @@ describe('STUDY API', () => {
         afterAll(async () => {
             /* project user cannot delete study */
             {
-                const res = await authorisedUser.post('/graphql').send({
+                const res = await authorisedUser.post(apiPath).send({
                     query: print(DELETE_STUDY),
                     variables: { studyId: createdStudy.id }
                 });
@@ -563,7 +564,7 @@ describe('STUDY API', () => {
 
             /* study user cannot delete study */
             {
-                const res = await authorisedUserStudy.post('/graphql').send({
+                const res = await authorisedUserStudy.post(apiPath).send({
                     query: print(DELETE_STUDY),
                     variables: { studyId: createdStudy.id }
                 });
@@ -575,7 +576,7 @@ describe('STUDY API', () => {
 
             /* admin can delete study */
             {
-                const res = await admin.post('/graphql').send({
+                const res = await admin.post(apiPath).send({
                     query: print(DELETE_STUDY),
                     variables: { studyId: createdStudy.id }
                 });
@@ -589,7 +590,7 @@ describe('STUDY API', () => {
 
             /* check projects and roles are also deleted */
             {
-                const res = await admin.post('/graphql').send({ query: print(WHO_AM_I) });
+                const res = await admin.post(apiPath).send({ query: print(WHO_AM_I) });
                 expect(res.body.data.whoAmI).toEqual({
                     username: 'admin',
                     type: userTypes.ADMIN,
@@ -619,7 +620,7 @@ describe('STUDY API', () => {
 
             /* cannot get study from api anymore */
             {
-                const res = await admin.post('/graphql').send({
+                const res = await admin.post(apiPath).send({
                     query: print(GET_STUDY),
                     variables: { studyId: createdStudy.id }
                 });
@@ -635,7 +636,7 @@ describe('STUDY API', () => {
         });
 
         test('Create standardization (authorised user)', async () => {
-            const res = await authorisedUserStudy.post('/graphql').send({
+            const res = await authorisedUserStudy.post(apiPath).send({
                 query: print(CREATE_STANDARDIZATION),
                 variables: {
                     studyId: createdStudy.id,
@@ -679,7 +680,7 @@ describe('STUDY API', () => {
         });
 
         test('Create standardization (authorised user)', async () => {
-            const res = await user.post('/graphql').send({
+            const res = await user.post(apiPath).send({
                 query: print(CREATE_STANDARDIZATION),
                 variables: {
                     studyId: createdStudy.id,
@@ -705,7 +706,7 @@ describe('STUDY API', () => {
         });
 
         test('Get standardization (authorised user)', async () => {
-            await authorisedUserStudy.post('/graphql').send({
+            await authorisedUserStudy.post(apiPath).send({
                 query: print(CREATE_STANDARDIZATION),
                 variables: {
                     studyId: createdStudy.id,
@@ -726,7 +727,7 @@ describe('STUDY API', () => {
                 }
             });
             const std = await db.collections!.standardizations_collection.findOne({});
-            const res = await authorisedUserStudy.post('/graphql').send({
+            const res = await authorisedUserStudy.post(apiPath).send({
                 query: print(GET_STANDARDIZATION),
                 variables: {
                     studyId: createdStudy.id,
@@ -756,7 +757,7 @@ describe('STUDY API', () => {
         });
 
         test('Get standardization (unauthorised user)', async () => {
-            await authorisedUserStudy.post('/graphql').send({
+            await authorisedUserStudy.post(apiPath).send({
                 query: print(CREATE_STANDARDIZATION),
                 variables: {
                     studyId: createdStudy.id,
@@ -776,7 +777,7 @@ describe('STUDY API', () => {
                     }
                 }
             });
-            const res = await user.post('/graphql').send({
+            const res = await user.post(apiPath).send({
                 query: print(GET_STANDARDIZATION),
                 variables: {
                     studyId: createdStudy.id,
@@ -789,7 +790,7 @@ describe('STUDY API', () => {
         });
 
         test('Delete standardization (authorised user)', async () => {
-            await authorisedUserStudy.post('/graphql').send({
+            await authorisedUserStudy.post(apiPath).send({
                 query: print(CREATE_STANDARDIZATION),
                 variables: {
                     studyId: createdStudy.id,
@@ -810,7 +811,7 @@ describe('STUDY API', () => {
                 }
             });
             const std = await db.collections!.standardizations_collection.findOne({});
-            const res = await authorisedUserStudy.post('/graphql').send({
+            const res = await authorisedUserStudy.post(apiPath).send({
                 query: print(DELETE_STANDARDIZATION),
                 variables: {
                     studyId: createdStudy.id,
@@ -826,7 +827,7 @@ describe('STUDY API', () => {
         });
 
         test('Delete standardization (unauthorised user)', async () => {
-            await authorisedUserStudy.post('/graphql').send({
+            await authorisedUserStudy.post(apiPath).send({
                 query: print(CREATE_STANDARDIZATION),
                 variables: {
                     studyId: createdStudy.id,
@@ -847,7 +848,7 @@ describe('STUDY API', () => {
                 }
             });
             const std = await db.collections!.standardizations_collection.findOne({});
-            const res = await user.post('/graphql').send({
+            const res = await user.post(apiPath).send({
                 query: print(DELETE_STANDARDIZATION),
                 variables: {
                     studyId: createdStudy.id,
@@ -860,7 +861,7 @@ describe('STUDY API', () => {
         });
 
         test('Get standardized data (authorised user)', async () => {
-            await authorisedUserStudy.post('/graphql').send({
+            await authorisedUserStudy.post(apiPath).send({
                 query: print(CREATE_NEW_FIELD),
                 variables: {
                     studyId: createdStudy.id,
@@ -908,7 +909,7 @@ describe('STUDY API', () => {
                     ]
                 }
             });
-            await authorisedUserStudy.post('/graphql').send({
+            await authorisedUserStudy.post(apiPath).send({
                 query: print(UPLOAD_DATA_IN_ARRAY),
                 variables: {
                     studyId: createdStudy.id,
@@ -929,7 +930,7 @@ describe('STUDY API', () => {
                     ]
                 }
             });
-            await authorisedUser.post('/graphql').send({
+            await authorisedUser.post(apiPath).send({
                 query: print(CREATE_ONTOLOGY_TREE),
                 variables: {
                     studyId: createdStudy.id,
@@ -964,11 +965,11 @@ describe('STUDY API', () => {
                     }
                 }
             });
-            await admin.post('/graphql').send({
+            await admin.post(apiPath).send({
                 query: print(CREATE_NEW_DATA_VERSION),
                 variables: { studyId: createdStudy.id, dataVersion: '1', tag: 'testTag' }
             });
-            await authorisedUserStudy.post('/graphql').send({
+            await authorisedUserStudy.post(apiPath).send({
                 query: print(CREATE_STANDARDIZATION),
                 variables: {
                     studyId: createdStudy.id,
@@ -1018,7 +1019,7 @@ describe('STUDY API', () => {
                     }
                 }
             });
-            await authorisedUserStudy.post('/graphql').send({
+            await authorisedUserStudy.post(apiPath).send({
                 query: print(CREATE_STANDARDIZATION),
                 variables: {
                     studyId: createdStudy.id,
@@ -1068,7 +1069,7 @@ describe('STUDY API', () => {
                     }
                 }
             });
-            await authorisedUserStudy.post('/graphql').send({
+            await authorisedUserStudy.post(apiPath).send({
                 query: print(CREATE_STANDARDIZATION),
                 variables: {
                     studyId: createdStudy.id,
@@ -1100,7 +1101,7 @@ describe('STUDY API', () => {
                     }
                 }
             });
-            await authorisedUserStudy.post('/graphql').send({
+            await authorisedUserStudy.post(apiPath).send({
                 query: print(CREATE_STANDARDIZATION),
                 variables: {
                     studyId: createdStudy.id,
@@ -1136,7 +1137,7 @@ describe('STUDY API', () => {
                 }
             });
 
-            const res = await authorisedUserStudy.post('/graphql').send({
+            const res = await authorisedUserStudy.post(apiPath).send({
                 query: print(GET_DATA_RECORDS),
                 variables: {
                     studyId: createdStudy.id,

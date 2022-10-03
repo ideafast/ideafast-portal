@@ -38,6 +38,7 @@
     "nodemailer": {
         "auth": {}
     },
+    "apiVersions": ["v0", "v1"],
     "adminEmail": "admin@example.com",
     "aeEndpoint": "http://localhost:9090"
 }
