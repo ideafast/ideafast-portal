@@ -171,6 +171,7 @@ export class Router {
         const gqlServer = new ApolloServer({
             schema,
             allowBatchedHttpRequests: true,
+            cache: 'bounded',
             plugins: [
                 {
                     async serverWillStart() {
