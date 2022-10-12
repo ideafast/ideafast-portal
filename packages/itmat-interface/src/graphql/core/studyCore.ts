@@ -1,5 +1,5 @@
 import { ApolloError } from 'apollo-server-core';
-import { IFile, IOrganisation, IProject, IStudy, studyType, IStudyDataVersion, IDataEntry, IDataClip, DATA_CLIP_ERROR_TYPE } from '@itmat-broker/itmat-types';
+import { IFile, IOrganisation, IProject, IStudy, studyType, IStudyDataVersion, IDataEntry, IDataClip, IGeneralError } from '@itmat-broker/itmat-types';
 import { v4 as uuid } from 'uuid';
 import { db } from '../../database/database';
 import { errorCodes } from '../errors';
@@ -167,12 +167,12 @@ export class StudyCore {
         for (const dataClip of filteredData) {
             const fieldInDb = fieldList.filter(el => el.fieldId === dataClip.fieldId)[0];
             if (!fieldInDb) {
-                errors.push({ code: DATA_CLIP_ERROR_TYPE.ACTION_ON_NON_EXISTENT_ENTRY, description: `Field ${dataClip.fieldId}: Field Not found` });
+                errors.push({ code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY, description: `Field ${dataClip.fieldId}: Field Not found` });
                 continue;
             }
             // check subjectId
             if (!validate(dataClip.subjectId?.replace('-', '').substr(1) ?? '')) {
-                errors.push({ code: DATA_CLIP_ERROR_TYPE.MALFORMED_INPUT, description: `Subject ID ${dataClip.subjectId} is illegal.` });
+                errors.push({ code: errorCodes.CLIENT_MALFORMED_INPUT, description: `Subject ID ${dataClip.subjectId} is illegal.` });
                 continue;
             }
 
@@ -277,7 +277,7 @@ export class StudyCore {
                 }
             }
             if (error !== undefined) {
-                errors.push({ code: DATA_CLIP_ERROR_TYPE.MALFORMED_INPUT, description: error });
+                errors.push({ code: errorCodes.CLIENT_MALFORMED_INPUT, description: error });
                 continue;
             }
             const obj = {

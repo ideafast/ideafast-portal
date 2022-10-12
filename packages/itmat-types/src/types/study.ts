@@ -68,21 +68,16 @@ interface IFileMetaData {
 }
 
 export interface IDataClip {
-    fieldId: string,
-    value?: string,
-    subjectId: string,
-    visitId: string,
-    fileInput?: FileUpload,
+    fieldId: string;
+    value?: string;
+    subjectId: string;
+    visitId: string;
+    fileInput?: FileUpload;
     metadata?: IFileMetaData
 }
 
-export enum DATA_CLIP_ERROR_TYPE {
-    ACTION_ON_NON_EXISTENT_ENTRY = 'ACTION_ON_NON_EXISTENT_ENTRY',
-    MALFORMED_INPUT = 'MALFORMED_INPUT'
-}
-
-export interface IDataClipError {
-    code: DATA_CLIP_ERROR_TYPE
+export interface IGeneralError {
+    code: string;
     description?: string
 }
 

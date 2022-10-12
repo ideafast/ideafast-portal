@@ -13,7 +13,6 @@ import {
     studyType,
     IDataClip,
     ISubjectDataRecordSummary,
-    DATA_CLIP_ERROR_TYPE,
     IRole,
     IOntologyTree,
     userTypes
@@ -562,7 +561,7 @@ export const studyResolvers = {
                 // check data valid
                 const { fieldEntry, error: thisError } = validateAndGenerateFieldEntry(oneFieldInput);
                 if (thisError.length !== 0) {
-                    error.push({ code: DATA_CLIP_ERROR_TYPE.MALFORMED_INPUT, description: `Field ${oneFieldInput.fieldId || 'fieldId not defined'}-${oneFieldInput.fieldName || 'fieldName not defined'}: ${JSON.stringify(thisError)}` });
+                    error.push({ code: errorCodes.CLIENT_MALFORMED_INPUT, description: `Field ${oneFieldInput.fieldId || 'fieldId not defined'}-${oneFieldInput.fieldName || 'fieldName not defined'}: ${JSON.stringify(thisError)}` });
                     isError = true;
                 }
 

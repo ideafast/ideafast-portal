@@ -120,18 +120,8 @@ input DataClip {
     metadata: FileMetaData
 }
 
-enum DATA_CLIP_ERROR_TYPE{
-    ACTION_ON_NON_EXISTENT_ENTRY
-    MALFORMED_INPUT
-}
-
-type DataClipError {
-    code: DATA_CLIP_ERROR_TYPE!
-    description: String
-}
-
-type FieldClipError {
-    code: DATA_CLIP_ERROR_TYPE!
+type GeneralError {
+    code: String!
     description: String
 }
 
@@ -585,9 +575,9 @@ type Mutation {
     deleteStudy(studyId: String!): GenericResponse
     editStudy(studyId: String!, description: String): Study
     createNewDataVersion(studyId: String!, dataVersion: String!, tag: String): DataVersion
-    uploadDataInArray(studyId: String!, data: [DataClip]): [DataClipError]
-    deleteDataRecords(studyId: String!, subjectIds: [String], visitIds: [String], fieldIds: [String]): [DataClipError]
-    createNewField(studyId: String!, fieldInput: [FieldInput]!): [FieldClipError]
+    uploadDataInArray(studyId: String!, data: [DataClip]): [GeneralError]
+    deleteDataRecords(studyId: String!, subjectIds: [String], visitIds: [String], fieldIds: [String]): [GeneralError]
+    createNewField(studyId: String!, fieldInput: [FieldInput]!): [GeneralError]
     editField(studyId: String!, fieldInput: FieldInput!): Field
     deleteField(studyId: String!, fieldId: String!): Field
     createOntologyTree(studyId: String!, ontologyTree: OntologyTreeInput!): OntologyTree

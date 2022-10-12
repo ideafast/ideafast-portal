@@ -3227,9 +3227,9 @@ if (global.hasMinio) {
                 expect(res.status).toBe(200);
                 expect(res.body.errors).toBeUndefined();
                 expect(res.body.data.uploadDataInArray).toEqual([
-                    { code: 'ACTION_ON_NON_EXISTENT_ENTRY', description: 'Field 34: Field Not found' },
-                    { code: 'MALFORMED_INPUT', description: 'Field 31: Cannot parse as integer.' },
-                    { code: 'MALFORMED_INPUT', description: 'Subject ID I777770 is illegal.' }
+                    { code: 'CLIENT_ACTION_ON_NON_EXISTENT_ENTRY', description: 'Field 34: Field Not found' },
+                    { code: 'CLIENT_MALFORMED_INPUT', description: 'Field 31: Cannot parse as integer.' },
+                    { code: 'CLIENT_MALFORMED_INPUT', description: 'Subject ID I777770 is illegal.' }
                 ]);
 
                 const dataInDb = await db.collections!.data_collection.find({ deleted: null }).toArray();
