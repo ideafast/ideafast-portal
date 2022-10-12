@@ -686,7 +686,7 @@ export const studyResolvers = {
             ]).toArray();
             // filter those that have been deleted
             const fieldsList = fieldRecords.map(el => el.doc).filter(eh => eh.dateDeleted === null);
-            const errors = (await studyCore.uploadOneDataClip(studyId, fieldsList, data));
+            const errors = (await studyCore.uploadOneDataClip(studyId, fieldsList, data, requester.id));
 
             return errors;
         },

@@ -1,4 +1,5 @@
 import { IUser } from './user';
+import { FileUpload } from 'graphql-upload-minimal';
 
 export enum studyType {
     SENSOR = 'SENSOR',
@@ -59,11 +60,20 @@ export interface IProject {
     deleted: number | null;
 }
 
+interface IFileMetaData {
+    deviceId: string;
+    startDate: string;
+    endDate: string;
+    postFix: string;
+}
+
 export interface IDataClip {
     fieldId: string,
-    value: string,
+    value?: string,
     subjectId: string,
-    visitId: string
+    visitId: string,
+    fileInput?: FileUpload,
+    metadata?: IFileMetaData
 }
 
 export enum DATA_CLIP_ERROR_TYPE {

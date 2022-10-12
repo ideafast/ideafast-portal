@@ -104,11 +104,20 @@ type Field {
     dateDeleted: String
 }
 
+input FileMetaData {
+    deviceId: String!
+    startDate: String!
+    endDate: String!
+    postFix: String!
+}
+
 input DataClip {
     fieldId: String!
-    value: String!
+    value: String
     subjectId: String!
     visitId: String!
+    fileInput: Upload
+    metadata: FileMetaData
 }
 
 enum DATA_CLIP_ERROR_TYPE{
