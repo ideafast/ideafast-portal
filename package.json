@@ -30,7 +30,7 @@
         "@nrwl/jest": "14.8.3",
         "@nrwl/js": "14.8.3",
         "@nrwl/linter": "14.8.3",
-        "@nrwl/node": "14.8.3",
+        "@nrwl/node": "14.8.4",
         "@nrwl/nx-cloud": "14.7.0",
         "@nrwl/react": "14.8.3",
         "@nrwl/web": "14.8.3",
