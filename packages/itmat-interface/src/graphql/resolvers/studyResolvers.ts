@@ -15,7 +15,8 @@ import {
     ISubjectDataRecordSummary,
     IRole,
     IOntologyTree,
-    userTypes
+    userTypes,
+    IGeneralError
 } from '@itmat-broker/itmat-types';
 import { v4 as uuid } from 'uuid';
 import { db } from '../../database/database';
@@ -531,7 +532,7 @@ export const studyResolvers = {
             const study = await studyCore.editStudy(studyId, description);
             return study;
         },
-        createNewField: async (__unused__parent: Record<string, unknown>, { studyId, fieldInput }: { studyId: string, fieldInput: any[] }, context: any): Promise<any[]> => {
+        createNewField: async (__unused__parent: Record<string, unknown>, { studyId, fieldInput }: { studyId: string, fieldInput: any[] }, context: any): Promise<IGeneralError[]> => {
             const requester: IUser = context.req.user;
             /* check privileges */
             /* user can get study if he has readonly permission */
@@ -547,7 +548,7 @@ export const studyResolvers = {
             // check study exists
             await studyCore.findOneStudy_throwErrorIfNotExist(studyId);
 
-            const error: any[] = [];
+            const error: IGeneralError[] = [];
             let isError = false;
             const bulk = db.collections!.field_dictionary_collection.initializeUnorderedBulkOp();
             // remove duplicates by fieldId
@@ -651,7 +652,7 @@ export const studyResolvers = {
             return searchField[0];
 
         },
-        uploadDataInArray: async (__unused__parent: Record<string, unknown>, { studyId, data }: { studyId: string, data: IDataClip[] }, context: any): Promise<any> => {
+        uploadDataInArray: async (__unused__parent: Record<string, unknown>, { studyId, data }: { studyId: string, data: IDataClip[] }, context: any): Promise<IGeneralError> => {
             // check study exists
             const study = await studyCore.findOneStudy_throwErrorIfNotExist(studyId);
 

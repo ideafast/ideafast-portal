@@ -1,5 +1,5 @@
 import { ApolloError } from 'apollo-server-core';
-import { IFile, IOrganisation, IProject, IStudy, studyType, IStudyDataVersion, IDataEntry, IDataClip, IGeneralError } from '@itmat-broker/itmat-types';
+import { IFile, IOrganisation, IProject, IStudy, studyType, IStudyDataVersion, IDataEntry, IDataClip } from '@itmat-broker/itmat-types';
 import { v4 as uuid } from 'uuid';
 import { db } from '../../database/database';
 import { errorCodes } from '../errors';
