@@ -29,7 +29,7 @@
         "@nrwl/express": "14.8.4",
         "@nrwl/jest": "14.8.4",
         "@nrwl/js": "14.8.4",
-        "@nrwl/linter": "14.8.4",
+        "@nrwl/linter": "14.8.5",
         "@nrwl/node": "14.8.4",
         "@nrwl/nx-cloud": "14.7.0",
         "@nrwl/react": "14.8.4",
