@@ -104,20 +104,13 @@ type Field {
     dateDeleted: String
 }
 
-input FileMetaData {
-    deviceId: String!
-    startDate: String!
-    endDate: String!
-    postFix: String!
-}
-
 input DataClip {
     fieldId: String!
     value: String
     subjectId: String!
     visitId: String!
-    fileInput: Upload
-    metadata: FileMetaData
+    file: Upload
+    metadata: JSON
 }
 
 type GeneralError {

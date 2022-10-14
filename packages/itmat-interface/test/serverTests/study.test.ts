@@ -2540,6 +2540,33 @@ if (global.hasMinio) {
                 expect(fieldsInDb).toHaveLength(2);
             });
 
+            test('Create New field with unsupported characters (admin)', async () => {
+                const res = await admin.post('/graphql').send({
+                    query: print(CREATE_NEW_FIELD),
+                    variables: {
+                        studyId: createdStudy.id,
+                        fieldInput: [
+                            {
+                                fieldId: '8.2',
+                                fieldName: 'newField8',
+                                tableName: 'test',
+                                dataType: 'int',
+                                comments: 'test',
+                                possibleValues: [
+                                    { code: '1', description: 'NOW' },
+                                    { code: '2', description: 'OLD' }
+                                ]
+                            }
+                        ]
+                    }
+                });
+                expect(res.status).toBe(200);
+                expect(res.body.data.createNewField[0]).toEqual({
+                    code: 'CLIENT_MALFORMED_INPUT',
+                    description: 'Field 8.2-newField8: ["FieldId should contain letters, numbers and _ only."]'
+                });
+            });
+
             test('Create New fields (user, should fail)', async () => {
                 const res = await user.post('/graphql').send({
                     query: print(CREATE_NEW_FIELD),
@@ -3267,7 +3294,7 @@ if (global.hasMinio) {
                                     fieldId: '33',
                                     subjectId: 'I7N3G6G',
                                     visitId: '1',
-                                    fileInput: null,
+                                    file: null,
                                     metadata: {
                                         deviceId: 'MMM7N3G6G',
                                         startDate: '1590966000000',
@@ -3278,7 +3305,7 @@ if (global.hasMinio) {
                             ]
                         }
                     }))
-                    .field('map', JSON.stringify({ 1: ['variables.data.0.fileInput'] }))
+                    .field('map', JSON.stringify({ 1: ['variables.data.0.file'] }))
                     .attach('1', path.join(__dirname, '../filesForTests/I7N3G6G-MMM7N3G6G-20200704-20200721.txt'));
                 expect(res.status).toBe(200);
                 expect(res.body.errors).toBeUndefined();
@@ -3298,7 +3325,7 @@ if (global.hasMinio) {
                                     fieldId: '33',
                                     subjectId: 'I7N3G6G',
                                     visitId: '1',
-                                    fileInput: null,
+                                    file: null,
                                     metadata: {
                                         deviceId: 'MMM7N3G6G',
                                         startDate: '1590966000000',
@@ -3309,7 +3336,7 @@ if (global.hasMinio) {
                             ]
                         }
                     }))
-                    .field('map', JSON.stringify({ 1: ['variables.data.0.fileInput'] }))
+                    .field('map', JSON.stringify({ 1: ['variables.data.0.file'] }))
                     .attach('1', path.join(__dirname, '../filesForTests/I7N3G6G-MMM7N3G6G-20200704-20200721.txt'));
                 expect(resSecond.status).toBe(200);
                 expect(resSecond.body.errors).toBeUndefined();

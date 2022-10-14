@@ -1,5 +1,5 @@
 import { ApolloError } from 'apollo-server-core';
-import { IFile, IOrganisation, IProject, IStudy, studyType, IStudyDataVersion, IDataEntry, IDataClip } from '@itmat-broker/itmat-types';
+import { IFile, IUser, IProject, IStudy, studyType, IStudyDataVersion, IDataEntry, IDataClip } from '@itmat-broker/itmat-types';
 import { v4 as uuid } from 'uuid';
 import { db } from '../../database/database';
 import { errorCodes } from '../errors';
@@ -12,7 +12,7 @@ import { Readable } from 'stream';
 import { WriteStream } from 'fs-capacitor';
 import crypto from 'crypto';
 import { Logger } from '@itmat-broker/itmat-commons';
-import { deviceTypes, fileSizeLimit } from '../../utils/definition';
+import { fileSizeLimit } from '../../utils/definition';
 export class StudyCore {
     constructor(private readonly localPermissionCore: PermissionCore) { }
 
@@ -156,9 +156,9 @@ export class StudyCore {
         return newDataVersion;
     }
 
-    public async uploadOneDataClip(studyId: string, fieldList: any[], data: IDataClip[], userId: string): Promise<any> {
+    public async uploadOneDataClip(studyId: string, fieldList: any[], data: IDataClip[], user: IUser): Promise<any> {
         const errors: any[] = [];
-        const bulk = db.collections!.data_collection.initializeUnorderedBulkOp();
+        // const bulk = db.collections!.data_collection.initializeOrderedBulkOp();
         // remove duplicates by subjectId, visitId and fieldId
         const keysToCheck: Array<keyof IDataClip> = ['visitId', 'subjectId', 'fieldId'];
         const filteredData = data.filter(
@@ -247,12 +247,12 @@ export class StudyCore {
                         break;
                     }
                     case 'file': {
-                        if (!dataClip.fileInput || typeof (dataClip.fileInput) === 'string') {
+                        if (!dataClip.file || typeof (dataClip.file) === 'string') {
                             error = `Field ${dataClip.fieldId}: Cannot parse as file.`;
                             break;
                         }
                         // if old file exists, delete it first
-                        const res = await this.uploadFile(studyId, dataClip, userId, {});
+                        const res = await this.uploadFile(studyId, dataClip, user, {});
                         if ('code' in res && 'description' in res) {
                             error = `Field ${dataClip.fieldId}: Cannot parse as file.`;
                             break;
@@ -286,34 +286,39 @@ export class StudyCore {
                 m_versionId: undefined,
                 m_visitId: dataClip.visitId
             };
+            const existingMetaData: Record<string, any> = (await db.collections!.data_collection.findOne(obj))?.metadata ?? {};
+            if (dataClip.metadata) {
+                // dmpOrganisation is for DMP only; change it for other platforms
+                existingMetaData[dataClip.fieldId] = { ...dataClip.metadata, dmpOrganisation: user.organisation };
+            }
             const objWithData: Partial<MatchKeysAndValues<IDataEntry>> = {
                 ...obj,
                 id: uuid(),
-                uploadedAt: (new Date()).valueOf()
+                uploadedAt: (new Date()).valueOf(),
+                metadata: existingMetaData
             };
             objWithData[dataClip.fieldId] = parsedValue;
-            bulk.find(obj).upsert().updateOne({ $set: objWithData });
+            await db.collections!.data_collection.findOneAndUpdate(obj, {
+                $set: objWithData
+            }, {
+                upsert: true
+            });
+            // bulk.find(obj).upsert().updateOne({ $set: objWithData });
         }
-        await bulk.execute();
+        // await bulk.execute();
         return errors;
     }
 
-    public async uploadFile(studyId: string, data: IDataClip, uploaderId: string, args: { fileLength?: number, fileHash?: string }): Promise<IFile | { code: errorCodes, description: string }> {
-        if (!data.fileInput || typeof (data.fileInput) === 'string') {
+    // This file uploading function will not check any metadate of the file
+    public async uploadFile(studyId: string, data: IDataClip, uploader: IUser, args: { fileLength?: number, fileHash?: string }): Promise<IFile | { code: errorCodes, description: string }> {
+        if (!data.file || typeof (data.file) === 'string') {
             return { code: errorCodes.CLIENT_MALFORMED_INPUT, description: 'Invalid File Stream' };
         }
         const study = await db.collections!.studies_collection.findOne({ id: studyId });
         if (!study) {
             return { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY, description: 'Study does not exist.' };
         }
-        // obtain sitesIDMarker from db
-        const sitesIDMarkers = (await db.collections!.organisations_collection.find<IOrganisation>({ deleted: null }).toArray()).reduce<any>((acc, curr) => {
-            if (curr.metadata?.siteIDMarker) {
-                acc[curr.metadata.siteIDMarker] = curr.shortname;
-            }
-            return acc;
-        }, {});
-        const file: FileUpload = await data.fileInput;
+        const file: FileUpload = await data.file;
 
         // check if old files exist; if so, denote it as deleted
         const dataEntry = await db.collections!.data_collection.findOne({ m_studyId: studyId, m_visitId: data.visitId, m_subjectId: data.subjectId, m_versionId: null }, { [data.fieldId]: 1 });
@@ -392,40 +397,14 @@ export class StudyCore {
 
                     stream.on('end', async () => {
                         try {
-                            if (!data.subjectId || !data.metadata?.deviceId || !data.metadata.startDate || !data.metadata.endDate || !data.metadata.postFix) {
-                                reject({ code: errorCodes.CLIENT_MALFORMED_INPUT, description: 'File description is invalid.' });
-                                return;
-                            }
-                            const participantId = data.subjectId;
-                            const deviceId = data.metadata.deviceId;
-                            const startDate = parseInt(data.metadata.startDate);
-                            const endDate = parseInt(data.metadata.endDate);
-                            const filePostFix = data.metadata.postFix;
-                            if (
-                                !participantId || !deviceId || !startDate || !endDate || !filePostFix ||
-                                !Object.keys(sitesIDMarkers).includes(participantId.substring(0, 1)?.toUpperCase()) ||
-                                !Object.keys(deviceTypes).includes(deviceId.substring(0, 3)?.toUpperCase()) ||
-                                !validate(participantId.substring(1) ?? '') ||
-                                !validate(deviceId.substring(3) ?? '') ||
-                                !startDate || !endDate ||
-                                (new Date(endDate).setHours(0, 0, 0, 0).valueOf()) > (new Date().setHours(0, 0, 0, 0).valueOf())
-                            ) {
-                                reject({ code: errorCodes.CLIENT_MALFORMED_INPUT, description: 'File description is invalid.' });
-                                return;
-                            }
-
-                            const typedStartDate = new Date(startDate);
-                            const formattedStartDate = typedStartDate.getFullYear() + `${typedStartDate.getMonth() + 1}`.padStart(2, '0') + `${typedStartDate.getDate()}`.padStart(2, '0');
-                            const typedEndDate = new Date(startDate);
-                            const formattedEndDate = typedEndDate.getFullYear() + `${typedEndDate.getMonth() + 1}`.padStart(2, '0') + `${typedEndDate.getDate()}`.padStart(2, '0');
                             const fileEntry: IFile = {
                                 id: uuid(),
-                                fileName: `${participantId.toUpperCase()}-${deviceId.toUpperCase()}-${formattedStartDate}-${formattedEndDate}.${filePostFix}`,
+                                fileName: file.fieldName,
                                 studyId: studyId,
                                 fileSize: readBytes.toString(),
-                                description: JSON.stringify({ participantId: participantId, deviceId: deviceId, startDate: startDate, endDate: endDate }),
+                                description: JSON.stringify(data.metadata ?? {}),
                                 uploadTime: `${Date.now()}`,
-                                uploadedBy: uploaderId,
+                                uploadedBy: uploader.id,
                                 uri: fileUri,
                                 deleted: null,
                                 hash: hashString

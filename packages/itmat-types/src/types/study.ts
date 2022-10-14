@@ -60,20 +60,13 @@ export interface IProject {
     deleted: number | null;
 }
 
-interface IFileMetaData {
-    deviceId: string;
-    startDate: string;
-    endDate: string;
-    postFix: string;
-}
-
 export interface IDataClip {
     fieldId: string;
     value?: string;
     subjectId: string;
     visitId: string;
-    fileInput?: FileUpload;
-    metadata?: IFileMetaData
+    file?: FileUpload;
+    metadata?: JSON
 }
 
 export interface IGeneralError {

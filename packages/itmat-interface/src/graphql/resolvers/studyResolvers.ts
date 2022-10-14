@@ -580,7 +580,9 @@ export const studyResolvers = {
                     }).upsert().updateOne({ $set: fieldEntry });
                 }
             }
-            await bulk.execute();
+            if (bulk.batches.length > 0) {
+                await bulk.execute();
+            }
             return error;
         },
         editField: async (__unused__parent: Record<string, unknown>, { studyId, fieldInput }: { studyId: string, fieldInput: any }, context: any): Promise<IFieldEntry> => {
@@ -686,7 +688,7 @@ export const studyResolvers = {
             ]).toArray();
             // filter those that have been deleted
             const fieldsList = fieldRecords.map(el => el.doc).filter(eh => eh.dateDeleted === null);
-            const errors = (await studyCore.uploadOneDataClip(studyId, fieldsList, data, requester.id));
+            const errors = (await studyCore.uploadOneDataClip(studyId, fieldsList, data, requester));
 
             return errors;
         },
@@ -741,7 +743,9 @@ export const studyResolvers = {
                     });
                 }
             }
-            await bulk.execute();
+            if (bulk.batches.length > 0) {
+                await bulk.execute();
+            }
             return [];
         },
         createNewDataVersion: async (__unused__parent: Record<string, unknown>, { studyId, dataVersion, tag }: { studyId: string, dataVersion: string, tag: string }, context: any): Promise<IStudyDataVersion> => {
