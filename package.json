@@ -98,7 +98,7 @@
         "axios": "0.27.2",
         "bcrypt": "5.1.0",
         "connect-timeout": "1.9.0",
-        "core-js": "^3.25.5",
+        "core-js": "^3.26.0",
         "cors": "2.8.5",
         "csv-parse": "5.3.1",
         "dayjs": "1.11.6",
