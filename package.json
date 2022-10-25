@@ -79,7 +79,7 @@
         "mongodb-memory-server": "8.9.3",
         "nx": "15.0.1",
         "react-test-renderer": "18.2.0",
-        "supertest": "6.3.0",
+        "supertest": "6.3.1",
         "swc-loader": "0.2.3",
         "ts-essentials": "9.3.0",
         "ts-jest": "29.0.3",
