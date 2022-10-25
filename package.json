@@ -25,7 +25,7 @@
     "devDependencies": {
         "@nrwl/cypress": "15.0.1",
         "@nrwl/esbuild": "15.0.1",
-        "@nrwl/eslint-plugin-nx": "15.0.1",
+        "@nrwl/eslint-plugin-nx": "15.0.2",
         "@nrwl/express": "15.0.1",
         "@nrwl/jest": "15.0.1",
         "@nrwl/js": "15.0.1",
