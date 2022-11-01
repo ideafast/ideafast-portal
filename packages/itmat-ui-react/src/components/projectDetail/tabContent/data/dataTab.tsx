@@ -179,7 +179,7 @@ export const MetaDataBlock: FunctionComponent<{ project: IProject, numOfFields: 
                             </div>
                         </Col>
                         <Col span={15}>
-                            <div className={css.grid_col_center}><Text style={{ fontSize: '32px' }} strong underline>{project.dataVersion?.updateDate === undefined ? 'NA' : (new Date(parseFloat(project.dataVersion?.updateDate))).toUTCString()}</Text></div>
+                            <div className={css.grid_col_center}><Text style={{ fontSize: '32px' }} strong underline>{project.dataVersion?.updateDate === undefined ? 'NA' : (new Date(parseFloat(project.dataVersion?.updateDate))).toDateString()}</Text></div>
                         </Col>
                     </Row>
                 </div>
