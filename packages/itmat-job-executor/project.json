@@ -1,5 +1,6 @@
 {
     "$schema": "../../node_modules/nx/schemas/project-schema.json",
+    "name": "itmat-job-executor",
     "sourceRoot": "packages/itmat-job-executor/src",
     "projectType": "application",
     "targets": {
@@ -57,7 +58,7 @@
         "test": {
             "executor": "@nrwl/jest:jest",
             "outputs": [
-                "coverage/packages/itmat-job-executor"
+                "{workspaceRoot}/coverage/packages/itmat-job-executor"
             ],
             "options": {
                 "jestConfig": "packages/itmat-job-executor/jest.config.ts",

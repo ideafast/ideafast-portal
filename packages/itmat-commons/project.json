@@ -1,5 +1,6 @@
 {
     "$schema": "../../node_modules/nx/schemas/project-schema.json",
+    "name": "itmat-commons",
     "sourceRoot": "packages/itmat-commons/src",
     "projectType": "library",
     "targets": {
@@ -31,7 +32,7 @@
         "test": {
             "executor": "@nrwl/jest:jest",
             "outputs": [
-                "coverage/packages/itmat-commons"
+                "{workspaceRoot}/coverage/packages/itmat-commons"
             ],
             "options": {
                 "jestConfig": "packages/itmat-commons/jest.config.ts",

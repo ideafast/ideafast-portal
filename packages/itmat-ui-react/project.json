@@ -1,5 +1,6 @@
 {
     "$schema": "../../node_modules/nx/schemas/project-schema.json",
+    "name": "itmat-ui-react",
     "sourceRoot": "packages/itmat-ui-react/src",
     "projectType": "application",
     "targets": {
@@ -82,7 +83,7 @@
         "test": {
             "executor": "@nrwl/jest:jest",
             "outputs": [
-                "coverage/packages/itmat-ui-react"
+                "{workspaceRoot}/coverage/packages/itmat-ui-react"
             ],
             "options": {
                 "jestConfig": "packages/itmat-ui-react/jest.config.ts",

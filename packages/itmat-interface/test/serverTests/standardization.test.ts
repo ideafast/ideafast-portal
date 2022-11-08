@@ -62,6 +62,7 @@ beforeAll(async () => { // eslint-disable-line no-undef
     config.database.database = dbName;
     await db.connect(config.database, MongoClient.connect as any);
     const router = new Router(config);
+    await router.init();
 
     /* Connect mongo client (for test setup later / retrieve info later) */
     mongoConnection = await MongoClient.connect(connectionString);
@@ -1225,13 +1226,13 @@ describe('STUDY API', () => {
             })).toEqual([
                 {
                     entry_reserved: 'GR6R4AR',
-                    index: 1,
+                    index: 2,
                     entry_data_age: 35,
                     entry_data_gender: 'F'
                 },
                 {
                     entry_reserved: 'I7N3G6G',
-                    index: 2,
+                    index: 1,
                     entry_data_age: 25,
                     entry_data_gender: 'M'
                 }

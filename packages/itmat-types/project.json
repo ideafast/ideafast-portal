@@ -1,5 +1,6 @@
 {
     "$schema": "../../node_modules/nx/schemas/project-schema.json",
+    "name": "itmat-types",
     "sourceRoot": "packages/itmat-types/src",
     "projectType": "library",
     "targets": {
@@ -31,7 +32,7 @@
         "test": {
             "executor": "@nrwl/jest:jest",
             "outputs": [
-                "coverage/packages/itmat-types"
+                "{workspaceRoot}/coverage/packages/itmat-types"
             ],
             "options": {
                 "jestConfig": "packages/itmat-types/jest.config.ts",
