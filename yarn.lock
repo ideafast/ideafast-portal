@@ -1909,6 +1909,13 @@
   dependencies:
     nx "15.0.3"
 
+"@nrwl/cli@15.1.1":
+  version "15.1.1"
+  resolved "https://registry.yarnpkg.com/@nrwl/cli/-/cli-15.1.1.tgz#9648732aaa7157ae4f833fe5994f47f5dc283ef6"
+  integrity sha512-rfpIi/zWpL6YyW7Z10oc65FwePvFP0uo7L1f32wMtC25dHh12YD3OS24VniCOrFYWjHNIu7X7hdHx2lcDXPRBg==
+  dependencies:
+    nx "15.1.1"
+
 "@nrwl/cypress@15.0.3":
   version "15.0.3"
   resolved "https://registry.yarnpkg.com/@nrwl/cypress/-/cypress-15.0.3.tgz#fb5cba4a68970182fb11fbbe98bf357896833457"
@@ -1943,14 +1950,25 @@
     semver "7.3.4"
     tslib "^2.3.0"
 
-"@nrwl/esbuild@15.0.3":
-  version "15.0.3"
-  resolved "https://registry.yarnpkg.com/@nrwl/esbuild/-/esbuild-15.0.3.tgz#824c112f0773a76cfddb39063c4adb7dc2469205"
-  integrity sha512-Wit3CClSf7v81RR93sAntzg3DtIaK0bdWC7Tiid7tDiK7/spFPjya0qxHYvQ8Buwz+AbOulSSdFjqSp1MLwBVw==
+"@nrwl/devkit@15.1.1":
+  version "15.1.1"
+  resolved "https://registry.yarnpkg.com/@nrwl/devkit/-/devkit-15.1.1.tgz#b8748796e1dc401ebea5df933aeccaa421d4208e"
+  integrity sha512-Dh26LjMh/BMmoOja2WSSVSAaVDI59qIg46dZmfU7fcu+Y4FFMor3PMAAo5QVbfLasbx4HG6vrvQlhuwWnXm4hw==
   dependencies:
-    "@nrwl/devkit" "15.0.3"
-    "@nrwl/js" "15.0.3"
-    "@nrwl/workspace" "15.0.3"
+    "@phenomnomnominal/tsquery" "4.1.1"
+    ejs "^3.1.7"
+    ignore "^5.0.4"
+    semver "7.3.4"
+    tslib "^2.3.0"
+
+"@nrwl/esbuild@15.1.1":
+  version "15.1.1"
+  resolved "https://registry.yarnpkg.com/@nrwl/esbuild/-/esbuild-15.1.1.tgz#bbaff6c94fab359429b0f861785d0134cca33e0a"
+  integrity sha512-R7yk0BSQo+21gXvt0ytjz5hLuJT6tf8wC+O1EGQiMjTiBUxM2gegpEdmWp2TFymhuXyNYnUwbhSzBxBm6a3kKw==
+  dependencies:
+    "@nrwl/devkit" "15.1.1"
+    "@nrwl/js" "15.1.1"
+    "@nrwl/workspace" "15.1.1"
     chalk "4.1.0"
     dotenv "~10.0.0"
     fs-extra "^10.1.0"
@@ -1995,6 +2013,24 @@
     resolve.exports "1.1.0"
     tslib "^2.3.0"
 
+"@nrwl/jest@15.1.1":
+  version "15.1.1"
+  resolved "https://registry.yarnpkg.com/@nrwl/jest/-/jest-15.1.1.tgz#7b5029e80418fe34020e095b2ac3732a09c21d72"
+  integrity sha512-NRQcEy4lcEjHrFmv6UR2gg3RviLNRiYgdqUiboSo0tD2fIqlLEz7m1T/l54f1/Dt0GWeVhzfQGk8WJKkbjZHlQ==
+  dependencies:
+    "@jest/reporters" "28.1.1"
+    "@jest/test-result" "28.1.1"
+    "@nrwl/devkit" "15.1.1"
+    "@phenomnomnominal/tsquery" "4.1.1"
+    chalk "4.1.0"
+    dotenv "~10.0.0"
+    identity-obj-proxy "3.0.0"
+    jest-config "28.1.1"
+    jest-resolve "28.1.1"
+    jest-util "28.1.1"
+    resolve.exports "1.1.0"
+    tslib "^2.3.0"
+
 "@nrwl/js@15.0.3":
   version "15.0.3"
   resolved "https://registry.yarnpkg.com/@nrwl/js/-/js-15.0.3.tgz#1340561f8867fb9c7fce372d04afb88b8fec77ce"
@@ -2014,6 +2050,25 @@
     source-map-support "0.5.19"
     tree-kill "1.2.2"
 
+"@nrwl/js@15.1.1":
+  version "15.1.1"
+  resolved "https://registry.yarnpkg.com/@nrwl/js/-/js-15.1.1.tgz#9df375e38da3a432e1339d361b591c2a49cfa3bd"
+  integrity sha512-CsE28ykGWmpOBc+/DzNw5iLtl61bsORvvT3yCBJ53UXmQxvTb2Zkm91VehhslERJ1WgPD3iiCb8LXwf7wJfchQ==
+  dependencies:
+    "@nrwl/devkit" "15.1.1"
+    "@nrwl/jest" "15.1.1"
+    "@nrwl/linter" "15.1.1"
+    "@nrwl/workspace" "15.1.1"
+    "@parcel/watcher" "2.0.4"
+    chalk "4.1.0"
+    fast-glob "3.2.7"
+    fs-extra "^10.1.0"
+    ignore "^5.0.4"
+    js-tokens "^4.0.0"
+    minimatch "3.0.5"
+    source-map-support "0.5.19"
+    tree-kill "1.2.2"
+
 "@nrwl/linter@15.0.3":
   version "15.0.3"
   resolved "https://registry.yarnpkg.com/@nrwl/linter/-/linter-15.0.3.tgz#e2e7e021c0fa8190626252d784bbea0b328a059c"
@@ -2023,6 +2078,18 @@
     "@nrwl/jest" "15.0.3"
     "@phenomnomnominal/tsquery" "4.1.1"
     nx "15.0.3"
+    tmp "~0.2.1"
+    tslib "^2.3.0"
+
+"@nrwl/linter@15.1.1":
+  version "15.1.1"
+  resolved "https://registry.yarnpkg.com/@nrwl/linter/-/linter-15.1.1.tgz#f0cf4801c290efe1448e266c8568764bc4049e62"
+  integrity sha512-FQrek2JVpMo6iVVLm4rhGVIyBRWtGJ0Htsd9KM7uOXZd75jKDFVHtWY/HlKcvfhlJ/0+ZGBArKiJjFlbD4lYpw==
+  dependencies:
+    "@nrwl/devkit" "15.1.1"
+    "@nrwl/jest" "15.1.1"
+    "@phenomnomnominal/tsquery" "4.1.1"
+    nx "15.1.1"
     tmp "~0.2.1"
     tslib "^2.3.0"
 
@@ -2130,6 +2197,13 @@
   integrity sha512-4vxWMgb9XauVVKdytqh3razAl60u4M6526E5FYQCkC+OImwGA5Zpms0earYOwLh3XzSnTiooMT6XR9s06lTkHw==
   dependencies:
     nx "15.0.3"
+
+"@nrwl/tao@15.1.1":
+  version "15.1.1"
+  resolved "https://registry.yarnpkg.com/@nrwl/tao/-/tao-15.1.1.tgz#b35f320402fefa66e58c8329134a1c9541762a45"
+  integrity sha512-FCmR9Rq+Nza7G5lXYPzYgVfYz2nI/7yDhTaenwBOyoxYixppfWTEx25mpsPtF38x996b/wp6gREuC4OPov7NWQ==
+  dependencies:
+    nx "15.1.1"
 
 "@nrwl/web@15.0.3":
   version "15.0.3"
@@ -2242,6 +2316,37 @@
     tslib "^2.3.0"
     yargs "^17.4.0"
     yargs-parser "21.0.1"
+
+"@nrwl/workspace@15.1.1":
+  version "15.1.1"
+  resolved "https://registry.yarnpkg.com/@nrwl/workspace/-/workspace-15.1.1.tgz#5eeef56be8d75567be5b3cb05817e33e0a5ead8c"
+  integrity sha512-YI5GApBJzltOIz6v58tMvBL3FLQ1z++Akv52WzHybUOski2uKT7FbZwmOebJ2nGF0gPf+J4VOyRFK8pHum/SqQ==
+  dependencies:
+    "@nrwl/devkit" "15.1.1"
+    "@nrwl/jest" "15.1.1"
+    "@nrwl/linter" "15.1.1"
+    "@parcel/watcher" "2.0.4"
+    chalk "4.1.0"
+    chokidar "^3.5.1"
+    cli-cursor "3.1.0"
+    cli-spinners "2.6.1"
+    dotenv "~10.0.0"
+    enquirer "~2.3.6"
+    figures "3.2.0"
+    flat "^5.0.2"
+    fs-extra "^10.1.0"
+    glob "7.1.4"
+    ignore "^5.0.4"
+    minimatch "3.0.5"
+    npm-run-path "^4.0.1"
+    nx "15.1.1"
+    open "^8.4.0"
+    rxjs "^6.5.4"
+    semver "7.3.4"
+    tmp "~0.2.1"
+    tslib "^2.3.0"
+    yargs "^17.6.2"
+    yargs-parser "21.1.1"
 
 "@parcel/watcher@2.0.4":
   version "2.0.4"
@@ -9205,6 +9310,47 @@ nx@15.0.3:
     yargs "^17.4.0"
     yargs-parser "21.0.1"
 
+nx@15.1.1:
+  version "15.1.1"
+  resolved "https://registry.yarnpkg.com/nx/-/nx-15.1.1.tgz#fbbc9cba25bdff42e890c0fe7d67f9f6858dd01d"
+  integrity sha512-afwLiY25+wCK7NR1lGVn2nIJRSqOmcJqJxWsz1A2FJJaHXogF4ja0USgjDksxXQGfKsbOyOq4Wvzel1YhtuaoQ==
+  dependencies:
+    "@nrwl/cli" "15.1.1"
+    "@nrwl/tao" "15.1.1"
+    "@parcel/watcher" "2.0.4"
+    "@yarnpkg/lockfile" "^1.1.0"
+    "@yarnpkg/parsers" "^3.0.0-rc.18"
+    "@zkochan/js-yaml" "0.0.6"
+    axios "^1.0.0"
+    chalk "4.1.0"
+    chokidar "^3.5.1"
+    cli-cursor "3.1.0"
+    cli-spinners "2.6.1"
+    cliui "^7.0.2"
+    dotenv "~10.0.0"
+    enquirer "~2.3.6"
+    fast-glob "3.2.7"
+    figures "3.2.0"
+    flat "^5.0.2"
+    fs-extra "^10.1.0"
+    glob "7.1.4"
+    ignore "^5.0.4"
+    js-yaml "4.1.0"
+    jsonc-parser "3.2.0"
+    minimatch "3.0.5"
+    npm-run-path "^4.0.1"
+    open "^8.4.0"
+    semver "7.3.4"
+    string-width "^4.2.3"
+    strong-log-transformer "^2.1.0"
+    tar-stream "~2.2.0"
+    tmp "~0.2.1"
+    tsconfig-paths "^3.9.0"
+    tslib "^2.3.0"
+    v8-compile-cache "2.3.0"
+    yargs "^17.6.2"
+    yargs-parser "21.1.1"
+
 object-assign@^4, object-assign@^4.1.1:
   version "4.1.1"
   resolved "https://registry.yarnpkg.com/object-assign/-/object-assign-4.1.1.tgz#2109adc7965887cfc05cbbd442cac8bfbb360863"
@@ -12651,7 +12797,7 @@ yargs-parser@21.0.1:
   resolved "https://registry.yarnpkg.com/yargs-parser/-/yargs-parser-21.0.1.tgz#0267f286c877a4f0f728fceb6f8a3e4cb95c6e35"
   integrity sha512-9BK1jFpLzJROCI5TzwZL/TU4gqjK5xiHV/RfWLOahrjAko/e4DJkRDZQXfvqAsiZzzYhgAzbgz6lg48jcm4GLg==
 
-yargs-parser@>=21.0.1, yargs-parser@^21.0.0, yargs-parser@^21.0.1:
+yargs-parser@21.1.1, yargs-parser@>=21.0.1, yargs-parser@^21.0.0, yargs-parser@^21.0.1, yargs-parser@^21.1.1:
   version "21.1.1"
   resolved "https://registry.yarnpkg.com/yargs-parser/-/yargs-parser-21.1.1.tgz#9096bceebf990d21bb31fa9516e0ede294a77d35"
   integrity sha512-tVpsJW7DdjecAiFpbIB1e3qxIQsE6NoPc5/eTdrbbIC4h0LVsWhnoa3g+m2HclBIujHzsxZ4VJVA+GUuc2/LBw==
@@ -12693,6 +12839,19 @@ yargs@^17.3.1, yargs@^17.4.0:
     string-width "^4.2.3"
     y18n "^5.0.5"
     yargs-parser "^21.0.0"
+
+yargs@^17.6.2:
+  version "17.6.2"
+  resolved "https://registry.yarnpkg.com/yargs/-/yargs-17.6.2.tgz#2e23f2944e976339a1ee00f18c77fedee8332541"
+  integrity sha512-1/9UrdHjDZc0eOU0HxOHoS78C69UD3JRMvzlJ7S79S2nTaWRA/whGCTV8o9e/N/1Va9YIV7Q4sOxD8VV4pCWOw==
+  dependencies:
+    cliui "^8.0.1"
+    escalade "^3.1.1"
+    get-caller-file "^2.0.5"
+    require-directory "^2.1.1"
+    string-width "^4.2.3"
+    y18n "^5.0.5"
+    yargs-parser "^21.1.1"
 
 yargs@~3.10.0:
   version "3.10.0"
