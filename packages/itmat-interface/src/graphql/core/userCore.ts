@@ -2,9 +2,10 @@ import bcrypt from 'bcrypt';
 import { db } from '../../database/database';
 import config from '../../utils/configManager';
 import { ApolloError } from 'apollo-server-core';
-import { IUser, IUserWithoutToken, userTypes, Models, IOrganisation, IPubkey } from 'itmat-commons';
+import { IUser, IUserWithoutToken, userTypes, IOrganisation, IPubkey } from '@itmat-broker/itmat-types';
 import { v4 as uuid } from 'uuid';
 import { errorCodes } from '../errors';
+import { MarkOptional } from 'ts-essentials';
 
 export class UserCore {
     public async getOneUser_throwErrorIfNotExists(username: string): Promise<IUser> {
@@ -20,7 +21,7 @@ export class UserCore {
         const hashedPassword: string = await bcrypt.hash(password, config.bcrypt.saltround);
         const createdAt = Date.now();
         const expiredAt = Date.now() + 86400 * 1000 /* millisec per day */ * 90;
-        const entry: Models.UserModels.IUser = {
+        const entry: IUser = {
             id: uuid(),
             username,
             otpSecret,
@@ -40,7 +41,7 @@ export class UserCore {
 
         const result = await db.collections!.users_collection.insertOne(entry);
         if (result.acknowledged) {
-            const cleared: IUserWithoutToken = { ...entry };
+            const cleared: MarkOptional<IUser, 'password' | 'otpSecret'> = { ...entry };
             delete cleared['password'];
             delete cleared['otpSecret'];
             return cleared;
@@ -63,7 +64,7 @@ export class UserCore {
                     users: userId
                 },
                 {
-                    $pull: { users: { id: userId } }
+                    $pull: { users: { _id: userId } }
                 }
             );
 

@@ -1,10 +1,10 @@
 // External node module imports
-import { Express } from 'express';
+import { v4 as uuid } from 'uuid';
 import { db } from './database/database';
 import { objStore } from './objStore/objStore';
 import { Router } from './server/router';
 import { Server } from './server/server';
-import { JobPoller } from 'itmat-commons';
+import { JobPoller } from '@itmat-broker/itmat-commons';
 import { JobDispatcher } from './jobDispatch/dispatcher';
 import { MongoClient } from 'mongodb';
 import { UKB_CSV_UPLOAD_Handler } from './jobHandlers/UKB_CSV_UPLOAD_Handler';
@@ -14,7 +14,7 @@ import { QueryHandler } from './query/queryHandler';
 
 class ITMATJobExecutorServer extends Server {
 
-    private router;
+    private router?: Router;
 
     /**
      * @fn start
@@ -23,7 +23,7 @@ class ITMATJobExecutorServer extends Server {
      * @return {Promise} Resolve to a native Express.js router ready to use on success.
      * In case of error, an ErrorStack is rejected.
      */
-    public start(): Promise<Express> {
+    public start(): Promise<Router> {
         const _this = this;
         return new Promise((resolve, reject) => {
 
@@ -44,7 +44,7 @@ class ITMATJobExecutorServer extends Server {
                     // jobDispatcher.registerJobType('UKB_IMAGE_UPLOAD', UKB_IMAGE_UPLOAD_Handler.prototype.getInstance);
 
                     const poller = new JobPoller({
-                        identity: 'me',
+                        identity: uuid(),
                         jobCollection: db.collections!.jobs_collection,
                         pollingInterval: this.config.pollingInterval,
                         action: jobDispatcher.dispatch
@@ -52,9 +52,9 @@ class ITMATJobExecutorServer extends Server {
                     poller.setInterval();
 
                     // Return the Express application
-                    return resolve(_this.router.getApp());
+                    return resolve(_this.router);
 
-                }).catch((err) => reject(err));
+                }).catch((err: any) => reject(err));
         });
     }
 

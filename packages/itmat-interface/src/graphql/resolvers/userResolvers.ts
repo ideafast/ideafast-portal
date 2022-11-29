@@ -2,17 +2,8 @@ import { ApolloError, UserInputError } from 'apollo-server-express';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import { mailer } from '../../emailer/emailer';
-import {
-    Models,
-    Logger,
-    IProject,
-    IStudy,
-    IUser,
-    IUserWithoutToken,
-    IResetPasswordRequest,
-    userTypes,
-    IOrganisation
-} from 'itmat-commons';
+import { IProject, IStudy, IUser, IUserWithoutToken, IResetPasswordRequest, userTypes, IOrganisation } from '@itmat-broker/itmat-types';
+import { Logger } from '@itmat-broker/itmat-commons';
 import { v4 as uuid } from 'uuid';
 import mongodb from 'mongodb';
 import { db } from '../../database/database';
@@ -66,13 +57,13 @@ export const userResolvers = {
             }
             return makeGenericReponse();
         },
-        recoverSessionExpireTime: async (__unused__parent: Record<string, unknown>, __unused__context: any): Promise<IGenericResponse> => {
+        recoverSessionExpireTime: async (): Promise<IGenericResponse> => {
             return makeGenericReponse();
         }
     },
     User: {
         access: async (user: IUser, __unused__arg: any, context: any): Promise<{ projects: IProject[], studies: IStudy[], id: string }> => {
-            const requester: Models.UserModels.IUser = context.req.user;
+            const requester: IUser = context.req.user;
 
             /* only admin can access this field */
             if (requester.type !== userTypes.ADMIN && user.id !== requester.id) {
@@ -110,7 +101,7 @@ export const userResolvers = {
             return { id: `user_access_obj_user_id_${user.id}`, projects, studies };
         },
         username: async (user: IUser, __unused__arg: any, context: any): Promise<string | null> => {
-            const requester: Models.UserModels.IUser = context.req.user;
+            const requester: IUser = context.req.user;
             /* only admin can access this field */
             if (context.req.user.type !== userTypes.ADMIN && user.id !== requester.id) {
                 throw new ApolloError(errorCodes.NO_PERMISSION_ERROR);
@@ -119,7 +110,7 @@ export const userResolvers = {
             return user.username;
         },
         description: async (user: IUser, __unused__arg: any, context: any): Promise<string | null> => {
-            const requester: Models.UserModels.IUser = context.req.user;
+            const requester: IUser = context.req.user;
             /* only admin can access this field */
             if (context.req.user.type !== userTypes.ADMIN && user.id !== requester.id) {
                 throw new ApolloError(errorCodes.NO_PERMISSION_ERROR);
@@ -128,7 +119,7 @@ export const userResolvers = {
             return user.description;
         },
         email: async (user: IUser, __unused__arg: any, context: any): Promise<string | null> => {
-            const requester: Models.UserModels.IUser = context.req.user;
+            const requester: IUser = context.req.user;
             /* only admin can access this field */
             if (context.req.user.type !== userTypes.ADMIN && user.id !== requester.id) {
                 throw new ApolloError(errorCodes.NO_PERMISSION_ERROR);
@@ -244,8 +235,11 @@ export const userResolvers = {
 
             // validate the TOTP
             const totpValidated = mfa.verifyTOTP(args.totp, result.otpSecret);
-            if (!totpValidated && process.env.NODE_ENV === 'production') {
-                throw new UserInputError('Incorrect One-Time password.');
+            if (!totpValidated) {
+                if (process.env.NODE_ENV === 'development')
+                    console.warn('Incorrect One-Time password. Continuing in development ...');
+                else
+                    throw new UserInputError('Incorrect One-Time password.');
             }
 
             /* validate if account expired */
@@ -282,14 +276,13 @@ export const userResolvers = {
             });
         },
         logout: async (parent: Record<string, unknown>, __unused__args: any, context: any): Promise<IGenericResponse> => {
-            const requester: Models.UserModels.IUser = context.req.user;
+            const requester: IUser = context.req.user;
             const req: Express.Request = context.req;
             if (requester === undefined || requester === null) {
                 return makeGenericReponse(context.req.user);
             }
             return new Promise((resolve) => {
-                req.session!.destroy((err) => {
-                    req.logout();
+                req.logout((err) => {
                     if (err) {
                         Logger.error(err);
                         throw new ApolloError('Cannot log out');
@@ -352,7 +345,7 @@ export const userResolvers = {
             const tmpobj = tmp.fileSync({ mode: 0o644, prefix: 'qrcodeimg-', postfix: '.png' });
 
             QRCode.toFile(tmpobj.name, oauth_uri, {}, function (err) {
-                if (err) throw new ApolloError(err);
+                if (err) throw new ApolloError(err.message);
             });
 
             const attachments = [{ filename: 'qrcode.png', path: tmpobj.name, cid: 'qrcode_cid' }];
@@ -386,14 +379,14 @@ export const userResolvers = {
         },
         deleteUser: async (__unused__parent: Record<string, unknown>, args: any, context: any): Promise<IGenericResponse> => {
             /* only admin can delete users */
-            const requester: Models.UserModels.IUser = context.req.user;
+            const requester: IUser = context.req.user;
 
             // user (admin type) cannot delete itself
             if (requester.id === args.userId) {
                 throw new ApolloError('User cannot delete itself');
             }
 
-            if (requester.type !== Models.UserModels.userTypes.ADMIN) {
+            if (requester.type !== userTypes.ADMIN) {
                 throw new ApolloError(errorCodes.NO_PERMISSION_ERROR);
             }
 
@@ -473,7 +466,7 @@ export const userResolvers = {
             const tmpobj = tmp.fileSync({ mode: 0o644, prefix: 'qrcodeimg-', postfix: '.png' });
 
             QRCode.toFile(tmpobj.name, oauth_uri, {}, function (err) {
-                if (err) throw new ApolloError(err);
+                if (err) throw new ApolloError(err.message);
             });
 
             const attachments = [{ filename: 'qrcode.png', path: tmpobj.name, cid: 'qrcode_cid' }];
@@ -505,9 +498,9 @@ export const userResolvers = {
             return makeGenericReponse();
         },
         editUser: async (__unused__parent: Record<string, unknown>, args: any, context: any): Promise<Record<string, unknown>> => {
-            const requester: Models.UserModels.IUser = context.req.user;
+            const requester: IUser = context.req.user;
             const { id, username, type, firstname, lastname, email, emailNotificationsActivated, password, description, organisation, expiredAt }: {
-                id: string, username?: string, type?: Models.UserModels.userTypes, firstname?: string, lastname?: string, email?: string, emailNotificationsActivated?: boolean, password?: string, description?: string, organisation?: string, expiredAt?: number
+                id: string, username?: string, type?: userTypes, firstname?: string, lastname?: string, email?: string, emailNotificationsActivated?: boolean, password?: string, description?: string, organisation?: string, expiredAt?: number
             } = args.user;
             if (password !== undefined && requester.id !== id) { // only the user themself can reset password
                 throw new ApolloError(errorCodes.NO_PERMISSION_ERROR);
@@ -515,11 +508,11 @@ export const userResolvers = {
             if (password && !passwordIsGoodEnough(password)) {
                 throw new ApolloError('Password has to be at least 8 character long.');
             }
-            if (requester.type !== Models.UserModels.userTypes.ADMIN && requester.id !== id) {
+            if (requester.type !== userTypes.ADMIN && requester.id !== id) {
                 throw new ApolloError(errorCodes.NO_PERMISSION_ERROR);
             }
             let result;
-            if (requester.type === Models.UserModels.userTypes.ADMIN) {
+            if (requester.type === userTypes.ADMIN) {
                 result = await db.collections!.users_collection.findOne({ id, deleted: null })!;   // just an extra guard before going to bcrypt cause bcrypt is CPU intensive.
                 if (result === null || result === undefined) {
                     throw new ApolloError('User not found');
@@ -544,14 +537,14 @@ export const userResolvers = {
                 throw new UserInputError('User not updated: Email is not the right format.');
             }
 
-            if (requester.type !== Models.UserModels.userTypes.ADMIN && (
+            if (requester.type !== userTypes.ADMIN && (
                 type || firstname || lastname || username || description || organisation
             )) {
                 throw new ApolloError('User not updated: Non-admin users are only authorised to change their password or email.');
             }
 
             if (password) { fieldsToUpdate.password = await bcrypt.hash(password, config.bcrypt.saltround); }
-            for (const each of Object.keys(fieldsToUpdate)) {
+            for (const each of (Object.keys(fieldsToUpdate) as Array<keyof typeof fieldsToUpdate>)) {
                 if (fieldsToUpdate[each] === undefined) {
                     delete fieldsToUpdate[each];
                 }
@@ -559,7 +552,7 @@ export const userResolvers = {
             const updateResult: mongodb.ModifyResult<any> = await db.collections!.users_collection.findOneAndUpdate({ id, deleted: null }, { $set: fieldsToUpdate }, { returnDocument: 'after' });
             if (updateResult.ok === 1) {
                 // New expiry date has been updated successfully.
-                if (expiredAt) {
+                if (expiredAt && result) {
                     /* send email to client */
                     await mailer.sendMail(formatEmailRequestExpiryDateNotification({
                         to: result.email,
@@ -575,7 +568,7 @@ export const userResolvers = {
             const requester: IUser = context.req.user;
 
             /* check privileges */
-            if (requester.type !== Models.UserModels.userTypes.ADMIN) {
+            if (requester.type !== userTypes.ADMIN) {
                 throw new ApolloError(errorCodes.NO_PERMISSION_ERROR);
             }
             // if the org already exists, update it; the existence is checked by the name
@@ -592,7 +585,7 @@ export const userResolvers = {
             const requester: IUser = context.req.user;
 
             /* check privileges */
-            if (requester.type !== Models.UserModels.userTypes.ADMIN) {
+            if (requester.type !== userTypes.ADMIN) {
                 throw new ApolloError(errorCodes.NO_PERMISSION_ERROR);
             }
 

@@ -1,15 +1,15 @@
 import { ApolloServer, UserInputError } from 'apollo-server-express';
 import { ApolloServerPluginDrainHttpServer } from 'apollo-server-core';
-import { GraphQLUpload, graphqlUploadExpress } from 'graphql-upload';
+import { graphqlUploadExpress, GraphQLUpload } from 'graphql-upload-minimal';
 import { execute, subscribe } from 'graphql';
 import { SubscriptionServer } from 'subscriptions-transport-ws';
 import { makeExecutableSchema } from '@graphql-tools/schema';
-import bodyParser from 'body-parser';
 // import connectMongo from 'connect-mongo';
 import cors from 'cors';
 import express from 'express';
 import { Express } from 'express';
 import session from 'express-session';
+import rateLimit from 'express-rate-limit';
 import http from 'http';
 import passport from 'passport';
 // import { db } from '../database/database';
@@ -23,20 +23,30 @@ import { spaceFixing } from '../utils/regrex';
 import { BigIntResolver as scalarResolvers } from 'graphql-scalars';
 import jwt from 'jsonwebtoken';
 import { userRetrieval } from '../authentication/pubkeyAuthentication';
-// const MongoStore = connectMongo(session);
+import { createProxyMiddleware, RequestHandler } from 'http-proxy-middleware';
+import qs from 'qs';
+import { IUser } from '@itmat-broker/itmat-types';
+
 
 export class Router {
     private readonly app: Express;
     private readonly server: http.Server;
+    public readonly proxies: Array<RequestHandler> = [];
 
     constructor(config: IConfiguration) {
+
         this.app = express();
+
+        this.app.use(rateLimit({
+            windowMs: 1 * 60 * 1000,
+            max: 500
+        }));
 
         if (process.env.NODE_ENV === 'development')
             this.app.use(cors({ credentials: true }));
 
-        this.app.use(bodyParser.json({ limit: '50mb' }));
-        this.app.use(bodyParser.urlencoded({ extended: true }));
+        this.app.use(express.json({ limit: '50mb' }));
+        this.app.use(express.urlencoded({ extended: true }));
 
 
         /* save persistent sessions in mongo */
@@ -76,6 +86,7 @@ export class Router {
         const gqlServer = new ApolloServer({
             schema,
             allowBatchedHttpRequests: true,
+            cache: 'bounded',
             plugins: [
                 {
                     async serverWillStart() {
@@ -91,13 +102,13 @@ export class Router {
                             async executionDidStart(requestContext) {
                                 const operation = requestContext.operationName;
                                 const actionData = requestContext.request.variables;
-                                (requestContext as any).request.variables = spaceFixing(operation, actionData);
+                                (requestContext as any).request.variables = spaceFixing(operation as any, actionData);
                             },
                             async willSendResponse(requestContext) {
                                 logPlugin.requestDidStartLogPlugin(requestContext);
                             }
                         };
-                    },
+                    }
                 },
                 ApolloServerPluginDrainHttpServer({ httpServer: this.server })
             ],
@@ -106,15 +117,15 @@ export class Router {
                 // if (req.user === undefined && req.body.operationName !== 'login' && req.body.operationName !== 'IntrospectionQuery' ) {  // login and schema introspection doesn't need authentication
                 //     throw new ForbiddenError('not logged in');
                 // }
-                const token = req.headers.authorization || '';
+                const token: string = req.headers.authorization || '';
                 if ((token !== '') && (req.user === undefined)) {
                     // get the decoded payload ignoring signature, no symmetric secret or asymmetric key needed
                     const decodedPayload = jwt.decode(token);
                     // obtain the public-key of the robot user in the JWT payload
-                    const pubkey = decodedPayload.publicKey;
+                    const pubkey = (decodedPayload as any).publicKey;
 
                     // verify the JWT
-                    jwt.verify(token, pubkey, function (err) {
+                    jwt.verify(token, pubkey, function (err: any) {
                         if (err) {
                             throw new UserInputError('JWT verification failed. ' + err);
                         }
@@ -133,6 +144,61 @@ export class Router {
             }
         });
 
+        /* AE proxy middleware */
+        // initial this before graphqlUploadExpress middleware
+        const ae_proxy = createProxyMiddleware({
+            target: config.aeEndpoint,
+            ws: true,
+            xfwd: true,
+            // logLevel: 'debug',
+            autoRewrite: true,
+            changeOrigin: true,
+            onProxyReq: function (preq, req, res) {
+                if (!req.user)
+                    return res.status(403).redirect('/');
+                res.cookie('ae_proxy', req.headers['host']);
+                const data = (req.user as IUser).username + ':token';
+                preq.setHeader('authorization', `Basic ${Buffer.from(data).toString('base64')}`);
+                if (req.body && Object.keys(req.body).length) {
+                    const contentType = preq.getHeader('Content-Type');
+                    preq.setHeader('origin', config.aeEndpoint);
+                    const writeBody = (bodyData: string) => {
+                        preq.setHeader('Content-Length', Buffer.byteLength(bodyData));
+                        preq.write(bodyData);
+                        preq.end();
+                    };
+
+                    if (contentType === 'application/json') {  // contentType.includes('application/json')
+                        writeBody(JSON.stringify(req.body));
+                    }
+
+                    if (contentType === 'application/x-www-form-urlencoded') {
+                        writeBody(qs.stringify(req.body));
+                    }
+
+                }
+            },
+            onProxyReqWs: function (preq) {
+                const data = 'username:token';
+                preq.setHeader('authorization', `Basic ${Buffer.from(data).toString('base64')}`);
+            },
+            onError: function (err, req, res, target) {
+                console.error(err, target);
+            }
+        });
+
+        this.proxies.push(ae_proxy);
+
+        /* AE routers */
+        // pun for AE portal
+        // node and rnode for AE application
+        // public for public resource like favicon and logo
+        const proxy_routers = ['/pun', '/node', '/rnode', '/public'];
+
+        proxy_routers.forEach(router => {
+            this.app.use(router, ae_proxy);
+        });
+
         this.app.use(graphqlUploadExpress());
 
         gqlServer.start().then(() => {
@@ -145,13 +211,13 @@ export class Router {
             schema,
             // These are imported from `graphql`.
             execute,
-            subscribe,
+            subscribe
         }, {
             // This is the `httpServer` we created in a previous step.
             server: this.server,
             // Pass a different path here if your ApolloServer serves at
             // a different path.
-            path: '/graphql',
+            path: '/graphql'
         });
 
         /* Bounce all unauthenticated non-graphql HTTP requests */
@@ -169,6 +235,10 @@ export class Router {
 
     public getApp(): Express {
         return this.app;
+    }
+
+    public getProxy(): RequestHandler {
+        return this.proxies[0];
     }
 
     public getServer(): http.Server {

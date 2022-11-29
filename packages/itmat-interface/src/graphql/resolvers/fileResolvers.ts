@@ -1,6 +1,8 @@
 import { ApolloError } from 'apollo-server-express';
-import { Models, task_required_permissions, IFile, Logger, studyType, IOrganisation } from 'itmat-commons';
+import { IFile, studyType, IOrganisation, IUser, task_required_permissions } from '@itmat-broker/itmat-types';
+import { Logger } from '@itmat-broker/itmat-commons';
 import { v4 as uuid } from 'uuid';
+import { FileUpload } from 'graphql-upload-minimal';
 import { db } from '../../database/database';
 import { objStore } from '../../objStore/objStore';
 import { permissionCore } from '../core/permissionCore';
@@ -10,13 +12,14 @@ import { Readable } from 'stream';
 import crypto from 'crypto';
 import { validate } from '@ideafast/idgen';
 import { deviceTypes, fileSizeLimit } from '../../utils/definition';
+import { WriteStream } from 'fs-capacitor';
 
 export const fileResolvers = {
     Query: {
     },
     Mutation: {
-        uploadFile: async (__unused__parent: Record<string, unknown>, args: { fileLength?: number, studyId: string, file: Promise<{ stream: Readable, filename: string }>, description: string, hash?: string }, context: any): Promise<IFile> => {
-            const requester: Models.UserModels.IUser = context.req.user;
+        uploadFile: async (__unused__parent: Record<string, unknown>, args: { fileLength?: number, studyId: string, file: Promise<FileUpload>, description: string, hash?: string }, context: any): Promise<IFile> => {
+            const requester: IUser = context.req.user;
 
             const hasPermission = await permissionCore.userHasTheNeccessaryPermission(
                 task_required_permissions.manage_study_data,
@@ -34,7 +37,7 @@ export const fileResolvers = {
             const fileNameParts = file.filename.split('.');
 
             // obtain sitesIDMarker from db
-            const sitesIDMarkers = (await db.collections!.organisations_collection.find<IOrganisation>({ deleted: null }).toArray()).reduce((acc, curr) => {
+            const sitesIDMarkers = (await db.collections!.organisations_collection.find<IOrganisation>({ deleted: null }).toArray()).reduce<any>((acc, curr) => {
                 if (curr.metadata?.siteIDMarker) {
                     acc[curr.metadata.siteIDMarker] = curr.shortname;
                 }
@@ -43,8 +46,32 @@ export const fileResolvers = {
 
             return new Promise<IFile>((resolve, reject) => {
                 try {
+                    const capacitor = new WriteStream();
                     const hash = crypto.createHash('sha256');
-                    const countStream: Readable = (file as any).createReadStream();
+                    const stream: Readable = file.createReadStream();
+
+                    capacitor.on('error', () => {
+                        stream.unpipe();
+                        stream.resume();
+                    });
+
+                    stream.on('limit', () => {
+                        capacitor.destroy(new Error('File truncated as it exceeds the byte size limit'));
+                    });
+
+                    stream.on('error', (error) => {
+                        capacitor.destroy(error);
+                    });
+
+                    Object.defineProperty(file, 'capacitor', {
+                        enumerable: false,
+                        configurable: false,
+                        writable: false
+                    });
+
+                    stream.pipe(capacitor);
+
+                    const countStream = capacitor.createReadStream();
                     let readBytes = 0;
 
                     countStream.on('data', chunk => {
@@ -55,6 +82,7 @@ export const fileResolvers = {
                     countStream.on('error', (e) => {
                         Logger.error(e);
                         reject(new ApolloError(errorCodes.FILE_STREAM_ERROR));
+                        return;
                     });
 
                     countStream.on('end', () => {
@@ -79,20 +107,21 @@ export const fileResolvers = {
                             reject(new ApolloError('File should not be larger than 8GB', errorCodes.CLIENT_MALFORMED_INPUT));
                             return;
                         }
-                        const stream: Readable = (file as any).createReadStream();
+                        const stream: Readable = capacitor.createReadStream();
                         const fileUri = uuid();
 
                         /* if the client cancelled the request mid-stream it will throw an error */
                         stream.on('error', (e) => {
                             Logger.error(e);
                             reject(new ApolloError(errorCodes.FILE_STREAM_ERROR));
+                            return;
                         });
 
                         stream.on('end', async () => {
                             // description varies: SENSOR, CLINICAL (only participantId), ANY (No check)
                             // check filename and description is valid and matches each other
                             const parsedDescription = JSON.parse(args.description);
-                            if (study.type === studyType.SENSOR || study.type === null || study.type === undefined) {
+                            if (study.type === undefined || study.type === null || study.type === studyType.SENSOR || study.type === studyType.CLINICAL) {
                                 let startDate;
                                 let endDate;
                                 try {
@@ -123,7 +152,7 @@ export const fileResolvers = {
                                     id: uuid(),
                                     fileName: matcher.test(file.filename)
                                         ? file.filename :
-                                        `${parsedDescription.participantId.toUpperCase()}-${parsedDescription.deviceId.toUpperCase()}-${formattedStartDate}-${formattedEndDate}.${fileNameParts[fileNameParts.length - 1]}}`,
+                                        `${parsedDescription.participantId.toUpperCase()}-${parsedDescription.deviceId.toUpperCase()}-${formattedStartDate}-${formattedEndDate}.${fileNameParts[fileNameParts.length - 1]}`,
                                     studyId: args.studyId,
                                     fileSize: readBytes.toString(),
                                     description: args.description,
@@ -135,36 +164,6 @@ export const fileResolvers = {
                                 };
 
                                 const insertResult = await db.collections!.files_collection.insertOne(fileEntry);
-                                if (insertResult.acknowledged) {
-                                    resolve(fileEntry);
-                                } else {
-                                    throw new ApolloError(errorCodes.DATABASE_ERROR);
-                                }
-                            } else if (study.type === studyType.CLINICAL) {
-                                if (!file.filename.startsWith('prolific')) {
-                                    reject(new ApolloError('File name is invalid', errorCodes.CLIENT_MALFORMED_INPUT));
-                                    return;
-                                }
-                                const fileEntry: IFile = {
-                                    id: uuid(),
-                                    fileName: file.filename,
-                                    studyId: args.studyId,
-                                    fileSize: readBytes.toString(),
-                                    description: args.description,
-                                    uploadTime: `${Date.now()}`,
-                                    uploadedBy: requester.id,
-                                    uri: fileUri,
-                                    deleted: null,
-                                    hash: hashString
-                                };
-                                const insertResult = await db.collections!.files_collection.insertOne(fileEntry);
-                                // option: whether to keep the old files
-                                // if (oldFile && study.type === studyType.CLINICAL) {
-                                //     const updateResult = await db.collections!.files_collection.updateOne({ deleted: null, id: oldFile.id }, { $set: { deleted: new Date().valueOf() } });
-                                //     if (updateResult.result.ok !== 1) {
-                                //         throw new ApolloError(errorCodes.DATABASE_ERROR);
-                                //     }
-                                // }
                                 if (insertResult.acknowledged) {
                                     resolve(fileEntry);
                                 } else {
@@ -199,7 +198,7 @@ export const fileResolvers = {
             });
         },
         deleteFile: async (__unused__parent: Record<string, unknown>, args: { fileId: string }, context: any): Promise<IGenericResponse> => {
-            const requester: Models.UserModels.IUser = context.req.user;
+            const requester: IUser = context.req.user;
 
             const file = await db.collections!.files_collection.findOne({ deleted: null, id: args.fileId });
 
