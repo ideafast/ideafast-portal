@@ -26,7 +26,7 @@
         "@nrwl/cypress": "15.2.1",
         "@nrwl/esbuild": "15.2.1",
         "@nrwl/eslint-plugin-nx": "15.2.1",
-        "@nrwl/express": "15.2.1",
+        "@nrwl/express": "15.3.0",
         "@nrwl/jest": "15.2.1",
         "@nrwl/js": "15.2.1",
         "@nrwl/linter": "15.2.1",
