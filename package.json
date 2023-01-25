@@ -29,7 +29,7 @@
         "@nrwl/eslint-plugin-nx": "15.5.1",
         "@nrwl/express": "15.5.1",
         "@nrwl/jest": "15.5.1",
-        "@nrwl/js": "15.5.1",
+        "@nrwl/js": "15.6.2",
         "@nrwl/linter": "15.5.1",
         "@nrwl/node": "15.5.1",
         "@nrwl/nx-cloud": "15.0.2",
