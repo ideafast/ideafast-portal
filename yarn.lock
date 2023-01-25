@@ -2773,6 +2773,13 @@
   dependencies:
     nx "15.5.1"
 
+"@nrwl/cli@15.6.2":
+  version "15.6.2"
+  resolved "https://registry.yarnpkg.com/@nrwl/cli/-/cli-15.6.2.tgz#20fe95dd897cee0c0b2a80f52def2a33c95a1a93"
+  integrity sha512-7U9hYVTwXqPZSqRxYTDO+wCudASuknqTAY6151RrpT4HDK5BpkMxC96HW/wvhrzaLf+7dLHAimr2b+vR2xnqRA==
+  dependencies:
+    nx "15.6.2"
+
 "@nrwl/cypress@15.5.1":
   version "15.5.1"
   resolved "https://registry.yarnpkg.com/@nrwl/cypress/-/cypress-15.5.1.tgz#832e76b74675855f815c1000b4f0b2f186ef346e"
@@ -2953,6 +2960,13 @@
   integrity sha512-MUaqIsbEXLF8l4qpk/5Q7o+1mzvyCTQOm0usVh96RGowU7SjOvoHErCA2aIQvRK4MKLK9AH8U0AlbpLVLI+5cQ==
   dependencies:
     nx "15.5.1"
+
+"@nrwl/tao@15.6.2":
+  version "15.6.2"
+  resolved "https://registry.yarnpkg.com/@nrwl/tao/-/tao-15.6.2.tgz#d13b2ac6d9876c373b017544dbca08778209e8c7"
+  integrity sha512-jG8Csd43uyFf1XUc02k1XoK89n3FsvXM9EXdFadKLbiw5/7c0dZ0AYK8+JFgRpk67/7T0qaxtw8YlKdkuf/uJg==
+  dependencies:
+    nx "15.6.2"
 
 "@nrwl/vite@15.5.1":
   version "15.5.1"
@@ -10316,6 +10330,47 @@ nx@15.5.1:
     "@zkochan/js-yaml" "0.0.6"
     axios "^1.0.0"
     chalk "4.1.0"
+    cli-cursor "3.1.0"
+    cli-spinners "2.6.1"
+    cliui "^7.0.2"
+    dotenv "~10.0.0"
+    enquirer "~2.3.6"
+    fast-glob "3.2.7"
+    figures "3.2.0"
+    flat "^5.0.2"
+    fs-extra "^11.1.0"
+    glob "7.1.4"
+    ignore "^5.0.4"
+    js-yaml "4.1.0"
+    jsonc-parser "3.2.0"
+    lines-and-columns "~2.0.3"
+    minimatch "3.0.5"
+    npm-run-path "^4.0.1"
+    open "^8.4.0"
+    semver "7.3.4"
+    string-width "^4.2.3"
+    strong-log-transformer "^2.1.0"
+    tar-stream "~2.2.0"
+    tmp "~0.2.1"
+    tsconfig-paths "^4.1.2"
+    tslib "^2.3.0"
+    v8-compile-cache "2.3.0"
+    yargs "^17.6.2"
+    yargs-parser "21.1.1"
+
+nx@15.6.2:
+  version "15.6.2"
+  resolved "https://registry.yarnpkg.com/nx/-/nx-15.6.2.tgz#365f5f6f7cff2820e1f211293d5d71baf29fc4f7"
+  integrity sha512-F6O2mRf6fWVVpkekvmN2erlJZ8jFVRO+PlAKxHBd8pFGtqkh53VXtU0r7/93qgRjC1zz9VVd8BKEB+xuQ2FbDQ==
+  dependencies:
+    "@nrwl/cli" "15.6.2"
+    "@nrwl/tao" "15.6.2"
+    "@parcel/watcher" "2.0.4"
+    "@yarnpkg/lockfile" "^1.1.0"
+    "@yarnpkg/parsers" "^3.0.0-rc.18"
+    "@zkochan/js-yaml" "0.0.6"
+    axios "^1.0.0"
+    chalk "^4.1.0"
     cli-cursor "3.1.0"
     cli-spinners "2.6.1"
     cliui "^7.0.2"
