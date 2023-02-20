@@ -98,7 +98,7 @@
         "webpack-merge": "^5.8.0"
     },
     "dependencies": {
-        "@ant-design/icons": "5.0.0",
+        "@ant-design/icons": "5.0.1",
         "@ant-design/plots": "1.2.4",
         "@apollo/client": "3.7.4",
         "@apollo/server": "4.3.0",
