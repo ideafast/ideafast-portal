@@ -4580,10 +4580,10 @@ ansi-styles@^5.0.0:
   resolved "https://registry.yarnpkg.com/ansi-styles/-/ansi-styles-5.2.0.tgz#07449690ad45777d1924ac2abb2fc8895dba836b"
   integrity sha512-Cxwpt2SfTzTtXcfOlzGEee8O+c+MmUgGrNiBcXnuWxuFJHe6a5Hz7qwhwe5OgaSYI0IJvkLqWX1ASG+cJOkEiA==
 
-antd@5.4.1:
-  version "5.4.1"
-  resolved "https://registry.yarnpkg.com/antd/-/antd-5.4.1.tgz#2c55eb20b174d352eaeff00adf24ce6037dfefc8"
-  integrity sha512-10bZn2fj2ihhBSrwTzhnuFvhLdK1LTVs2GScqhEIDHh+s93Zl7dF27ZNSvth3BUoozoLFjifSVtBbU0dCsd5lw==
+antd@5.4.2:
+  version "5.4.2"
+  resolved "https://registry.yarnpkg.com/antd/-/antd-5.4.2.tgz#3923b96da76fc7276992e9fc0286ebb3a638e016"
+  integrity sha512-OxXZ7joFf6Um4zeXm07tyJ9WV6eMwUw1KUmewfM/BDceUFVtJVf7YbBTBfX3JTl+jOuSpMSb4naFhOCgVwtyFw==
   dependencies:
     "@ant-design/colors" "^7.0.0"
     "@ant-design/cssinjs" "^1.7.1"
@@ -4613,7 +4613,7 @@ antd@5.4.1:
     rc-motion "^2.6.1"
     rc-notification "~5.0.0"
     rc-pagination "~3.3.1"
-    rc-picker "~3.5.0"
+    rc-picker "~3.6.1"
     rc-progress "~3.4.1"
     rc-rate "~2.10.0"
     rc-resize-observer "^1.2.0"
@@ -11248,10 +11248,10 @@ rc-pagination@~3.3.1:
     "@babel/runtime" "^7.10.1"
     classnames "^2.2.1"
 
-rc-picker@~3.5.0:
-  version "3.5.2"
-  resolved "https://registry.yarnpkg.com/rc-picker/-/rc-picker-3.5.2.tgz#c5e52e723ac2338492ead9666685197a65b906b1"
-  integrity sha512-brSEtk7LExUe9N+ZQNHAUi8qE76gYMi5zOgClfclBEKfAwGIEtnFS2F/cmrK49EiNYlwwQFQ8F3WISKZwZ7gTw==
+rc-picker@~3.6.1:
+  version "3.6.1"
+  resolved "https://registry.yarnpkg.com/rc-picker/-/rc-picker-3.6.1.tgz#a48484d0876fb019e3c9668da0acfd6477d2f846"
+  integrity sha512-9L8mfTaEUkUfuPPEso8BNZqoiCu0Kum8SVYjmWjYZ376/PCqYnEm28KV2nlfTPfSZBjlcZBTesHCLbDwKHJ90A==
   dependencies:
     "@babel/runtime" "^7.10.1"
     "@rc-component/trigger" "^1.5.0"
