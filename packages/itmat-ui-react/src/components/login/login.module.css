@@ -26,3 +26,8 @@
     width: 100%;
     min-height: 20%;
 }
+
+.logo {
+    max-width: 15rem;
+    max-height: 15rem;
+}

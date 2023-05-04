@@ -6,7 +6,7 @@ import { NavLink, useNavigate, useParams } from 'react-router-dom';
 import css from '../login/login.module.css';
 import { Input, Form, Button, Alert } from 'antd';
 import LoadSpinner from '../reusable/loadSpinner';
-
+import logo from '../../../src/resource/logo.jpg';
 export const ResetPasswordPage: FunctionComponent = () => {
 
     const { encryptedEmail, token } = useParams();
@@ -41,7 +41,7 @@ export const ResetPasswordPage: FunctionComponent = () => {
         return (
             <div className={css.login_wrapper}>
                 <div className={css.login_box}>
-                    <img alt='IDEA-FAST Logo' src='https://avatars3.githubusercontent.com/u/60649739?s=150' />
+                    <img alt='IDEA-FAST Logo' src={logo} className={css.logo} />
                     <h1>You're all set!</h1>
                     <br />
                     <div>
@@ -71,7 +71,7 @@ export const ResetPasswordPage: FunctionComponent = () => {
 
                     <div className={css.login_wrapper}>
                         <div className={css.login_box}>
-                            <img alt='IDEA-FAST Logo' src='https://avatars3.githubusercontent.com/u/60649739?s=150' />
+                            <img alt='IDEA-FAST Logo' src={logo} className={css.logo} />
                             <h1>Reset your password</h1>
                             <br />
                             <div>

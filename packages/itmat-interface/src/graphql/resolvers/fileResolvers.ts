@@ -1,5 +1,5 @@
 import { GraphQLError } from 'graphql';
-import { IFile, IOrganisation, IUser, atomicOperation, IPermissionManagementOptions, IDataEntry } from '@itmat-broker/itmat-types';
+import { IFile, IUser, atomicOperation, IPermissionManagementOptions, IDataEntry } from '@itmat-broker/itmat-types';
 import { v4 as uuid } from 'uuid';
 import { FileUpload } from 'graphql-upload-minimal';
 import { db } from '../../database/database';
@@ -8,7 +8,6 @@ import { permissionCore } from '../core/permissionCore';
 import { errorCodes } from '../errors';
 import { IGenericResponse, makeGenericReponse } from '../responses';
 import crypto from 'crypto';
-import { validate } from '@ideafast/idgen';
 import { deviceTypes } from '@itmat-broker/itmat-types';
 import { fileSizeLimit } from '../../utils/definition';
 import type { MatchKeysAndValues } from 'mongodb';
@@ -42,43 +41,20 @@ export const fileResolvers = {
 
             let targetFieldId: string;
             let isStudyLevel = false;
-            // obtain sitesIDMarker from db
-            const sitesIDMarkers = (await db.collections!.organisations_collection.find<IOrganisation>({ deleted: null }).toArray()).reduce<any>((acc, curr) => {
-                if (curr.metadata?.siteIDMarker) {
-                    acc[curr.metadata.siteIDMarker] = curr.shortname;
-                }
-                return acc;
-            }, {});
-            // if the description object is empty, then the file is study-level data
-            // otherwise, a subjectId must be provided in the description object
-            // we will check other properties in the decription object (deviceId, startDate, endDate)
             const parsedDescription = JSON.parse(args.description);
             if (!parsedDescription) {
                 throw new GraphQLError('File description is invalid', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
             }
-            if (!parsedDescription.participantId) {
+            if (!parsedDescription.fieldId && !parsedDescription.participantId) {
                 isStudyLevel = true;
             } else {
                 isStudyLevel = false;
-                if (!Object.keys(sitesIDMarkers).includes(parsedDescription.participantId?.substr(0, 1)?.toUpperCase())) {
-                    throw new GraphQLError('File description is invalid', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
-                }
-                // check deviceId, startDate, endDate if necessary
-                if (parsedDescription.deviceId && parsedDescription.startDate && parsedDescription.endDate) {
-                    if (!Object.keys(deviceTypes).includes(parsedDescription.deviceId?.substr(0, 3)?.toUpperCase()) ||
-                        !validate(parsedDescription.participantId?.substr(1) ?? '') ||
-                        !validate(parsedDescription.deviceId.substr(3) ?? '')) {
-                        throw new GraphQLError('File description is invalid', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
-                    }
-                } else {
-                    throw new GraphQLError('File description is invalid', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
-                }
-                // if the targetFieldId is in the description object; then use the fieldId, otherwise, infer it from the device types
-                if (parsedDescription.fieldId) {
+                if (parsedDescription.fieldId && parsedDescription.participantId) {
                     targetFieldId = parsedDescription.fieldId;
                 } else {
-                    const device = parsedDescription.deviceId?.slice(0, 3);
-                    targetFieldId = `Device_${deviceTypes[device].replace(/ /g, '_')}`;
+                    // const device = parsedDescription.deviceId?.slice(0, 3);
+                    // targetFieldId = `Device_${deviceTypes[device].replace(/ /g, '_')}`;
+                    throw new GraphQLError('File description is invalid', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
                 }
                 // check fieldId exists
                 if ((await db.collections!.field_dictionary_collection.find({ studyId: study.id, fieldId: targetFieldId, dateDeleted: null }).sort({ dateAdded: -1 }).limit(1).toArray()).length === 0) {
@@ -89,10 +65,7 @@ export const fileResolvers = {
                     throw new GraphQLError(errorCodes.NO_PERMISSION_ERROR);
                 }
             }
-
             const file = await args.file;
-            const fileNameParts = file.filename.split('.');
-
             return new Promise<IFile>((resolve, reject) => {
                 (async () => {
                     try {
@@ -104,63 +77,11 @@ export const fileResolvers = {
                             uploadTime: `${Date.now()}`,
                             uploadedBy: requester.id,
                             deleted: null,
-                            metadata: {}
+                            metadata: {
+                                'uploader:user': requester.id,
+                                'uploaded:time': Date.now()
+                            }
                         };
-                        if (!isStudyLevel) {
-                            const matcher = /(.{1})(.{6})-(.{3})(.{6})-(\d{8})-(\d{8})\.(.*)/;
-                            let startDate;
-                            let endDate;
-                            let participantId;
-                            let deviceId;
-                            // check description first, then filename
-                            if (args.description) {
-                                const parsedDescription = JSON.parse(args.description);
-                                startDate = parseInt(parsedDescription.startDate);
-                                endDate = parseInt(parsedDescription.endDate);
-                                participantId = parsedDescription.participantId.toString();
-                                deviceId = parsedDescription.deviceId.toString();
-                            } else if (matcher.test(file.filename)) {
-                                const particles = file.filename.split('-');
-                                participantId = particles[0];
-                                deviceId = particles[1];
-                                startDate = particles[2];
-                                endDate = particles[3];
-                            } else {
-                                reject(new GraphQLError('Missing file description', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } }));
-                                return;
-                            }
-
-
-                            try {
-                                if (
-                                    !Object.keys(sitesIDMarkers).includes(participantId.substr(0, 1)?.toUpperCase()) ||
-                                    !Object.keys(deviceTypes).includes(deviceId.substr(0, 3)?.toUpperCase()) ||
-                                    !validate(participantId.substr(1) ?? '') ||
-                                    !validate(deviceId.substr(3) ?? '') ||
-                                    !startDate || !endDate ||
-                                    (new Date(endDate).setHours(0, 0, 0, 0).valueOf()) > (new Date().setHours(0, 0, 0, 0).valueOf())
-                                ) {
-                                    reject(new GraphQLError('File description is invalid', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } }));
-                                    return;
-                                }
-                            } catch (e) {
-                                reject(new GraphQLError('Missing file description', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } }));
-                                return;
-                            }
-
-                            const typedStartDate = new Date(startDate);
-                            const formattedStartDate = typedStartDate.getFullYear() + `${typedStartDate.getMonth() + 1}`.padStart(2, '0') + `${typedStartDate.getDate()}`.padStart(2, '0');
-                            const typedEndDate = new Date(endDate);
-                            const formattedEndDate = typedEndDate.getFullYear() + `${typedEndDate.getMonth() + 1}`.padStart(2, '0') + `${typedEndDate.getDate()}`.padStart(2, '0');
-                            fileEntry.fileName = `${parsedDescription.participantId.toUpperCase()}-${parsedDescription.deviceId.toUpperCase()}-${formattedStartDate}-${formattedEndDate}.${fileNameParts[fileNameParts.length - 1]}`;
-                            fileEntry.metadata = {
-                                participantId: parsedDescription.participantId,
-                                deviceId: parsedDescription.deviceId,
-                                startDate: parsedDescription.startDate, // should be in milliseconds
-                                endDate: parsedDescription.endDate,
-                                tup: parsedDescription.tup
-                            };
-                        }
 
                         if (args.fileLength !== undefined && args.fileLength > fileSizeLimit) {
                             reject(new GraphQLError('File should not be larger than 8GB', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } }));
