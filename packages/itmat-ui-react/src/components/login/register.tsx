@@ -5,7 +5,7 @@ import { GET_ORGANISATIONS, CREATE_USER } from '@itmat-broker/itmat-models';
 import { IOrganisation } from '@itmat-broker/itmat-types';
 import { Input, Form, Button, Alert, Checkbox, Select } from 'antd';
 import css from './login.module.css';
-
+import logo from '../../../src/resource/logo.jpg';
 export const RegisterNewUser: FunctionComponent = () => {
     const navigate = useNavigate();
     const [completedCreation, setCompletedCreation] = useState(false);
@@ -23,7 +23,7 @@ export const RegisterNewUser: FunctionComponent = () => {
         return (
             <div className={css.login_wrapper}>
                 <div className={css.login_box}>
-                    <img alt='IDEA-FAST Logo' src='https://avatars3.githubusercontent.com/u/60649739?s=150' />
+                    <img alt='IDEA-FAST Logo' src={logo} className={css.logo} />
                     <h1>Registration Successful!</h1>
                     <br />
                     <div>
@@ -43,7 +43,7 @@ export const RegisterNewUser: FunctionComponent = () => {
     return (
         <div className={css.login_wrapper}>
             <div className={css.login_box}>
-                <img alt='IDEA-FAST Logo' src='https://avatars3.githubusercontent.com/u/60649739?s=150' />
+                <img alt='IDEA-FAST Logo' src={logo} className={css.logo} />
                 <h1>Register an Account</h1>
                 <br />
                 <div>

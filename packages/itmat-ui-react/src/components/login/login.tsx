@@ -4,7 +4,7 @@ import { LOGIN, WHO_AM_I } from '@itmat-broker/itmat-models';
 import { NavLink } from 'react-router-dom';
 import css from './login.module.css';
 import { Input, Form, Button, Alert, Checkbox } from 'antd';
-
+import logo from '../../../src/resource/logo.jpg';
 export const LoginBox: FunctionComponent = () => {
 
     return (
@@ -23,7 +23,7 @@ export const LoginBox: FunctionComponent = () => {
                 return (
                     <div className={css.login_wrapper}>
                         <div className={css.login_box}>
-                            <img alt='IDEA-FAST Logo' src='https://avatars3.githubusercontent.com/u/60649739?s=150' />
+                            <img alt='IDEA-FAST Logo' src={logo} className={css.logo} />
                             <h1>Welcome</h1>
                             <br />
                             <div>

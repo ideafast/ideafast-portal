@@ -1,11 +1,11 @@
 import { FunctionComponent, useState, useEffect, useRef, useContext, Fragment, HTMLAttributes, createContext, ReactNode } from 'react';
-import { Button, Upload, notification, Tag, Table, Form, Input, InputRef, DatePicker, Space, Modal } from 'antd';
+import { Button, Upload, notification, Table, Form, Input, InputRef, DatePicker, Space } from 'antd';
 import { RcFile } from 'antd/es/upload';
 import { UploadOutlined, DeleteOutlined } from '@ant-design/icons';
 import { Query } from '@apollo/client/react/components';
 import { useApolloClient, useMutation, useQuery } from '@apollo/client/react/hooks';
 import { useDropzone } from 'react-dropzone';
-import { GET_STUDY, UPLOAD_FILE, GET_ORGANISATIONS, GET_USERS, EDIT_STUDY, WHO_AM_I } from '@itmat-broker/itmat-models';
+import { GET_STUDY, UPLOAD_FILE, GET_ORGANISATIONS, EDIT_STUDY, WHO_AM_I } from '@itmat-broker/itmat-models';
 import { IFile, userTypes, deviceTypes } from '@itmat-broker/itmat-types';
 import { FileList, formatBytes } from '../../../reusable/fileList/fileList';
 import LoadSpinner from '../../../reusable/loadSpinner';
@@ -22,7 +22,6 @@ type StudyFile = RcFile & {
     deviceId?: string;
     startDate?: Dayjs;
     endDate?: Dayjs;
-    tup?: string;
 }
 
 const { RangePicker } = DatePicker;
@@ -37,12 +36,11 @@ export const FileRepositoryTabContent: FunctionComponent<{ studyId: string }> = 
     const store = useApolloClient();
     const { loading: getOrgsLoading, error: getOrgsError, data: getOrgsData } = useQuery(GET_ORGANISATIONS);
     const { loading: getStudyLoading, error: getStudyError, data: getStudyData } = useQuery(GET_STUDY, { variables: { studyId: studyId } });
-    const { loading: getUsersLoading, error: getUsersError, data: getUsersData } = useQuery(GET_USERS, { variables: { fetchDetailsAdminOnly: false, fetchAccessPrivileges: false } });
+    // const { loading: getUsersLoading, error: getUsersError, data: getUsersData } = useQuery(GET_USERS, { variables: { fetchDetailsAdminOnly: false, fetchAccessPrivileges: false } });
     const { loading: whoAmILoading, error: whoAmIError, data: whoAmIData } = useQuery(WHO_AM_I);
     const [searchTerm, setSearchTerm] = useState('');
     const [isEditingDescription, setIsEditingDescription] = useState(false);
     const [datasetDescription, setDatasetDescription] = useState('');
-    const [isFileSummaryShown, setIsFileSummaryShown] = useState(false);
     const [editStudy] = useMutation(EDIT_STUDY, {
         onCompleted: () => { window.location.reload(); },
         onError: () => { return; }
@@ -134,20 +132,16 @@ export const FileRepositoryTabContent: FunctionComponent<{ studyId: string }> = 
         });
         setFileList([...fileList]);
     };
-    const validFile = fileList.filter((file) => file.deviceId && file.participantId && file.startDate && file.endDate);
+    const validFile = fileList;
     const uploadHandler = () => {
 
         const uploads: Promise<any>[] = [];
         setIsUploading(true);
         validFile.forEach(file => {
             const description = {
-                participantId: file.participantId?.trim().toUpperCase(),
-                deviceId: file.deviceId?.trim().toUpperCase(),
-                startDate: file.startDate?.valueOf(),
-                endDate: file.endDate?.valueOf(),
-                tup: file.tup?.trim().toUpperCase()
+                participantId: file.participantId?.trim().toUpperCase()
             };
-            const uploadMapHackName = `UP_${description.participantId}_${description.deviceId}_${description.startDate}_${description.endDate}`;
+            const uploadMapHackName = `UP_${description.participantId || 'NA'}`;
             if (!(window as any).onUploadProgressHackMap)
                 (window as any).onUploadProgressHackMap = {};
             (window as any).onUploadProgressHackMap[uploadMapHackName] = (progressEvent) => {
@@ -221,7 +215,6 @@ export const FileRepositoryTabContent: FunctionComponent<{ studyId: string }> = 
             newFile.deviceId = record.deviceId;
             newFile.startDate = record.startDate;
             newFile.endDate = record.endDate;
-            newFile.tup = record.tup;
             newFileList.splice(index, 1, newFile);
             return newFileList;
         });
@@ -248,37 +241,11 @@ export const FileRepositoryTabContent: FunctionComponent<{ studyId: string }> = 
             width: '10rem'
         },
         {
-            title: 'Site',
-            dataIndex: 'siteId',
-            key: 'site',
-            render: (__unused__value, record) => record.participantId ? sites[record.participantId.substr(0, 1)] : null
-        },
-        {
-            title: 'Device ID',
-            dataIndex: 'deviceId',
-            key: 'did',
+            title: 'Field ID',
+            dataIndex: 'fieldId',
+            key: 'pid',
             editable: true,
-            width: '12rem'
-        },
-        {
-            title: 'Device type',
-            dataIndex: 'deviceType',
-            key: 'stype',
-            render: (__unused__value, record) => record.deviceId ? deviceTypes[record.deviceId.substr(0, 3)] : null
-        },
-        {
-            title: 'Period',
-            dataIndex: 'period',
-            key: 'period',
-            editable: true,
-            width: '24rem'
-        },
-        {
-            title: 'TUP',
-            dataIndex: 'tup',
-            key: 'tup',
-            editable: true,
-            width: '24rem'
+            width: '10rem'
         },
         {
             key: 'delete',
@@ -305,15 +272,14 @@ export const FileRepositoryTabContent: FunctionComponent<{ studyId: string }> = 
             };
         });
 
-    if (getOrgsLoading || getStudyLoading || getUsersLoading || whoAmILoading)
+    if (getOrgsLoading || getStudyLoading || whoAmILoading)
         return <LoadSpinner />;
 
-    if (getOrgsError || getStudyError || getUsersError || whoAmIError)
+    if (getOrgsError || getStudyError || whoAmIError)
         return <div className={`${css.tab_page_wrapper} ${css.both_panel} ${css.upload_overlay}`}>
             An error occured, please contact your administrator
         </div>;
 
-    const userIdNameMapping = getUsersData.getUsers.reduce((a, b) => { a[b['id']] = b['firstname'].concat(' ').concat(b['lastname']); return a; }, {});
 
     const sites = getOrgsData.getOrganisations.filter(org => org.metadata?.siteIDMarker).reduce((prev, current) => ({
         ...prev,
@@ -325,13 +291,7 @@ export const FileRepositoryTabContent: FunctionComponent<{ studyId: string }> = 
         const subjectLevelFiles: IFile[] = [];
         for (const file of files) {
             if (Object.keys(JSON.parse(file.description)).length !== 0) {
-                if (file !== null && file !== undefined &&
-                    (!searchTerm
-                        || (JSON.parse(file.description).participantId).toUpperCase().indexOf(searchTerm) > -1
-                        || sites[JSON.parse(file.description).participantId[0]].toUpperCase().indexOf(searchTerm) > -1
-                        || JSON.parse(file.description).deviceId.toUpperCase().indexOf(searchTerm) > -1
-                        || deviceTypes[JSON.parse(file.description).deviceId.substr(0, 3)].toUpperCase().indexOf(searchTerm) > -1
-                        || (!userIdNameMapping[file.uploadedBy] || userIdNameMapping[file.uploadedBy].toUpperCase().indexOf(searchTerm) > -1))) {
+                if (JSON.parse(file.description).participantId) {
                     subjectLevelFiles.push(file);
                 }
             } else {
@@ -340,7 +300,6 @@ export const FileRepositoryTabContent: FunctionComponent<{ studyId: string }> = 
         }
         return [subjectLevelFiles, studyLevelFiles];
     }
-
     const sortedFiles = dataSourceFilter(getStudyData.getStudy.files).sort((a, b) => parseInt((b as any).uploadTime) - parseInt((a as any).uploadTime));
     const numberOfFiles = sortedFiles[0].length;
     const sizeOfFiles = sortedFiles[0].reduce((a, b) => a + (parseInt(b['fileSize'] as any) || 0), 0);
@@ -351,54 +310,6 @@ export const FileRepositoryTabContent: FunctionComponent<{ studyId: string }> = 
         }
         return values;
     }, { set: {}, count: 0 }).count;
-    // format the file structure
-    const fileSummary: any[] = [];
-    const categoryColumns: any[] = [];
-    if (sortedFiles[0].length > 0) {
-        const availableSites: string[] = Array.from(new Set(sortedFiles[0].map(el => JSON.parse(el.description).participantId[0]).sort()));
-        const availableDeviceTypes: string[] = Array.from(new Set(sortedFiles[0].map(el => JSON.parse(el.description).deviceId.substr(0, 3)).sort()));
-        categoryColumns.push(
-            {
-                title: 'Site',
-                dataIndex: 'site',
-                key: 'site',
-                render: (__unused__value, record) => sites[record.site] ? sites[record.site].concat(' (').concat(record.site).concat(')') : record.site
-            }
-        );
-        for (const deviceType of availableDeviceTypes) {
-            categoryColumns.push({
-                title: deviceType,
-                dataIndex: deviceType,
-                key: deviceType,
-                render: (__unused__value, record) => record[deviceType] ? record[deviceType].toString() : deviceTypes[record[deviceType]]
-            });
-        }
-        categoryColumns.push({
-            title: 'Total',
-            dataIndex: 'Total',
-            key: 'total',
-            render: (__unused__value, record) => record.total
-        });
-        for (const site of availableSites) {
-            const tmpData: any = {
-                site: site
-            };
-            for (const deviceType of availableDeviceTypes) {
-                tmpData[deviceType] = sortedFiles[0].filter(el => (JSON.parse(el.description).participantId[0] === site
-                    && JSON.parse(el.description).deviceId.substr(0, 3) === deviceType)).length;
-            }
-            tmpData.total = sortedFiles[0].filter(el => JSON.parse(el.description).participantId[0] === site).length;
-            fileSummary.push(tmpData);
-        }
-        const tmpData: any = {
-            site: 'Total',
-            total: sortedFiles[0].length
-        };
-        for (const deviceType of availableDeviceTypes) {
-            tmpData[deviceType] = sortedFiles[0].filter(el => JSON.parse(el.description).deviceId.substr(0, 3) === deviceType).length;
-        }
-        fileSummary.push(tmpData);
-    }
     return <div {...getRootProps() as HTMLAttributes<HTMLDivElement>} className={`${css.scaffold_wrapper} ${isDropOverlayShowing ? css.drop_overlay : ''}`}>
         <input title='fileTabDropZone' {...getInputProps()} />
         {fileList.length > 0
@@ -474,7 +385,6 @@ export const FileRepositoryTabContent: FunctionComponent<{ studyId: string }> = 
                         }}
                     </Query>
                     <br />
-                    If the file name is of the form <Tag style={{ fontFamily: 'monospace' }}>XAAAAAA-DDDBBBBBB-00000000-00000000.EXT</Tag>we will extract metadata automatically. If not, you will be prompted to enter the relevant information.<br /><br />
                     <Upload {...uploaderProps}>
                         <Button>Select files</Button>
                     </Upload>
@@ -488,23 +398,10 @@ export const FileRepositoryTabContent: FunctionComponent<{ studyId: string }> = 
                         <span>Total Files: {numberOfFiles}</span>
                         <span>Total Size: {formatBytes(sizeOfFiles)}</span>
                         <span>Total Participants: {participantOfFiles}</span>
-                        <Button onClick={() => setIsFileSummaryShown(true)}>File Details</Button>
                     </Space>}
                 >
-                    <Modal open={isFileSummaryShown} onCancel={() => setIsFileSummaryShown(false)} onOk={() => setIsFileSummaryShown(false)} width={'60%'}>
-                        <div>Number of files associated to sites and device types.</div><br />
-                        <Table
-                            pagination={false}
-                            columns={categoryColumns}
-                            dataSource={fileSummary}
-                            size='small'
-                        /><br />
-                        <Space wrap={true}>
-                            {Object.keys(deviceTypes).sort().map((el, index) => <Tag key={index}>{`${el}: ${deviceTypes[el]}`}</Tag>)}
-                        </Space>
-                    </Modal>
                     <Input.Search allowClear placeholder='Search' onChange={({ target: { value } }) => setSearchTerm(value?.toUpperCase())} />
-                    <FileList files={sortedFiles[0]} searchTerm={searchTerm}></FileList>
+                    <FileList files={sortedFiles[0]} searchTerm={searchTerm} isStudyLevel={true}></FileList>
                     <FileList isStudyLevel={true} files={sortedFiles[1]} searchTerm={undefined}></FileList>
                     <br />
                     <br />
@@ -557,7 +454,6 @@ const EditableCell: FunctionComponent<EditableCellProps> = ({
     const inputRef = useRef<InputRef>(null);
     const rangeRef = useRef<any>(null);
     const form = useContext(EditableContext);
-    const { loading: getOrgsLoading, error: getOrgsError, data: getOrgsData } = useQuery(GET_ORGANISATIONS);
 
     useEffect(() => {
         if (editable && !editing) {
@@ -574,19 +470,6 @@ const EditableCell: FunctionComponent<EditableCellProps> = ({
             // console.error(errInfo);
         }
     };
-
-    if (getOrgsLoading)
-        return <LoadSpinner />;
-
-    if (getOrgsError)
-        return <div className={`${css.tab_page_wrapper} ${css.both_panel} ${css.upload_overlay}`}>
-            An error occured, please contact your administrator: {getOrgsError.message}
-        </div>;
-
-    const sites = getOrgsData.getOrganisations.filter(org => org.metadata?.siteIDMarker).reduce((prev, current) => ({
-        ...prev,
-        [current.metadata.siteIDMarker]: current.name
-    }), {});
 
     let childNode = children;
 
@@ -639,25 +522,7 @@ const EditableCell: FunctionComponent<EditableCellProps> = ({
                 name={dataIndex}
                 hasFeedback
                 rules={[{
-                    required: true, message: <></>, validator: (__unused__rule, value) => {
-                        if (dataIndex === 'participantId') {
-                            if (!Object.keys(sites).includes(value?.[0]))
-                                throw new Error('Invalid site marker');
-                            if (value.length === 7) {
-                                if (!validate(value?.substr(1).toUpperCase()))
-                                    throw new Error('Invalid participant ID');
-                                return Promise.resolve();
-                            }
-                        }
-                        if (dataIndex === 'deviceId') {
-                            if (!Object.keys(deviceTypes).includes(value?.substr(0, 3)))
-                                throw new Error('Invalid device marker');
-                            if (value.length === 9) {
-                                if (!validate(value?.substr(3).toUpperCase()))
-                                    throw new Error('Invalid device ID');
-                                return Promise.resolve();
-                            }
-                        }
+                    required: true, message: <></>, validator: () => {
                         return Promise.resolve();
                     }
                 }]}

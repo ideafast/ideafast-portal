@@ -363,7 +363,11 @@ export function standardize(study: IStudy, fields: IFieldEntry[], data: any, sta
                                 dataClip[rule.entry] = data[subjectId][visitId][field.fieldId] || '';
                             } else {
                                 const selectedFieldId = rule.parameter[0];
-                                dataClip[rule.entry] = data[subjectId][visitId][selectedFieldId] || '';
+                                let selectedVisitId = visitId;
+                                if (rule.parameter[1]) {
+                                    selectedVisitId = rule.parameter[1];
+                                }
+                                dataClip[rule.entry] = data[subjectId][selectedVisitId][selectedFieldId] || '';
                             }
                             break;
                         }
@@ -482,6 +486,7 @@ export function standardize(study: IStudy, fields: IFieldEntry[], data: any, sta
     }
     return records;
 }
+
 
 // ignore the subjectId, join values with same visitId and fieldId; with extra info
 export function dataGrouping(data: any, format: string) {

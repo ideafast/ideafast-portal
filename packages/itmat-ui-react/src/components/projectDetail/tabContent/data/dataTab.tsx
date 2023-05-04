@@ -898,7 +898,6 @@ export const DataDownloadBlock: FunctionComponent<{ project: IProject }> = ({ pr
                         const link = document.createElement('a');
                         link.href = jsonString;
                         link.download = 'data.json';
-
                         link.click();
                     }}>
                         Download

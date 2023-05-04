@@ -4,7 +4,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { REQUEST_USERNAME_OR_RESET_PASSWORD } from '@itmat-broker/itmat-models';
 import css from './login.module.css';
 import { Input, Form, Button, Alert } from 'antd';
-
+import logo from '../../../src/resource/logo.jpg';
 export const RequestResetPassword: FunctionComponent = () => {
 
     const navigate = useNavigate();
@@ -15,7 +15,7 @@ export const RequestResetPassword: FunctionComponent = () => {
         return (
             <div className={css.login_wrapper}>
                 <div className={css.login_box}>
-                    <img alt='IDEA-FAST Logo' src='https://avatars3.githubusercontent.com/u/60649739?s=150' />
+                    <img alt='IDEA-FAST Logo' src={logo} className={css.logo} />
                     <h1>Done!</h1>
                     <br />
                     <p>{`A link for password reset ${forgotUsername ? 'together with your username ' : ''}has been sent to your email.`}</p>
@@ -42,7 +42,7 @@ export const RequestResetPassword: FunctionComponent = () => {
                 return (
                     <div className={css.login_wrapper}>
                         <div className={css.login_box}>
-                            <img alt='IDEA-FAST Logo' src='https://avatars3.githubusercontent.com/u/60649739?s=150' />
+                            <img alt='IDEA-FAST Logo' src={logo} className={css.logo} />
                             <h1>Forgot your {forgotUsername ? 'username' : 'password'}?</h1>
                             <br />
                             <div>

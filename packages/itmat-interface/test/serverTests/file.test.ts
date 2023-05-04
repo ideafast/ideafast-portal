@@ -255,7 +255,7 @@ if (global.hasMinio) {
                             variables: {
                                 studyId: createdStudy.id,
                                 file: null,
-                                description: JSON.stringify({ participantId: 'I7N3G6G', deviceId: 'MMM7N3G6G', startDate: 1593827200000, endDate: 1595296000000 }),
+                                description: JSON.stringify({ participantId: 'I7N3G6G', deviceId: 'MMM7N3G6G', startDate: 1593827200000, endDate: 1595296000000, fieldId: 'Device_McRoberts' }),
                                 fileLength: 21,
                                 hash: 'b0dc2ae76cdea04dcf4be7fcfbe36e2ce8d864fe70a1895c993ce695274ba7a0'
                             }
@@ -266,24 +266,19 @@ if (global.hasMinio) {
                     const createdFile = await mongoClient.collection<IFile>(config.database.collections.files_collection).findOne({ fileName: 'I7N3G6G-MMM7N3G6G-20200704-20200721.txt', studyId: createdStudy.id });
                     expect(res.status).toBe(200);
                     expect(res.body.errors).toBeUndefined();
-                    const { uploadTime, uri, ...uploadFile } = res.body.data.uploadFile;
-                    expect(uri).toBeDefined();
+                    const { uploadTime, uri, metadata, ...uploadFile } = res.body.data.uploadFile;
                     expect(uploadTime).toBeDefined();
+                    expect(uri).toBeDefined();
+                    expect(metadata).toBeDefined();
                     expect(uploadFile).toEqual({
                         id: createdFile.id,
                         fileName: 'I7N3G6G-MMM7N3G6G-20200704-20200721.txt',
                         studyId: createdStudy.id,
                         projectId: null,
                         fileSize: '21',
-                        description: JSON.stringify({ participantId: 'I7N3G6G', deviceId: 'MMM7N3G6G', startDate: 1593827200000, endDate: 1595296000000 }),
+                        description: JSON.stringify({ participantId: 'I7N3G6G', deviceId: 'MMM7N3G6G', startDate: 1593827200000, endDate: 1595296000000, fieldId: 'Device_McRoberts' }),
                         uploadedBy: adminId,
-                        hash: 'b0dc2ae76cdea04dcf4be7fcfbe36e2ce8d864fe70a1895c993ce695274ba7a0',
-                        metadata: {
-                            deviceId: 'MMM7N3G6G',
-                            endDate: 1595296000000,
-                            participantId: 'I7N3G6G',
-                            startDate: 1593827200000
-                        }
+                        hash: 'b0dc2ae76cdea04dcf4be7fcfbe36e2ce8d864fe70a1895c993ce695274ba7a0'
                     });
                 });
 
@@ -307,9 +302,10 @@ if (global.hasMinio) {
                     const createdFile = await mongoClient.collection<IFile>(config.database.collections.files_collection).findOne({ fileName: 'RandomFile.txt', studyId: createdStudyAny.id });
                     expect(res.status).toBe(200);
                     expect(res.body.errors).toBeUndefined();
-                    const { uploadTime, uri, ...uploadFile } = res.body.data.uploadFile;
+                    const { uploadTime, uri, metadata, ...uploadFile } = res.body.data.uploadFile;
                     expect(uri).toBeDefined();
                     expect(uploadTime).toBeDefined();
+                    expect(metadata).toBeDefined();
                     expect(uploadFile).toEqual({
                         id: createdFile.id,
                         fileName: 'RandomFile.txt',
@@ -318,8 +314,7 @@ if (global.hasMinio) {
                         fileSize: '20',
                         description: JSON.stringify({}),
                         uploadedBy: adminId,
-                        hash: 'f98cfd74547ce10259e94fe12e20168f9c3b59864db6097d95be25dcdf6012c8',
-                        metadata: {}
+                        hash: 'f98cfd74547ce10259e94fe12e20168f9c3b59864db6097d95be25dcdf6012c8'
                     });
                 });
 
@@ -353,7 +348,7 @@ if (global.hasMinio) {
                             variables: {
                                 studyId: createdStudy.id,
                                 file: null,
-                                description: JSON.stringify({ participantId: 'I7N3G6G', deviceId: 'MMM7N3G6G', startDate: 1593827200000, endDate: 1595296000000 }),
+                                description: JSON.stringify({ participantId: 'I7N3G6G', deviceId: 'MMM7N3G6G', startDate: 1593827200000, endDate: 1595296000000, fieldId: 'Device_McRoberts' }),
                                 fileLength: 21,
                                 hash: 'b0dc2ae76cdea04dcf4be7fcfbe36e2ce8d864fe70a1895c993ce695274ba7a0'
                             }
@@ -365,24 +360,19 @@ if (global.hasMinio) {
                     const createdFile = await mongoClient.collection<IFile>(config.database.collections.files_collection).findOne({ fileName: 'I7N3G6G-MMM7N3G6G-20200704-20200721.txt', studyId: createdStudy.id });
                     expect(res.status).toBe(200);
                     expect(res.body.errors).toBeUndefined();
-                    const { uploadTime, uri, ...uploadFile } = res.body.data.uploadFile;
+                    const { uploadTime, uri, metadata, ...uploadFile } = res.body.data.uploadFile;
                     expect(uri).toBeDefined();
                     expect(uploadTime).toBeDefined();
+                    expect(metadata).toBeDefined();
                     expect(uploadFile).toEqual({
                         id: createdFile.id,
                         fileName: 'I7N3G6G-MMM7N3G6G-20200704-20200721.txt',
                         studyId: createdStudy.id,
                         projectId: null,
                         fileSize: '21',
-                        description: JSON.stringify({ participantId: 'I7N3G6G', deviceId: 'MMM7N3G6G', startDate: 1593827200000, endDate: 1595296000000 }),
+                        description: JSON.stringify({ participantId: 'I7N3G6G', deviceId: 'MMM7N3G6G', startDate: 1593827200000, endDate: 1595296000000, fieldId: 'Device_McRoberts' }),
                         uploadedBy: authorisedUserProfile.id,
-                        hash: 'b0dc2ae76cdea04dcf4be7fcfbe36e2ce8d864fe70a1895c993ce695274ba7a0',
-                        metadata: {
-                            deviceId: 'MMM7N3G6G',
-                            endDate: 1595296000000,
-                            participantId: 'I7N3G6G',
-                            startDate: 1593827200000
-                        }
+                        hash: 'b0dc2ae76cdea04dcf4be7fcfbe36e2ce8d864fe70a1895c993ce695274ba7a0'
                     });
                 });
 
@@ -394,7 +384,7 @@ if (global.hasMinio) {
                             variables: {
                                 studyId: createdStudy.id,
                                 file: null,
-                                description: JSON.stringify({ participantId: 'IR6R4AR', deviceId: 'AX6VJH6F6', startDate: 1590976000000, endDate: 1593740800000 }),
+                                description: JSON.stringify({ participantId: 'IR6R4AR', deviceId: 'AX6VJH6F6', startDate: 1590976000000, endDate: 1593740800000, fieldId: 'Device_McRoberts' }),
                                 fileLength: 0,
                                 hash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
                             }
@@ -406,24 +396,20 @@ if (global.hasMinio) {
                     const createdFile = await mongoClient.collection<IFile>(config.database.collections.files_collection).findOne({ fileName: 'IR6R4AR-AX6VJH6F6-20200601-20200703.txt', studyId: createdStudy.id });
                     expect(res.status).toBe(200);
                     expect(res.body.errors).toBeUndefined();
-                    const { uploadTime, uri, ...uploadFile } = res.body.data.uploadFile;
+                    const { uploadTime, uri, metadata, ...uploadFile } = res.body.data.uploadFile;
                     expect(uri).toBeDefined();
                     expect(uploadTime).toBeDefined();
+                    expect(metadata).toBeDefined();
                     expect(uploadFile).toEqual({
                         id: createdFile.id,
                         fileName: 'IR6R4AR-AX6VJH6F6-20200601-20200703.txt',
                         studyId: createdStudy.id,
                         projectId: null,
                         fileSize: '0',
-                        description: JSON.stringify({ participantId: 'IR6R4AR', deviceId: 'AX6VJH6F6', startDate: 1590976000000, endDate: 1593740800000 }),
+                        description: JSON.stringify({ participantId: 'IR6R4AR', deviceId: 'AX6VJH6F6', startDate: 1590976000000, endDate: 1593740800000, fieldId: 'Device_McRoberts' }),
                         uploadedBy: adminId,
-                        hash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-                        metadata: {
-                            deviceId: 'AX6VJH6F6',
-                            endDate: 1593740800000,
-                            participantId: 'IR6R4AR',
-                            startDate: 1590976000000
-                        }
+                        hash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
+
                     });
                 });
 
@@ -435,7 +421,7 @@ if (global.hasMinio) {
                             variables: {
                                 studyId: createdStudy.id,
                                 file: null,
-                                description: JSON.stringify({ participantId: 'IR6R4AR', deviceId: 'AX6VJH6F6', startDate: 1590976000000, endDate: 1593740800000 }),
+                                description: JSON.stringify({ participantId: 'IR6R4AR', deviceId: 'AX6VJH6F6', startDate: 1590976000000, endDate: 1593740800000, fieldId: 'Device_McRoberts' }),
                                 fileLength: 21,
                                 hash: '4ae25be36354ee0aec8dc8deac3f279d2e9d6415361da996cf57eb6142cfb1a4'
                             }
@@ -459,7 +445,7 @@ if (global.hasMinio) {
                             variables: {
                                 studyId: createdStudy.id,
                                 file: null,
-                                description: JSON.stringify({ participantId: 'I7N3G6G', deviceId: 'MMM7N3G6G', startDate: 1593827200000, endDate: 1595296000000 }),
+                                description: JSON.stringify({ participantId: 'I7N3G6G', deviceId: 'MMM7N3G6G', startDate: 1593827200000, endDate: 1595296000000, fieldId: 'Device_McRoberts' }),
                                 fileLength: 10
                             }
                         }))
@@ -535,7 +521,7 @@ if (global.hasMinio) {
                             variables: {
                                 studyId: createdStudy.id,
                                 file: null,
-                                description: JSON.stringify({ participantId: 'I7N3G6G', deviceId: 'MMM7N3G6G', startDate: 1593827200000, endDate: 1595296000000 }),
+                                description: JSON.stringify({ participantId: 'I7N3G6G', deviceId: 'MMM7N3G6G', startDate: 1593827200000, endDate: 1595296000000, fieldId: 'Device_McRoberts' }),
                                 fileLength: 21,
                                 hash: 'b0dc2ae76cdea04dcf4be7fcfbe36e2ce8d864fe70a1895c993ce695274ba7a0'
                             }
@@ -720,7 +706,7 @@ if (global.hasMinio) {
                             variables: {
                                 studyId: createdStudy.id,
                                 file: null,
-                                description: JSON.stringify({ participantId: 'I7N3G6G', deviceId: 'MMM7N3G6G', startDate: 1593827200000, endDate: 1595296000000 }),
+                                description: JSON.stringify({ participantId: 'I7N3G6G', deviceId: 'MMM7N3G6G', startDate: 1593827200000, endDate: 1595296000000, fieldId: 'Device_McRoberts' }),
                                 fileLength: 21,
                                 hash: 'b0dc2ae76cdea04dcf4be7fcfbe36e2ce8d864fe70a1895c993ce695274ba7a0'
                             }
