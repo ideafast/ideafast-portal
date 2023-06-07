@@ -1,8 +1,3 @@
-export const Secrets = {
-    SRTWELCOME: 'Hey you! Welcome to WP5 Data Management Platform!',
-    SRTTDOMAIN: 'https://data.idea-fast.eu'
-};
-
 export enum ErrorCodes {
     EKEYISENC,
     ESCPNOTRD,

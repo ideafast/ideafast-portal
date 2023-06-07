@@ -1,4 +1,5 @@
 export type { IDatabaseBaseConfig } from './database';
+export type { IPubKeysConfig } from './pubkeys';
 export { Database } from './database';
 export { CustomError } from './error';
 export type { IServerBaseConfig } from './serverBase';

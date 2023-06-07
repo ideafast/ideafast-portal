@@ -23,7 +23,7 @@ export const LoginBox: FunctionComponent = () => {
                 return (
                     <div className={css.login_wrapper}>
                         <div className={css.login_box}>
-                            <img alt='IDEA-FAST Logo' src={logo} className={css.logo} />
+                            <img alt='DMP Logo' src={logo} className={css.logo} />
                             <h1>Welcome</h1>
                             <br />
                             <div>

@@ -1,5 +1,5 @@
 {
-    "appName": "NAME",
+    "appName": "DSI DMP",
     "database": {
         "mongo_url": "mongodb://localhost:27017",
         "database": "itmat",
@@ -19,6 +19,9 @@
             "pubkeys_collection": "PUBKEY_COLLECTION",
             "standardizations_collection": "STANDARDIZATION_COLLECTION"
         }
+    },
+    "pubkeys": {
+        "passphrase": "dsi-dmp"
     },
     "server": {
         "port": 3080

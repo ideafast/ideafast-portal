@@ -77,7 +77,7 @@ export const pubkeyResolvers = {
                 publicKey: pubkeyrec.jwtPubkey,
                 associatedUserId: pubkeyrec.associatedUserId,
                 refreshCounter: pubkeyrec.refreshCounter,
-                Issuer: 'IDEA-FAST DMP'
+                issuer: `${config.appName} Data Management Platform`
             };
 
             // update the counter
