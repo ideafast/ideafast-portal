@@ -1,7 +1,8 @@
 import crypto from 'crypto';
 import jwt, { Algorithm } from 'jsonwebtoken';
+import config from '../utils/configManager';
 
-export function rsasigner(privateKey: string, message: string, scheme = 'RSA-SHA256', passphrase = 'idea-fast'): string {
+export function rsasigner(privateKey: string, message: string, scheme = 'RSA-SHA256', passphrase = config.pubkeys.passphrase): string {
     try {
         const signer = crypto.createSign(scheme);
         // Signing
@@ -26,7 +27,7 @@ export function hashdigest(message: string, method = 'sha256'): string {
     return hash.copy().digest('base64');
 }
 
-export function reGenPkfromSk(privateKey: string, passphrase = 'idea-fast'): string {
+export function reGenPkfromSk(privateKey: string, passphrase = config.pubkeys.passphrase): string {
     try {
         const skObject = crypto.createPrivateKey({
             key: privateKey,
@@ -110,7 +111,7 @@ export async function rsaSigner_test(privateKey: string, signature: string, mess
     return false;
 }
 
-export function rsakeygen(passphrase = 'idea-fast', modulusLength = 4096) {
+export function rsakeygen(passphrase = config.pubkeys.passphrase, modulusLength = 4096) {
     const { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', {
         modulusLength: modulusLength,
         publicKeyEncoding: {
@@ -142,7 +143,7 @@ export function eckeygen(curve = 'secp256k1') {
     return keyPair;
 }
 
-export function tokengen(payload: string | Buffer | object, secret: string, passphrase = 'idea-fast', algorithm: Algorithm = 'RS256', life = 12000) {
+export function tokengen(payload: string | Buffer | object, secret: string, passphrase = config.pubkeys.passphrase, algorithm: Algorithm = 'RS256', life = 12000) {
     // Asymmetric JWT is used by default by setting algorithm = RS256.
     return jwt.sign(payload,
         { key: secret, passphrase: passphrase },

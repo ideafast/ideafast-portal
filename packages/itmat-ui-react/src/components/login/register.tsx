@@ -23,7 +23,7 @@ export const RegisterNewUser: FunctionComponent = () => {
         return (
             <div className={css.login_wrapper}>
                 <div className={css.login_box}>
-                    <img alt='IDEA-FAST Logo' src={logo} className={css.logo} />
+                    <img alt='DMP Logo' src={logo} className={css.logo} />
                     <h1>Registration Successful!</h1>
                     <br />
                     <div>
@@ -43,7 +43,7 @@ export const RegisterNewUser: FunctionComponent = () => {
     return (
         <div className={css.login_wrapper}>
             <div className={css.login_box}>
-                <img alt='IDEA-FAST Logo' src={logo} className={css.logo} />
+                <img alt='DMP Logo' src={logo} className={css.logo} />
                 <h1>Register an Account</h1>
                 <br />
                 <div>

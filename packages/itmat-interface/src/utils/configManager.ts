@@ -1,7 +1,7 @@
 import merge from 'deepmerge';
 import fs from 'fs-extra';
 import path from 'path';
-import { IObjectStoreConfig, IDatabaseBaseConfig } from '@itmat-broker/itmat-commons';
+import { IObjectStoreConfig, IDatabaseBaseConfig, IPubKeysConfig } from '@itmat-broker/itmat-commons';
 import configDefaults from '../../config/config.sample.json';
 import { IServerConfig } from '../server/server.js';
 import chalk from 'chalk';
@@ -9,6 +9,7 @@ import chalk from 'chalk';
 export interface IConfiguration extends IServerConfig {
     appName: string;
     database: IDatabaseBaseConfig;
+    pubkeys: IPubKeysConfig;
     objectStore: IObjectStoreConfig;
     nodemailer: any;
     aesSecret: string;
