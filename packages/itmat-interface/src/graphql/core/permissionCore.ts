@@ -1,34 +1,79 @@
 import { GraphQLError } from 'graphql';
-import { atomicOperation, IPermissionManagementOptions, IRole, IUser, userTypes } from '@itmat-broker/itmat-types';
+import { atomicOperation, IPermissionManagementOptions, IRole, enumUserTypes, IGenericResponse, ICombinedPermissions, IPermissionChanges } from '@itmat-broker/itmat-types';
 import { BulkWriteResult } from 'mongodb';
 import { v4 as uuid } from 'uuid';
 import { db } from '../../database/database';
 import { errorCodes } from '../errors';
-
-interface ICreateRoleInput {
-    studyId: string;
-    projectId?: string;
-    roleName: string;
-    createdBy: string;
-}
+import { makeGenericReponse } from '../responses';
 
 export class PermissionCore {
     public async getAllRolesOfStudyOrProject(studyId: string, projectId?: string): Promise<IRole[]> {
-        return db.collections!.roles_collection.find({ studyId, projectId }).toArray();
+        /**
+         * Get the list of roles of a study or project.
+         *
+         * @param studyId - The id of the study.
+         * @param projectId - The id of the project.
+         *
+         * @return IRole - The list of objects of IRole.
+         */
+
+        const study = await db.collections!.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null });
+        if (!study) {
+            throw new GraphQLError('Study does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+        }
+        let project;
+        if (projectId) {
+            project = await db.collections!.projects_collection.findOne({ 'id': projectId, 'life.deletedTime': null });
+            if (!project) {
+                throw new GraphQLError('Project does not exist).', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+            }
+        }
+
+        if (project && project.studyId !== studyId) {
+            throw new GraphQLError('Project and study does not match).', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+        }
+
+        return db.collections!.roles_collection.find({ 'studyId': studyId, 'projectId': projectId, 'life.deletedTime': null }).toArray();
     }
 
-    public async userHasTheNeccessaryManagementPermission(type: string, operation: string, user: IUser, studyId: string, projectId?: string): Promise<boolean> {
-        if (user === undefined) {
-            return false;
+    public async userHasTheNeccessaryManagementPermission(type: IPermissionManagementOptions, operation: atomicOperation, userId: string, studyId: string, projectId: string | null): Promise<boolean> {
+        /**
+         * Check user has management permissions.
+         *
+         * @param type: The specific management permission type.
+         * @param operation - The specific permission: READ OR WRITE.
+         * @param userId - The id of the user.
+         * @param studyId - The id of the study.
+         * @param projectId - The id of the project.
+         *
+         * @reutrn boolean - Whether user has this permission.
+         */
+
+        const user = await db.collections!.users_collection.findOne({ 'id': userId, 'life.deletedTime': null });
+        if (!user) {
+            throw new GraphQLError('User does not exist).', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+        }
+
+        const study = await db.collections!.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null });
+        if (!study) {
+            throw new GraphQLError('Study does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+        }
+
+        if (projectId) {
+            const project = await db.collections!.projects_collection.findOne({ 'id': projectId, 'life.deletedTime': null });
+            if (!project) {
+                throw new GraphQLError('Project does not exist).', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+            }
         }
 
         /* if user is an admin then return true if admin privileges includes needed permissions */
-        if (user.type === userTypes.ADMIN) {
+        if (user.type === enumUserTypes.ADMIN) {
             return true;
         }
+
         const tag = `permissions.manage.${type}`;
         const roles = await db.collections!.roles_collection.aggregate([
-            { $match: { studyId, projectId: { $in: [projectId, null] }, users: user.id, deleted: null } }, // matches all the role documents where the study and project matches and has the user inside
+            { $match: { 'studyId': studyId, 'projectId': { $in: [projectId, null] }, 'users': user.id, 'life.deletedTime': null } }, // matches all the role documents where the study and project matches and has the user inside
             { $match: { [tag]: operation } }
         ]).toArray();
         if (roles.length === 0) {
@@ -37,21 +82,64 @@ export class PermissionCore {
         return true;
     }
 
-    public async combineUserDataPermissions(operation: string, user: IUser, studyId: string, projectId?: string): Promise<Record<string, string[]> | false> {
-        if (user.type === userTypes.ADMIN) {
-            const matchAnyString = '^.*$';
+    public async combineUserDataPermissions(userId: string, studyId: string, projectId: string | null, operation: atomicOperation): Promise<ICombinedPermissions> {
+        /**
+         *  Combine user data permissions from study and project.
+         *
+         * @param userId - The id of the user.
+         * @param studyId - The id of the study.
+         * @param projectId - The id of the project.
+         * @param operation - The required operation, either READ or WRITE.
+         *
+         * @return ICombinedPermission - The object of ICombinedPermission
+         */
+
+        const user = await db.collections!.users_collection.findOne({ 'id': userId, 'life.deletedTime': null });
+        if (!user) {
+            throw new GraphQLError('User does not exist).', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+        }
+
+        const study = await db.collections!.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null });
+        if (!study) {
+            throw new GraphQLError('Study does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+        }
+
+        if (projectId) {
+            const project = await db.collections!.projects_collection.findOne({ 'id': projectId, 'life.deletedTime': null });
+            if (!project) {
+                throw new GraphQLError('Project does not exist).', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+            }
+        }
+
+        const matchAnyString = '^.*$';
+        if (user.type === enumUserTypes.ADMIN) {
             return {
-                subjectIds: [matchAnyString],
-                visitIds: [matchAnyString],
-                fieldIds: [matchAnyString]
+                hasPriority: true,
+                roleMatch: [],
+                hasVersioned: true,
+                dataRE: {
+                    subjectIds: [matchAnyString],
+                    visitIds: [matchAnyString],
+                    fieldIds: [matchAnyString]
+                }
             };
         }
         const roles = await db.collections!.roles_collection.aggregate([
-            { $match: { studyId, projectId: { $in: [projectId, null] }, users: user.id, deleted: null } }, // matches all the role documents where the study and project matches and has the user inside
+            { $match: { studyId, 'projectId': { $in: [projectId, null] }, 'users': user.id, 'life.deletedTime': null } }, // matches all the role documents where the study and project matches and has the user inside
             { $match: { 'permissions.data.operations': operation } }
         ]).toArray();
+
         if (roles.length === 0) {
-            return false;
+            return {
+                hasPriority: false,
+                roleMatch: [],
+                hasVersioned: false,
+                dataRE: {
+                    subjectIds: [],
+                    visitIds: [],
+                    fieldIds: []
+                }
+            };
         }
         const combined: Record<string, string[]> = {
             subjectIds: [],
@@ -63,35 +151,119 @@ export class PermissionCore {
             combined.visitIds.push(...new Set(combined.visitIds.concat(role.permissions.data?.visitIds || [])));
             combined.fieldIds.push(...new Set(combined.fieldIds.concat(role.permissions.data?.fieldIds || [])));
         }
-        return combined;
+        return {
+            hasPriority: true,
+            roleMatch: [],
+            hasVersioned: true,
+            dataRE: {
+                subjectIds: combined.subjectIds,
+                visitIds: combined.visitIds,
+                fieldIds: combined.fieldIds
+            }
+        };
     }
 
-    public checkDataEntryValid(combinedDataPermissions: Record<string, string[]> | false, fieldId: string, subjectId?: string, visitId?: string): boolean {
-        if (!combinedDataPermissions) {
-            return false;
-        }
-        if (!subjectId || !visitId) {
-            return combinedDataPermissions.fieldIds.some((el: string) => (new RegExp(el)).test(fieldId));
-        } else {
-            return (
-                combinedDataPermissions.subjectIds.some((el: string) => (new RegExp(el)).test(subjectId))
-                && combinedDataPermissions.visitIds.some((el: string) => (new RegExp(el)).test(visitId))
-                && combinedDataPermissions.fieldIds.some((el: string) => (new RegExp(el)).test(fieldId))
-            );
-        }
+    public checkDataEntryValidFromPermission(combinedDataPermissions: ICombinedPermissions, fieldId: string, subjectId: string, visitId: string): boolean {
+        /**
+         * Check if user has permission to a data clip.
+         *
+         * @param combinedDataPermissions - The combined data permissions of multiple roles.
+         * @param fieldId - The id of the field.
+         * @param subjectId - The id of the subject.
+         * @param visitId - The id of the visit.
+         */
+
+        return (
+            combinedDataPermissions.dataRE.subjectIds.some((el: string) => (new RegExp(el)).test(subjectId))
+            && combinedDataPermissions.dataRE.visitIds.some((el: string) => (new RegExp(el)).test(visitId))
+            && combinedDataPermissions.dataRE.fieldIds.some((el: string) => (new RegExp(el)).test(fieldId))
+        );
     }
 
-    public async userHasTheNeccessaryDataPermission(operation: string, user: IUser, studyId: string, projectId?: string): Promise<Record<string, any> | false> {
-        if (user === undefined) {
-            return false;
+    public checkFieldEntryValidFromPermission(combinedDataPermissions: ICombinedPermissions, fieldId: string): boolean {
+        /**
+         * Check if user has permission to a field.
+         *
+         * @param combinedDataPermissions - The combined data permissions of multiple roles.
+         * @param fieldId - The id of the field.
+         */
+
+        return combinedDataPermissions.dataRE.fieldIds.some((el: string) => (new RegExp(el)).test(fieldId));
+    }
+
+    public async chekckDataEntryValidFromUser(userId: string, studyId: string, projectId: string | null, fieldId: string, subjectId: string, visitId: string, operation: atomicOperation) {
+        /**
+         * Check if a user has permission to a data clip. This is a wrapper of two individual functions, thus no data check needed.
+         *
+         * @param userId - The id of the user.
+         * @param studyId - The id of the study.
+         * @param projectId - The id of the project.
+         * @param fieldId - The id of the field.
+         * @param subjectId - The id of the subject.
+         * @param visitId - The id of the visit.
+         * @param operation - The required operation, either READ or WRITE.
+         */
+
+        const aggregatedPermissions: ICombinedPermissions = await this.combineUserDataPermissions(userId, studyId, projectId, operation);
+        return this.checkDataEntryValidFromPermission(aggregatedPermissions, fieldId, subjectId, visitId);
+
+    }
+
+    public async chekckFieldEntryValidFromUser(userId: string, studyId: string, projectId: string | null, fieldId: string, operation: atomicOperation) {
+        /**
+         * Check if a user has permission to a field. This is a wrapper of two individual functions, thus no data check needed.
+         *
+         * @param userId - The id of the user.
+         * @param studyId - The id of the study.
+         * @param projectId - The id of the project.
+         * @param fieldId - The id of the field.
+         * @param operation - The required operation, either READ or WRITE.
+         */
+
+        const aggregatedPermissions: ICombinedPermissions = await this.combineUserDataPermissions(userId, studyId, projectId, operation);
+        return this.checkFieldEntryValidFromPermission(aggregatedPermissions, fieldId);
+
+    }
+
+
+    public async userHasTheNeccessaryDataPermission(operation: atomicOperation, userId: string, studyId: string, projectId: string | null): Promise<ICombinedPermissions> {
+        /**
+         * Check user has data permissions.
+         *
+         * @param operation - The specific permissions, READ or WRITE.
+         * @param userId - The id of the user.
+         * @param studyId - The id of the study.
+         * @param projectId - The id of the project.
+         *
+         * @return ICombinedPermissions - The object of ICombinedPermissions.
+         */
+
+        const user = await db.collections!.users_collection.findOne({ 'id': userId, 'life.deletedTime': null });
+        if (!user) {
+            throw new GraphQLError('User does not exist).', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
         }
+
+        const study = await db.collections!.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null });
+        if (!study) {
+            throw new GraphQLError('Study does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+        }
+
+        if (projectId) {
+            const project = await db.collections!.projects_collection.findOne({ 'id': projectId, 'life.deletedTime': null });
+            if (!project) {
+                throw new GraphQLError('Project does not exist).', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+            }
+        }
+
+        /* Regular expression to match any string. */
         const matchAnyString = '^.*$';
         /* if user is an admin then return true if admin privileges includes needed permissions */
-        if (user.type === userTypes.ADMIN) {
+        if (user.type === enumUserTypes.ADMIN) {
             return {
-                matchObj: {
-
-                }, hasVersioned: true, raw: {
+                hasPriority: true,
+                roleMatch: [],
+                hasVersioned: true,
+                dataRE: {
                     subjectIds: [matchAnyString],
                     visitIds: [matchAnyString],
                     fieldIds: [matchAnyString]
@@ -100,9 +272,10 @@ export class PermissionCore {
         }
 
         const roles = await db.collections!.roles_collection.aggregate([
-            { $match: { studyId, projectId: { $in: [projectId, null] }, users: user.id, deleted: null } }, // matches all the role documents where the study and project matches and has the user inside
+            { $match: { 'studyId': studyId, 'projectId': { $in: [projectId, null] }, 'users': user.id, 'life.deletedTime': null } }, // matches all the role documents where the study and project matches and has the user inside
             { $match: { 'permissions.data.operations': operation } }
         ]).toArray();
+
         let hasVersioned = false;
         const roleObj: Array<{ key: string; op: string, parameter: boolean }>[] = [];
         const raw: Record<string, string[]> = {
@@ -125,173 +298,69 @@ export class PermissionCore {
             }
         }
         if (Object.keys(roleObj).length === 0) {
-            return false;
-        }
-        return { matchObj: roleObj, hasVersioned: hasVersioned, raw: raw };
-    }
-
-    public combineMultiplePermissions(permissions: any[]): any {
-        const res = {
-            matchObj: [],
-            hasVersioned: false,
-            raw: {
-                subjectIds: [],
-                visitIds: [],
-                fieldIds: []
-            }
-        };
-        for (const permission of permissions) {
-            if (!permission) {
-                continue;
-            }
-            res.raw.subjectIds = res.raw.subjectIds.concat(permission.raw?.subjectIds || []);
-            res.raw.visitIds = res.raw.visitIds.concat(permission.raw?.visitIds || []);
-            res.raw.fieldIds = res.raw.fieldIds.concat(permission.raw?.fieldIds || []);
-            res.matchObj = res.matchObj.concat(permission.matchObj || []);
-            res.hasVersioned = res.hasVersioned || permission.hasVersioned;
-        }
-        return res;
-    }
-
-    public async removeRole(roleId: string): Promise<void> {
-        const updateResult = await db.collections!.roles_collection.findOneAndUpdate({ id: roleId, deleted: null }, { $set: { deleted: new Date().valueOf() } });
-        if (updateResult.ok === 1) {
-            return;
-        } else {
-            throw new GraphQLError('Cannot delete role.', { extensions: { code: errorCodes.DATABASE_ERROR } });
-        }
-    }
-
-    public async removeRoleFromStudyOrProject({ studyId, projectId }: { studyId: string, projectId?: string } | { studyId?: string, projectId: string }): Promise<void> {
-        if (studyId === undefined && projectId === undefined) {
-            throw new GraphQLError('Neither studyId nor projectId is provided');
-        }
-        let queryObj = {};
-        if (studyId !== undefined && projectId !== undefined) {
-            queryObj = { studyId, projectId, deleted: null };
-        } else if (studyId !== undefined) {
-            queryObj = { studyId, deleted: null };
-        } else if (projectId !== undefined) {
-            queryObj = { projectId, deleted: null };
-        }
-        const updateResult = await db.collections!.roles_collection.updateMany(queryObj, { $set: { deleted: new Date().valueOf() } });
-        if (updateResult.acknowledged) {
-            return;
-        } else {
-            throw new GraphQLError('Cannot delete role(s).', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
-        }
-    }
-
-    public async editRoleFromStudyOrProject(roleId: string, name?: string, description?: string, permissionChanges?: any, userChanges?: { add: string[], remove: string[] }): Promise<IRole> {
-        if (permissionChanges === undefined) {
-            permissionChanges = {
-                data: { subjectIds: [], visitIds: [], fieldIds: [], hasVersioned: false, operations: [] },
-                manage: {
-                    [IPermissionManagementOptions.own]: [atomicOperation.READ],
-                    [IPermissionManagementOptions.role]: [],
-                    [IPermissionManagementOptions.job]: [],
-                    [IPermissionManagementOptions.query]: [],
-                    [IPermissionManagementOptions.ontologyTrees]: [atomicOperation.READ]
+            return {
+                hasPriority: false,
+                roleMatch: [],
+                hasVersioned: false,
+                dataRE: {
+                    subjectIds: [],
+                    visitIds: [],
+                    fieldIds: []
                 }
             };
         }
-        if (userChanges === undefined) { userChanges = { add: [], remove: [] }; }
-
-        const bulkop = db.collections!.roles_collection.initializeUnorderedBulkOp();
-        bulkop.find({ id: roleId, deleted: null }).updateOne({ $set: { permissions: permissionChanges }, $addToSet: { users: { $each: userChanges.add } } });
-        bulkop.find({ id: roleId, deleted: null }).updateOne({ $set: { permissions: permissionChanges }, $pullAll: { users: userChanges.remove } });
-        if (name) {
-            bulkop.find({ id: roleId, deleted: null }).updateOne({ $set: { name } });
-        }
-        if (description) {
-            bulkop.find({ id: roleId, deleted: null }).updateOne({ $set: { description } });
-        }
-        const result: BulkWriteResult = await bulkop.execute();
-        const resultingRole = await db.collections!.roles_collection.findOne({ id: roleId, deleted: null });
-        if (!resultingRole) {
-            throw new GraphQLError('Role does not exist', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
-        }
-
-        // filters
-        // We send back the filtered fields values
-        let validSubjects: Array<string | RegExp> = [];
-        if (permissionChanges.data?.filters) {
-            if (permissionChanges.data.filters.length > 0) {
-                const subqueries = translateCohort(permissionChanges.data.filters);
-                validSubjects = (await db.collections!.data_collection.aggregate([{
-                    $match: { $and: subqueries }
-                }]).toArray()).map(el => el.m_subjectId);
+        return {
+            hasPriority: false,
+            roleMatch: roleObj,
+            hasVersioned: hasVersioned,
+            dataRE: {
+                subjectIds: raw.subjectIds,
+                visitIds: raw.visitIds,
+                fieldIds: raw.fieldIds
             }
-        }
-
-
-        // update the data and field records
-        const dataBulkOp = db.collections!.data_collection.initializeUnorderedBulkOp();
-        const filters: Record<string, string[]> = {
-            subjectIds: permissionChanges.data?.subjectIds || [],
-            visitIds: permissionChanges.data?.visitIds || [],
-            fieldIds: permissionChanges.data?.fieldIds || []
         };
-        if (!validSubjects.length) {
-            validSubjects = filters.subjectIds.map((el: string) => new RegExp(el));
-        }
-        const dataTag = `metadata.${'role:'.concat(roleId)}`;
-        dataBulkOp.find({
-            m_studyId: resultingRole.studyId,
-            m_versionId: { $exists: true, $ne: null },
-            $and: [{
-                m_subjectId: { $in: filters.subjectIds.map((el: string) => new RegExp(el)) }
-            }, {
-                m_subjectId: { $in: validSubjects }
-            }],
-            m_visitId: { $in: filters.visitIds.map((el: string) => new RegExp(el)) },
-            m_fieldId: { $in: filters.fieldIds.map((el: string) => new RegExp(el)) }
-        }).update({
-            $set: { [dataTag]: true }
-        });
-        dataBulkOp.find({
-            m_studyId: resultingRole.studyId,
-            m_versionId: { $exists: true, $ne: null },
-            $or: [
-                { m_subjectId: { $nin: validSubjects } },
-                { m_subjectId: { $nin: filters.subjectIds.map((el: string) => new RegExp(el)) } },
-                { m_visitId: { $nin: filters.visitIds.map((el: string) => new RegExp(el)) } },
-                { m_fieldId: { $nin: filters.fieldIds.map((el: string) => new RegExp(el)) } }
-            ]
-        }).update({
-            $set: { [dataTag]: false }
-        });
-        const fieldBulkOp = db.collections!.field_dictionary_collection.initializeUnorderedBulkOp();
-        const fieldIds = permissionChanges.data?.fieldIds || [];
-        const fieldTag = `metadata.${'role:'.concat(roleId)}`;
-        fieldBulkOp.find({
-            studyId: resultingRole.studyId,
-            dataVersion: { $exists: true, $ne: null },
-            fieldId: { $in: fieldIds.map((el: string) => new RegExp(el)) }
-        }).update({
-            $set: { [fieldTag]: true }
-        });
-        fieldBulkOp.find({
-            studyId: resultingRole.studyId,
-            dataVersion: { $exists: true, $ne: null },
-            fieldId: { $nin: fieldIds.map((el: string) => new RegExp(el)) }
-        }).update({
-            $set: { [fieldTag]: false }
-        });
-        await dataBulkOp.execute();
-        await fieldBulkOp.execute();
-        if (result.ok === 1 && resultingRole) {
-            return resultingRole;
-        } else {
-            throw new GraphQLError('Cannot edit role.', { extensions: { code: errorCodes.DATABASE_ERROR } });
-        }
     }
 
-    public async addRole(opt: ICreateRoleInput): Promise<IRole> {
-        /* add user role */
+    // public combineMultiplePermissions(permissions: any[]): any {
+    //     const res = {
+    //         matchObj: [],
+    //         hasVersioned: false,
+    //         raw: {
+    //             subjectIds: [],
+    //             visitIds: [],
+    //             fieldIds: []
+    //         }
+    //     };
+    //     for (const permission of permissions) {
+    //         if (!permission) {
+    //             continue;
+    //         }
+    //         res.raw.subjectIds = res.raw.subjectIds.concat(permission.raw?.subjectIds || []);
+    //         res.raw.visitIds = res.raw.visitIds.concat(permission.raw?.visitIds || []);
+    //         res.raw.fieldIds = res.raw.fieldIds.concat(permission.raw?.fieldIds || []);
+    //         res.matchObj = res.matchObj.concat(permission.matchObj || []);
+    //         res.hasVersioned = res.hasVersioned || permission.hasVersioned;
+    //     }
+    //     return res;
+    // }
+
+    public async createRole(requester: string, studyId: string, projectId: string | null, roleName: string, description: string | null): Promise<IRole> {
+        /**
+         * Create a role of a study or project.
+         *
+         * @param requester - The id of the requester.
+         * @param studyId - The id of the study.
+         * @param projectId - The id of the project.
+         * @param roleName - The name of the role.
+         *
+         * @return IRole - The object of IRole.
+         */
+
         const role: IRole = {
             id: uuid(),
-            name: opt.roleName,
+            studyId: studyId,
+            projectId: projectId,
+            name: roleName,
             permissions: {
                 data: {
                     subjectIds: [],
@@ -308,88 +377,232 @@ export class PermissionCore {
                     [IPermissionManagementOptions.ontologyTrees]: [atomicOperation.READ]
                 }
             },
-            description: '',
-            users: [],
-            studyId: opt.studyId,
-            projectId: opt.projectId,
-            createdBy: opt.createdBy,
-            metadata: {},
-            deleted: null
+            description: description,
+            users: []
         };
         const updateResult = await db.collections!.roles_collection.insertOne(role);
         if (updateResult.acknowledged) {
             return role;
         } else {
-            throw new GraphQLError('Cannot create role.', { extensions: { code: errorCodes.DATABASE_ERROR } });
+            throw new GraphQLError('Database error.', { extensions: { code: errorCodes.DATABASE_ERROR } });
         }
     }
-}
 
-export const permissionCore = new PermissionCore();
+    public async deleteRole(requester: string, roleId: string): Promise<IGenericResponse> {
+        /**
+         * Delete a role of a study or project.
+         *
+         * @param requester - The id of the requester.
+         * @param roleId - The id of the role.
+         *
+         * @return IGenericResponse - The object of IGenericResponse.
+         */
 
+        const updateResult = await db.collections!.roles_collection.findOneAndUpdate({ 'id': roleId, 'life.deletedTime': null }, { $set: { 'life.deletedTime': Date.now(), 'life.deletedUser': requester } });
+        if (updateResult.ok === 1) {
+            return makeGenericReponse(roleId, true, undefined, `Role ${roleId} has been deleted.`);
+        } else {
+            throw new GraphQLError('Cannot delete role.', { extensions: { code: errorCodes.DATABASE_ERROR } });
+        }
+    }
 
-function translateCohort(cohort: any) {
-    const queries: any[] = [];
-    cohort.forEach(function (select: any) {
-        const match: any = {
-            m_fieldId: select.field
-        };
-        switch (select.op) {
-            case '=':
-                // select.value must be an array
-                match['value'] = { $in: [select.value] };
-                break;
-            case '!=':
-                // select.value must be an array
-                match['value'] = { $nin: [select.value] };
-                break;
-            case '<':
-                // select.value must be a float
-                match['value'] = { $lt: parseFloat(select.value) };
-                break;
-            case '>':
-                // select.value must be a float
-                match['value'] = { $gt: parseFloat(select.value) };
-                break;
-            case 'derived': {
-                // equation must only have + - * /
-                const derivedOperation = select.value.split(' ');
-                if (derivedOperation[0] === '=') {
-                    match['value'] = { $eq: parseFloat(select.value) };
+    public async editRole(roleId: string, name: string | null, description: string | null, permissionChanges: IPermissionChanges | null, userChanges: { add: string[], remove: string[] } | null): Promise<IGenericResponse> {
+        /**
+         * Edit an existing role.
+         *
+         * @param roleId - The id of the role.
+         * @param name - The name of the role.
+         * @param description - The description of the role.
+         * @param permissionChanges - The object of permission changes.
+         * @param userChanges - The object of user changes.
+         *
+         * @return IGenericResponse - The object of IGenericResponse.
+         */
+
+        const role = await db.collections!.roles_collection.findOne({ id: roleId });
+        if (!role) {
+            throw new GraphQLError('Role does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+        }
+
+        if (!permissionChanges) {
+            permissionChanges = {
+                data: { subjectIds: [], visitIds: [], fieldIds: [], hasVersioned: false, operations: [], filters: [] },
+                manage: {
+                    [IPermissionManagementOptions.own]: [atomicOperation.READ],
+                    [IPermissionManagementOptions.role]: [],
+                    [IPermissionManagementOptions.job]: [],
+                    [IPermissionManagementOptions.query]: [],
+                    [IPermissionManagementOptions.ontologyTrees]: [atomicOperation.READ]
                 }
-                if (derivedOperation[0] === '>') {
-                    match['value'] = { $gt: parseFloat(select.value) };
-                }
-                if (derivedOperation[0] === '<') {
+            };
+        }
+        if (!userChanges) {
+            userChanges = { add: [], remove: [] };
+        }
+
+        const bulkop = db.collections!.roles_collection.initializeUnorderedBulkOp();
+        bulkop.find({ id: roleId }).updateOne({ $set: { permissions: permissionChanges }, $addToSet: { users: { $each: userChanges.add } } });
+        bulkop.find({ id: roleId }).updateOne({ $set: { permissions: permissionChanges }, $pullAll: { users: userChanges.remove } });
+        if (name) {
+            bulkop.find({ id: roleId }).updateOne({ $set: { name } });
+        }
+        if (description) {
+            bulkop.find({ id: roleId }).updateOne({ $set: { description } });
+        }
+
+
+        // filters
+        // We send back the filtered fields values
+        let validSubjects: Array<string | RegExp> = [];
+        if (permissionChanges.data.filters.length > 0) {
+            const subqueries = this.translateCohort(permissionChanges.data.filters);
+            validSubjects = (await db.collections!.data_collection.aggregate([{
+                $match: { $and: subqueries }
+            }]).toArray()).map(el => el.m_subjectId);
+        }
+
+        const session = db.client!.startSession();
+        session.startTransaction();
+        try {
+            const result: BulkWriteResult = await bulkop.execute();
+
+            // update the data and field records
+            const dataBulkOp = db.collections!.data_collection.initializeUnorderedBulkOp();
+            const filters: Record<string, string[]> = {
+                subjectIds: permissionChanges.data.subjectIds || [],
+                visitIds: permissionChanges.data.visitIds || [],
+                fieldIds: permissionChanges.data.fieldIds || []
+            };
+            if (!validSubjects.length) {
+                validSubjects = filters.subjectIds.map((el: string) => new RegExp(el));
+            }
+            const dataTag = `metadata.${'role:'.concat(roleId)}`;
+            dataBulkOp.find({
+                m_studyId: role.studyId,
+                m_versionId: { $exists: true, $ne: null },
+                $and: [{
+                    m_subjectId: { $in: filters.subjectIds.map((el: string) => new RegExp(el)) }
+                }, {
+                    m_subjectId: { $in: validSubjects }
+                }],
+                m_visitId: { $in: filters.visitIds.map((el: string) => new RegExp(el)) },
+                m_fieldId: { $in: filters.fieldIds.map((el: string) => new RegExp(el)) }
+            }).update({
+                $set: { [dataTag]: true }
+            });
+            dataBulkOp.find({
+                m_studyId: role.studyId,
+                m_versionId: { $exists: true, $ne: null },
+                $or: [
+                    { m_subjectId: { $nin: validSubjects } },
+                    { m_subjectId: { $nin: filters.subjectIds.map((el: string) => new RegExp(el)) } },
+                    { m_visitId: { $nin: filters.visitIds.map((el: string) => new RegExp(el)) } },
+                    { m_fieldId: { $nin: filters.fieldIds.map((el: string) => new RegExp(el)) } }
+                ]
+            }).update({
+                $set: { [dataTag]: false }
+            });
+            const fieldBulkOp = db.collections!.field_dictionary_collection.initializeUnorderedBulkOp();
+            const fieldIds = permissionChanges.data?.fieldIds || [];
+            const fieldTag = `metadata.${'role:'.concat(roleId)}`;
+            fieldBulkOp.find({
+                studyId: role.studyId,
+                dataVersion: { $exists: true, $ne: null },
+                fieldId: { $in: fieldIds.map((el: string) => new RegExp(el)) }
+            }).update({
+                $set: { [fieldTag]: true }
+            });
+            fieldBulkOp.find({
+                studyId: role.studyId,
+                dataVersion: { $exists: true, $ne: null },
+                fieldId: { $nin: fieldIds.map((el: string) => new RegExp(el)) }
+            }).update({
+                $set: { [fieldTag]: false }
+            });
+            await dataBulkOp.execute();
+            await fieldBulkOp.execute();
+
+            await session.commitTransaction();
+            session.endSession();
+
+            return makeGenericReponse(roleId, true, undefined, `Role ${roleId} has been edited.`);
+        } catch (error) {
+            // If an error occurred, abort the whole transaction and
+            // undo any changes that might have happened
+            await session.abortTransaction();
+            session.endSession();
+            throw new GraphQLError(`${JSON.stringify(error)}`, { extensions: { code: errorCodes.DATABASE_ERROR } });
+        }
+    }
+
+    public translateCohort(cohort: any) {
+        const queries: any[] = [];
+        cohort.forEach(function (select: any) {
+            const match: any = {
+                m_fieldId: select.field
+            };
+            switch (select.op) {
+                case '=':
+                    // select.value must be an array
+                    match['value'] = { $in: [select.value] };
+                    break;
+                case '!=':
+                    // select.value must be an array
+                    match['value'] = { $nin: [select.value] };
+                    break;
+                case '<':
+                    // select.value must be a float
                     match['value'] = { $lt: parseFloat(select.value) };
+                    break;
+                case '>':
+                    // select.value must be a float
+                    match['value'] = { $gt: parseFloat(select.value) };
+                    break;
+                case 'derived': {
+                    // equation must only have + - * /
+                    const derivedOperation = select.value.split(' ');
+                    if (derivedOperation[0] === '=') {
+                        match['value'] = { $eq: parseFloat(select.value) };
+                    }
+                    if (derivedOperation[0] === '>') {
+                        match['value'] = { $gt: parseFloat(select.value) };
+                    }
+                    if (derivedOperation[0] === '<') {
+                        match['value'] = { $lt: parseFloat(select.value) };
+                    }
+                    break;
                 }
-                break;
+                case 'exists':
+                    // We check if the field exists. This is to be used for checking if a patient
+                    // has an image
+                    match['value'] = { $exists: true };
+                    break;
+                case 'count': {
+                    // counts can only be positive. NB: > and < are inclusive e.g. < is <=
+                    const countOperation = select.value.split(' ');
+                    const countfield = select.field + '.count';
+                    if (countOperation[0] === '=') {
+                        (match as any)[countfield] = { $eq: parseInt(countOperation[1], 10) };
+                    }
+                    if (countOperation[0] === '>') {
+                        (match as any)[countfield] = { $gt: parseInt(countOperation[1], 10) };
+                    }
+                    if (countOperation[0] === '<') {
+                        (match as any)[countfield] = { $lt: parseInt(countOperation[1], 10) };
+                    }
+                    break;
+                }
+                default:
+                    break;
             }
-            case 'exists':
-                // We check if the field exists. This is to be used for checking if a patient
-                // has an image
-                match['value'] = { $exists: true };
-                break;
-            case 'count': {
-                // counts can only be positive. NB: > and < are inclusive e.g. < is <=
-                const countOperation = select.value.split(' ');
-                const countfield = select.field + '.count';
-                if (countOperation[0] === '=') {
-                    (match as any)[countfield] = { $eq: parseInt(countOperation[1], 10) };
-                }
-                if (countOperation[0] === '>') {
-                    (match as any)[countfield] = { $gt: parseInt(countOperation[1], 10) };
-                }
-                if (countOperation[0] === '<') {
-                    (match as any)[countfield] = { $lt: parseInt(countOperation[1], 10) };
-                }
-                break;
-            }
-            default:
-                break;
+            queries.push(match);
         }
-        queries.push(match);
+        );
+        return queries;
     }
-    );
-    return queries;
+
 }
+
+export const permissionCore = Object.freeze(new PermissionCore());
+
+

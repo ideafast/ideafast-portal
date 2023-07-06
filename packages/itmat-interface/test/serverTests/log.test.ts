@@ -11,7 +11,7 @@ import config from '../../config/config.sample.json';
 import { errorCodes } from '../../src/graphql/errors';
 import * as mfa from '../../src/utils/mfa';
 import { GET_LOGS, LOGIN, DELETE_USER } from '@itmat-broker/itmat-models';
-import { userTypes, IUser, ILogEntry, LOG_STATUS, LOG_ACTION, LOG_TYPE, USER_AGENT } from '@itmat-broker/itmat-types';
+import { enumUserTypes, IUser, ILogEntry, LOG_STATUS, LOG_ACTION, LOG_TYPE, USER_AGENT } from '@itmat-broker/itmat-types';
 import { Express } from 'express';
 
 let app: Express;
@@ -70,7 +70,7 @@ describe('LOG API', () => {
                 firstname: 'test',
                 lastname: 'user',
                 organisation: 'organisation_system',
-                type: userTypes.ADMIN,
+                type: enumUserTypes.ADMIN,
                 description: 'I am an test user.',
                 emailNotificationsActivated: true,
                 emailNotificationsStatus: { expiringNotification: false },
@@ -100,7 +100,7 @@ describe('LOG API', () => {
             if (!lastLog)
                 return;
             expect(lastLog.requesterName).toEqual('test_user');
-            expect(lastLog.requesterType).toEqual(userTypes.ADMIN);
+            expect(lastLog.requesterType).toEqual(enumUserTypes.ADMIN);
             expect(lastLog.logType).toEqual(LOG_TYPE.REQUEST_LOG);
             expect(lastLog.actionType).toEqual(LOG_ACTION.login);
             expect(JSON.parse(lastLog.actionData)).toEqual({
@@ -125,8 +125,8 @@ describe('LOG API', () => {
             // write initial data for testing
             const logSample = [{
                 id: '001',
-                requesterName: userTypes.SYSTEM,
-                requesterType: userTypes.SYSTEM,
+                requesterName: enumUserTypes.SYSTEM,
+                requesterType: enumUserTypes.SYSTEM,
                 logType: LOG_TYPE.SYSTEM_LOG,
                 userAgent: USER_AGENT.MOZILLA,
                 actionType: LOG_ACTION.startSERVER,

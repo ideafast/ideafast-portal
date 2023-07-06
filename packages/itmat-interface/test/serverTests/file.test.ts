@@ -14,7 +14,7 @@ import path from 'path';
 import { v4 as uuid } from 'uuid';
 import { errorCodes } from '../../src/graphql/errors';
 import { Db, MongoClient } from 'mongodb';
-import { studyType, IStudy, IUser, IRole, IFile, IFieldEntry, atomicOperation, IPermissionManagementOptions } from '@itmat-broker/itmat-types';
+import { studyType, IStudy, IUser, IRole, IFile, IField, atomicOperation, IPermissionManagementOptions } from '@itmat-broker/itmat-types';
 import { UPLOAD_FILE, CREATE_STUDY, DELETE_FILE } from '@itmat-broker/itmat-models';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { setupDatabase } from '@itmat-broker/itmat-setup';
@@ -133,7 +133,7 @@ if (global.hasMinio) {
                     });
 
                     // create field for both studies
-                    await mongoClient.collection<IFieldEntry>(config.database.collections.field_dictionary_collection).insertMany([{
+                    await mongoClient.collection<IField>(config.database.collections.field_dictionary_collection).insertMany([{
                         fieldId: 'Device_McRoberts',
                         fieldName: 'Device_McRoberts',
                         dataType: 'file',
@@ -162,7 +162,7 @@ if (global.hasMinio) {
                         metadata: {
                         }
                     }]);
-                    await mongoClient.collection<IFieldEntry>(config.database.collections.field_dictionary_collection).insertMany([{
+                    await mongoClient.collection<IField>(config.database.collections.field_dictionary_collection).insertMany([{
                         fieldId: 'Device_McRoberts',
                         fieldName: 'Device_McRoberts',
                         dataType: 'file',
@@ -242,7 +242,7 @@ if (global.hasMinio) {
 
                 afterEach(async () => {
                     await mongoClient.collection<IStudy>(config.database.collections.studies_collection).deleteMany({});
-                    await mongoClient.collection<IFieldEntry>(config.database.collections.field_dictionary_collection).deleteMany({});
+                    await mongoClient.collection<IField>(config.database.collections.field_dictionary_collection).deleteMany({});
                     await mongoClient.collection<IFile>(config.database.collections.files_collection).deleteMany({});
                 });
 
@@ -498,7 +498,7 @@ if (global.hasMinio) {
                         description: 'test description',
                         type: studyType.SENSOR
                     });
-                    await mongoClient.collection<IFieldEntry>(config.database.collections.field_dictionary_collection).insertMany([{
+                    await mongoClient.collection<IField>(config.database.collections.field_dictionary_collection).insertMany([{
                         fieldId: 'Device_McRoberts',
                         fieldName: 'Device_McRoberts',
                         dataType: 'file',
@@ -598,7 +598,7 @@ if (global.hasMinio) {
 
                 afterEach(async () => {
                     await mongoClient.collection<IStudy>(config.database.collections.studies_collection).deleteMany({});
-                    await mongoClient.collection<IFieldEntry>(config.database.collections.field_dictionary_collection).deleteMany({});
+                    await mongoClient.collection<IField>(config.database.collections.field_dictionary_collection).deleteMany({});
                     await mongoClient.collection<IFile>(config.database.collections.files_collection).deleteMany({});
                 });
 
@@ -682,7 +682,7 @@ if (global.hasMinio) {
                         description: 'test description',
                         type: studyType.SENSOR
                     });
-                    await mongoClient.collection<IFieldEntry>(config.database.collections.field_dictionary_collection).insertMany([{
+                    await mongoClient.collection<IField>(config.database.collections.field_dictionary_collection).insertMany([{
                         fieldId: 'Device_McRoberts',
                         fieldName: 'Device_McRoberts',
                         dataType: 'file',
@@ -787,7 +787,7 @@ if (global.hasMinio) {
 
                 afterEach(async () => {
                     await mongoClient.collection<IStudy>(config.database.collections.studies_collection).deleteMany({});
-                    await mongoClient.collection<IFieldEntry>(config.database.collections.field_dictionary_collection).deleteMany({});
+                    await mongoClient.collection<IField>(config.database.collections.field_dictionary_collection).deleteMany({});
                     await mongoClient.collection<IFile>(config.database.collections.files_collection).deleteMany({});
                 });
 

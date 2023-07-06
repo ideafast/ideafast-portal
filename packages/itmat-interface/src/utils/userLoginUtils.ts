@@ -1,4 +1,4 @@
-import { IUser, IUserWithoutToken } from '@itmat-broker/itmat-types';
+import { IUser } from '@itmat-broker/itmat-types';
 import { db } from '../database/database';
 
 export class UserLoginUtils {
@@ -16,8 +16,8 @@ export class UserLoginUtils {
         done(null, user);
     }
 
-    private async _getUser(username: string): Promise<IUserWithoutToken | null> {
-        return await db.collections!.users_collection.findOne<IUserWithoutToken>({ deleted: null, username }, { projection: { _id: 0, deleted: 0, password: 0 } })!;
+    private async _getUser(username: string): Promise<IUser | null> {
+        return await db.collections!.users_collection.findOne<IUser>({ deleted: null, username }, { projection: { _id: 0, deleted: 0, password: 0 } })!;
     }
 }
 

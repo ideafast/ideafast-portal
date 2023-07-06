@@ -1,11 +1,11 @@
 import fs from 'fs';
 import path from 'path';
-import { IJobEntryForFieldCuration, IJobEntry, enumValueType } from '@itmat-broker/itmat-types';
+import { IJobForFieldCuration, IJob, enumValueType } from '@itmat-broker/itmat-types';
 import { processFieldRow, FieldCurator } from '../../src/curation/FieldCurator';
 import { stub } from './_stubHelper';
 
 describe('Unit tests for processFieldRow function', () => {
-    const job = stub<IJobEntryForFieldCuration>({  // subset of the IJobEntry interface
+    const job = stub<IJobForFieldCuration>({  // subset of the IJob interface
         id: 'mockJobId',
         studyId: 'mockStudyId',
         data: {
@@ -144,7 +144,7 @@ describe('FieldCuratorClass', () => {
     it('fieldcurator uploads csv file < 1000 fields okay', async () => {
         const readStream = fs.createReadStream(path.join(__dirname, '../testFiles/FieldCurator.tsv'));
         const mongoStub = new (MongoStub as any)();
-        const jobEntry = stub<IJobEntryForFieldCuration>({  // subset of the IJobEntry interface
+        const jobEntry = stub<IJobForFieldCuration>({  // subset of the IJob interface
             id: 'mockJobId',
             studyId: 'mockStudyId',
             data: {
@@ -176,7 +176,7 @@ describe('FieldCuratorClass', () => {
     it('fieldcurator uploads csv file > 1000 fields okay', async () => {
         const readStream = fs.createReadStream(path.join(__dirname, '../testFiles/FieldCurator_1000.tsv'));
         const mongoStub = new (MongoStub as any)();
-        const jobEntry = stub<IJobEntryForFieldCuration>({  // subset of the IJobEntry interface
+        const jobEntry = stub<IJobForFieldCuration>({  // subset of the IJob interface
             id: 'mockJobId',
             studyId: 'mockStudyId',
             data: {
@@ -208,7 +208,7 @@ describe('FieldCuratorClass', () => {
     it('fieldcurator catches duplicate fieldId before first watermark', async () => {
         const readStream = fs.createReadStream(path.join(__dirname, '../testFiles/FieldCurator_error1.tsv'));
         const mongoStub = new (MongoStub as any)();
-        const jobEntry = stub<IJobEntryForFieldCuration>({  // subset of the IJobEntry interface
+        const jobEntry = stub<IJobForFieldCuration>({  // subset of the IJob interface
             id: 'mockJobId',
             studyId: 'mockStudyId',
             data: {
@@ -240,7 +240,7 @@ describe('FieldCuratorClass', () => {
     it('fieldcurator catches duplicate fieldId after first watermark', async () => {
         const readStream = fs.createReadStream(path.join(__dirname, '../testFiles/FieldCurator_error2.tsv'));
         const mongoStub = new (MongoStub as any)();
-        const jobEntry = stub<IJobEntryForFieldCuration>({  // subset of the IJobEntry interface
+        const jobEntry = stub<IJobForFieldCuration>({  // subset of the IJob interface
             id: 'mockJobId',
             studyId: 'mockStudyId',
             data: {
@@ -272,7 +272,7 @@ describe('FieldCuratorClass', () => {
     it('fieldcurator catches uneven field before watermark', async () => {
         const readStream = fs.createReadStream(path.join(__dirname, '../testFiles/FieldCurator_error3.tsv'));
         const mongoStub = new (MongoStub as any)();
-        const jobEntry = stub<IJobEntryForFieldCuration>({  // subset of the IJobEntry interface
+        const jobEntry = stub<IJobForFieldCuration>({  // subset of the IJob interface
             id: 'mockJobId',
             studyId: 'mockStudyId',
             data: {
@@ -304,7 +304,7 @@ describe('FieldCuratorClass', () => {
     it('fieldcurator catches uneven field after watermark', async () => {
         const readStream = fs.createReadStream(path.join(__dirname, '../testFiles/FieldCurator_error4.tsv'));
         const mongoStub = new (MongoStub as any)();
-        const jobEntry = stub<IJobEntryForFieldCuration>({  // subset of the IJobEntry interface
+        const jobEntry = stub<IJobForFieldCuration>({  // subset of the IJob interface
             id: 'mockJobId',
             studyId: 'mockStudyId',
             data: {
@@ -336,7 +336,7 @@ describe('FieldCuratorClass', () => {
     it('fieldcurator catches mixed errors', async () => {
         const readStream = fs.createReadStream(path.join(__dirname, '../testFiles/FieldCurator_error5.tsv'));
         const mongoStub = new (MongoStub as any)();
-        const jobEntry = stub<IJobEntry<any>>({  // subset of the IJobEntry interface
+        const jobEntry = stub<IJob<any>>({  // subset of the IJob interface
             id: 'mockJobId',
             studyId: 'mockStudyId',
             data: {

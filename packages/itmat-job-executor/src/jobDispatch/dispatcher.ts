@@ -1,4 +1,4 @@
-import { IJobEntry } from '@itmat-broker/itmat-types';
+import { IJob } from '@itmat-broker/itmat-types';
 import { JobHandler } from '../jobHandlers/jobHandlerInterface';
 
 export class JobDispatcher {
@@ -19,11 +19,11 @@ export class JobDispatcher {
         delete this._handlerCollection[jobType];
     }
 
-    public async dispatch(job: IJobEntry<any>): Promise<void> {
-        if (!this._handlerCollection[job.jobType]) {
+    public async dispatch(job: IJob): Promise<void> {
+        if (!this._handlerCollection[job.type]) {
             //TODO set job to UNPROCESSED
             return;
         }
-        await (await this._handlerCollection[job.jobType]()).execute(job);
+        await (await this._handlerCollection[job.type]()).execute(job);
     }
 }

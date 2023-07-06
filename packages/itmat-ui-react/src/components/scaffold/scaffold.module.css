@@ -18,7 +18,7 @@
 .main_menubar {
     grid-area: mainMenuBar;
     height: 100%;
-    background: var(--color-main-menu);
+    background: linear-gradient(#0575E6, #021B79);
     padding: 1rem 1.2rem 1rem 1.2rem;
     border-right: 1px solid var(--color-main-menu-border);
 }

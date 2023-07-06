@@ -1,8 +1,9 @@
 import gql from 'graphql-tag';
+import { GENERIC_RESPONSE } from './utils';
 
 export const UPLOAD_FILE = gql`
     mutation uploadFile($studyId: String!, $file: Upload!, $description: String!, $fileLength: BigInt, $hash: String) {
-        uploadFile(studyId: $studyId, description: $description, file: $file, fileLength: $fileLength, hash: $hash) {
+        uploadFile(studyId: $studyId, file: $file, description: $description, fileLength: $fileLength, hash: $hash) {
             id
             uri
             fileName
@@ -21,7 +22,8 @@ export const UPLOAD_FILE = gql`
 export const DELETE_FILE = gql`
     mutation deleteFile($fileId: String!) {
         deleteFile(fileId: $fileId) {
-            successful
+            ...ALL_FOR_RESPONSE
         }
     }
+    ${GENERIC_RESPONSE}
 `;

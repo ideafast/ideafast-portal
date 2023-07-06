@@ -1,568 +1,148 @@
 import { GraphQLError } from 'graphql';
-import { IFile, IUser, IProject, IStudy, studyType, IStudyDataVersion, IDataEntry, IDataClip, IRole, IFieldEntry, deviceTypes, IOrganisation } from '@itmat-broker/itmat-types';
+import { IFile, IUser, IProject, IStudy, IStudyDataVersion, IDataClip, IRole, deviceTypes, IOrganisation, IGenericResponse, enumGroupNodeTypes, IField, IGroupNode } from '@itmat-broker/itmat-types';
 import { v4 as uuid } from 'uuid';
 import { db } from '../../database/database';
 import { errorCodes } from '../errors';
-import { PermissionCore, permissionCore } from './permissionCore';
+import { permissionCore } from './permissionCore';
 import { validate } from '@ideafast/idgen';
 import type { MatchKeysAndValues } from 'mongodb';
 import { objStore } from '../../objStore/objStore';
 import { FileUpload } from 'graphql-upload-minimal';
 import crypto from 'crypto';
 import { fileSizeLimit } from '../../utils/definition';
-import { IGenericResponse } from '../responses';
-export class StudyCore {
-    constructor(private readonly localPermissionCore: PermissionCore) { }
+import { makeGenericReponse } from '../responses';
 
-    public async findOneStudy_throwErrorIfNotExist(studyId: string): Promise<IStudy> {
-        const studySearchResult = await db.collections!.studies_collection.findOne({ id: studyId, deleted: null })!;
-        if (studySearchResult === null || studySearchResult === undefined) {
+export class StudyCore {
+    // constructor(private readonly localPermissionCore: PermissionCore) { }
+
+    public async getStudy(studyId: string): Promise<IStudy> {
+        /**
+         * Get the info of a study.
+         *
+         * @param studyId - The id of the study.
+         *
+         * @return IStudy - The object of IStudy.
+         */
+
+        const study = await db.collections!.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null });
+        if (!study) {
             throw new GraphQLError('Study does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
         }
-        return studySearchResult;
-    }
 
-    public async findOneProject_throwErrorIfNotExist(projectId: string): Promise<IProject> {
-        const projectSearchResult = await db.collections!.projects_collection.findOne({ id: projectId, deleted: null })!;
-        if (projectSearchResult === null || projectSearchResult === undefined) {
-            throw new GraphQLError('Project does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
-        }
-        return projectSearchResult;
-    }
-
-    public async createNewStudy(studyName: string, description: string, type: studyType, requestedBy: string): Promise<IStudy> {
-        /* check if study already  exist (lowercase because S3 minio buckets cant be mixed case) */
-        const existingStudies = await db.collections!.studies_collection.aggregate(
-            [
-                { $match: { deleted: null } },
-                {
-                    $group: {
-                        _id: '',
-                        name: {
-                            $push: { $toLower: '$name' }
-                        }
-                    }
-                },
-                { $project: { name: 1 } }
-            ]
-        ).toArray();
-
-        if (existingStudies[0] && existingStudies[0].name.includes(studyName.toLowerCase())) {
-            throw new GraphQLError(`Study "${studyName}" already exists (duplicates are case-insensitive).`);
-        }
-
-        const study: IStudy = {
-            id: uuid(),
-            name: studyName,
-            createdBy: requestedBy,
-            currentDataVersion: -1,
-            lastModified: new Date().valueOf(),
-            dataVersions: [],
-            deleted: null,
-            description: description,
-            type: type,
-            ontologyTrees: [],
-            metadata: {}
-        };
-        await db.collections!.studies_collection.insertOne(study);
         return study;
     }
 
-    public async editStudy(studyId: string, description: string): Promise<IStudy> {
-        const res = await db.collections!.studies_collection.findOneAndUpdate({ id: studyId }, { $set: { description: description } }, { returnDocument: 'after' });
+    public async createStudy(requester: string, studyName: string, description: string | null): Promise<IStudy> {
+        /**
+         * Create a study.
+         *
+         * @param requester - The id of the requester.
+         * @param studyName - The name of the study.
+         * @param description - The description of the study.
+         *
+         * @return IStudy - The object of the IStudy.
+         */
+        const study = await db.collections!.studies_collection.findOne({ 'name': studyName.toLowerCase(), 'life.deletedTime': null });
+        if (study) {
+            throw new GraphQLError('Study already exists (duplicates are case-insensitive).', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+        }
+
+        const studyEntry: IStudy = {
+            id: uuid(),
+            name: studyName,
+            currentDataVersion: -1,
+            dataVersions: [],
+            description: description,
+            groupList: [{
+                id: uuid(),
+                name: studyName,
+                type: enumGroupNodeTypes.GROUP,
+                description: description,
+                parent: null,
+                children: [],
+                life: {
+                    createdTime: Date.now(),
+                    createdUser: requester,
+                    deletedTime: null,
+                    deletedUser: null
+                },
+                metadata: {}
+            }],
+            life: {
+                createdTime: Date.now(),
+                createdUser: requester,
+                deletedTime: null,
+                deletedUser: null
+            },
+            metadata: {}
+        };
+        const res = await db.collections!.studies_collection.insertOne(studyEntry);
+        if (res.acknowledged) {
+            return studyEntry;
+        } else {
+            throw new GraphQLError('Database error.', { extensions: { code: errorCodes.DATABASE_ERROR } });
+        }
+    }
+
+    public async editStudy(studyId: string, name: string, description: string): Promise<IStudy> {
+        /**
+         * Edit the description of the study.
+         *
+         * @param studyId - The id of the study.
+         * @param name - The name of the study.
+         * @param description - The description of the study.
+         *
+         * @return IStudy - The object of IStudy
+         */
+
+        const study = await db.collections!.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null });
+        if (!study) {
+            throw new GraphQLError('Study does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+        }
+
+        const res = await db.collections!.studies_collection.findOneAndUpdate({ id: studyId }, { $set: { name: name, description: description } }, { returnDocument: 'after' });
         if (res.ok === 1 && res.value) {
             return res.value;
         } else {
-            throw new GraphQLError('Edit study failed');
+            throw new GraphQLError('Database error.', { extensions: { code: errorCodes.DATABASE_ERROR } });
         }
     }
 
-    public async createNewDataVersion(studyId: string, tag: string, dataVersion: string): Promise<IStudyDataVersion | null> {
-        const newDataVersionId = uuid();
-        const newContentId = uuid();
+    public async deleteStudy(requester: string, studyId: string): Promise<IGenericResponse> {
+        /**
+         * Delete a study.
+         *
+         * @param requester - The id of the requester.
+         * @param studyId - The id of the study.
+         *
+         * @return IGenericResponse - The obejct of IGenericResponse.
+         */
 
-        // update data
-        const resData = await db.collections!.data_collection.updateMany({
-            m_studyId: studyId,
-            m_versionId: null
-        }, {
-            $set: {
-                m_versionId: newDataVersionId
-            }
-        });
-        // update field
-        const resField = await db.collections!.field_dictionary_collection.updateMany({
-            studyId: studyId,
-            dataVersion: null
-        }, {
-            $set: {
-                dataVersion: newDataVersionId
-            }
-        });
-        // update standardization
-        const resStandardization = await db.collections!.standardizations_collection.updateMany({
-            studyId: studyId,
-            dataVersion: null
-        }, {
-            $set: {
-                dataVersion: newDataVersionId
-            }
-        });
-
-        // update ontology trees
-        const resOntologyTrees = await db.collections!.studies_collection.updateOne({ 'id': studyId, 'deleted': null, 'ontologyTrees.dataVersion': null }, {
-            $set: {
-                'ontologyTrees.$.dataVersion': newDataVersionId
-            }
-        });
-
-        if (resData.modifiedCount === 0 && resField.modifiedCount === 0 && resStandardization.modifiedCount === 0 && resOntologyTrees.modifiedCount === 0) {
-            return null;
-        }
-
-        // update permissions based on roles
-        const roles = await db.collections!.roles_collection.find<IRole>({ studyId: studyId, deleted: null }).toArray();
-        for (const role of roles) {
-            const filters: Record<string, string[]> = {
-                subjectIds: role.permissions.data?.subjectIds || [],
-                visitIds: role.permissions.data?.visitIds || [],
-                fieldIds: role.permissions.data?.fieldIds || []
-            };
-            const tag = `metadata.${'role:'.concat(role.id)}`;
-            await db.collections!.data_collection.updateMany({
-                m_studyId: studyId,
-                m_versionId: newDataVersionId,
-                m_subjectId: { $in: filters.subjectIds.map((el: string) => new RegExp(el)) },
-                m_visitId: { $in: filters.visitIds.map((el: string) => new RegExp(el)) },
-                m_fieldId: { $in: filters.fieldIds.map((el: string) => new RegExp(el)) }
-            }, {
-                $set: { [tag]: true }
-            });
-            await db.collections!.data_collection.updateMany({
-                m_studyId: studyId,
-                m_versionId: newDataVersionId,
-                $or: [
-                    { m_subjectId: { $nin: filters.subjectIds.map((el: string) => new RegExp(el)) } },
-                    { m_visitId: { $nin: filters.visitIds.map((el: string) => new RegExp(el)) } },
-                    { m_fieldId: { $nin: filters.fieldIds.map((el: string) => new RegExp(el)) } }
-                ]
-            }, {
-                $set: { [tag]: false }
-            });
-            await db.collections!.field_dictionary_collection.updateMany({
-                studyId: studyId,
-                dataVersion: newDataVersionId,
-                fieldId: { $in: filters.fieldIds.map((el: string) => new RegExp(el)) }
-            }, {
-                $set: { [tag as any]: true }
-            });
-            await db.collections!.field_dictionary_collection.updateMany({
-                studyId: studyId,
-                dataVersion: newDataVersionId,
-                fieldId: { $nin: filters.fieldIds.map((el: string) => new RegExp(el)) }
-            }, {
-                $set: { [tag as any]: false }
-            });
-        }
-
-        // insert a new version into study
-        const newDataVersion: IStudyDataVersion = {
-            id: newDataVersionId,
-            contentId: newContentId, // same content = same id - used in reverting data, version control
-            version: dataVersion,
-            tag: tag,
-            updateDate: (new Date().valueOf()).toString()
-        };
-        await db.collections!.studies_collection.updateOne({ id: studyId }, {
-            $push: { dataVersions: newDataVersion },
-            $inc: {
-                currentDataVersion: 1
-            }
-        });
-        return newDataVersion;
-    }
-
-    public async uploadOneDataClip(studyId: string, permissions: any, fieldList: Partial<IFieldEntry>[], data: IDataClip[], requester: IUser): Promise<any> {
-        const response: IGenericResponse[] = [];
-        let bulk = db.collections!.data_collection.initializeUnorderedBulkOp();
-        // remove duplicates by subjectId, visitId and fieldId
-        const keysToCheck: Array<keyof IDataClip> = ['visitId', 'subjectId', 'fieldId'];
-        const filteredData = data.filter(
-            (s => o => (k => !s.has(k) && s.add(k))(keysToCheck.map(k => o[k]).join('|')))(new Set())
-        );
-        for (const dataClip of filteredData) {
-            // remove the '-' if there exists
-            dataClip.subjectId = dataClip.subjectId.replace('-', '');
-            const fieldInDb = fieldList.filter(el => el.fieldId === dataClip.fieldId)[0];
-            if (!fieldInDb) {
-                response.push({ successful: false, code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY, description: `Field ${dataClip.fieldId}: Field Not found` });
-                continue;
-            }
-            // check subjectId
-            if (!validate(dataClip.subjectId.substr(1) ?? '')) {
-                response.push({ successful: false, code: errorCodes.CLIENT_MALFORMED_INPUT, description: `Subject ID ${dataClip.subjectId} is illegal.` });
-                continue;
-            }
-
-            if (!(await permissionCore.checkDataEntryValid(permissions, dataClip.fieldId, dataClip.subjectId, dataClip.visitId))) {
-                response.push({ successful: false, code: errorCodes.NO_PERMISSION_ERROR, description: 'You do not have access to this field.' });
-                continue;
-            }
-
-            // check value is valid
-            let error;
-            let parsedValue;
-            if (dataClip.value?.toString() === '99999') { // agreement with other WPs, 99999 refers to missing
-                parsedValue = '99999';
-            } else {
-                switch (fieldInDb.dataType) {
-                    case 'dec': {// decimal
-                        if (typeof (dataClip.value) !== 'string') {
-                            error = `Field ${dataClip.fieldId}: Cannot parse as decimal.`;
-                            break;
-                        }
-                        if (!/^\d+(.\d+)?$/.test(dataClip.value)) {
-                            error = `Field ${dataClip.fieldId}: Cannot parse as decimal.`;
-                            break;
-                        }
-                        parsedValue = parseFloat(dataClip.value);
-                        break;
-                    }
-                    case 'int': {// integer
-                        if (typeof (dataClip.value) !== 'string') {
-                            error = `Field ${dataClip.fieldId}: Cannot parse as integer.`;
-                            break;
-                        }
-                        if (!/^-?\d+$/.test(dataClip.value)) {
-                            error = `Field ${dataClip.fieldId}: Cannot parse as integer.`;
-                            break;
-                        }
-                        parsedValue = parseInt(dataClip.value, 10);
-                        break;
-                    }
-                    case 'bool': {// boolean
-                        if (typeof (dataClip.value) !== 'string') {
-                            error = `Field ${dataClip.fieldId}: Cannot parse as boolean.`;
-                            break;
-                        }
-                        if (dataClip.value.toLowerCase() === 'true' || dataClip.value.toLowerCase() === 'false') {
-                            parsedValue = dataClip.value.toLowerCase() === 'true';
-                        } else {
-                            error = `Field ${dataClip.fieldId}: Cannot parse as boolean.`;
-                            break;
-                        }
-                        break;
-                    }
-                    case 'str': {
-                        if (typeof (dataClip.value) !== 'string') {
-                            error = `Field ${dataClip.fieldId}: Cannot parse as string.`;
-                            break;
-                        }
-                        parsedValue = dataClip.value.toString();
-                        break;
-                    }
-                    // 01/02/2021 00:00:00
-                    case 'date': {
-                        if (typeof (dataClip.value) !== 'string') {
-                            error = `Field ${dataClip.fieldId}: Cannot parse as data. Value for date type must be in ISO format.`;
-                            break;
-                        }
-                        const matcher = /^(-?(?:[1-9][0-9]*)?[0-9]{4})-(1[0-2]|0[1-9])-(3[01]|0[1-9]|[12][0-9])T(2[0-3]|[01][0-9]):([0-5][0-9]):([0-5][0-9])(.[0-9]+)?(Z)?/;
-                        if (!dataClip.value.match(matcher)) {
-                            error = `Field ${dataClip.fieldId}: Cannot parse as data. Value for date type must be in ISO format.`;
-                            break;
-                        }
-                        parsedValue = dataClip.value.toString();
-                        break;
-                    }
-                    case 'json': {
-                        parsedValue = dataClip.value;
-                        break;
-                    }
-                    case 'file': {
-                        if (!dataClip.file || typeof (dataClip.file) === 'string') {
-                            error = `Field ${dataClip.fieldId}: Cannot parse as file.`;
-                            break;
-                        }
-                        // if old file exists, delete it first
-                        const res = await this.uploadFile(studyId, dataClip, requester, {});
-                        if ('code' in res && 'description' in res) {
-                            error = `Field ${dataClip.fieldId}: Cannot parse as file.`;
-                            break;
-                        } else {
-                            parsedValue = res.id;
-                        }
-                        break;
-                    }
-                    case 'cat': {
-                        if (!fieldInDb.possibleValues) {
-                            error = `Field ${dataClip.fieldId}: Cannot parse as categorical, possible values not defined.`;
-                            break;
-                        }
-                        if (!fieldInDb.possibleValues.map((el: any) => el.code).includes(dataClip.value?.toString())) {
-                            error = `Field ${dataClip.fieldId}: Cannot parse as categorical, value not in value list.`;
-                            break;
-                        } else {
-                            parsedValue = dataClip.value?.toString();
-                        }
-                        break;
-                    }
-                    default: {
-                        error = (`Field ${dataClip.fieldId}: Invalid data Type.`);
-                        break;
-                    }
-                }
-            }
-            if (error !== undefined) {
-                response.push({ successful: false, code: errorCodes.CLIENT_MALFORMED_INPUT, description: error });
-                continue;
-            } else {
-                response.push({ successful: true, description: `${dataClip.subjectId}-${dataClip.visitId}-${dataClip.fieldId}` });
-            }
-            const obj = {
-                m_studyId: studyId,
-                m_subjectId: dataClip.subjectId,
-                m_versionId: null,
-                m_visitId: dataClip.visitId,
-                m_fieldId: dataClip.fieldId
-            };
-            let objWithData: Partial<MatchKeysAndValues<IDataEntry>>;
-            // update the file data differently
-            if (fieldInDb.dataType === 'file') {
-                const existing = await db.collections!.data_collection.findOne(obj);
-                if (!existing) {
-                    await db.collections!.data_collection.insertOne({
-                        ...obj,
-                        id: uuid(),
-                        uploadedAt: (new Date()).valueOf(),
-                        value: '',
-                        metadata: {
-                            add: [],
-                            remove: []
-                        }
-                    });
-                }
-
-                objWithData = {
-                    ...obj,
-                    id: uuid(),
-                    value: '',
-                    uploadedAt: (new Date()).valueOf(),
-                    metadata: {
-                        ...dataClip.metadata,
-                        participantId: dataClip.subjectId,
-                        add: ((existing?.metadata as any)?.add || []).concat(parsedValue),
-                        uploader: requester.id
-                    },
-                    uploadedBy: requester.id
-                };
-            } else {
-                objWithData = {
-                    ...obj,
-                    id: uuid(),
-                    value: parsedValue,
-                    uploadedAt: (new Date()).valueOf(),
-                    metadata: {
-                        ...dataClip.metadata,
-                        uploader: requester.id
-                    },
-                    uploadedBy: requester.id
-                };
-            }
-            bulk.find(obj).upsert().updateOne({ $set: objWithData });
-            if (bulk.batches.length > 999) {
-                await bulk.execute();
-                bulk = db.collections!.data_collection.initializeUnorderedBulkOp();
-            }
-
-        }
-        bulk.batches.length !== 0 && await bulk.execute();
-        return response;
-    }
-
-    // This file uploading function will not check any metadate of the file
-    public async uploadFile(studyId: string, data: IDataClip, uploader: IUser, args: { fileLength?: number, fileHash?: string }): Promise<IFile | { code: errorCodes, description: string }> {
-        if (!data.file || typeof (data.file) === 'string') {
-            return { code: errorCodes.CLIENT_MALFORMED_INPUT, description: 'Invalid File Stream' };
-        }
-        const study = await db.collections!.studies_collection.findOne({ id: studyId });
+        const study = await db.collections!.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null });
         if (!study) {
-            return { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY, description: 'Study does not exist.' };
-        }
-        const sitesIDMarkers = (await db.collections!.organisations_collection.find<IOrganisation>({ deleted: null }).toArray()).reduce<any>((acc, curr) => {
-            if (curr.metadata?.siteIDMarker) {
-                acc[curr.metadata.siteIDMarker] = curr.shortname;
-            }
-            return acc;
-        }, {});
-        // check file metadata
-        if (data.metadata) {
-            let parsedDescription: Record<string, any>;
-            let startDate;
-            let endDate;
-            let deviceId;
-            let participantId;
-            try {
-                parsedDescription = data.metadata;
-                startDate = parseInt(parsedDescription.startDate);
-                endDate = parseInt(parsedDescription.endDate);
-                participantId = data.subjectId.toString();
-                deviceId = parsedDescription.deviceId.toString();
-            } catch (e) {
-                return { code: errorCodes.CLIENT_MALFORMED_INPUT, description: 'File description is invalid' };
-            }
-            if (
-                !Object.keys(sitesIDMarkers).includes(participantId.substr(0, 1)?.toUpperCase()) ||
-                !Object.keys(deviceTypes).includes(deviceId.substr(0, 3)?.toUpperCase()) ||
-                !validate(participantId.substr(1) ?? '') ||
-                !validate(deviceId.substr(3) ?? '') ||
-                !startDate || !endDate ||
-                (new Date(endDate).setHours(0, 0, 0, 0).valueOf()) > (new Date().setHours(0, 0, 0, 0).valueOf())
-            ) {
-                return { code: errorCodes.CLIENT_MALFORMED_INPUT, description: 'File description is invalid' };
-            }
-        } else {
-            return { code: errorCodes.CLIENT_MALFORMED_INPUT, description: 'File description is invalid' };
+            throw new GraphQLError('Study does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
         }
 
-
-        const file: FileUpload = await data.file;
-
-        // check if old files exist; if so, denote it as deleted
-        const dataEntry = await db.collections!.data_collection.findOne({ m_studyId: studyId, m_visitId: data.visitId, m_subjectId: data.subjectId, m_versionId: null, m_fieldId: data.fieldId });
-        const oldFileId = dataEntry ? dataEntry.value : null;
-        return new Promise<IFile>((resolve, reject) => {
-
-            (async () => {
-                try {
-                    const fileEntry: Partial<IFile> = {
-                        id: uuid(),
-                        fileName: file.filename,
-                        studyId: studyId,
-                        description: JSON.stringify({}),
-                        uploadTime: `${Date.now()}`,
-                        uploadedBy: uploader.id,
-                        deleted: null,
-                        metadata: (data.metadata as Record<string, any>)
-                    };
-
-                    if (args.fileLength !== undefined && args.fileLength > fileSizeLimit) {
-                        reject(new GraphQLError('File should not be larger than 8GB', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } }));
-                        return;
-                    }
-
-                    const stream = file.createReadStream();
-                    const fileUri = uuid();
-                    const hash = crypto.createHash('sha256');
-                    let readBytes = 0;
-
-                    stream.pause();
-
-                    /* if the client cancelled the request mid-stream it will throw an error */
-                    stream.on('error', (e) => {
-                        reject(new GraphQLError('Upload resolver file stream failure', { extensions: { code: errorCodes.FILE_STREAM_ERROR, error: e } }));
-                        return;
-                    });
-
-                    stream.on('data', (chunk) => {
-                        readBytes += chunk.length;
-                        if (readBytes > fileSizeLimit) {
-                            stream.destroy();
-                            reject(new GraphQLError('File should not be larger than 8GB', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } }));
-                            return;
-                        }
-                        hash.update(chunk);
-                    });
-
-
-                    await objStore.uploadFile(stream, studyId, fileUri);
-
-                    // hash is optional, but should be correct if provided
-                    const hashString = hash.digest('hex');
-                    if (args.fileHash && args.fileHash !== hashString) {
-                        reject(new GraphQLError('File hash not match', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } }));
-                        return;
-                    }
-
-                    // check if readbytes equal to filelength in parameters
-                    if (args.fileLength !== undefined && args.fileLength.toString() !== readBytes.toString()) {
-                        reject(new GraphQLError('File size mismatch', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } }));
-                        return;
-                    }
-
-                    fileEntry.fileSize = readBytes.toString();
-                    fileEntry.uri = fileUri;
-                    fileEntry.hash = hashString;
-                    const insertResult = await db.collections!.files_collection.insertOne(fileEntry as IFile);
-                    if (insertResult.acknowledged) {
-                        // delete old file if existing
-                        await db.collections!.files_collection.findOneAndUpdate({ studyId: studyId, id: oldFileId }, { $set: { deleted: Date.now().valueOf() } });
-                        resolve(fileEntry as IFile);
-                    } else {
-                        throw new GraphQLError(errorCodes.DATABASE_ERROR);
-                    }
-                }
-                catch (error) {
-                    reject({ code: errorCodes.CLIENT_MALFORMED_INPUT, description: 'Missing file metadata.', error });
-                    return;
-                }
-            })();
-        });
-    }
-
-    public async createProjectForStudy(studyId: string, projectName: string, requestedBy: string): Promise<IProject> {
-        const project: IProject = {
-            id: uuid(),
-            studyId,
-            createdBy: requestedBy,
-            name: projectName,
-            patientMapping: {},
-            lastModified: new Date().valueOf(),
-            deleted: null,
-            metadata: {}
-        };
-
-        const getListOfPatientsResult = await db.collections!.data_collection.aggregate([
-            { $match: { m_studyId: studyId } },
-            { $group: { _id: null, array: { $addToSet: '$m_subjectId' } } },
-            { $project: { array: 1 } }
-        ]).toArray();
-
-        if (getListOfPatientsResult === null || getListOfPatientsResult === undefined) {
-            throw new GraphQLError('Cannot get list of patients', { extensions: { code: errorCodes.DATABASE_ERROR } });
-        }
-
-        if (getListOfPatientsResult[0] !== undefined) {
-            project.patientMapping = this.createPatientIdMapping(getListOfPatientsResult[0].array);
-        }
-
-        await db.collections!.projects_collection.insertOne(project);
-        return project;
-    }
-
-    public async deleteStudy(studyId: string): Promise<void> {
-        /* PRECONDITION: CHECKED THAT STUDY INDEED EXISTS */
         const session = db.client!.startSession();
         session.startTransaction();
 
         const timestamp = new Date().valueOf();
-
         try {
             /* delete the study */
-            await db.collections!.studies_collection.findOneAndUpdate({ id: studyId, deleted: null }, { $set: { lastModified: timestamp, deleted: timestamp } });
+            await db.collections!.studies_collection.findOneAndUpdate({ 'id': studyId, 'life.deletedTime': null }, { $set: { 'life.deletedTime': timestamp, 'life.deletedUser': requester } });
 
             /* delete all projects related to the study */
-            await db.collections!.projects_collection.updateMany({ studyId, deleted: null }, { $set: { lastModified: timestamp, deleted: timestamp } });
+            await db.collections!.projects_collection.updateMany({ 'studyId': studyId, 'life.deletedTime': null }, { $set: { 'life.deletedTime': timestamp, 'life.deletedUser': requester } });
 
             /* delete all roles related to the study */
-            await this.localPermissionCore.removeRoleFromStudyOrProject({ studyId });
+            // await this.localPermissionCore.removeRoleFromStudyOrProject({ studyId });
 
             /* delete all files belong to the study*/
             await db.collections!.files_collection.updateMany({ studyId, deleted: null }, { $set: { deleted: timestamp } });
 
             await session.commitTransaction();
             session.endSession();
-
+            return makeGenericReponse(studyId, true, undefined, `Study ${study.name} has been deleted.`);
         } catch (error) {
             // If an error occurred, abort the whole transaction and
             // undo any changes that might have happened
@@ -572,51 +152,365 @@ export class StudyCore {
         }
     }
 
-    public async deleteProject(projectId: string): Promise<void> {
-        const timestamp = new Date().valueOf();
+    public async createDataVersion(requester: string, studyId: string, tag: string, dataVersion: string): Promise<IGenericResponse> {
+        /**
+         * Create a new data version of the study.
+         *
+         * @param requester - The id of the requester.
+         * @param studyId - The id of the study.
+         * @param tag - The tag of the study.
+         * @param dataVersion - The new version of the study. Use float number.
+         *
+         * @return IGenericResponse - The object of IGenericResponse.
+         */
 
-        /* delete all projects related to the study */
-        await db.collections!.projects_collection.findOneAndUpdate({ id: projectId, deleted: null }, { $set: { lastModified: timestamp, deleted: timestamp } }, { returnDocument: 'after' });
-
-        /* delete all roles related to the study */
-        await this.localPermissionCore.removeRoleFromStudyOrProject({ projectId });
-    }
-
-    private createPatientIdMapping(listOfPatientId: string[], prefix?: string): { [originalPatientId: string]: string } {
-        let rangeArray: Array<string | number> = [...Array.from(listOfPatientId.keys())];
-        if (prefix === undefined) {
-            prefix = uuid().substring(0, 10);
-        }
-        rangeArray = rangeArray.map((e) => `${prefix}${e} `);
-        rangeArray = this.shuffle(rangeArray);
-        const mapping: { [originalPatientId: string]: string } = {};
-        for (let i = 0, length = listOfPatientId.length; i < length; i++) {
-            mapping[listOfPatientId[i]] = (rangeArray as string[])[i];
-        }
-        return mapping;
-
-    }
-
-    private shuffle(array: Array<number | string>) {  // source: Fisher–Yates Shuffle; https://bost.ocks.org/mike/shuffle/
-        let currentIndex = array.length;
-        let temporaryValue: string | number;
-        let randomIndex: number;
-
-        // While there remain elements to shuffle...
-        while (0 !== currentIndex) {
-
-            // Pick a remaining element...
-            randomIndex = Math.floor(Math.random() * currentIndex);
-            currentIndex -= 1;
-
-            // And swap it with the current element.
-            temporaryValue = array[currentIndex];
-            array[currentIndex] = array[randomIndex];
-            array[randomIndex] = temporaryValue;
+        const study = await db.collections!.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null });
+        if (!study) {
+            throw new GraphQLError('Study does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
         }
 
-        return array;
+        if (study.dataVersions.map(el => el.version).includes(dataVersion)) {
+            throw new GraphQLError('This version has been used.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+        }
+
+        const newDataVersionId = uuid();
+        const newContentId = uuid();
+
+        const session = db.client!.startSession();
+        session.startTransaction();
+        try {
+            // update data
+            const resData = await db.collections!.data_collection.updateMany({
+                m_studyId: studyId,
+                m_versionId: null
+            }, {
+                $set: {
+                    m_versionId: newDataVersionId
+                }
+            });
+            // update field
+            const resField = await db.collections!.field_dictionary_collection.updateMany({
+                studyId: studyId,
+                dataVersion: null
+            }, {
+                $set: {
+                    dataVersion: newDataVersionId
+                }
+            });
+
+            if (resData.modifiedCount === 0 && resField.modifiedCount === 0) {
+                return makeGenericReponse(undefined, false, undefined, 'Nothing to update.');
+            }
+
+            // update permissions based on roles
+            const roles = await db.collections!.roles_collection.find<IRole>({ 'studyId': studyId, 'life.deletedTime': null }).toArray();
+            for (const role of roles) {
+                const filters: Record<string, string[]> = {
+                    subjectIds: role.permissions.data?.subjectIds || [],
+                    visitIds: role.permissions.data?.visitIds || [],
+                    fieldIds: role.permissions.data?.fieldIds || []
+                };
+                const tag = `metadata.${'role:'.concat(role.id)}`;
+                // no need to add role to old data, which should be updated on role changes
+                await db.collections!.data_collection.updateMany({
+                    m_studyId: studyId,
+                    m_versionId: newDataVersionId,
+                    m_subjectId: { $in: filters.subjectIds.map((el: string) => new RegExp(el)) },
+                    m_visitId: { $in: filters.visitIds.map((el: string) => new RegExp(el)) },
+                    m_fieldId: { $in: filters.fieldIds.map((el: string) => new RegExp(el)) }
+                }, {
+                    $set: { [tag]: true }
+                });
+                await db.collections!.data_collection.updateMany({
+                    m_studyId: studyId,
+                    m_versionId: newDataVersionId,
+                    $or: [
+                        { m_subjectId: { $nin: filters.subjectIds.map((el: string) => new RegExp(el)) } },
+                        { m_visitId: { $nin: filters.visitIds.map((el: string) => new RegExp(el)) } },
+                        { m_fieldId: { $nin: filters.fieldIds.map((el: string) => new RegExp(el)) } }
+                    ]
+                }, {
+                    $set: { [tag]: false }
+                });
+                await db.collections!.field_dictionary_collection.updateMany({
+                    studyId: studyId,
+                    dataVersion: newDataVersionId,
+                    fieldId: { $in: filters.fieldIds.map((el: string) => new RegExp(el)) }
+                }, {
+                    $set: { [tag as any]: true }
+                });
+                await db.collections!.field_dictionary_collection.updateMany({
+                    studyId: studyId,
+                    dataVersion: newDataVersionId,
+                    fieldId: { $nin: filters.fieldIds.map((el: string) => new RegExp(el)) }
+                }, {
+                    $set: { [tag as any]: false }
+                });
+            }
+
+            // insert a new version into study
+            const newDataVersion: IStudyDataVersion = {
+                id: newDataVersionId,
+                contentId: newContentId, // same content = same id - used in reverting data, version control
+                version: dataVersion,
+                tag: tag,
+                life: {
+                    createdTime: Date.now(),
+                    createdUser: requester,
+                    deletedTime: null,
+                    deletedUser: null
+                },
+                metadata: {}
+            };
+            await db.collections!.studies_collection.updateOne({ id: studyId }, {
+                $push: { dataVersions: newDataVersion },
+                $inc: {
+                    currentDataVersion: 1
+                }
+            });
+            await session.commitTransaction();
+            session.endSession();
+            return makeGenericReponse(newDataVersionId, true, undefined, `Data version ${dataVersion} has been deleted.`);
+        } catch (error) {
+            // If an error occurred, abort the whole transaction and
+            // undo any changes that might have happened
+            await session.abortTransaction();
+            session.endSession();
+            throw new GraphQLError(`${JSON.stringify(error)}`, { extensions: { code: errorCodes.DATABASE_ERROR } });
+        }
     }
+
+    public async setDataVersion(studyId: string, dataVersionId: string): Promise<IGenericResponse> {
+        /**
+         * Set a data version as the current data version of a  study.
+         *
+         * @param studyId - The id of the study.
+         * @param dataVersionId - The id of the data version.
+         *
+         * @return IGenreicResponse
+         */
+
+        const study = await db.collections!.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null });
+        if (!study) {
+            throw new GraphQLError('Study does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+        }
+
+        if (!study.dataVersions.map(el => el.id).includes(dataVersionId)) {
+            throw new GraphQLError('Version does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+        }
+
+        await db.collections!.studies_collection.findOneAndUpdate({ 'id': studyId, 'life.deletedTime': null }, {
+            $set: { currentDataVersion: study.dataVersions.map(el => el.id).indexOf(dataVersionId) }
+        });
+
+        return makeGenericReponse(dataVersionId, true, undefined, `Data version ${dataVersionId} has been set as the current data version.`);
+    }
+
+    public async createStudyGroup(requester: string, studyId: string, groupName: string, groupType: enumGroupNodeTypes, description: string | null, parentGroupId: string): Promise<IGroupNode> {
+        /**
+         * Create a study group.
+         *
+         * @param requester - The id of the requester.
+         * @param studyId - The id of the study.
+         * @param groupName - The name of the study.
+         * @param groupType - The type of the group.
+         * @param description - The description of the group.
+         * @param parentGroupId - The id of the parent group.
+         *
+         * @return IGroupNode - The object of IGroupNode
+         */
+
+        const study = await db.collections!.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null, 'groupList.id': parentGroupId });
+        if (!study) {
+            throw new GraphQLError('Study or parent node does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+        }
+
+        const groupEntry: IGroupNode = {
+            id: uuid(),
+            name: groupName,
+            type: groupType,
+            description: description,
+            parent: parentGroupId,
+            children: [],
+            life: {
+                createdTime: Date.now(),
+                createdUser: requester,
+                deletedTime: null,
+                deletedUser: null
+            },
+            metadata: {}
+        };
+
+        await db.collections!.studies_collection.findOneAndUpdate({ id: studyId }, {
+            $push: { groupList: groupEntry }
+        });
+
+        return groupEntry;
+    }
+
+    public async editStudyGroup(studyId: string, groupId: string, description: string | null, targetParentId: string | null, children: string[] | null): Promise<IGenericResponse> {
+        /**
+         * Edit a group.
+         *
+         * @param studyId - The id of the study.
+         * @param groupId - The id of the group.
+         * @param description - The new description of the group.
+         * @param targetParentId - The id of the target parent.
+         * @param children - The ids of the children groups of the group.
+         *
+         * @return IGenericResponse - The object of IGenericRespnse
+         */
+        const study = await db.collections!.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null, 'groupList.id': groupId });
+        if (!study) {
+            throw new GraphQLError('Study or group does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+        }
+
+        if (targetParentId) {
+            const targetParentGroup: IGroupNode | null = study.groupList.filter(el => el.id === targetParentId)[0];
+            if (!targetParentGroup) {
+                throw new GraphQLError('Target group does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+            }
+        }
+
+        if (children) {
+            const groupNodeIds: string[] = study.groupList.map(el => el.id);
+            if (children.some(el => !groupNodeIds.includes(el))) {
+                throw new GraphQLError('Children do not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+            }
+        }
+
+        const thisGroup: IGroupNode = study.groupList.filter(el => el.id === groupId)[0];
+
+        await db.collections!.studies_collection.findOneAndUpdate({ 'id': studyId, 'groupList.id': groupId }, {
+            $set: {
+                'groupList.$.description': description ?? thisGroup.description,
+                'groupList.$.targetParentId': targetParentId ?? thisGroup.parent,
+                'groupList.$.children': children ?? thisGroup.children
+            }
+        });
+
+        return makeGenericReponse(groupId, true, undefined, `Group ${groupId}'s description has been edited.`);
+    }
+
+    public async deleteStudyGroup(requester: string, studyId: string, groupId: string): Promise<IGenericResponse> {
+        /**
+         * Delete a group of a study.
+         *
+         * @param requester - The id of the requester.
+         * @param studyId - The id of the study.
+         * @param groupId - The id of the group.
+         *
+         * @return IGenericResponse - The object of IGenericResponse.
+         */
+        const study = await db.collections!.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null, 'groupList.id': groupId });
+        if (!study) {
+            throw new GraphQLError('Study or group does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+        }
+
+        await db.collections!.studies_collection.findOneAndUpdate({ 'id': studyId, 'groupList.id': groupId }, {
+            $set: {
+                'groupList.$.life.deletedUser': requester,
+                'groupList.$.life.deletedTime': Date.now()
+            }
+        });
+
+        return makeGenericReponse(groupId, true, undefined, `Group ${groupId} of study ${studyId} has been deleted.`);
+    }
+
+    /** TODO */
+    // public async createProjectForStudy(requester: string, studyId: string, projectName: string): Promise<IProject> {
+    //     /**
+    //      * Create a project for a study.
+    //      *
+    //      * @param requester - The id of the requester.
+    //      * @param studyId - The id of the study.
+    //      * @param projectName - The name of the project.
+    //      *
+    //      * @return IProject - The object of IProject.
+    //      */
+
+    //     // const study = await db.collections!.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null });
+    //     // if (!study) {
+    //     //     throw new GraphQLError('Study does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+    //     // }
+
+    //     // const project: IProject = {
+    //     //     id: uuid(),
+    //     //     studyId,
+    //     //     createdBy: requestedBy,
+    //     //     name: projectName,
+    //     //     patientMapping: {},
+    //     //     lastModified: new Date().valueOf(),
+    //     //     deleted: null,
+    //     //     metadata: {}
+    //     // };
+
+    //     // const getListOfPatientsResult = await db.collections!.data_collection.aggregate([
+    //     //     { $match: { m_studyId: studyId } },
+    //     //     { $group: { _id: null, array: { $addToSet: '$m_subjectId' } } },
+    //     //     { $project: { array: 1 } }
+    //     // ]).toArray();
+
+    //     // if (getListOfPatientsResult === null || getListOfPatientsResult === undefined) {
+    //     //     throw new GraphQLError('Cannot get list of patients', { extensions: { code: errorCodes.DATABASE_ERROR } });
+    //     // }
+
+    //     // if (getListOfPatientsResult[0] !== undefined) {
+    //     //     project.patientMapping = this.createPatientIdMapping(getListOfPatientsResult[0].array);
+    //     // }
+
+    //     // await db.collections!.projects_collection.insertOne(project);
+    //     // return project;
+    // }
+
+    /** TODO */
+    // public async deleteProject(projectId: string): Promise<void> {
+    //     const timestamp = new Date().valueOf();
+
+    //     /* delete all projects related to the study */
+    //     await db.collections!.projects_collection.findOneAndUpdate({ id: projectId, deleted: null }, { $set: { lastModified: timestamp, deleted: timestamp } }, { returnDocument: 'after' });
+
+    //     /* delete all roles related to the study */
+    //     await this.localPermissionCore.removeRoleFromStudyOrProject({ projectId });
+    // }
+
+    /** TODO */
+    // private createPatientIdMapping(listOfPatientId: string[], prefix?: string): { [originalPatientId: string]: string } {
+    //     let rangeArray: Array<string | number> = [...Array.from(listOfPatientId.keys())];
+    //     if (prefix === undefined) {
+    //         prefix = uuid().substring(0, 10);
+    //     }
+    //     rangeArray = rangeArray.map((e) => `${prefix}${e} `);
+    //     rangeArray = this.shuffle(rangeArray);
+    //     const mapping: { [originalPatientId: string]: string } = {};
+    //     for (let i = 0, length = listOfPatientId.length; i < length; i++) {
+    //         mapping[listOfPatientId[i]] = (rangeArray as string[])[i];
+    //     }
+    //     return mapping;
+
+    // }
+
+    /** TODO */
+    // private shuffle(array: Array<number | string>) {  // source: Fisher–Yates Shuffle; https://bost.ocks.org/mike/shuffle/
+    //     let currentIndex = array.length;
+    //     let temporaryValue: string | number;
+    //     let randomIndex: number;
+
+    //     // While there remain elements to shuffle...
+    //     while (0 !== currentIndex) {
+
+    //         // Pick a remaining element...
+    //         randomIndex = Math.floor(Math.random() * currentIndex);
+    //         currentIndex -= 1;
+
+    //         // And swap it with the current element.
+    //         temporaryValue = array[currentIndex];
+    //         array[currentIndex] = array[randomIndex];
+    //         array[randomIndex] = temporaryValue;
+    //     }
+
+    //     return array;
+    // }
 }
 
-export const studyCore = Object.freeze(new StudyCore(permissionCore));
+export const studyCore = Object.freeze(new StudyCore());

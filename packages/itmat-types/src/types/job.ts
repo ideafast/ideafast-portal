@@ -1,23 +1,35 @@
-import type { ObjectId } from 'mongodb';
+import { IBase } from './base';
 
-export interface IJobEntry<dataobj = unknown> {
-    _id?: ObjectId;
-    jobType: string;
-    id: string;
-    projectId?: string;
-    studyId: string;
-    requester: string;
-    requestTime: number;
-    receivedFiles: string[];
-    status: string;
-    error: null | Record<string, unknown>;
-    cancelled: boolean;
-    cancelledTime?: number;
-    claimedBy?: string;
-    lastClaimed?: number;
-    data?: dataobj;
+export interface IJob extends IBase {
+    name: string;
+    startTime: number | null; // null for ready to execute if available
+    period: number | null; // null for oneoff jobs
+    type: enumJobType;
+    executor: IExecutor;
+    data: JSON;
+    parameters: JSON;
+    priority: number;
+    history: IJobHistory[];
+    error: JSON;
 }
 
-export type IJobEntryForDataCuration = IJobEntry<never>;
-export type IJobEntryForFieldCuration = IJobEntry<{ tag: string }>;
-export type IJobEntryForQueryCuration = IJobEntry<{ queryId: string[], projectId: string, studyId: string }>;
+export interface IJobHistory extends IBase {
+    status: enumJobStatus;
+    time: number;
+}
+
+export enum enumJobType {
+    DMPAPI = 'DMPAPI',
+    AE = 'AE'
+}
+
+export enum enumJobStatus {
+    SUCCESS = 'SUCCESS',
+    FAIL = 'FAIL',
+    PENDING = 'PENDING',
+    CANCELLED = 'CANCELLED'
+}
+
+export interface IExecutor extends IBase {
+    id: string;
+}

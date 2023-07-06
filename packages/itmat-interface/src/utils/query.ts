@@ -1,4 +1,4 @@
-import { IStudy, IFieldEntry, IStandardization } from '@itmat-broker/itmat-types';
+import { IStudy, IField, IStandardization } from '@itmat-broker/itmat-types';
 /*
     queryString:
         format: string                  # returned foramt: raw, standardized, grouped, summary
@@ -10,7 +10,7 @@ import { IStudy, IFieldEntry, IStandardization } from '@itmat-broker/itmat-types
 // if has study-level permission, non versioned data will also be returned
 
 
-export function buildPipeline(query: any, studyId: string, permittedVersions: Array<string | null>, permittedFields: IFieldEntry[], metadataFilter: any, isAdmin: boolean) {
+export function buildPipeline(query: any, studyId: string, permittedVersions: Array<string | null>, permittedFields: IField[], metadataFilter: any, isAdmin: boolean) {
     const fieldIds: string[] = permittedFields.map(el => el.fieldId);
     const fields = { _id: 0, m_subjectId: 1, m_visitId: 1 };
     // We send back the requested fields, by default send all fields
@@ -305,7 +305,7 @@ export function translateMetadata(metadata: any) {
     return match;
 }
 
-export function dataStandardization(study: IStudy, fields: IFieldEntry[], data: any, queryString: any, standardizations: IStandardization[] | null) {
+export function dataStandardization(study: IStudy, fields: IField[], data: any, queryString: any, standardizations: IStandardization[] | null) {
     if (!queryString['format'] || queryString['format'] === 'raw') {
         return data;
     } else if (queryString['format'] === 'grouped' || queryString['format'] === 'summary') {
@@ -317,7 +317,7 @@ export function dataStandardization(study: IStudy, fields: IFieldEntry[], data: 
 }
 
 // fields are obtained from called functions, providing the valid fields
-export function standardize(study: IStudy, fields: IFieldEntry[], data: any, standardizations: IStandardization[], newFields: any) {
+export function standardize(study: IStudy, fields: IField[], data: any, standardizations: IStandardization[], newFields: any) {
     const records: any = {};
     const mergedFields: any[] = [...fields];
     [...newFields].forEach(el => {
@@ -381,7 +381,7 @@ export function standardize(study: IStudy, fields: IFieldEntry[], data: any, sta
                             break;
                         }
                         case 'fieldDef': {
-                            dataClip[rule.entry] = fieldDef[rule.parameter[0] as keyof IFieldEntry] as any || '';
+                            dataClip[rule.entry] = fieldDef[rule.parameter[0] as keyof IField] as any || '';
                             break;
                         }
                         case 'value': {

@@ -5,7 +5,7 @@ import http from 'http';
 import ITMATInterfaceRunner from './interfaceRunner';
 import config from './utils/configManager';
 import { db } from './database/database';
-import { IUser, userTypes } from '@itmat-broker/itmat-types';
+import { IUser, enumUserTypes } from '@itmat-broker/itmat-types';
 import { mailer } from './emailer/emailer';
 
 let interfaceRunner = new ITMATInterfaceRunner(config);
@@ -98,7 +98,7 @@ async function emailNotification() {
             $lte: threshold,
             $gt: now
         },
-        'type': { $ne: userTypes.ADMIN },
+        'type': { $ne: enumUserTypes.ADMIN },
         'emailNotificationsActivated': true,
         'emailNotificationsStatus.expiringNotification': false,
         'deleted': null

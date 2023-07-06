@@ -1,0 +1,17 @@
+.file_wrapper {
+    height: 100%;
+    position: relative;
+    overflow: auto;
+    /* justify-content: space-between; */
+}
+
+.file_title {
+    position: relative;
+    display: block;
+    font-size: 30px;
+}
+
+.file_buttons {
+    position: relative;
+    display: flex;
+}

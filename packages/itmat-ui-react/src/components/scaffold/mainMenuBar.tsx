@@ -3,7 +3,7 @@ import { Mutation } from '@apollo/client/react/components';
 import { useQuery } from '@apollo/client/react/hooks';
 import { NavLink } from 'react-router-dom';
 import { LOGOUT, WHO_AM_I } from '@itmat-broker/itmat-models';
-import { IProject, userTypes } from '@itmat-broker/itmat-types';
+import { IProject, enumUserTypes } from '@itmat-broker/itmat-types';
 import css from './scaffold.module.css';
 import { DatabaseOutlined, TeamOutlined, PoweroffOutlined, HistoryOutlined, SettingOutlined, ProjectOutlined, DesktopOutlined, WarningTwoTone } from '@ant-design/icons';
 import LoadSpinner from '../reusable/loadSpinner';
@@ -37,20 +37,27 @@ export const MainMenuBar: FunctionComponent<MainMenuBarProps> = ({ projects }) =
                 <div className={css.button}><DatabaseOutlined /> Datasets</div>
             </NavLink>
         </div>
-        {whoAmIData.whoAmI.type === userTypes.ADMIN ?
+        {whoAmIData.whoAmI.type === enumUserTypes.ADMIN ?
             <div>
                 <NavLink to='/users' title='Users' className={({ isActive }) => isActive ? css.clickedButton : undefined}>
                     <div className={css.button}><TeamOutlined /> Users</div>
                 </NavLink>
             </div> : null
         }
-        {(whoAmIData.whoAmI.type === userTypes.ADMIN || whoAmIData.whoAmI.metadata?.logPermission) ?
+        {(whoAmIData.whoAmI.type === enumUserTypes.ADMIN || whoAmIData.whoAmI.metadata?.logPermission) ?
             <div>
                 <NavLink to='/logs' title='Logs' className={({ isActive }) => isActive ? css.clickedButton : undefined}>
                     <div className={css.button}><HistoryOutlined /> Logs</div>
                 </NavLink>
             </div> : null
         }
+
+        <div>
+            <NavLink to={'/myfiles'} title='My Files' className={({ isActive }) => isActive ? css.clickedButton : undefined}>
+                <div className={css.button}><ProjectOutlined /> My Files</div>
+            </NavLink>
+        </div>
+
         {/*
         <div>
             <NavLink to="/notifications" title="Notifications" className={({isActive}) => isActive ? css.clickedButton : undefined}>
@@ -69,14 +76,14 @@ export const MainMenuBar: FunctionComponent<MainMenuBarProps> = ({ projects }) =
             <NavLink to='/profile' title='My account' className={({ isActive }) => isActive ? css.clickedButton : undefined}>
                 <div className={css.button}>
                     {
-                        (whoAmIData.whoAmI.type !== userTypes.ADMIN && dayjs().add(2, 'week').valueOf() - dayjs(whoAmIData.whoAmI.expiredAt).valueOf() > 0) ?
+                        (whoAmIData.whoAmI.type !== enumUserTypes.ADMIN && dayjs().add(2, 'week').valueOf() - dayjs(whoAmIData.whoAmI.expiredAt).valueOf() > 0) ?
                             <><SettingOutlined /><Tooltip title={'Your account will expire soon. You can make a request on the login page.'}> My Account<WarningTwoTone /></Tooltip></> :
                             <><SettingOutlined /> My Account</>
                     }
                 </div>
             </NavLink >
         </div >
-        {(whoAmIData.whoAmI.type === userTypes.ADMIN || whoAmIData.whoAmI.metadata?.aePermission === true)
+        {(whoAmIData.whoAmI.type === enumUserTypes.ADMIN || whoAmIData.whoAmI.metadata?.aePermission === true)
             ? <div>
                 <NavLink to='/pun/sys/dashboard' target='_blank' title='Analytical Environment' className={({ isActive }) => isActive ? css.clickedButton : undefined}>
                     <div className={css.button}><DesktopOutlined /> Analytical Environment</div>

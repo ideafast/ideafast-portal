@@ -1,24 +1,31 @@
-import * as Field from './field';
 import * as File from './file';
 import * as Job from './job';
 import * as Log from './log';
 import * as Query from './query';
 import * as Study from './study';
 import * as User from './user';
-import * as Organisation from './organisation';
 import * as Pubkey from './pubkey';
 import * as Data from './data';
 import * as Standardization from './standardization';
+import * as Base from './base';
+import * as Config from './config';
+import * as Reserved from './reserved';
+import * as Response from './response';
+import * as Doc from './doc';
 
-export * from './field';
 export * from './file';
 export * from './job';
 export * from './log';
 export * from './query';
 export * from './study';
 export * from './user';
-export * from './organisation';
 export * from './pubkey';
 export * from './data';
 export * from './standardization';
-export const Types = { File, Job, Log, User, Organisation, Pubkey, Study, Query, Field, Data, Standardization };
+export * from './base';
+export * from './config';
+export * from './reserved';
+export * from './response';
+export * from './doc';
+
+export const Types = { File, Job, Log, User, Pubkey, Study, Query, Data, Standardization, Base, Config, Reserved, Response, Doc };

@@ -41,13 +41,13 @@ import {
     GET_ONTOLOGY_TREE
 } from '@itmat-broker/itmat-models';
 import {
-    userTypes,
+    enumUserTypes,
     studyType,
     enumValueType,
-    IDataEntry,
+    IData,
     IUser,
     IFile,
-    IFieldEntry,
+    IField,
     IStudyDataVersion,
     IStudy,
     IProject,
@@ -139,7 +139,7 @@ if (global.hasMinio) {
                 expect(resWhoAmI.body.data.errors).toBeUndefined();
                 expect(resWhoAmI.body.data.whoAmI).toEqual({
                     username: 'admin',
-                    type: userTypes.ADMIN,
+                    type: enumUserTypes.ADMIN,
                     firstname: 'Fadmin',
                     lastname: 'Ladmin',
                     organisation: 'organisation_system',
@@ -323,7 +323,7 @@ if (global.hasMinio) {
                 expect(resWhoAmI.body.data.errors).toBeUndefined();
                 expect(resWhoAmI.body.data.whoAmI).toEqual({
                     username: 'admin',
-                    type: userTypes.ADMIN,
+                    type: enumUserTypes.ADMIN,
                     firstname: 'Fadmin',
                     lastname: 'Ladmin',
                     organisation: 'organisation_system',
@@ -366,7 +366,7 @@ if (global.hasMinio) {
                 expect(resWhoAmIAfter.body.data.errors).toBeUndefined();
                 expect(resWhoAmIAfter.body.data.whoAmI).toEqual({
                     username: 'admin',
-                    type: userTypes.ADMIN,
+                    type: enumUserTypes.ADMIN,
                     firstname: 'Fadmin',
                     lastname: 'Ladmin',
                     organisation: 'organisation_system',
@@ -553,7 +553,7 @@ if (global.hasMinio) {
                 const username = uuid();
                 const authorisedUserProfile: IUser = {
                     username,
-                    type: userTypes.STANDARD,
+                    type: enumUserTypes.STANDARD,
                     firstname: `${username}_firstname`,
                     lastname: `${username}_lastname`,
                     password: '$2b$04$j0aSK.Dyq7Q9N.r6d0uIaOGrOe7sI4rGUn0JNcaXcPCv.49Otjwpi',
@@ -669,7 +669,7 @@ if (global.hasMinio) {
                 const username = uuid();
                 const authorisedUserProfile: IUser = {
                     username,
-                    type: userTypes.STANDARD,
+                    type: enumUserTypes.STANDARD,
                     firstname: `${username}_firstname`,
                     lastname: `${username}_lastname`,
                     password: '$2b$04$j0aSK.Dyq7Q9N.r6d0uIaOGrOe7sI4rGUn0JNcaXcPCv.49Otjwpi',
@@ -762,7 +762,7 @@ if (global.hasMinio) {
             let authorisedUserStudy: request.SuperTest<request.Test>; // client
             let authorisedUserStudyManageProject: request.SuperTest<request.Test>; // client
             let authorisedUserToOneOrg: request.SuperTest<request.Test>; // client
-            let mockFields: IFieldEntry[];
+            let mockFields: IField[];
             let mockFiles: IFile[];
             let mockDataVersion: IStudyDataVersion;
             const newMockDataVersion: IStudyDataVersion = { // this is not added right away; but multiple tests uses this
@@ -801,7 +801,7 @@ if (global.hasMinio) {
                         version: '0.0.1',
                         updateDate: '5000000'
                     };
-                    const mockData: IDataEntry[] = [
+                    const mockData: IData[] = [
                         {
                             id: 'mockData1_1',
                             m_subjectId: 'mock_patient1',
@@ -1239,7 +1239,7 @@ if (global.hasMinio) {
                     const username = uuid();
                     const newUser: IUser = {
                         username: username,
-                        type: userTypes.STANDARD,
+                        type: enumUserTypes.STANDARD,
                         firstname: `${username}_firstname`,
                         lastname: `${username}_lastname`,
                         password: '$2b$04$j0aSK.Dyq7Q9N.r6d0uIaOGrOe7sI4rGUn0JNcaXcPCv.49Otjwpi',
@@ -1331,7 +1331,7 @@ if (global.hasMinio) {
                     expect(resUser.body.data.getUsers).toHaveLength(1);
                     expect(resUser.body.data.getUsers[0]).toEqual({
                         id: createdUserAuthorised.id,
-                        type: userTypes.STANDARD,
+                        type: enumUserTypes.STANDARD,
                         firstname: `${createdUserAuthorised.username}_firstname`,
                         lastname: `${createdUserAuthorised.username}_lastname`,
                         organisation: 'organisation_system',
@@ -1352,7 +1352,7 @@ if (global.hasMinio) {
                     const username = uuid();
                     const newUser: IUser = {
                         username: username,
-                        type: userTypes.STANDARD,
+                        type: enumUserTypes.STANDARD,
                         firstname: `${username}_firstname`,
                         lastname: `${username}_lastname`,
                         password: '$2b$04$j0aSK.Dyq7Q9N.r6d0uIaOGrOe7sI4rGUn0JNcaXcPCv.49Otjwpi',
@@ -1444,7 +1444,7 @@ if (global.hasMinio) {
                     expect(resUser.body.data.getUsers).toHaveLength(1);
                     expect(resUser.body.data.getUsers[0]).toEqual({
                         id: createdUserAuthorisedStudy.id,
-                        type: userTypes.STANDARD,
+                        type: enumUserTypes.STANDARD,
                         firstname: `${createdUserAuthorisedStudy.username}_firstname`,
                         lastname: `${createdUserAuthorisedStudy.username}_lastname`,
                         organisation: 'organisation_system',
@@ -1468,7 +1468,7 @@ if (global.hasMinio) {
                     const username = uuid();
                     const newUser: IUser = {
                         username: username,
-                        type: userTypes.STANDARD,
+                        type: enumUserTypes.STANDARD,
                         firstname: `${username}_firstname`,
                         lastname: `${username}_lastname`,
                         password: '$2b$04$j0aSK.Dyq7Q9N.r6d0uIaOGrOe7sI4rGUn0JNcaXcPCv.49Otjwpi',
@@ -1494,7 +1494,7 @@ if (global.hasMinio) {
                     const username = uuid();
                     const newUser: IUser = {
                         username: username,
-                        type: userTypes.STANDARD,
+                        type: enumUserTypes.STANDARD,
                         firstname: `${username}_firstname`,
                         lastname: `${username}_lastname`,
                         password: '$2b$04$j0aSK.Dyq7Q9N.r6d0uIaOGrOe7sI4rGUn0JNcaXcPCv.49Otjwpi',
@@ -1587,7 +1587,7 @@ if (global.hasMinio) {
                     expect(resUser.body.data.getUsers).toHaveLength(1);
                     expect(resUser.body.data.getUsers[0]).toEqual({
                         id: createdUserAuthorisedStudyManageProjects.id,
-                        type: userTypes.STANDARD,
+                        type: enumUserTypes.STANDARD,
                         firstname: `${createdUserAuthorisedStudyManageProjects.username}_firstname`,
                         lastname: `${createdUserAuthorisedStudyManageProjects.username}_lastname`,
                         organisation: 'organisation_system',
@@ -1677,7 +1677,7 @@ if (global.hasMinio) {
                     expect(resUser.body.data.getUsers).toHaveLength(1);
                     expect(resUser.body.data.getUsers[0]).toEqual({
                         id: createdUserAuthorisedToOneOrg.id,
-                        type: userTypes.STANDARD,
+                        type: enumUserTypes.STANDARD,
                         firstname: `${createdUserAuthorisedToOneOrg.username}_firstname`,
                         lastname: `${createdUserAuthorisedToOneOrg.username}_lastname`,
                         organisation: 'organisation_user',
@@ -1700,7 +1700,7 @@ if (global.hasMinio) {
                     const res = await admin.post('/graphql').send({ query: print(WHO_AM_I) });
                     expect(res.body.data.whoAmI).toStrictEqual({
                         username: 'admin',
-                        type: userTypes.ADMIN,
+                        type: enumUserTypes.ADMIN,
                         firstname: 'Fadmin',
                         lastname: 'Ladmin',
                         organisation: 'organisation_system',
@@ -1787,7 +1787,7 @@ if (global.hasMinio) {
                     const res = await admin.post('/graphql').send({ query: print(WHO_AM_I) });
                     expect(res.body.data.whoAmI).toEqual({
                         username: 'admin',
-                        type: userTypes.ADMIN,
+                        type: enumUserTypes.ADMIN,
                         firstname: 'Fadmin',
                         lastname: 'Ladmin',
                         organisation: 'organisation_system',
@@ -2534,7 +2534,7 @@ if (global.hasMinio) {
                     firstname: 'FDataCurator',
                     lastname: 'LDataCurator',
                     organisation: 'organisation_system',
-                    type: userTypes.STANDARD,
+                    type: enumUserTypes.STANDARD,
                     description: 'just a data curator',
                     resetPasswordRequests: [],
                     emailNotificationsActivated: true,
@@ -2962,7 +2962,7 @@ if (global.hasMinio) {
                     const username = uuid();
                     const newUser: IUser = {
                         username: username,
-                        type: userTypes.STANDARD,
+                        type: enumUserTypes.STANDARD,
                         firstname: `${username}_firstname`,
                         lastname: `${username}_lastname`,
                         password: '$2b$04$j0aSK.Dyq7Q9N.r6d0uIaOGrOe7sI4rGUn0JNcaXcPCv.49Otjwpi',
@@ -2988,7 +2988,7 @@ if (global.hasMinio) {
                     const username = uuid();
                     const newUser: IUser = {
                         username: username,
-                        type: userTypes.STANDARD,
+                        type: enumUserTypes.STANDARD,
                         firstname: `${username}_firstname`,
                         lastname: `${username}_lastname`,
                         password: '$2b$04$j0aSK.Dyq7Q9N.r6d0uIaOGrOe7sI4rGUn0JNcaXcPCv.49Otjwpi',
@@ -3084,7 +3084,7 @@ if (global.hasMinio) {
                     expect(resUser.body.data.getUsers).toHaveLength(1);
                     expect(resUser.body.data.getUsers[0]).toEqual({
                         id: createdUserAuthorisedProfile.id,
-                        type: userTypes.STANDARD,
+                        type: enumUserTypes.STANDARD,
                         firstname: `${createdUserAuthorisedProfile.username}_firstname`,
                         lastname: `${createdUserAuthorisedProfile.username}_lastname`,
                         organisation: 'organisation_system',
@@ -3211,7 +3211,7 @@ if (global.hasMinio) {
                     const username = uuid();
                     const newUser: IUser = {
                         username: username,
-                        type: userTypes.STANDARD,
+                        type: enumUserTypes.STANDARD,
                         firstname: `${username}_firstname`,
                         lastname: `${username}_lastname`,
                         password: '$2b$04$j0aSK.Dyq7Q9N.r6d0uIaOGrOe7sI4rGUn0JNcaXcPCv.49Otjwpi',
@@ -3373,7 +3373,7 @@ if (global.hasMinio) {
                     expect(resUser.body.data.getUsers).toHaveLength(1);
                     expect(resUser.body.data.getUsers[0]).toEqual({
                         id: createdUserAuthorisedProject.id,
-                        type: userTypes.STANDARD,
+                        type: enumUserTypes.STANDARD,
                         firstname: `${createdUserAuthorisedProject.username}_firstname`,
                         lastname: `${createdUserAuthorisedProject.username}_lastname`,
                         organisation: 'organisation_system',
@@ -3434,7 +3434,7 @@ if (global.hasMinio) {
                     const res = await admin.post('/graphql').send({ query: print(WHO_AM_I) });
                     expect(res.body.data.whoAmI).toEqual({
                         username: 'admin',
-                        type: userTypes.ADMIN,
+                        type: enumUserTypes.ADMIN,
                         firstname: 'Fadmin',
                         lastname: 'Ladmin',
                         organisation: 'organisation_system',
@@ -3601,7 +3601,7 @@ if (global.hasMinio) {
                 expect(res.body.errors).toBeUndefined();
                 // check both data collection and file collection
                 const fileFirst = await db.collections!.files_collection.findOne<IFile>({ studyId: createdStudy.id, deleted: null });
-                const dataFirst = await db.collections!.data_collection.findOne<IDataEntry>({ m_studyId: createdStudy.id, m_visitId: '1', m_fieldId: '33' });
+                const dataFirst = await db.collections!.data_collection.findOne<IData>({ m_studyId: createdStudy.id, m_visitId: '1', m_fieldId: '33' });
                 expect(dataFirst?.metadata?.add[0]).toBe(fileFirst.id);
 
                 // upload again and check whether the old file has been deleted
@@ -3631,7 +3631,7 @@ if (global.hasMinio) {
                 expect(resSecond.status).toBe(200);
                 expect(resSecond.body.errors).toBeUndefined();
                 const fileSecond = await db.collections!.files_collection.find<IFile>({ studyId: createdStudy.id, deleted: null }).toArray();
-                const dataSecond = await db.collections!.data_collection.findOne<IDataEntry>({ m_studyId: createdStudy.id, m_visitId: '1', m_fieldId: '33' });
+                const dataSecond = await db.collections!.data_collection.findOne<IData>({ m_studyId: createdStudy.id, m_visitId: '1', m_fieldId: '33' });
                 expect(fileSecond).toHaveLength(2);
                 expect(dataSecond?.metadata?.add).toEqual([fileSecond[0].id, fileSecond[1].id]);
             });

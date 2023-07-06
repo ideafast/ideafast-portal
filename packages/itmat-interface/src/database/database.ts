@@ -1,4 +1,4 @@
-import type { IDataEntry, IFieldEntry, IFile, IJobEntry, ILogEntry, IOrganisation, IProject, IPubkey, IQueryEntry, IRole, IStudy, IUser, IStandardization } from '@itmat-broker/itmat-types';
+import type { IData, IField, IFile, IJob, ILog, IOrganisation, IProject, IPubkey, IQueryEntry, IRole, IStudy, IUser, IStandardization, IConfig, IOntologyTree, IDoc } from '@itmat-broker/itmat-types';
 import { Database as DatabaseBase, IDatabaseBaseConfig } from '@itmat-broker/itmat-commons';
 import type { Collection } from 'mongodb';
 
@@ -17,23 +17,29 @@ export interface IDatabaseConfig extends IDatabaseBaseConfig {
         pubkeys_collection: string,
         data_collection: string,
         standardizations_collection: string,
+        configs_collection: string,
+        ontologies_collection: string,
+        docs_collection: string
     };
 }
 
 export interface IDatabaseCollectionConfig {
     users_collection: Collection<IUser>,
-    jobs_collection: Collection<IJobEntry<any>>,
+    jobs_collection: Collection<IJob>,
     studies_collection: Collection<IStudy>,
     projects_collection: Collection<IProject>,
     queries_collection: Collection<IQueryEntry>,
-    field_dictionary_collection: Collection<IFieldEntry>,
+    field_dictionary_collection: Collection<IField>,
     roles_collection: Collection<IRole>,
     files_collection: Collection<IFile>,
     organisations_collection: Collection<IOrganisation>,
-    log_collection: Collection<ILogEntry>,
+    log_collection: Collection<ILog>,
     pubkeys_collection: Collection<IPubkey>,
-    data_collection: Collection<IDataEntry>,
+    data_collection: Collection<IData>,
     standardizations_collection: Collection<IStandardization>,
+    configs_collection: Collection<IConfig>,
+    ontologies_collection: Collection<IOntologyTree>,
+    docs_collection: Collection<IDoc>
 }
 
 export const db = new DatabaseBase<IDatabaseBaseConfig, IDatabaseCollectionConfig>();

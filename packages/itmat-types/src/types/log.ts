@@ -1,29 +1,26 @@
-import { userTypes } from './user';
+import { IBase } from './base';
 
-export interface ILogEntry {
-    id: string,
-    requesterName: string,
-    requesterType: userTypes,
-    userAgent: USER_AGENT,
-    logType: LOG_TYPE,
-    actionType: LOG_ACTION,
-    actionData: any,
-    time: number,
-    status: LOG_STATUS,
-    errors: string | null
+export interface ILog extends IBase {
+    requesterId: string;
+    userAgent: enumUserAgent,
+    type: enumEventType,
+    operationName: enumEventOperation,
+    parameters: any,
+    status: enumEventStatus,
+    errors: string[]
 }
 
-export enum USER_AGENT {
+export enum enumUserAgent {
     MOZILLA = 'MOZILLA',
     OTHER = 'OTHER'
 }
 
-export enum LOG_TYPE {
+export enum enumEventType {
     SYSTEM_LOG = 'SYSTEM_LOG',
-    REQUEST_LOG = 'REQUEST_LOG'
+    API_LOG = 'API_LOG'
 }
 
-export enum LOG_ACTION {
+export enum enumEventOperation {
     // SYSTEM
     startSERVER = 'START_SERVER',
     stopSERVER = 'STOP_SERVER',
@@ -96,7 +93,7 @@ export enum LOG_ACTION {
 
 }
 
-export enum LOG_STATUS {
+export enum enumEventStatus {
     SUCCESS = 'SUCCESS',
     FAIL = 'FAIL'
 }

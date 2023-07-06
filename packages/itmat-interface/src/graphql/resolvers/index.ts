@@ -12,6 +12,7 @@ import { errorCodes } from '../errors';
 import { IUser } from '@itmat-broker/itmat-types';
 import { logResolvers } from './logResolvers';
 import { standardizationResolvers } from './standardizationResolvers';
+import { configResolvers } from './configResolvers';
 
 const modules = [
     studyResolvers,
@@ -23,7 +24,8 @@ const modules = [
     organisationResolvers,
     pubkeyResolvers,
     logResolvers,
-    standardizationResolvers
+    standardizationResolvers,
+    configResolvers
 ];
 
 // const loggingDecorator = (reducerFunction: Function) => {
@@ -34,7 +36,7 @@ const modules = [
 
 const bounceNotLoggedInDecorator = (reducerFunction: any) => {
     return async (parent: any, args: any, context: any, info: any) => {
-        const uncheckedFunctionWhitelist = ['login', 'rsaSigner', 'keyPairGenwSignature', 'issueAccessToken', 'whoAmI', 'getOrganisations', 'requestUsernameOrResetPassword', 'resetPassword', 'createUser', 'writeLog', 'validateResetPassword'];
+        const uncheckedFunctionWhitelist = ['login', 'rsaSigner', 'keyPairGenwSignature', 'issueAccessToken', 'whoAmI', 'getOrganisations', 'requestUsernameOrResetPassword', 'resetPassword', 'createUser', 'writeLog', 'validateResetPassword', 'getConfig'];
         const requester: IUser = context.req.user;
 
         if (!requester) {

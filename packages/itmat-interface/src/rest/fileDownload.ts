@@ -38,17 +38,18 @@ export const fileDownloadController = async (req: Request, res: Response): Promi
         }
 
         // check target field exists
-        const hasStudyLevelPermission = await permissionCore.userHasTheNeccessaryDataPermission(
-            atomicOperation.READ,
-            associatedUser,
-            file.studyId
-        );
-        if (!hasStudyLevelPermission) {
-            res.status(404).json({ error: 'File not found or you do not have the necessary permission.' });
-            return;
-        }
+        // const hasStudyLevelPermission = await permissionCore.userHasTheNeccessaryDataPermission(
+        //     atomicOperation.READ,
+        //     associatedUser.id,
+        //     file.studyId,
+        //     null
+        // );
+        // if (!hasStudyLevelPermission) {
+        //     res.status(404).json({ error: 'File not found or you do not have the necessary permission.' });
+        //     return;
+        // }
 
-        const stream = await objStore.downloadFile(file.studyId, file.uri);
+        const stream = await objStore.downloadFile(file.studyId ?? '', file.uri);
         res.set('Content-Type', 'application/octet-stream');
         res.set('Content-Type', 'application/download');
         res.set('Content-Disposition', `attachment; filename="${file.fileName}"`);

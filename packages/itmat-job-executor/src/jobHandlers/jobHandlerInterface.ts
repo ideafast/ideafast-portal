@@ -1,4 +1,4 @@
-import { IJobEntry } from '@itmat-broker/itmat-types';
+import { IJob } from '@itmat-broker/itmat-types';
 
 export abstract class JobHandler {
     /* subclass can decide either singleton
@@ -8,5 +8,5 @@ export abstract class JobHandler {
     public abstract getInstance(): Promise<JobHandler>;
 
     /* called by job dispatcher */
-    public abstract execute(document: IJobEntry<any>): Promise<void>;
+    public abstract execute(document: IJob): Promise<void>;
 }

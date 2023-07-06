@@ -1,143 +1,111 @@
 import { ApolloServerErrorCode } from '@apollo/server/errors';
 import { GraphQLError } from 'graphql';
 import bcrypt from 'bcrypt';
-import crypto from 'crypto';
 import { mailer } from '../../emailer/emailer';
-import { IProject, IStudy, IUser, IUserWithoutToken, IResetPasswordRequest, userTypes, IOrganisation } from '@itmat-broker/itmat-types';
+import { IUser, IGenericResponse, IResetPasswordRequest, enumUserTypes, IOrganisation, IFileNode } from '@itmat-broker/itmat-types';
 import { Logger } from '@itmat-broker/itmat-commons';
 import { v4 as uuid } from 'uuid';
-import mongodb from 'mongodb';
-import { db } from '../../database/database';
 import config from '../../utils/configManager';
 import { userCore } from '../core/userCore';
 import { errorCodes } from '../errors';
-import { makeGenericReponse, IGenericResponse } from '../responses';
-import * as mfa from '../../utils/mfa';
+import { makeGenericReponse } from '../responses';
 import QRCode from 'qrcode';
 import tmp from 'tmp';
+import { decryptEmail, encryptEmail, makeAESIv, makeAESKeySalt } from '../../encryption/aes';
+import * as mfa from '../../utils/mfa';
 
 export const userResolvers = {
     Query: {
-        whoAmI(parent: Record<string, unknown>, __unused__args: any, context: any): Record<string, unknown> {
+        whoAmI(__unused__parent: Record<string, unknown>, __unused__args: any, context: any): Record<string, unknown> {
+            /**
+             * Return the object of IUser of the current requester.
+             *
+             * @return Record<string, unknown> - The object of IUser.
+             */
             return context.req.user;
         },
-        getUsers: async (__unused__parent: Record<string, unknown>, args: any): Promise<IUser[]> => {
-            // everyone is allowed to see all the users in the app. But only admin can access certain fields, like emails, etc - see resolvers for User type.
-            const queryObj = args.userId === undefined ? { deleted: null } : { deleted: null, id: args.userId };
-            const cursor = db.collections!.users_collection.find<IUser>(queryObj, { projection: { _id: 0 } });
-            return cursor.toArray();
-        },
-        validateResetPassword: async (__unused__parent: Record<string, unknown>, args: any): Promise<IGenericResponse> => {
-            /* decrypt email */
-            const salt = makeAESKeySalt(args.token);
-            const iv = makeAESIv(args.token);
-            let email;
-            try {
-                email = await decryptEmail(args.encryptedEmail, salt, iv);
-            } catch (e) {
-                throw new GraphQLError('Token is not valid.');
-            }
 
-            /* check whether username and token is valid */
-            /* not changing password too in one step (using findOneAndUpdate) because bcrypt is costly */
-            const TIME_NOW = new Date().valueOf();
-            const ONE_HOUR_IN_MILLISEC = 60 * 60 * 1000;
-            const user: IUserWithoutToken | null = await db.collections!.users_collection.findOne({
-                email,
-                resetPasswordRequests: {
-                    $elemMatch: {
-                        id: args.token,
-                        timeOfRequest: { $gt: TIME_NOW - ONE_HOUR_IN_MILLISEC },
-                        used: false
+        getUsers: async (__unused__parent: Record<string, unknown>, { userId }: { userId: string | null }, context: any): Promise<Partial<IUser>[]> => {
+            /**
+             * Get the list of users.
+             *
+             * @param userId - The id of the user. If null, return all users.
+             * @return Partial<IUser>[] - The list of objects of IUser.
+             */
+
+            const requester: IUser = context.req.user;
+
+            const users = userId ? await userCore.getUser(userId, null, null) : await userCore.getAllUsers(false);
+            /* If user is admin, or user is asking info of own, then return all info. Otherwise, need to remove private info. */
+            const priority = requester.type === enumUserTypes.ADMIN || requester.id === userId;
+            const clearedUsers: Partial<IUser>[] = [];
+            if (!(requester.type === enumUserTypes.ADMIN) || !(requester.id === userId)) {
+                for (const user of users) {
+                    const cleared: Partial<IUser> = {
+                        id: user.id,
+                        username: user.username,
+                        email: user.email,
+                        firstname: user.firstname,
+                        lastname: user.lastname,
+                        organisation: user.organisation,
+                        type: user.type,
+                        profile: user.profile,
+                        description: user.description
+                    };
+                    if (priority) {
+                        cleared.emailNotificationsActivated = user.emailNotificationsActivated;
+                        cleared.expiredAt = user.expiredAt;
+                        cleared.fileRepo = user.fileRepo;
                     }
-                },
-                deleted: null
-            });
-            if (!user) {
-                throw new GraphQLError(errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY);
+                    clearedUsers.push(cleared);
+                }
             }
-            return makeGenericReponse();
+            return users as Partial<IUser>[];
         },
+
         recoverSessionExpireTime: async (): Promise<IGenericResponse> => {
+            /**
+             * Refresh the existing session to avoid timeout. Express will update the session as long as there is a new query in.
+             *
+             * @return IGenericResponse - The obejct of IGenericResponse.
+             */
             return makeGenericReponse();
-        }
-    },
-    User: {
-        access: async (user: IUser, __unused__arg: any, context: any): Promise<{ projects: IProject[], studies: IStudy[], id: string }> => {
-            const requester: IUser = context.req.user;
-
-            /* only admin can access this field */
-            if (requester.type !== userTypes.ADMIN && user.id !== requester.id) {
-                throw new GraphQLError(errorCodes.NO_PERMISSION_ERROR);
-            }
-
-            /* if requested user is admin, then he has access to all studies */
-            if (user.type === userTypes.ADMIN) {
-                const allprojects: IProject[] = await db.collections!.projects_collection.find({ deleted: null }).toArray();
-                const allstudies: IStudy[] = await db.collections!.studies_collection.find({ deleted: null }).toArray();
-                return { id: `user_access_obj_user_id_${user.id}`, projects: allprojects, studies: allstudies };
-            }
-
-            /* if requested user is not admin, find all the roles a user has */
-            const roles = await db.collections!.roles_collection.find({ users: user.id, deleted: null }).toArray();
-            const init: { projects: string[], studies: string[] } = { projects: [], studies: [] };
-            const studiesAndProjectThatUserCanSee: { projects: string[], studies: string[] } = roles.reduce(
-                (a, e) => {
-                    if (e.projectId) {
-                        a.projects.push(e.projectId);
-                    } else {
-                        a.studies.push(e.studyId);
-                    }
-                    return a;
-                }, init
-            );
-
-            const projects = await db.collections!.projects_collection.find({
-                $or: [
-                    { id: { $in: studiesAndProjectThatUserCanSee.projects }, deleted: null },
-                    { studyId: { $in: studiesAndProjectThatUserCanSee.studies }, deleted: null }
-                ]
-            }).toArray();
-            const studies = await db.collections!.studies_collection.find({ id: { $in: studiesAndProjectThatUserCanSee.studies }, deleted: null }).toArray();
-            return { id: `user_access_obj_user_id_${user.id}`, projects, studies };
         },
-        username: async (user: IUser, __unused__arg: any, context: any): Promise<string | null> => {
+
+        getFileRepo: async (__unused__parent: Record<string, unknown>, { userId }: { userId: string }, context: any): Promise<IFileNode[]> => {
+            /**
+             * Get the list of file nodes of a user.
+             *
+             * @param userId - The id of the user.
+             *
+             * @return IFileNode[]
+             */
+
             const requester: IUser = context.req.user;
-            /* only admin can access this field */
-            if (context.req.user.type !== userTypes.ADMIN && user.id !== requester.id) {
-                throw new GraphQLError(errorCodes.NO_PERMISSION_ERROR);
+
+            if (!(requester.type === enumUserTypes.ADMIN) || !(requester.id === userId)) {
+                throw new GraphQLError('', { extensions: { code: errorCodes.NO_PERMISSION_ERROR } });
             }
 
-            return user.username;
-        },
-        description: async (user: IUser, __unused__arg: any, context: any): Promise<string | null> => {
-            const requester: IUser = context.req.user;
-            /* only admin can access this field */
-            if (context.req.user.type !== userTypes.ADMIN && user.id !== requester.id) {
-                throw new GraphQLError(errorCodes.NO_PERMISSION_ERROR);
-            }
+            return await userCore.getFileNodes(userId);
 
-            return user.description;
-        },
-        email: async (user: IUser, __unused__arg: any, context: any): Promise<string | null> => {
-            const requester: IUser = context.req.user;
-            /* only admin can access this field */
-            if (context.req.user.type !== userTypes.ADMIN && user.id !== requester.id) {
-                throw new GraphQLError(errorCodes.NO_PERMISSION_ERROR);
-            }
-
-            return user.email;
         }
     },
     Mutation: {
-        requestExpiryDate: async (__unused__parent: Record<string, unknown>, { username, email }: { username?: string, email?: string }): Promise<IGenericResponse> => {
-            /* double-check user existence */
-            const queryObj = email ? { deleted: null, email } : { deleted: null, username };
-            const user: IUser | null = await db.collections!.users_collection.findOne(queryObj);
-            if (!user) {
+        requestExpiryDate: async (__unused__parent: Record<string, unknown>, { userId }: { userId: string }): Promise<IGenericResponse> => {
+            /**
+             * Ask for a request to extend account expiration time. Send notifications to user and admin.
+             *
+             * @param userId - The id of the user.
+             *
+             * @return IGenericResponse - The object of IGenericResponse
+             */
+
+            const user = (await userCore.getUser(userId, null, null))[0];
+            if (!user || !user.email || !user.username) {
                 /* even user is null. send successful response: they should know that a user doesn't exist */
                 await new Promise(resolve => setTimeout(resolve, Math.random() * 6000));
-                return makeGenericReponse();
+                return makeGenericReponse(userId, false, undefined, 'User information is not correct.');
             }
             /* send email to the DMP admin mailing-list */
             await mailer.sendMail(formatEmailRequestExpiryDatetoAdmin({
@@ -151,27 +119,37 @@ export const userResolvers = {
                 username: user.username
             }));
 
-            return makeGenericReponse();
+            return makeGenericReponse(userId, true, undefined, 'Request successfully sent.');
         },
-        requestUsernameOrResetPassword: async (__unused__parent: Record<string, unknown>, { forgotUsername, forgotPassword, email, username }: { forgotUsername: boolean, forgotPassword: boolean, email?: string, username?: string }, context: any): Promise<IGenericResponse> => {
+        requestUsernameOrResetPassword: async (__unused__parent: Record<string, unknown>, { forgotUsername, forgotPassword, email, username }: { forgotUsername: boolean, forgotPassword: boolean, email: string | null, username: string | null }, context: any): Promise<IGenericResponse> => {
+            /**
+             * Request for resetting password.
+             *
+             * @param forgotUsername - Whether user forget the username.
+             * @param forgotPassword - Whether user forgot the password.
+             * @param email - The email of the user. If using email to reset password.
+             * @param username - The username of the uer. If using username to reset password.
+             *
+             * @return IGenericResponse - The object of IGenericResponse.
+             */
+
             /* checking the args are right */
             if ((forgotUsername && !email) // should provide email if no username
-                || (forgotUsername && username) // should not provide username if it's forgotten..
+                || (forgotUsername && username) // should not provide username if it's forgotten.
                 || (!email && !username)) {
-                throw new GraphQLError(errorCodes.CLIENT_MALFORMED_INPUT);
+                throw new GraphQLError('Inputs are invalid.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
             } else if (email && username) {
                 // TO_DO : better client erro
                 /* only provide email if no username */
-                throw new GraphQLError(errorCodes.CLIENT_MALFORMED_INPUT);
+                throw new GraphQLError('Inputs are invalid.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
             }
 
             /* check user existence */
-            const queryObj = email ? { deleted: null, email } : { deleted: null, username };
-            const user = await db.collections!.users_collection.findOne(queryObj);
+            const user = (await userCore.getUser(null, username, email))[0];
             if (!user) {
                 /* even user is null. send successful response: they should know that a user doesn't exist */
                 await new Promise(resolve => setTimeout(resolve, Math.random() * 6000));
-                return makeGenericReponse();
+                return makeGenericReponse(undefined, false, undefined, 'User does not exist.');
             }
 
             if (forgotPassword) {
@@ -182,79 +160,70 @@ export const userResolvers = {
                     timeOfRequest: new Date().valueOf(),
                     used: false
                 };
-                const invalidateAllTokens = await db.collections!.users_collection.findOneAndUpdate(
-                    queryObj,
-                    {
-                        $set: {
-                            'resetPasswordRequests.$[].used': true
-                        }
-                    }
-                );
-                if (invalidateAllTokens.ok !== 1) {
-                    throw new GraphQLError(errorCodes.DATABASE_ERROR);
-                }
-                const updateResult = await db.collections!.users_collection.findOneAndUpdate(
-                    queryObj,
-                    {
-                        $push: {
-                            resetPasswordRequests: resetPasswordRequest
-                        }
-                    }
-                );
-                if (updateResult.ok !== 1) {
-                    throw new GraphQLError(errorCodes.DATABASE_ERROR);
-                }
+                await userCore.addResetPasswordRequest(user.id ?? '', resetPasswordRequest);
 
                 /* send email to client */
                 await mailer.sendMail(await formatEmailForForgottenPassword({
-                    to: user.email,
+                    to: user.email ?? '',
                     resetPasswordToken: passwordResetToken,
-                    username: user.username,
-                    firstname: user.firstname,
+                    username: user.username ?? '',
+                    firstname: user.firstname ?? '',
                     origin: context.req.headers.origin
                 }));
             } else {
                 /* send email to client */
                 await mailer.sendMail(formatEmailForFogettenUsername({
-                    to: user.email,
-                    username: user.username
+                    to: user.email ?? '',
+                    username: user.username ?? ''
                 }));
             }
-            return makeGenericReponse();
+            return makeGenericReponse(user.id, true, undefined, 'Request of resetting password successfully sent.');
         },
-        login: async (parent: Record<string, unknown>, args: any, context: any): Promise<Record<string, unknown>> => {
+        login: async (parent: Record<string, unknown>, { username, password, totp, requestexpirydate }: { username: string, password: string, totp: string, requestexpirydate: boolean }, context: any): Promise<Partial<IUser>> => {
+            /**
+             * Log in to the system.
+             *
+             * @param username - The username of the user.
+             * @param password - The password of the user.
+             * @param totp - The totp of the user.
+             * @param requestexpirydate - Whether to request for extend the expiration time of the user.
+             *
+             * @return Partial<IUser> - The object of Partial<IUser>
+             */
+
             const { req }: { req: Express.Request } = context;
-            const result = await db.collections!.users_collection.findOne({ deleted: null, username: args.username });
-            if (!result) {
-                throw new GraphQLError('User does not exist.', { extensions: { code: ApolloServerErrorCode.BAD_USER_INPUT } });
+            const user = (await userCore.getUser(null, username, null))[0];
+
+            if (!user || !user.password || !user.otpSecret || !user.expiredAt || !user.email || !user.username) {
+                throw new GraphQLError('User does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
             }
 
-            const passwordMatched = await bcrypt.compare(args.password, result.password);
+            const passwordMatched = await bcrypt.compare(password, user.password);
             if (!passwordMatched) {
-                throw new GraphQLError('Incorrect password.', { extensions: { code: ApolloServerErrorCode.BAD_USER_INPUT } });
+                throw new GraphQLError('Incorrect password.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
             }
 
-            // validate the TOTP
-            const totpValidated = mfa.verifyTOTP(args.totp, result.otpSecret);
+            /* validate the TOTP */
+            const totpValidated = mfa.verifyTOTP(totp, user.otpSecret);
             if (!totpValidated) {
                 if (process.env.NODE_ENV === 'development')
                     console.warn('Incorrect One-Time password. Continuing in development ...');
                 else
-                    throw new GraphQLError('Incorrect One-Time password.', { extensions: { code: ApolloServerErrorCode.BAD_USER_INPUT } });
+                    throw new GraphQLError('Incorrect One-Time password.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
             }
 
             /* validate if account expired */
-            if (result.expiredAt < Date.now() && result.type === userTypes.STANDARD) {
-                if (args.requestexpirydate) {
+            if (user.expiredAt < Date.now() && user.type === enumUserTypes.STANDARD) {
+                if (requestexpirydate) {
                     /* send email to the DMP admin mailing-list */
                     await mailer.sendMail(formatEmailRequestExpiryDatetoAdmin({
-                        userEmail: result.email,
-                        username: result.username
+                        userEmail: user.email,
+                        username: user.username
                     }));
                     /* send email to client */
                     await mailer.sendMail(formatEmailRequestExpiryDatetoClient({
-                        to: result.email,
-                        username: result.username
+                        to: user.email,
+                        username: user.username
                     }));
                     throw new GraphQLError('New expiry date has been requested! Wait for ADMIN to approve.', { extensions: { code: ApolloServerErrorCode.BAD_USER_INPUT } });
                 }
@@ -262,25 +231,32 @@ export const userResolvers = {
                 throw new GraphQLError('Account Expired. Please request a new expiry date!', { extensions: { code: ApolloServerErrorCode.BAD_USER_INPUT } });
             }
 
-            const filteredResult: Partial<IUser> = { ...result };
-            delete filteredResult.password;
-            delete filteredResult.deleted;
+            const filteredUser: Partial<IUser> = { ...user };
+            delete filteredUser.password;
+            delete filteredUser.otpSecret;
+            delete filteredUser.fileRepo;
 
             return new Promise((resolve) => {
-                req.login(filteredResult, (err: any) => {
+                req.login(filteredUser, (err: any) => {
                     if (err) {
                         Logger.error(err);
                         throw new GraphQLError('Cannot log in. Please try again later.');
                     }
-                    resolve(filteredResult);
+                    resolve(filteredUser);
                 });
             });
         },
         logout: async (parent: Record<string, unknown>, __unused__args: any, context: any): Promise<IGenericResponse> => {
+            /**
+             * Logout an account.
+             *
+             * @return IGenericResponse - The object of IGenericResponse.
+             */
+
             const requester: IUser = context.req.user;
             const req: Express.Request = context.req;
-            if (requester === undefined || requester === null) {
-                return makeGenericReponse(context.req.user);
+            if (!requester) {
+                return makeGenericReponse(undefined, false, undefined, 'Requester not known.');
             }
             return new Promise((resolve) => {
                 req.logout((err) => {
@@ -293,53 +269,50 @@ export const userResolvers = {
                 });
             });
         },
-        createUser: async (__unused__parent: Record<string, unknown>, args: any): Promise<IGenericResponse> => {
-            const { username, firstname, lastname, email, emailNotificationsActivated, password, description, organisation, metadata }: {
-                username: string, firstname: string, lastname: string, email: string, emailNotificationsActivated?: boolean, password: string, description?: string, organisation: string, metadata: any
-            } = args.user;
+        createUser: async (__unused__parent: Record<string, unknown>, { username, firstname, lastname, email, password, description, organisation }: {
+            username: string, firstname: string, lastname: string, email: string, password: string, description: string | null, organisation: string
+        }, context: any): Promise<Partial<IUser>> => {
+            /**
+             * Create a user.
+             *
+             * @param username - The username of the user.
+             * @param firstname - The firstname of the user.
+             * @param lastname - The lastname of the user.
+             * @param email - The email of the user.
+             * @param password - The password of the user.
+             * @param description - The description of the user.
+             */
 
             /* check email is valid form */
             if (!/^([a-zA-Z0-9_\-.]+)@([a-zA-Z0-9_\-.]+)\.([a-zA-Z]{2,5})$/.test(email)) {
-                throw new GraphQLError('Email is not the right format.', { extensions: { code: ApolloServerErrorCode.BAD_USER_INPUT } });
+                throw new GraphQLError('Email is not the right format.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
             }
 
             /* check password validity */
             if (password && !passwordIsGoodEnough(password)) {
-                throw new GraphQLError('Password has to be at least 8 character long.', { extensions: { code: ApolloServerErrorCode.BAD_USER_INPUT } });
+                throw new GraphQLError('Password has to be at least 8 character long.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
             }
 
             /* check that username and password dont have space */
             if (username.indexOf(' ') !== -1 || password.indexOf(' ') !== -1) {
-                throw new GraphQLError('Username or password cannot have spaces.', { extensions: { code: ApolloServerErrorCode.BAD_USER_INPUT } });
+                throw new GraphQLError('Username or password cannot have spaces.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
             }
 
-            const alreadyExist = await db.collections!.users_collection.findOne({ username, deleted: null }); // since bycrypt is CPU expensive let's check the username is not taken first
-            if (alreadyExist !== null && alreadyExist !== undefined) {
-                throw new GraphQLError('User already exists.', { extensions: { code: ApolloServerErrorCode.BAD_USER_INPUT } });
+            /* Check if username has been used */
+            const userExist = (await userCore.getUser(null, username, null))[0];
+            if (userExist) {
+                throw new GraphQLError('This username has been registered. Please sign-in or register with another username!', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
             }
 
-            /* check if email has been used to register */
-            const emailExist = await db.collections!.users_collection.findOne({ email, deleted: null });
-            if (emailExist !== null && emailExist !== undefined) {
+            /* check if email has been used */
+            const emailExist = (await userCore.getUser(null, null, email))[0];
+            if (emailExist) {
                 throw new GraphQLError('This email has been registered. Please sign-in or register with another email!', { extensions: { code: ApolloServerErrorCode.BAD_USER_INPUT } });
             }
 
             /* randomly generate a secret for Time-based One Time Password*/
             const otpSecret = mfa.generateSecret();
-
-            await userCore.createUser({
-                password,
-                otpSecret,
-                username,
-                type: userTypes.STANDARD,
-                description: description ?? '',
-                firstname,
-                lastname,
-                email,
-                organisation,
-                emailNotificationsActivated: !!emailNotificationsActivated,
-                metadata
-            });
+            const user = await userCore.createUser(context?.req?.user?.id ?? null, username, email, firstname, lastname, organisation, enumUserTypes.STANDARD, false, password, otpSecret, null, description);
 
             /* send email to the registered user */
             // get QR Code for the otpSecret.
@@ -377,94 +350,70 @@ export const userResolvers = {
                 attachments: attachments
             });
             tmpobj.removeCallback();
-            return makeGenericReponse();
+            return user;
         },
-        deleteUser: async (__unused__parent: Record<string, unknown>, args: any, context: any): Promise<IGenericResponse> => {
-            /* only admin can delete users */
+        deleteUser: async (__unused__parent: Record<string, unknown>, { userId }: { userId: string }, context: any): Promise<IGenericResponse> => {
+            /**
+             * Delete a user.
+             *
+             * @param userId - The id of the user.
+             *
+             * @return IGenericResponse - The object of IGenericResponse.
+             */
+
             const requester: IUser = context.req.user;
 
-            // user (admin type) cannot delete itself
-            if (requester.id === args.userId) {
-                throw new GraphQLError('User cannot delete itself');
+            /* Admins can delete anyone, while general user can only delete themself */
+            if (!(requester.type === enumUserTypes.ADMIN) || !(requester.id === userId)) {
+                throw new GraphQLError('', { extensions: { code: errorCodes.NO_PERMISSION_ERROR } });
             }
 
-            if (requester.type !== userTypes.ADMIN) {
-                throw new GraphQLError(errorCodes.NO_PERMISSION_ERROR);
-            }
+            await userCore.deleteUser(requester.id, userId);
 
-            await userCore.deleteUser(args.userId);
-            return makeGenericReponse(args.userId);
+            return makeGenericReponse(userId, true, undefined, `User ${userId} has been deleted.`);
         },
         resetPassword: async (__unused__parent: Record<string, unknown>, { encryptedEmail, token, newPassword }: { encryptedEmail: string, token: string, newPassword: string }): Promise<IGenericResponse> => {
+            /**
+             * Reset the password of an account.
+             *
+             * @param encryptedEmail - The encrypted email of the user.
+             * @param token - The id of the reset password request of the user.
+             * @param newPassword - The new password.
+             *
+             * @return IGenericResponse - The object of IGenericResponse.
+             */
             /* check password validity */
             if (!passwordIsGoodEnough(newPassword)) {
-                throw new GraphQLError('Password has to be at least 8 character long.');
+                throw new GraphQLError('Password has to be at least 8 character long.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
             }
 
             /* check that username and password dont have space */
             if (newPassword.indexOf(' ') !== -1) {
-                throw new GraphQLError('Password cannot have spaces.');
+                throw new GraphQLError('Password cannot have spaces.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
             }
 
             /* decrypt email */
             if (token.length < 16) {
-                throw new GraphQLError(errorCodes.CLIENT_MALFORMED_INPUT);
+                throw new GraphQLError('Token is invalid.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
             }
+
+            // TODO
             const salt = makeAESKeySalt(token);
             const iv = makeAESIv(token);
             let email;
             try {
                 email = await decryptEmail(encryptedEmail, salt, iv);
             } catch (e) {
-                throw new GraphQLError('Token is not valid.');
+                throw new GraphQLError('Token is invalid.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
             }
 
-            /* check whether username and token is valid */
-            /* not changing password too in one step (using findOneAndUpdate) because bcrypt is costly */
-            const TIME_NOW = new Date().valueOf();
-            const ONE_HOUR_IN_MILLISEC = 60 * 60 * 1000;
-            const user: IUserWithoutToken | null = await db.collections!.users_collection.findOne({
-                email,
-                resetPasswordRequests: {
-                    $elemMatch: {
-                        id: token,
-                        timeOfRequest: { $gt: TIME_NOW - ONE_HOUR_IN_MILLISEC },
-                        used: false
-                    }
-                },
-                deleted: null
-            });
-            if (!user) {
-                throw new GraphQLError(errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY);
-            }
-
-            /* randomly generate a secret for Time-based One Time Password*/
-            const otpSecret = mfa.generateSecret();
-
-            /* all ok; change the user's password */
-            const hashedPw = await bcrypt.hash(newPassword, config.bcrypt.saltround);
-            const updateResult = await db.collections!.users_collection.findOneAndUpdate(
-                {
-                    id: user.id,
-                    resetPasswordRequests: {
-                        $elemMatch: {
-                            id: token,
-                            timeOfRequest: { $gt: TIME_NOW - ONE_HOUR_IN_MILLISEC },
-                            used: false
-                        }
-                    }
-                },
-                { $set: { 'password': hashedPw, 'otpSecret': otpSecret, 'resetPasswordRequests.$.used': true } });
-            if (updateResult.ok !== 1) {
-                throw new GraphQLError(errorCodes.DATABASE_ERROR);
-            }
-
+            const user = await userCore.processResetPasswordRequest(token, email, newPassword);
             /* need to log user out of all sessions */
             // TO_DO
 
             /* send email to the registered user */
             // get QR Code for the otpSecret.
-            const oauth_uri = `otpauth://totp/${config.appName}:${user.username}?secret=${otpSecret}&issuer=Data%20Science%20Institute`;
+            const oauth_uri = `otpauth://totp/${config.appName}:${user.username}?secret=${user.otpSecret}&issuer=Data%20Science%20Institute`;
             const tmpobj = tmp.fileSync({ mode: 0o644, prefix: 'qrcodeimg-', postfix: '.png' });
 
             QRCode.toFile(tmpobj.name, oauth_uri, {}, function (err) {
@@ -487,7 +436,7 @@ export const userResolvers = {
                     <p>
                         To update your MFA authenticator app you can scan the QRCode below to configure it:<br/>
                         <img src="cid:qrcode_cid" alt="QR code" width="150" height="150" /><br/>
-                        If you need to type the token in use <b>${otpSecret.toLowerCase()}</b>
+                        If you need to type the token in use <b>${(user.otpSecret as string).toLowerCase()}</b>
                     </p>
                     <br/>
                     <p>
@@ -499,161 +448,85 @@ export const userResolvers = {
             tmpobj.removeCallback();
             return makeGenericReponse();
         },
-        editUser: async (__unused__parent: Record<string, unknown>, args: any, context: any): Promise<Record<string, unknown>> => {
+        editUser: async (__unused__parent: Record<string, unknown>, { userId, username, type, firstname, lastname, email, emailNotificationsActivated, password, description, organisation, expiredAt, profile }: {
+            userId: string, username: string | null, type: enumUserTypes | null, firstname: string | null, lastname: string | null, email: string | null, emailNotificationsActivated: boolean | null, password: string | null, description: string | null, organisation: string | null, expiredAt: number | null, profile: string | null
+        }, context: any): Promise<Partial<IUser>> => {
+            /**
+             * Edit a user. Besides description, other fields whose values is null will not be updated.
+             *
+             * @param userId - The id of the user.
+             * @param username - The username of the user.
+             * @param type - The type of the user.
+             * @param firstname - The first name of the user.
+             * @param lastname - The last name of the user.
+             * @param email - The email of the user.
+             * @param emailNotificationsActivated - Whether the email notification is activated.
+             * @param password - The password of the user.
+             * @param description - The description of the user.
+             * @param organisaiton - The organisation of the user.
+             * @param expiredAt - The expiration time of the user.
+             * @param profile - The profile of the user.
+             *
+             * @return Partial<IUser> - The object of IUser.
+             */
+
             const requester: IUser = context.req.user;
-            const { id, username, type, firstname, lastname, email, emailNotificationsActivated, emailNotificationsStatus, password, description, organisation, expiredAt, metadata }: {
-                id: string, username?: string, type?: userTypes, firstname?: string, lastname?: string, email?: string, emailNotificationsActivated?: boolean, emailNotificationsStatus?: any, password?: string, description?: string, organisation?: string, expiredAt?: number, metadata?: any
-            } = args.user;
-            if (password !== undefined && requester.id !== id) { // only the user themself can reset password
-                throw new GraphQLError(errorCodes.NO_PERMISSION_ERROR);
-            }
-            if (password && !passwordIsGoodEnough(password)) {
-                throw new GraphQLError('Password has to be at least 8 character long.');
-            }
-            if (requester.type !== userTypes.ADMIN && requester.id !== id) {
-                throw new GraphQLError(errorCodes.NO_PERMISSION_ERROR);
-            }
-            let result;
-            if (requester.type === userTypes.ADMIN) {
-                result = await db.collections!.users_collection.findOne({ id, deleted: null });   // just an extra guard before going to bcrypt cause bcrypt is CPU intensive.
-                if (result === null || result === undefined) {
-                    throw new GraphQLError('User not found');
-                }
+            if (requester.type !== enumUserTypes.ADMIN && requester.id !== userId) {
+                throw new GraphQLError('User can only edit his/her own information.', { extensions: { code: errorCodes.NO_PERMISSION_ERROR } });
             }
 
-            const fieldsToUpdate = {
-                type,
-                firstname,
-                lastname,
-                username,
-                email,
-                emailNotificationsActivated,
-                emailNotificationsStatus,
-                password,
-                description,
-                organisation,
-                expiredAt,
-                metadata
-            };
+            if (requester.type !== enumUserTypes.ADMIN && (type || expiredAt || organisation)) {
+                throw new GraphQLError('Standard user can not change their type, expiration time and organisation. Please contact admins for help.', { extensions: { code: errorCodes.NO_PERMISSION_ERROR } });
+            }
+
+            if (password && !passwordIsGoodEnough(password)) {
+                throw new GraphQLError('Password has to be at least 8 character long.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+            }
 
             /* check email is valid form */
             if (email && !/^([a-zA-Z0-9_\-.]+)@([a-zA-Z0-9_\-.]+)\.([a-zA-Z]{2,5})$/.test(email)) {
-                throw new GraphQLError('User not updated: Email is not the right format.', { extensions: { code: ApolloServerErrorCode.BAD_USER_INPUT } });
+                throw new GraphQLError('Email is not the right format.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
             }
-            if (requester.type !== userTypes.ADMIN && (
+
+            /* check password validity */
+            if (password && !passwordIsGoodEnough(password)) {
+                throw new GraphQLError('Password has to be at least 8 character long.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+            }
+
+            /* check if email has been used */
+            const emailExist = (await userCore.getUser(null, null, email))[0];
+            if (emailExist) {
+                throw new GraphQLError('This email has been registered. Please sign-in or register with another email!', { extensions: { code: ApolloServerErrorCode.BAD_USER_INPUT } });
+            }
+            if (requester.type !== enumUserTypes.ADMIN && (
                 type || firstname || lastname || username || description || organisation
             )) {
                 throw new GraphQLError('User not updated: Non-admin users are only authorised to change their password, email or email notification.');
             }
 
-            if (password) { fieldsToUpdate.password = await bcrypt.hash(password, config.bcrypt.saltround); }
-            for (const each of (Object.keys(fieldsToUpdate) as Array<keyof typeof fieldsToUpdate>)) {
-                if (fieldsToUpdate[each] === undefined) {
-                    delete fieldsToUpdate[each];
-                }
+            const oldUser = (await userCore.getUser(userId, null, null))[0];
+            if (!oldUser || !oldUser.password) {
+                throw new GraphQLError('User does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
             }
-            if (expiredAt) {
-                fieldsToUpdate['emailNotificationsStatus'] = {
-                    expiringNotification: false
-                };
-            }
-            const updateResult: mongodb.ModifyResult<any> = await db.collections!.users_collection.findOneAndUpdate({ id, deleted: null }, { $set: fieldsToUpdate }, { returnDocument: 'after' });
-            if (updateResult.ok === 1) {
+
+            const newUser = await userCore.editUser(requester.id, userId, username, email, firstname, lastname, organisation, type, emailNotificationsActivated, password, null, profile, description, expiredAt);
+            if (newUser) {
                 // New expiry date has been updated successfully.
-                if (expiredAt && result) {
+                if (expiredAt && newUser.email && newUser.username) {
                     /* send email to client */
                     await mailer.sendMail(formatEmailRequestExpiryDateNotification({
-                        to: result.email,
-                        username: result.username
+                        to: newUser.email,
+                        username: newUser.username
                     }));
                 }
-                return updateResult.value;
+                return newUser;
             } else {
-                throw new GraphQLError('Server error; no entry or more than one entry has been updated.');
-            }
-        },
-        createOrganisation: async (__unused__parent: Record<string, unknown>, { name, shortname, containOrg, metadata }: { name: string, shortname: string, containOrg: string, metadata: any }, context: any): Promise<IOrganisation> => {
-            const requester: IUser = context.req.user;
-
-            /* check privileges */
-            if (requester.type !== userTypes.ADMIN) {
-                throw new GraphQLError(errorCodes.NO_PERMISSION_ERROR);
-            }
-            // if the org already exists, update it; the existence is checked by the name
-            const createdOrganisation = await userCore.createOrganisation({
-                name,
-                shortname: shortname ?? null,
-                containOrg: containOrg ?? null,
-                metadata: metadata ?? null
-            });
-
-            return createdOrganisation;
-        },
-        deleteOrganisation: async (__unused__parent: Record<string, unknown>, { id }: { id: string }, context: any): Promise<IOrganisation> => {
-            const requester: IUser = context.req.user;
-
-            /* check privileges */
-            if (requester.type !== userTypes.ADMIN) {
-                throw new GraphQLError(errorCodes.NO_PERMISSION_ERROR);
-            }
-
-            const res = await db.collections!.organisations_collection.findOneAndUpdate({ id: id }, {
-                $set: {
-                    deleted: Date.now()
-                }
-            }, {
-                returnDocument: 'after'
-            });
-
-            if (res.ok === 1 && res.value) {
-                return res.value;
-            } else {
-                throw new GraphQLError('Delete organisation failed.');
+                throw new GraphQLError('Database error.', { extensions: { code: errorCodes.DATABASE_ERROR } });
             }
         }
     },
     Subscription: {}
 };
-
-export function makeAESKeySalt(str: string): string {
-    return str;
-}
-
-export function makeAESIv(str: string): string {
-    if (str.length < 16) { throw new Error('IV cannot be less than 16 bytes long.'); }
-    return str.slice(0, 16);
-}
-
-export async function encryptEmail(email: string, keySalt: string, iv: string): Promise<string> {
-    const algorithm = 'aes-256-cbc';
-    return new Promise((resolve, reject) => {
-        crypto.scrypt(config.aesSecret, keySalt, 32, (err, derivedKey) => {
-            if (err) reject(err);
-            const cipher = crypto.createCipheriv(algorithm, derivedKey, iv);
-            let encoded = cipher.update(email, 'utf8', 'hex');
-            encoded += cipher.final('hex');
-            resolve(encoded);
-        });
-    });
-
-}
-
-export async function decryptEmail(encryptedEmail: string, keySalt: string, iv: string): Promise<string> {
-    const algorithm = 'aes-256-cbc';
-    return new Promise((resolve, reject) => {
-        crypto.scrypt(config.aesSecret, keySalt, 32, (err, derivedKey) => {
-            if (err) reject(err);
-            try {
-                const decipher = crypto.createDecipheriv(algorithm, derivedKey, iv);
-                let decoded = decipher.update(encryptedEmail, 'hex', 'utf8');
-                decoded += decipher.final('utf-8');
-                resolve(decoded);
-            } catch (e) {
-                reject(e);
-            }
-        });
-    });
-}
 
 async function formatEmailForForgottenPassword({ username, firstname, to, resetPasswordToken, origin }: { resetPasswordToken: string, to: string, username: string, firstname: string, origin: any }) {
     const keySalt = makeAESKeySalt(resetPasswordToken);

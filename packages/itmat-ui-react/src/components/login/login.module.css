@@ -2,16 +2,41 @@
     height: 100%;
     position: relative;
     overflow: auto;
+    display: flex;
+    justify-content: space-between;
+}
+
+.login_left {
+    flex: 1 0 60%;
+    padding: 20px;
+    background-color: aqua;
+}
+
+.login_right {
+    flex: 1 0 40%;
+    padding: 20px;
+    background-color: aliceblue;
+}
+
+.login_logo {
+    position: absolute;
+    top: 5px;
+    right: 5px;
 }
 
 .login_box {
     position: absolute;
-    top: calc(25% - 100px);
-    left: 50%;
+    top: 25%;
+    right: calc((10% - 400px) / 2);
     width: 38rem;
     text-align: center;
     transform: translate(-50%);
     padding-bottom: 4rem;
+}
+
+.login_box_input {
+    width: 400px;
+    height: 50px;
 }
 
 .login_box [class*=ant-select] {

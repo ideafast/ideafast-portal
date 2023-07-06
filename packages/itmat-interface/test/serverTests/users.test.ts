@@ -25,7 +25,7 @@ import {
     RESET_PASSWORD,
     LOGIN
 } from '@itmat-broker/itmat-models';
-import { IResetPasswordRequest, IUser, userTypes } from '@itmat-broker/itmat-types';
+import { IResetPasswordRequest, IUser, enumUserTypes } from '@itmat-broker/itmat-types';
 import type { Express } from 'express';
 
 let app: Express;
@@ -475,7 +475,7 @@ describe('USERS API', () => {
             expect(whoami.body.data.whoAmI.id).toBeDefined();
             expect(whoami.body.data.whoAmI).toEqual({
                 username: 'standardUser',
-                type: userTypes.STANDARD,
+                type: enumUserTypes.STANDARD,
                 firstname: 'Tai Man',
                 lastname: 'Chan',
                 organisation: 'organisation_system',
@@ -543,7 +543,7 @@ describe('USERS API', () => {
             expect(whoami.body.data.whoAmI.id).toBeDefined();
             expect(whoami.body.data.whoAmI).toEqual({
                 username: 'standardUser',
-                type: userTypes.STANDARD,
+                type: enumUserTypes.STANDARD,
                 firstname: 'Tai Man',
                 lastname: 'Chan',
                 organisation: 'organisation_system',
@@ -622,7 +622,7 @@ describe('USERS API', () => {
             adminId = res.body.data.whoAmI.id;
             expect(res.body.data.whoAmI).toEqual({
                 username: 'admin',
-                type: userTypes.ADMIN,
+                type: enumUserTypes.ADMIN,
                 firstname: 'Fadmin',
                 lastname: 'Ladmin',
                 organisation: 'organisation_system',
@@ -650,7 +650,7 @@ describe('USERS API', () => {
             userId = res.body.data.whoAmI.id;
             expect(res.body.data.whoAmI).toEqual({
                 username: 'standardUser',
-                type: userTypes.STANDARD,
+                type: enumUserTypes.STANDARD,
                 firstname: 'Tai Man',
                 lastname: 'Chan',
                 organisation: 'organisation_system',
@@ -674,7 +674,7 @@ describe('USERS API', () => {
             const userSecret = 'H6BNKKO27DPLCATGEJAZNWQV4LWOTMRA';
             const newUser: IUser = {
                 username: 'expired_user',
-                type: userTypes.STANDARD,
+                type: enumUserTypes.STANDARD,
                 firstname: 'Fexpired user',
                 lastname: 'Lexpired user',
                 password: '$2b$04$ps9ownz6PqJFD/LExsmgR.ZLk11zhtRdcpUwypWVfWJ4ZW6/Zzok2',
@@ -719,7 +719,7 @@ describe('USERS API', () => {
             const adminSecret = 'H6BNKKO27DPLCATGEJAZNWQV4LWOTMRA';
             const newUser: IUser = {
                 username: 'expired_admin',
-                type: userTypes.ADMIN,
+                type: enumUserTypes.ADMIN,
                 firstname: 'Fexpired admin',
                 lastname: 'Lexpired admin',
                 password: '$2b$04$ps9ownz6PqJFD/LExsmgR.ZLk11zhtRdcpUwypWVfWJ4ZW6/Zzok2',
@@ -796,7 +796,7 @@ describe('USERS API', () => {
             expect(res.body.data.getUsers).toEqual([
                 {
                     username: 'admin',
-                    type: userTypes.ADMIN,
+                    type: enumUserTypes.ADMIN,
                     firstname: 'Fadmin',
                     lastname: 'Ladmin',
                     organisation: 'organisation_system',
@@ -811,7 +811,7 @@ describe('USERS API', () => {
                 },
                 {
                     username: 'standardUser',
-                    type: userTypes.STANDARD,
+                    type: enumUserTypes.STANDARD,
                     firstname: 'Tai Man',
                     lastname: 'Chan',
                     organisation: 'organisation_system',
@@ -833,7 +833,7 @@ describe('USERS API', () => {
             expect(res.body.data.getUsers).toEqual([
                 {
                     username: 'admin',
-                    type: userTypes.ADMIN,
+                    type: enumUserTypes.ADMIN,
                     firstname: 'Fadmin',
                     lastname: 'Ladmin',
                     organisation: 'organisation_system',
@@ -853,7 +853,7 @@ describe('USERS API', () => {
                 },
                 {
                     username: 'standardUser',
-                    type: userTypes.STANDARD,
+                    type: enumUserTypes.STANDARD,
                     firstname: 'Tai Man',
                     lastname: 'Chan',
                     organisation: 'organisation_system',
@@ -883,7 +883,7 @@ describe('USERS API', () => {
                 null,
                 {
                     username: 'standardUser',
-                    type: userTypes.STANDARD,
+                    type: enumUserTypes.STANDARD,
                     firstname: 'Tai Man',
                     lastname: 'Chan',
                     organisation: 'organisation_system',
@@ -911,7 +911,7 @@ describe('USERS API', () => {
                 null,
                 {
                     username: 'standardUser',
-                    type: userTypes.STANDARD,
+                    type: enumUserTypes.STANDARD,
                     firstname: 'Tai Man',
                     lastname: 'Chan',
                     organisation: 'organisation_system',
@@ -938,14 +938,14 @@ describe('USERS API', () => {
             expect(res.body.error).toBeUndefined();
             expect(res.body.data.getUsers).toEqual([
                 {
-                    type: userTypes.ADMIN,
+                    type: enumUserTypes.ADMIN,
                     firstname: 'Fadmin',
                     lastname: 'Ladmin',
                     organisation: 'organisation_system',
                     id: adminId
                 },
                 {
-                    type: userTypes.STANDARD,
+                    type: enumUserTypes.STANDARD,
                     firstname: 'Tai Man',
                     lastname: 'Chan',
                     organisation: 'organisation_system',
@@ -960,14 +960,14 @@ describe('USERS API', () => {
             expect(res.body.error).toBeUndefined();
             expect(res.body.data.getUsers).toEqual([
                 {
-                    type: userTypes.ADMIN,
+                    type: enumUserTypes.ADMIN,
                     firstname: 'Fadmin',
                     lastname: 'Ladmin',
                     organisation: 'organisation_system',
                     id: adminId
                 },
                 {
-                    type: userTypes.STANDARD,
+                    type: enumUserTypes.STANDARD,
                     firstname: 'Tai Man',
                     lastname: 'Chan',
                     organisation: 'organisation_system',
@@ -983,7 +983,7 @@ describe('USERS API', () => {
             expect(res.body.data.getUsers).toEqual([
                 {
                     username: 'standardUser',
-                    type: userTypes.STANDARD,
+                    type: enumUserTypes.STANDARD,
                     firstname: 'Tai Man',
                     lastname: 'Chan',
                     organisation: 'organisation_system',
@@ -1023,7 +1023,7 @@ describe('USERS API', () => {
             expect(res.body.errors).toBeUndefined();
             expect(res.body.data.getUsers).toEqual([
                 {
-                    type: userTypes.ADMIN,
+                    type: enumUserTypes.ADMIN,
                     firstname: 'Fadmin',
                     lastname: 'Ladmin',
                     organisation: 'organisation_system',
@@ -1039,7 +1039,7 @@ describe('USERS API', () => {
             expect(res.body.data.getUsers).toEqual([
                 {
                     username: 'standardUser',
-                    type: userTypes.STANDARD,
+                    type: enumUserTypes.STANDARD,
                     firstname: 'Tai Man',
                     lastname: 'Chan',
                     organisation: 'organisation_system',
@@ -1066,7 +1066,7 @@ describe('USERS API', () => {
             expect(res.body.errors).toBeUndefined();
             expect(res.body.data.getUsers).toEqual([
                 {
-                    type: userTypes.STANDARD,
+                    type: enumUserTypes.STANDARD,
                     organisation: 'organisation_system',
                     firstname: 'Tai Man',
                     lastname: 'Chan',
@@ -1095,7 +1095,7 @@ describe('USERS API', () => {
                     organisation: 'DSI-ICL',
                     emailNotificationsActivated: false,
                     email: 'user0email@email.io',
-                    type: userTypes.STANDARD
+                    type: enumUserTypes.STANDARD
                 }
             });
 
@@ -1129,7 +1129,7 @@ describe('USERS API', () => {
                     organisation: 'DSI-ICL',
                     emailNotificationsActivated: false,
                     email: 'fake@email.io',
-                    type: userTypes.STANDARD
+                    type: enumUserTypes.STANDARD
                 }
             });
 
@@ -1154,7 +1154,7 @@ describe('USERS API', () => {
                     organisation: 'DSI-ICL',
                     emailNotificationsActivated: false,
                     email: 'fak@e@semail.io',
-                    type: userTypes.STANDARD
+                    type: enumUserTypes.STANDARD
                 }
             });
             expect(res.status).toBe(200);
@@ -1175,7 +1175,7 @@ describe('USERS API', () => {
                     organisation: 'DSI-ICL',
                     emailNotificationsActivated: false,
                     email: 'fake@email.io',
-                    type: userTypes.STANDARD
+                    type: enumUserTypes.STANDARD
                 }
             });
             expect(res.status).toBe(200);
@@ -1188,7 +1188,7 @@ describe('USERS API', () => {
             /* setup: getting the id of the created user from mongo */
             const newUser: IUser = {
                 username: 'new_user',
-                type: userTypes.STANDARD,
+                type: enumUserTypes.STANDARD,
                 firstname: 'FChan Siu Man',
                 lastname: 'LChan Siu Man',
                 password: '$2b$04$j0aSK.Dyq7Q9N.r6d0uIaOGrOe7sI4rGUn0JNcaXcPCv.49Otjwpi',
@@ -1218,7 +1218,7 @@ describe('USERS API', () => {
                     organisation: 'DSI-ICL',
                     emailNotificationsActivated: false,
                     email: 'fake@email.io',
-                    type: userTypes.STANDARD
+                    type: enumUserTypes.STANDARD
                 }
             });
             expect(res.status).toBe(200);
@@ -1231,7 +1231,7 @@ describe('USERS API', () => {
             /* setup: getting the id of the created user from mongo */
             const newUser: IUser = {
                 username: 'new_user_333333',
-                type: userTypes.STANDARD,
+                type: enumUserTypes.STANDARD,
                 firstname: 'FChan Ming Ming',
                 lastname: 'LChan Ming Ming',
                 password: 'fakepassword',
@@ -1274,7 +1274,7 @@ describe('USERS API', () => {
             /* setup: getting the id of the created user from mongo */
             const newUser: IUser = {
                 username: 'new_user_3',
-                type: userTypes.STANDARD,
+                type: enumUserTypes.STANDARD,
                 firstname: 'FChan Ming Man',
                 lastname: 'LChan Ming Man',
                 password: 'fakepassword',
@@ -1299,7 +1299,7 @@ describe('USERS API', () => {
                     variables: {
                         id: 'fakeid2222',
                         username: 'fakeusername',
-                        type: userTypes.ADMIN,
+                        type: enumUserTypes.ADMIN,
                         firstname: 'FMan',
                         lastname: 'LMan',
                         email: 'hey@uk.io',
@@ -1316,7 +1316,7 @@ describe('USERS API', () => {
             expect(res.body.data.editUser).toEqual(
                 {
                     username: 'fakeusername',
-                    type: userTypes.ADMIN,
+                    type: enumUserTypes.ADMIN,
                     firstname: 'FMan',
                     lastname: 'LMan',
                     organisation: 'DSI-ICL',
@@ -1341,7 +1341,7 @@ describe('USERS API', () => {
             /* setup: getting the id of the created user from mongo */
             const newUser: IUser = {
                 username: 'new_user_4444',
-                type: userTypes.STANDARD,
+                type: enumUserTypes.STANDARD,
                 firstname: 'FMing Man San',
                 lastname: 'LMing Man San',
                 password: '$2b$04$j0aSK.Dyq7Q9N.r6d0uIaOGrOe7sI4rGUn0JNcaXcPCv.49Otjwpi',
@@ -1382,7 +1382,7 @@ describe('USERS API', () => {
             /* setup: getting the id of the created user from mongo */
             const newUser: IUser = {
                 username: 'new_user_4',
-                type: userTypes.STANDARD,
+                type: enumUserTypes.STANDARD,
                 firstname: 'FMing Man',
                 lastname: 'LMing Man',
                 password: '$2b$04$j0aSK.Dyq7Q9N.r6d0uIaOGrOe7sI4rGUn0JNcaXcPCv.49Otjwpi',
@@ -1417,7 +1417,7 @@ describe('USERS API', () => {
             expect(res.body.errors).toBeUndefined();
             expect(res.body.data.editUser).toEqual({
                 username: 'new_user_4',
-                type: userTypes.STANDARD,
+                type: enumUserTypes.STANDARD,
                 firstname: 'FMing Man',
                 lastname: 'LMing Man',
                 organisation: 'organisation_system',
@@ -1444,7 +1444,7 @@ describe('USERS API', () => {
             /* setup: getting the id of the created user from mongo */
             const newUser: IUser = {
                 username: 'new_user_5',
-                type: userTypes.STANDARD,
+                type: enumUserTypes.STANDARD,
                 firstname: 'FMing Man Chon',
                 lastname: 'LMing Man Chon',
                 password: '$2b$04$j0aSK.Dyq7Q9N.r6d0uIaOGrOe7sI4rGUn0JNcaXcPCv.49Otjwpi',
@@ -1488,7 +1488,7 @@ describe('USERS API', () => {
             /* setup: getting the id of the created user from mongo */
             const newUser: IUser = {
                 username: 'new_user_6',
-                type: userTypes.STANDARD,
+                type: enumUserTypes.STANDARD,
                 firstname: 'FMing Man',
                 lastname: 'LMing Man',
                 password: '$2b$04$j0aSK.Dyq7Q9N.r6d0uIaOGrOe7sI4rGUn0JNcaXcPCv.49Otjwpi',
@@ -1528,7 +1528,7 @@ describe('USERS API', () => {
             /* setup: getting the id of the created user from mongo */
             const newUser: IUser = {
                 username: 'new_user_7',
-                type: userTypes.STANDARD,
+                type: enumUserTypes.STANDARD,
                 firstname: 'FMing Man Tai',
                 lastname: 'LMing Man Tai',
                 password: 'fakepassword',
@@ -1566,7 +1566,7 @@ describe('USERS API', () => {
             /* setup: create a new user to be deleted */
             const newUser: IUser = {
                 username: 'new_user_8',
-                type: userTypes.STANDARD,
+                type: enumUserTypes.STANDARD,
                 firstname: 'FChan Mei',
                 lastname: 'LChan Mei',
                 password: 'fakepassword',
@@ -1593,7 +1593,7 @@ describe('USERS API', () => {
             expect(getUserRes.body.data.getUsers).toEqual([{
                 firstname: 'FChan Mei',
                 lastname: 'LChan Mei',
-                type: userTypes.STANDARD,
+                type: enumUserTypes.STANDARD,
                 organisation: 'organisation_system',
                 id: newUser.id
             }]);
@@ -1626,7 +1626,7 @@ describe('USERS API', () => {
             /* setup: create a "deleted" new user to be deleted */
             const newUser: IUser = {
                 username: 'new_user_9',
-                type: userTypes.STANDARD,
+                type: enumUserTypes.STANDARD,
                 firstname: 'FChan Mei Fong',
                 lastname: 'LChan Mei Fong',
                 password: 'fakepassword',
@@ -1682,7 +1682,7 @@ describe('USERS API', () => {
             /* setup: create a new user to be deleted */
             const newUser: IUser = {
                 username: 'new_user_10',
-                type: userTypes.STANDARD,
+                type: enumUserTypes.STANDARD,
                 firstname: 'FChan Mei Yi',
                 lastname: 'LChan Mei Yi',
                 password: 'fakepassword',
@@ -1709,7 +1709,7 @@ describe('USERS API', () => {
             expect(getUserRes.body.data.getUsers).toEqual([{
                 firstname: 'FChan Mei Yi',
                 lastname: 'LChan Mei Yi',
-                type: userTypes.STANDARD,
+                type: enumUserTypes.STANDARD,
                 organisation: 'organisation_system',
                 id: newUser.id
             }]);
@@ -1736,7 +1736,7 @@ describe('USERS API', () => {
             expect(getUserResAfter.body.data.getUsers).toEqual([{
                 firstname: 'FChan Mei Yi',
                 lastname: 'LChan Mei Yi',
-                type: userTypes.STANDARD,
+                type: enumUserTypes.STANDARD,
                 organisation: 'organisation_system',
                 id: newUser.id
             }]);

@@ -30,20 +30,20 @@ class ITMATInterfaceRunner extends Runner {
                         { $match: { operationType: { $in: ['update', 'insert'] } } }
                     ], { fullDocument: 'updateLookup' });
                     jobChangestream.on('change', data => {
-                        if (data.operationType === 'update' &&
-                            data.updateDescription &&
-                            data.updateDescription.updatedFields &&
-                            data.updateDescription.updatedFields.status
-                        ) {
-                            pubsub.publish(subscriptionEvents.JOB_STATUS_CHANGE, {
-                                subscribeToJobStatusChange: {
-                                    jobId: data.fullDocument?.id,
-                                    studyId: data.fullDocument?.studyId,
-                                    newStatus: data.fullDocument?.status,
-                                    errors: data.fullDocument?.status === 'error' ? data.fullDocument.error : null
-                                }
-                            });
-                        }
+                        // if (data.operationType === 'update' &&
+                        //     data.updateDescription &&
+                        //     data.updateDescription.updatedFields &&
+                        //     data.updateDescription.updatedFields.status
+                        // ) {
+                        //     pubsub.publish(subscriptionEvents.JOB_STATUS_CHANGE, {
+                        //         subscribeToJobStatusChange: {
+                        //             jobId: data.fullDocument?.id,
+                        //             studyId: data.fullDocument?.studyId,
+                        //             newStatus: data.fullDocument?.status,
+                        //             errors: data.fullDocument?.status ? data.fullDocument.error : null
+                        //         }
+                        //     });
+                        // }
                     });
                     _this.router = new Router(this.config);
                     await _this.router.init();

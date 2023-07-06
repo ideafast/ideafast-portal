@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { IJobEntryForDataCuration, enumValueType } from '@itmat-broker/itmat-types';
+import { IJobForDataCuration, enumValueType } from '@itmat-broker/itmat-types';
 import { processJSONHeader, processEachSubject, JSONCurator } from '../../src/curation/JSONCurator';
 import { stub } from './_stubHelper';
 
@@ -157,7 +157,7 @@ describe('Unit tests for processEachSubject function', () => {
         }
     ];
 
-    const job = stub<IJobEntryForDataCuration>({  // subset of the IJobEntry interface
+    const job = stub<IJobForDataCuration>({  // subset of the IJob interface
         id: 'mockJobId',
         studyId: 'mockStudyId'
     });
@@ -372,7 +372,7 @@ describe('JSONCuratorClass', () => {
     it('jsoncurator uploads json file okay', async () => {
         const readStream = fs.createReadStream(path.join(__dirname, '../testFiles/JSONCurator.json'));
         const mongoStub = new (MongoStub as any)();
-        const jobEntry = stub<IJobEntryForDataCuration>({  // subset of the IJobEntry interface
+        const jobEntry = stub<IJobForDataCuration>({  // subset of the IJob interface
             id: 'mockJobId',
             studyId: 'mockStudyId'
         });
@@ -401,7 +401,7 @@ describe('JSONCuratorClass', () => {
     it('jsoncurator catches non-esisting headers', async () => {
         const readStream = fs.createReadStream(path.join(__dirname, '../testFiles/JSONCurator_error1.json'));
         const mongoStub = new (MongoStub as any)();
-        const jobEntry = stub<IJobEntryForDataCuration>({  // subset of the IJobEntry interface
+        const jobEntry = stub<IJobForDataCuration>({  // subset of the IJob interface
             id: 'mockJobId',
             studyId: 'mockStudyId'
         });
@@ -423,7 +423,7 @@ describe('JSONCuratorClass', () => {
     it('jsoncurator catches duplicate header', async () => {
         const readStream = fs.createReadStream(path.join(__dirname, '../testFiles/JSONCurator_error2.json'));
         const mongoStub = new (MongoStub as any)();
-        const jobEntry = stub<IJobEntryForDataCuration>({  // subset of the IJobEntry interface
+        const jobEntry = stub<IJobForDataCuration>({  // subset of the IJob interface
             id: 'mockJobId',
             studyId: 'mockStudyId'
         });
@@ -443,7 +443,7 @@ describe('JSONCuratorClass', () => {
     it('jsoncurator catches uneven field before watermark', async () => {
         const readStream = fs.createReadStream(path.join(__dirname, '../testFiles/JSONCurator_error3.json'));
         const mongoStub = new (MongoStub as any)();
-        const jobEntry = stub<IJobEntryForDataCuration>({  // subset of the IJobEntry interface
+        const jobEntry = stub<IJobForDataCuration>({  // subset of the IJob interface
             id: 'mockJobId',
             studyId: 'mockStudyId'
         });
@@ -476,7 +476,7 @@ describe('JSONCuratorClass', () => {
     it('jsoncurator catches uneven field after watermark', async () => {
         const readStream = fs.createReadStream(path.join(__dirname, '../testFiles/JSONCurator_error4.json'));
         const mongoStub = new (MongoStub as any)();
-        const jobEntry = stub<IJobEntryForDataCuration>({  // subset of the IJobEntry interface
+        const jobEntry = stub<IJobForDataCuration>({  // subset of the IJob interface
             id: 'mockJobId',
             studyId: 'mockStudyId'
         });
@@ -509,7 +509,7 @@ describe('JSONCuratorClass', () => {
     it('jsoncurator catches mixed errors', async () => {
         const readStream = fs.createReadStream(path.join(__dirname, '../testFiles/JSONCurator_error5.json'));
         const mongoStub = new (MongoStub as any)();
-        const jobEntry = stub<IJobEntryForDataCuration>({  // subset of the IJobEntry interface
+        const jobEntry = stub<IJobForDataCuration>({  // subset of the IJob interface
             id: 'mockJobId',
             studyId: 'mockStudyId'
         });

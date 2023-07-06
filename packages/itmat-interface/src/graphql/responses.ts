@@ -1,9 +1,4 @@
-export interface IGenericResponse {
-    successful: boolean;
-    id?: string;
-    code?: string;
-    description?: string;
-}
+import { IGenericResponse } from '@itmat-broker/itmat-types';
 
 export function makeGenericReponse(id?: string, successful?: boolean, code?: string, description?: string): IGenericResponse {
     const res: IGenericResponse = {

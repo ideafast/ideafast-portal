@@ -94,6 +94,24 @@ const collections = {
         indexes: [
             { key: { id: 1 }, unique: true }
         ]
+    },
+    configs_collection: {
+        name: 'CONFIG_COLLECTION',
+        indexes: [
+            { key: { id: 1 }, unique: true }
+        ]
+    },
+    ontologies_collection: {
+        name: 'ONTOLOGY_COLLECTION',
+        indexes: [
+            { key: { id: 1 }, unique: true }
+        ]
+    },
+    docs_collection: {
+        name: 'DOC_COLLECTION',
+        indexes: [
+            { key: { id: 1 }, unique: true }
+        ]
     }
 };
 

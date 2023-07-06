@@ -9,7 +9,7 @@ import { Router } from '../../src/server/router';
 import { v4 as uuid } from 'uuid';
 import { errorCodes } from '../../src/graphql/errors';
 import { Db, MongoClient } from 'mongodb';
-import { IJobEntry, IUser, IRole, IStudy, IProject, IQueryEntry, IFile, atomicOperation, IPermissionManagementOptions } from '@itmat-broker/itmat-types';
+import { IJob, IUser, IRole, IStudy, IProject, IQueryEntry, IFile, atomicOperation, IPermissionManagementOptions } from '@itmat-broker/itmat-types';
 import { CREATE_DATA_CURATION_JOB, CREATE_FIELD_CURATION_JOB, CREATE_QUERY_CURATION_JOB } from '@itmat-broker/itmat-models';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { setupDatabase } from '@itmat-broker/itmat-setup';
@@ -108,7 +108,7 @@ describe('JOB API', () => {
             });
             expect(res.status).toBe(200);
             expect(res.body.errors).toBeUndefined();
-            const job = await mongoClient.collection<IJobEntry>(config.database.collections.jobs_collection).findOne({
+            const job = await mongoClient.collection<IJob>(config.database.collections.jobs_collection).findOne({
                 receivedFiles: createdFile.id
             });
             expect(res.body.data.createDataCurationJob).toEqual([{
@@ -137,7 +137,7 @@ describe('JOB API', () => {
             });
             expect(res.status).toBe(200);
             expect(res.body.errors).toBeUndefined();
-            const job = await mongoClient.collection<IJobEntry>(config.database.collections.jobs_collection).findOne({
+            const job = await mongoClient.collection<IJob>(config.database.collections.jobs_collection).findOne({
                 receivedFiles: createdFile.id
             });
             expect(res.body.data.createDataCurationJob).toEqual([{
@@ -167,7 +167,7 @@ describe('JOB API', () => {
             expect(res.status).toBe(200);
             expect(res.body.errors).toHaveLength(1);
             expect(res.body.errors[0].message).toBe(errorCodes.NO_PERMISSION_ERROR);
-            const job = await mongoClient.collection<IJobEntry>(config.database.collections.jobs_collection).findOne({
+            const job = await mongoClient.collection<IJob>(config.database.collections.jobs_collection).findOne({
                 receivedFiles: createdFile.id
             });
             expect(job).toBe(null);
@@ -232,7 +232,7 @@ describe('JOB API', () => {
             });
             expect(res.status).toBe(200);
             expect(res.body.errors).toBeUndefined();
-            const job = await mongoClient.collection<IJobEntry>(config.database.collections.jobs_collection).findOne({
+            const job = await mongoClient.collection<IJob>(config.database.collections.jobs_collection).findOne({
                 receivedFiles: createdFile.id
             });
             expect(res.body.data.createDataCurationJob).toEqual([{
@@ -262,7 +262,7 @@ describe('JOB API', () => {
             expect(res.status).toBe(200);
             expect(res.body.errors).toHaveLength(1);
             expect(res.body.errors[0].message).toBe(errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY);
-            const job = await mongoClient.collection<IJobEntry>(config.database.collections.jobs_collection).findOne({
+            const job = await mongoClient.collection<IJob>(config.database.collections.jobs_collection).findOne({
                 receivedFiles: createdFile.id
             });
             expect(job).toBe(null);
@@ -279,7 +279,7 @@ describe('JOB API', () => {
             expect(res.status).toBe(200);
             expect(res.body.errors).toHaveLength(1);
             expect(res.body.errors[0].message).toBe('Study does not exist.');
-            const job = await mongoClient.collection<IJobEntry>(config.database.collections.jobs_collection).findOne({
+            const job = await mongoClient.collection<IJob>(config.database.collections.jobs_collection).findOne({
                 receivedFiles: createdFile.id
             });
             expect(job).toBe(null);
@@ -296,7 +296,7 @@ describe('JOB API', () => {
             expect(res.status).toBe(200);
             expect(res.body.errors).toHaveLength(1);
             expect(res.body.errors[0].message).toBe(errorCodes.NO_PERMISSION_ERROR);
-            const job = await mongoClient.collection<IJobEntry>(config.database.collections.jobs_collection).findOne({
+            const job = await mongoClient.collection<IJob>(config.database.collections.jobs_collection).findOne({
                 receivedFiles: createdFile.id
             });
             expect(job).toBe(null);
@@ -344,7 +344,7 @@ describe('JOB API', () => {
             });
             expect(res.status).toBe(200);
             expect(res.body.errors).toBeUndefined();
-            const job = await mongoClient.collection<IJobEntry>(config.database.collections.jobs_collection).findOne({
+            const job = await mongoClient.collection<IJob>(config.database.collections.jobs_collection).findOne({
                 receivedFiles: createdFile.id
             });
             expect(res.body.data.createFieldCurationJob).toEqual({
@@ -390,7 +390,7 @@ describe('JOB API', () => {
             expect(res.status).toBe(200);
             expect(res.body.errors).toHaveLength(1);
             expect(res.body.errors[0].message).toBe(errorCodes.NO_PERMISSION_ERROR);
-            const job = await mongoClient.collection<IJobEntry>(config.database.collections.jobs_collection).findOne({
+            const job = await mongoClient.collection<IJob>(config.database.collections.jobs_collection).findOne({
                 receivedFiles: createdFile.id
             });
             expect(job).toBe(null);
@@ -456,7 +456,7 @@ describe('JOB API', () => {
             });
             expect(res.status).toBe(200);
             expect(res.body.errors).toBeUndefined();
-            const job = await mongoClient.collection<IJobEntry>(config.database.collections.jobs_collection).findOne({
+            const job = await mongoClient.collection<IJob>(config.database.collections.jobs_collection).findOne({
                 receivedFiles: createdFile.id
             });
             expect(res.body.data.createFieldCurationJob).toEqual({
@@ -489,7 +489,7 @@ describe('JOB API', () => {
             expect(res.status).toBe(200);
             expect(res.body.errors).toHaveLength(1);
             expect(res.body.errors[0].message).toBe(errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY);
-            const job = await mongoClient.collection<IJobEntry>(config.database.collections.jobs_collection).findOne({
+            const job = await mongoClient.collection<IJob>(config.database.collections.jobs_collection).findOne({
                 receivedFiles: createdFile.id
             });
             expect(job).toBe(null);
@@ -507,7 +507,7 @@ describe('JOB API', () => {
             expect(res.status).toBe(200);
             expect(res.body.errors).toHaveLength(1);
             expect(res.body.errors[0].message).toBe('Study does not exist.');
-            const job = await mongoClient.collection<IJobEntry>(config.database.collections.jobs_collection).findOne({
+            const job = await mongoClient.collection<IJob>(config.database.collections.jobs_collection).findOne({
                 receivedFiles: createdFile.id
             });
             expect(job).toBe(null);
@@ -525,7 +525,7 @@ describe('JOB API', () => {
             expect(res.status).toBe(200);
             expect(res.body.errors).toHaveLength(1);
             expect(res.body.errors[0].message).toBe(errorCodes.NO_PERMISSION_ERROR);
-            const job = await mongoClient.collection<IJobEntry>(config.database.collections.jobs_collection).findOne({
+            const job = await mongoClient.collection<IJob>(config.database.collections.jobs_collection).findOne({
                 receivedFiles: createdFile.id
             });
             expect(job).toBe(null);
@@ -591,7 +591,7 @@ describe('JOB API', () => {
             });
             expect(res.status).toBe(200);
             expect(res.body.errors).toBeUndefined();
-            const job = await mongoClient.collection<IJobEntry>(config.database.collections.jobs_collection).findOne({
+            const job = await mongoClient.collection<IJob>(config.database.collections.jobs_collection).findOne({
                 'data.queryId': createdQuery.id
             });
             expect(res.body.data.createQueryCurationJob).toEqual({
@@ -626,7 +626,7 @@ describe('JOB API', () => {
             expect(res.status).toBe(200);
             expect(res.body.errors).toHaveLength(1);
             expect(res.body.errors[0].message).toBe(errorCodes.NO_PERMISSION_ERROR);
-            const job = await mongoClient.collection<IJobEntry>(config.database.collections.jobs_collection).findOne({
+            const job = await mongoClient.collection<IJob>(config.database.collections.jobs_collection).findOne({
                 'data.queryId': createdQuery.id
             });
             expect(job).toBe(null);
@@ -693,7 +693,7 @@ describe('JOB API', () => {
             });
             expect(res.status).toBe(200);
             expect(res.body.errors).toBeUndefined();
-            const job = await mongoClient.collection<IJobEntry>(config.database.collections.jobs_collection).findOne({
+            const job = await mongoClient.collection<IJob>(config.database.collections.jobs_collection).findOne({
                 'data.queryId': createdQuery.id
             });
             expect(res.body.data.createQueryCurationJob).toEqual({
@@ -728,7 +728,7 @@ describe('JOB API', () => {
             expect(res.status).toBe(200);
             expect(res.body.errors).toHaveLength(1);
             expect(res.body.errors[0].message).toBe('Study does not exist.');
-            const job = await mongoClient.collection<IJobEntry>(config.database.collections.jobs_collection).findOne({
+            const job = await mongoClient.collection<IJob>(config.database.collections.jobs_collection).findOne({
                 'data.queryId': createdQuery.id
             });
             expect(job).toBe(null);
@@ -746,7 +746,7 @@ describe('JOB API', () => {
             expect(res.status).toBe(200);
             expect(res.body.errors).toHaveLength(1);
             expect(res.body.errors[0].message).toBe('Project does not exist.');
-            const job = await mongoClient.collection<IJobEntry>(config.database.collections.jobs_collection).findOne({
+            const job = await mongoClient.collection<IJob>(config.database.collections.jobs_collection).findOne({
                 'data.queryId': createdQuery.id
             });
             expect(job).toBe(null);
@@ -764,7 +764,7 @@ describe('JOB API', () => {
             expect(res.status).toBe(200);
             expect(res.body.errors).toHaveLength(1);
             expect(res.body.errors[0].message).toBe('Query does not exist.');
-            const job = await mongoClient.collection<IJobEntry>(config.database.collections.jobs_collection).findOne({
+            const job = await mongoClient.collection<IJob>(config.database.collections.jobs_collection).findOne({
                 'data.queryId': createdQuery.id
             });
             expect(job).toBe(null);

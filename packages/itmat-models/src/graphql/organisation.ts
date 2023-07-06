@@ -1,44 +1,69 @@
 import gql from 'graphql-tag';
 
 export const GET_ORGANISATIONS = gql`
-    query getOrganisations($organisationId: String) {
-        getOrganisations(organisationId: $organisationId) {
+    query getOrganisations(
+        $orgId: String
+    ) {
+        getOrganisations(
+            orgId: $orgId
+        ) {
             id
             name
             shortname
-            containOrg
-            deleted
-            metadata {
-                siteIDMarker
-            }
+            profile
         }
     }
 `;
 
-export const CREATE_ORGANISATION = gql`
-    mutation createOrganisation($name: String!, $shortname: String, $containOrg: String, $metadata: OrganisationMetadataInput) {
-        createOrganisation(name: $name, shortname: $shortname, containOrg: $containOrg, metadata: $metadata) {
-            id            
-            name
-            shortname
-            containOrg
-            metadata {
-                siteIDMarker
-            }
-        }
-    }
-`;
+// export const CREATE_ORGANISATION = gql`
+//     mutation createOrganisation(
+//         $name: String!,
+//         $shortname: String
+//     ) {
+//         createOrganisation(
+//             name: $name,
+//             shortname: $shortname
+//         ) {
+//             id
+//             name
+//             shortname
+//             profile
+//         }
+//     }
+// `;
 
-export const DELETE_ORGANISATION = gql`
-    mutation deleteOrganisation($id: String!) {
-        deleteOrganisation(id: $id) {
-            id            
-            name
-            shortname
-            containOrg
-            metadata {
-                siteIDMarker
-            }
-        }
-    }
-`;
+// export const DELETE_ORGANISATION = gql`
+//     mutation deleteOrganisation(
+//         $orgId: String!
+//     ) {
+//         deleteOrganisation(
+//             orgId: $orgId
+//         ) {
+//             id
+//             name
+//             shortname
+//             profile
+//         }
+//     }
+// `;
+
+// export const EDIT_ORGANISATION = gql`
+//     mutation editOrganisation(
+//         $orgId: String!,
+//         $name: String!,
+//         $shortname: String!,
+//         $profile: String
+//     ) {
+//         editOrganisation(
+//             orgId: $orgId,
+//             name: $name,
+//             shortname: $shortname,
+//             profile: $profile
+//         ) {
+//             id
+//             name
+//             shortname
+//             profile
+//         }
+//     }
+// `;

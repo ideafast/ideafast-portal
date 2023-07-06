@@ -30,7 +30,7 @@ import {
     DELETE_STANDARDIZATION,
     CREATE_ONTOLOGY_TREE
 } from '@itmat-broker/itmat-models';
-import { userTypes, IUser, studyType, IStudy, IProject, IRole, IPermissionManagementOptions, atomicOperation } from '@itmat-broker/itmat-types';
+import { enumUserTypes, IUser, studyType, IStudy, IProject, IRole, IPermissionManagementOptions, atomicOperation } from '@itmat-broker/itmat-types';
 import { Express } from 'express';
 
 
@@ -348,7 +348,7 @@ describe('STUDY API', () => {
                 const username = uuid();
                 const newUser: IUser = {
                     username: username,
-                    type: userTypes.STANDARD,
+                    type: enumUserTypes.STANDARD,
                     firstname: `${username}_firstname`,
                     lastname: `${username}_lastname`,
                     password: '$2b$04$j0aSK.Dyq7Q9N.r6d0uIaOGrOe7sI4rGUn0JNcaXcPCv.49Otjwpi',
@@ -440,7 +440,7 @@ describe('STUDY API', () => {
                 expect(resUser.body.data.getUsers).toHaveLength(1);
                 expect(resUser.body.data.getUsers[0]).toEqual({
                     id: createdUserAuthorised.id,
-                    type: userTypes.STANDARD,
+                    type: enumUserTypes.STANDARD,
                     firstname: `${createdUserAuthorised.username}_firstname`,
                     lastname: `${createdUserAuthorised.username}_lastname`,
                     organisation: 'organisation_system',
@@ -461,7 +461,7 @@ describe('STUDY API', () => {
                 const username = uuid();
                 const newUser: IUser = {
                     username: username,
-                    type: userTypes.STANDARD,
+                    type: enumUserTypes.STANDARD,
                     firstname: `${username}_firstname`,
                     lastname: `${username}_lastname`,
                     password: '$2b$04$j0aSK.Dyq7Q9N.r6d0uIaOGrOe7sI4rGUn0JNcaXcPCv.49Otjwpi',
@@ -553,7 +553,7 @@ describe('STUDY API', () => {
                 expect(resUser.body.data.getUsers).toHaveLength(1);
                 expect(resUser.body.data.getUsers[0]).toEqual({
                     id: createdUserAuthorisedStudy.id,
-                    type: userTypes.STANDARD,
+                    type: enumUserTypes.STANDARD,
                     firstname: `${createdUserAuthorisedStudy.username}_firstname`,
                     lastname: `${createdUserAuthorisedStudy.username}_lastname`,
                     organisation: 'organisation_system',
@@ -577,7 +577,7 @@ describe('STUDY API', () => {
                 const username = uuid();
                 const newUser: IUser = {
                     username: username,
-                    type: userTypes.STANDARD,
+                    type: enumUserTypes.STANDARD,
                     firstname: `${username}_firstname`,
                     lastname: `${username}_lastname`,
                     password: '$2b$04$j0aSK.Dyq7Q9N.r6d0uIaOGrOe7sI4rGUn0JNcaXcPCv.49Otjwpi',
@@ -670,7 +670,7 @@ describe('STUDY API', () => {
                 expect(resUser.body.data.getUsers).toHaveLength(1);
                 expect(resUser.body.data.getUsers[0]).toEqual({
                     id: createdUserAuthorisedStudyManageProjects.id,
-                    type: userTypes.STANDARD,
+                    type: enumUserTypes.STANDARD,
                     firstname: `${createdUserAuthorisedStudyManageProjects.username}_firstname`,
                     lastname: `${createdUserAuthorisedStudyManageProjects.username}_lastname`,
                     organisation: 'organisation_system',
@@ -693,7 +693,7 @@ describe('STUDY API', () => {
                 const res = await admin.post('/graphql').send({ query: print(WHO_AM_I) });
                 expect(res.body.data.whoAmI).toStrictEqual({
                     username: 'admin',
-                    type: userTypes.ADMIN,
+                    type: enumUserTypes.ADMIN,
                     firstname: 'Fadmin',
                     lastname: 'Ladmin',
                     organisation: 'organisation_system',
@@ -778,7 +778,7 @@ describe('STUDY API', () => {
                 const res = await admin.post('/graphql').send({ query: print(WHO_AM_I) });
                 expect(res.body.data.whoAmI).toEqual({
                     username: 'admin',
-                    type: userTypes.ADMIN,
+                    type: enumUserTypes.ADMIN,
                     firstname: 'Fadmin',
                     lastname: 'Ladmin',
                     organisation: 'organisation_system',

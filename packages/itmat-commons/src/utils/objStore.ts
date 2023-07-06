@@ -43,35 +43,35 @@ export class ObjectStore {
         return await minioClient.listBuckets();
     }
 
-    public async uploadFile(fileStream: Readable, studyId: string, uri: string): Promise<string> {
-        const lowercasestudyid = studyId.toLowerCase();
-        const bucketExists = await this.client!.bucketExists(lowercasestudyid);
+    public async uploadFile(fileStream: Readable, bucketId: string, uri: string): Promise<string> {
+        const lowerCaseBucketId = bucketId.toLowerCase();
+        const bucketExists = await this.client!.bucketExists(lowerCaseBucketId);
 
         if (!bucketExists) {
-            await this.client!.makeBucket(lowercasestudyid, this.config?.bucketRegion ?? '');
+            await this.client!.makeBucket(lowerCaseBucketId, this.config?.bucketRegion ?? '');
         }
 
         /* check if object already exists because if it does, minio supplant the old file without warning*/
         let fileExists;
         try {
-            await this.client!.statObject(lowercasestudyid, uri);
+            await this.client!.statObject(lowerCaseBucketId, uri);
             fileExists = true;
         } catch (e) {
             fileExists = false;
         }
 
         if (fileExists) {
-            throw new Error(`File "${uri}" of study "${studyId}" already exists.`);
+            throw new Error(`File "${uri}" of bucket "${bucketId}" already exists.`);
         }
 
-        const result = await this.client!.putObject(lowercasestudyid, uri, fileStream);
+        const result = await this.client!.putObject(lowerCaseBucketId, uri, fileStream);
         return result.etag;
     }
 
-    public async downloadFile(studyId: string, uri: string): Promise<Readable> {
+    public async downloadFile(bucketId: string, uri: string): Promise<Readable> {
         // PRECONDITION: studyId and file exists (checked by interface resolver)
-        const lowercasestudyid = studyId.toLowerCase();
-        const stream = this.client!.getObject(lowercasestudyid, uri);
+        const lowerCaseBucketId = bucketId.toLowerCase();
+        const stream = this.client!.getObject(lowerCaseBucketId, uri);
         return stream as Promise<Readable>;
     }
 }

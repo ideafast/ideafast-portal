@@ -2,7 +2,7 @@
     "appName": "ITMAT Interface",
     "database": {
         "mongo_url": "mongodb://localhost:27017",
-        "database": "itmat",
+        "database": "dmpplus",
         "collections": {
             "jobs_collection": "JOB_COLLECTION",
             "users_collection": "USER_COLLECTION",
@@ -17,7 +17,10 @@
             "files_collection": "FILES_COLLECTION",
             "sessions_collection": "SESSIONS_COLLECTION",
             "pubkeys_collection": "PUBKEY_COLLECTION",
-            "standardizations_collection": "STANDARDIZATION_COLLECTION"
+            "standardizations_collection": "STANDARDIZATION_COLLECTION",
+            "configs_collection": "CONFIG_COLLECTION",
+            "ontologies_collection": "ONTOLOGY_COLLECTION",
+            "docs_collection": "DOC_COLLECTION"
         }
     },
     "server": {
@@ -28,7 +31,7 @@
     },
     "objectStore": {
         "host": "localhost",
-        "port": 8080,
+        "port": 9000,
         "accessKey": "minioadmin",
         "secretKey": "minioadmin",
         "bucketRegion": "region",
