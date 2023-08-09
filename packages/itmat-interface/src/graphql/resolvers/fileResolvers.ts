@@ -1,5 +1,5 @@
 import { GraphQLError } from 'graphql';
-import { IFile, IOrganisation, IUser, atomicOperation, IPermissionManagementOptions, IData, IGenericResponse } from '@itmat-broker/itmat-types';
+import { IFile, IOrganisation, IUser, atomicOperation, IPermissionManagementOptions, IData, IGenericResponse, enumFileTypes, enumFileCategories } from '@itmat-broker/itmat-types';
 import { v4 as uuid } from 'uuid';
 import { FileUpload } from 'graphql-upload-minimal';
 import { db } from '../../database/database';
@@ -21,9 +21,46 @@ export const fileResolvers = {
     },
     Mutation: {
         // this API has the same functions as uploading file data via clinical APIs
-        // uploadFile: async (__unused__parent: Record<string, unknown>, args: { fileLength?: bigint, studyId: string, file: Promise<FileUpload>, description: string, hash?: string }, context: any): Promise<IFile> => {
+        // uploadFile: async (__unused__parent: Record<string, unknown>, {studyId, fieldId, fileUpload, description, fileType, fileCategory}: {studyId: string | null, fieldId: string | null, fileUpload: Promise<FileUpload>, description: Record<string, any>, fileType: enumFileTypes, fileCategory: enumFileCategories}, context: any): Promise<IFile> => {
+        //     /**
+        //      * Upload a file
+        //      * @param studyId - The id of the study. Could be null for non-study files.
+        //      * @param fieldId - The id of the field.
+        //      * @param fileUpload - The file to upload.
+        //      * @param description - The description of the file.
+        //      * @param fileType - The type of the file.
+        //      * @param fileCategory - The category of the file.
+        //      *
+        //      * @note Parameters must be provides via the following form
+        //      * fileCategory                            studyId    fieldId
+        //      * STUDY_DATA_FILE participant-level          Y          Y 
+        //      * STUDY_DATA_FILE study-level                Y          N
+        //      * USER_REPO_FILE                             N          N
+        //      * PROFILE_FILE                               N          N
+        //      * DOC_FILE                                  Y/N         N    
+        //      * 
+        //      * @return IFile - The object of IFile.
+        //      */
 
         //     const requester: IUser = context.req.user;
+            
+        //     // fetch the config            
+        //     if (fileCategory === enumFileCategories.STUDY_DATA_FILE) {
+        //         if (fieldId) {
+        //             // STUDY_DATA_FILE participant-level
+        //         } else {
+        //             // STUDY_DATA_FILE study-level
+        //         }
+        //     } else if (fileCategory === enumFileCategories.USER_REPO_FILE) {
+        //             // USER_REPO_FILE
+        //     } else if (fileCategory === enumFileCategories.PROFILE_FILE) {
+
+        //     } else if (fileCategory === enumFileCategories.DOC_FILE) {
+
+        //     } else {
+        //         throw new GraphQLError('File category is invalid', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+        //     }
+            
         //     // get the target fieldId of this file
         //     const study = await studyCore.findOneStudy_throwErrorIfNotExist(args.studyId);
 

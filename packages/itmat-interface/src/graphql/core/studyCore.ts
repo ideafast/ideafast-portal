@@ -1,5 +1,5 @@
 import { GraphQLError } from 'graphql';
-import { IFile, IUser, IProject, IStudy, IStudyDataVersion, IDataClip, IRole, deviceTypes, IOrganisation, IGenericResponse, enumGroupNodeTypes, IField, IGroupNode } from '@itmat-broker/itmat-types';
+import { IFile, IUser, IProject, IStudy, IStudyDataVersion, IDataClip, IRole, deviceTypes, IOrganisation, IGenericResponse, enumGroupNodeTypes, IField, IStudyGroupNode, enumFileTypes, enumFileCategories } from '@itmat-broker/itmat-types';
 import { v4 as uuid } from 'uuid';
 import { db } from '../../database/database';
 import { errorCodes } from '../errors';
@@ -7,15 +7,16 @@ import { permissionCore } from './permissionCore';
 import { validate } from '@ideafast/idgen';
 import type { MatchKeysAndValues } from 'mongodb';
 import { objStore } from '../../objStore/objStore';
-import { FileUpload } from 'graphql-upload-minimal';
+import { FileUpload, Upload } from 'graphql-upload-minimal';
 import crypto from 'crypto';
 import { fileSizeLimit } from '../../utils/definition';
 import { makeGenericReponse } from '../responses';
+import { fileCore } from './fileCore';
 
 export class StudyCore {
     // constructor(private readonly localPermissionCore: PermissionCore) { }
 
-    public async getStudy(studyId: string): Promise<IStudy> {
+    public async getStudies(studyId: string | null): Promise<IStudy[]> {
         /**
          * Get the info of a study.
          *
@@ -24,15 +25,23 @@ export class StudyCore {
          * @return IStudy - The object of IStudy.
          */
 
-        const study = await db.collections!.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null });
-        if (!study) {
+        
+        let query: any = { 'life.deletedTime': null };
+
+        if (studyId) {
+            query.id = studyId;
+        }
+        const studies = await db.collections!.studies_collection.find(query).toArray();
+
+        
+        if (studies.length === 0) {
             throw new GraphQLError('Study does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
         }
 
-        return study;
+        return studies;
     }
 
-    public async createStudy(requester: string, studyName: string, description: string | null): Promise<IStudy> {
+    public async createStudy(requester: string, studyName: string, description: string | null, profile: FileUpload | null): Promise<Partial<IStudy>> {
         /**
          * Create a study.
          *
@@ -47,12 +56,22 @@ export class StudyCore {
             throw new GraphQLError('Study already exists (duplicates are case-insensitive).', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
         }
 
+
+        const studyId = uuid();
+        let fileEntry = null;
+        if (profile) {
+            if (!Object.keys(enumFileTypes).includes(profile?.filename?.split('.')[1].toUpperCase())) {
+                throw new GraphQLError('Profile file does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+            }
+            fileEntry = await fileCore.uploadFile(requester, studyId, null, profile, null, enumFileTypes[profile.filename.split('.')[1].toUpperCase() as keyof typeof enumFileTypes], enumFileCategories.STUDY_PROFILE_FILE, []);
+        }
         const studyEntry: IStudy = {
-            id: uuid(),
+            id: studyId,
             name: studyName,
             currentDataVersion: -1,
             dataVersions: [],
             description: description,
+            profile: fileEntry ? fileEntry.id : null,
             groupList: [{
                 id: uuid(),
                 name: studyName,
@@ -84,13 +103,15 @@ export class StudyCore {
         }
     }
 
-    public async editStudy(studyId: string, name: string, description: string): Promise<IStudy> {
+    public async editStudy(requester: string, studyId: string, name: string, description: string, profile: FileUpload | null): Promise<Partial<IStudy>> {
         /**
          * Edit the description of the study.
          *
+         * @param requester - The id of the requester.
          * @param studyId - The id of the study.
          * @param name - The name of the study.
          * @param description - The description of the study.
+         * @param profile - The profile of the study.
          *
          * @return IStudy - The object of IStudy
          */
@@ -100,7 +121,14 @@ export class StudyCore {
             throw new GraphQLError('Study does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
         }
 
-        const res = await db.collections!.studies_collection.findOneAndUpdate({ id: studyId }, { $set: { name: name, description: description } }, { returnDocument: 'after' });
+        let fileEntry;
+        if (profile) {
+            if (!Object.keys(enumFileTypes).includes(profile?.filename?.split('.')[1].toUpperCase())) {
+                throw new GraphQLError('Profile file does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+            }
+            fileEntry = await fileCore.uploadFile(requester, studyId, null, profile, null, enumFileTypes[profile.filename.split('.')[1].toUpperCase() as keyof typeof enumFileTypes], enumFileCategories.STUDY_PROFILE_FILE, []);
+        }
+        const res = await db.collections!.studies_collection.findOneAndUpdate({ id: studyId }, { $set: { name: name, description: description, profile: fileEntry?.id } }, { returnDocument: 'after' });
         if (res.ok === 1 && res.value) {
             return res.value;
         } else {
@@ -306,7 +334,7 @@ export class StudyCore {
         return makeGenericReponse(dataVersionId, true, undefined, `Data version ${dataVersionId} has been set as the current data version.`);
     }
 
-    public async createStudyGroup(requester: string, studyId: string, groupName: string, groupType: enumGroupNodeTypes, description: string | null, parentGroupId: string): Promise<IGroupNode> {
+    public async createStudyGroup(requester: string, studyId: string, groupName: string, groupType: enumGroupNodeTypes, description: string | null, parentGroupId: string): Promise<IStudyGroupNode> {
         /**
          * Create a study group.
          *
@@ -317,7 +345,7 @@ export class StudyCore {
          * @param description - The description of the group.
          * @param parentGroupId - The id of the parent group.
          *
-         * @return IGroupNode - The object of IGroupNode
+         * @return IStudyGroupNode - The object of IStudyGroupNode
          */
 
         const study = await db.collections!.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null, 'groupList.id': parentGroupId });
@@ -325,7 +353,14 @@ export class StudyCore {
             throw new GraphQLError('Study or parent node does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
         }
 
-        const groupEntry: IGroupNode = {
+        let userId: string;
+        if (groupType === enumGroupNodeTypes.USER) {
+            const user = await db.collections!.users_collection.findOne({ 'id': groupName, 'life.deletedTime': null });
+            if (!user) {
+                throw new GraphQLError('User does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+            }
+        }
+        const groupEntry: IStudyGroupNode = {
             id: uuid(),
             name: groupName,
             type: groupType,
@@ -344,16 +379,22 @@ export class StudyCore {
         await db.collections!.studies_collection.findOneAndUpdate({ id: studyId }, {
             $push: { groupList: groupEntry }
         });
+        await db.collections!.studies_collection.findOneAndUpdate({id: studyId, 'groupList.id': parentGroupId}, {
+            $push: {
+                'groupList.$.children': groupEntry.id
+            }
+        });
 
         return groupEntry;
     }
 
-    public async editStudyGroup(studyId: string, groupId: string, description: string | null, targetParentId: string | null, children: string[] | null): Promise<IGenericResponse> {
+    public async editStudyGroup(studyId: string, groupId: string, groupName: string | null, description: string | null, targetParentId: string | null, children: string[] | null): Promise<IGenericResponse> {
         /**
          * Edit a group.
          *
          * @param studyId - The id of the study.
          * @param groupId - The id of the group.
+         * @param groupName - The name of the group.
          * @param description - The new description of the group.
          * @param targetParentId - The id of the target parent.
          * @param children - The ids of the children groups of the group.
@@ -365,8 +406,19 @@ export class StudyCore {
             throw new GraphQLError('Study or group does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
         }
 
+        const thisGroup: IStudyGroupNode = study.groupList.filter(el => el.id === groupId)[0];
+
+        if (groupName) {
+            if (thisGroup.type === enumGroupNodeTypes.USER) {
+                const user = await db.collections!.users_collection.findOne({id: groupName, 'life.deletedTime': null});
+                if (!user) {
+                    throw new GraphQLError('User does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+                }
+            }
+        }
+
         if (targetParentId) {
-            const targetParentGroup: IGroupNode | null = study.groupList.filter(el => el.id === targetParentId)[0];
+            const targetParentGroup: IStudyGroupNode | null = study.groupList.filter(el => el.id === targetParentId)[0];
             if (!targetParentGroup) {
                 throw new GraphQLError('Target group does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
             }
@@ -379,11 +431,10 @@ export class StudyCore {
             }
         }
 
-        const thisGroup: IGroupNode = study.groupList.filter(el => el.id === groupId)[0];
-
         await db.collections!.studies_collection.findOneAndUpdate({ 'id': studyId, 'groupList.id': groupId }, {
             $set: {
                 'groupList.$.description': description ?? thisGroup.description,
+                'groupList.$.name': groupName ?? thisGroup.name,
                 'groupList.$.targetParentId': targetParentId ?? thisGroup.parent,
                 'groupList.$.children': children ?? thisGroup.children
             }
@@ -407,14 +458,35 @@ export class StudyCore {
             throw new GraphQLError('Study or group does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
         }
 
-        await db.collections!.studies_collection.findOneAndUpdate({ 'id': studyId, 'groupList.id': groupId }, {
-            $set: {
-                'groupList.$.life.deletedUser': requester,
-                'groupList.$.life.deletedTime': Date.now()
-            }
-        });
+        const thisGroup: IStudyGroupNode = study.groupList.filter(el => el.id === groupId)[0];
+
+        for (const nodeId of [groupId, ...thisGroup.children]) {
+            await db.collections!.studies_collection.findOneAndUpdate({ 'id': studyId, 'groupList.id': nodeId }, {
+                $set: {
+                    'groupList.$.life.deletedUser': requester,
+                    'groupList.$.life.deletedTime': Date.now()
+                }
+            });
+        }
 
         return makeGenericReponse(groupId, true, undefined, `Group ${groupId} of study ${studyId} has been deleted.`);
+    }
+
+    public async getStudyGroups(studyId: string): Promise<Partial<IStudyGroupNode>[]> {
+        /**
+         * Get the list of groups of a study.
+         * 
+         * @param studyId - The id of the study.
+         * 
+         * @return Partial<IStudyGroupNode>[]
+         */
+
+        const study = await db.collections!.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null });
+        if (!study) {
+            throw new GraphQLError('Study does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+        }
+
+        return study.groupList.filter(el => !el.life.deletedTime);
     }
 
     /** TODO */

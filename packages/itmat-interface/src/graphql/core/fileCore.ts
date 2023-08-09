@@ -7,63 +7,77 @@ import { FileUpload } from 'graphql-upload-minimal';
 import crypto from 'crypto';
 import { objStore } from '../../objStore/objStore';
 import { makeGenericReponse } from '../responses';
+import { use } from 'passport';
 
 export class FileCore {
-    public async uploadFile(requester: string, studyId: string | null, fileUpload: Promise<FileUpload>, description: Record<string, any>, fileType: enumFileTypes, fileCategory: enumFileCategories): Promise<IFile> {
+    public async uploadFile(requester: string, studyId: string | null, userId: string | null, fileUpload: FileUpload, description: string | null, fileType: enumFileTypes, fileCategory: enumFileCategories, properties: Record<string, any> | null): Promise<IFile> {
         /**
          * Upload a file to storage.
          *
          * @param requester - The id of the requester.
          * @param studyId - The id of the study. Could be null for non-study files.
-         * @param isSystemFile - Whether the file is a system file.
-         * @param fileName - The name of the file.
-         * @param file - The file to upload.
+         * @param userId - The id of the user.
+         * @param fileUpload - The file to upload.
          * @param description - The description of the file.
          * @param fileType - The type of the file.
          * @param fileCategory - The category of the file.
+         * @param properties - The properties of the file. Note if the data is attached to a field, the fieldproperties will be used.
          *
          * @return IFile - The object of IFile.
          */
-
-        if (studyId) {
-            const study = await db.collections!.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null });
-            if (!study) {
-                throw new GraphQLError('Study does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
-            }
-        }
-        const file = await fileUpload;
-
+        
+        // if (studyId) {
+        //     const study = await db.collections!.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null });
+        //     if (!study) {
+        //         throw new GraphQLError('Study does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+        //     }
+        // }
+        const file = fileUpload;
         // fetch the config file. study file or user file or system file
         let fileConfig: any;
-        if (fileCategory === enumFileCategories.SYSTEMFILE) {
-            // system file config
-            fileConfig = defaultSettings.systemConfig;
-        } else if (fileCategory === enumFileCategories.STUDYDATAFILE) {
+        let userRepoRemainingSpace = 0;
+        let fileSizeLimit: number;
+        if (fileCategory === enumFileCategories.STUDY_DATA_FILE || fileCategory === enumFileCategories.STUDY_PROFILE_FILE) {
             // study file config
             fileConfig = await db.collections!.configs_collection.findOne({ type: enumConfigType.STUDYCONFIG, key: studyId });
             if (!fileConfig) {
                 fileConfig = defaultSettings.studyConfig;
             }
-        } else if (fileCategory === enumFileCategories.USERFILE) {
+            if (fileCategory === enumFileCategories.STUDY_PROFILE_FILE) {
+                fileSizeLimit = fileConfig.defaultMaximumProfileSize;
+            } else {
+                fileSizeLimit = fileConfig.defaultMaximumFileSize;
+            }
+        } else if (fileCategory === enumFileCategories.USER_REPO_FILE || fileCategory === enumFileCategories.USER_PROFILE_FILE) {
             // user file config
             fileConfig = await db.collections!.configs_collection.findOne({ type: enumConfigType.USERCONFIG, key: requester });
             if (!fileConfig) {
                 fileConfig = defaultSettings.userConfig;
             }
+            if (fileCategory === enumFileCategories.USER_PROFILE_FILE) {
+                fileSizeLimit = fileConfig.defaultMaximumProfileSize;
+            } else {
+                const totalSize: number = (await db.collections!.files_collection.aggregate([{
+                    $match: { 'userId': requester, 'life.deletedTime': null }
+                }, {
+                    $group: { _id: '$userId', totalSize: { $sum: '$fileSize' } }
+                }]) as any).totalSize;
+                userRepoRemainingSpace = fileConfig.defaultMaximumFileRepoSize - totalSize;
+                fileSizeLimit = Math.max(fileConfig.defaultMaximumFileSize, userRepoRemainingSpace);
+            }
+        } else if (fileCategory === enumFileCategories.ORGANISATION_PROFILE_FILE) {
+            fileConfig = await db.collections!.configs_collection.findOne({ type: enumConfigType.ORGANISATIONCONFIG, key: null });
+            if (!fileConfig) {
+                fileConfig = defaultSettings.organisationConfig;
+            }
+        } else if (fileCategory === enumFileCategories.DOC_FILE) {
+            fileConfig = await db.collections!.configs_collection.findOne({ type: enumConfigType.DOCCONFIG, key: null });
+            if (!fileConfig) {
+                fileConfig = defaultSettings.docConfig;
+            }
+        } else {
+            throw new GraphQLError('Config file missing.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
         }
-
-        let userRepoRemainingSpace = 0;
-        if (fileConfig.type === enumConfigType.USERCONFIG) {
-            const totalSize: number = (await db.collections!.files_collection.aggregate([{
-                $match: { 'userId': requester, 'life.deletedTime': null }
-            }, {
-                $group: { _id: '$userId', totalSize: { $sum: '$fileSize' } }
-            }]) as any).totalSize;
-            userRepoRemainingSpace = fileConfig.defaultMaximumFileRepoSize - totalSize;
-        }
-
-        const fileSizeLimit: number = fileConfig === enumConfigType.USERCONFIG ? Math.max(fileConfig.defaultMaximumFileSize, userRepoRemainingSpace) : fileConfig.defaultMaximumFileSize;
-
         return new Promise<IFile>((resolve, reject) => {
             (async () => {
                 try {
@@ -89,14 +103,13 @@ export class FileCore {
                         }
                         hash.update(chunk);
                     });
-
                     await objStore.uploadFile(stream, studyId ? studyId : fileConfig.defaultFileBucketId, fileUri);
 
                     const hashString = hash.digest('hex');
                     const fileEntry: IFile = {
                         id: uuid(),
                         studyId: studyId,
-                        userId: fileCategory === enumFileCategories.USERFILE ? requester : null,
+                        userId: userId,
                         fileName: file.filename,
                         fileSize: readBytes,
                         description: description,
@@ -104,7 +117,8 @@ export class FileCore {
                         hash: hashString,
                         fileType: fileType,
                         fileCategory: fileCategory,
-                        sharedUsers: fileCategory === enumFileCategories.USERFILE ? [] : null,
+                        properties: properties,
+                        sharedUsers: [],
                         life: {
                             createdTime: Date.now(),
                             createdUser: requester,

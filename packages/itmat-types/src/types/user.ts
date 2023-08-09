@@ -38,7 +38,8 @@ export interface IOrganisation extends IBase {
 }
 
 export interface IFileNode extends IBase {
-    value: string; // fileId for files or name for folders
+    name: string; //
+    fileId: string | null;
     type: enumFileNodeTypes;
     parent: string | null; // null for root node
     children: string[]; // ids of the file nodes

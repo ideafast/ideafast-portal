@@ -5,7 +5,7 @@ import { NavLink } from 'react-router-dom';
 import { LOGOUT, WHO_AM_I } from '@itmat-broker/itmat-models';
 import { IProject, enumUserTypes } from '@itmat-broker/itmat-types';
 import css from './scaffold.module.css';
-import { DatabaseOutlined, TeamOutlined, PoweroffOutlined, HistoryOutlined, SettingOutlined, ProjectOutlined, DesktopOutlined, WarningTwoTone } from '@ant-design/icons';
+import { DatabaseOutlined, TeamOutlined, PoweroffOutlined, HistoryOutlined, SettingOutlined, ProjectOutlined, DesktopOutlined, WarningTwoTone, FileOutlined, GlobalOutlined } from '@ant-design/icons';
 import LoadSpinner from '../reusable/loadSpinner';
 import dayjs from 'dayjs';
 import { Tooltip } from 'antd';
@@ -52,11 +52,11 @@ export const MainMenuBar: FunctionComponent<MainMenuBarProps> = ({ projects }) =
             </div> : null
         }
 
-        <div>
+        {/* <div>
             <NavLink to={'/myfiles'} title='My Files' className={({ isActive }) => isActive ? css.clickedButton : undefined}>
                 <div className={css.button}><ProjectOutlined /> My Files</div>
             </NavLink>
-        </div>
+        </div> */}
 
         {/*
         <div>
@@ -71,6 +71,18 @@ export const MainMenuBar: FunctionComponent<MainMenuBarProps> = ({ projects }) =
             </NavLink>
         </div>
         */}
+
+        <div>
+            <NavLink to='/documents' title='Documents' className={({ isActive }) => isActive ? css.clickedButton : undefined}>
+                <div className={css.button}><FileOutlined /> Documents</div>
+            </NavLink>
+        </div>
+
+        <div>
+            <NavLink to='/organisations' title='Organisations' className={({ isActive }) => isActive ? css.clickedButton : undefined}>
+                <div className={css.button}><GlobalOutlined /> Organisations</div>
+            </NavLink>
+        </div>
 
         <div>
             <NavLink to='/profile' title='My account' className={({ isActive }) => isActive ? css.clickedButton : undefined}>

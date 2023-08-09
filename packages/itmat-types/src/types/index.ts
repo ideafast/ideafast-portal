@@ -12,6 +12,7 @@ import * as Config from './config';
 import * as Reserved from './reserved';
 import * as Response from './response';
 import * as Doc from './doc';
+import * as Utils from './utils';
 
 export * from './file';
 export * from './job';
@@ -27,5 +28,6 @@ export * from './config';
 export * from './reserved';
 export * from './response';
 export * from './doc';
+export * from './utils';
 
-export const Types = { File, Job, Log, User, Pubkey, Study, Query, Data, Standardization, Base, Config, Reserved, Response, Doc };
+export const Types = { File, Job, Log, User, Pubkey, Study, Query, Data, Standardization, Base, Config, Reserved, Response, Doc, Utils };

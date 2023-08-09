@@ -16,10 +16,11 @@ import {
     IPermissionManagementOptions,
     IData,
     ICombinedPermissions,
-    IFieldValueVerifier,
+    IValueVerifier,
     ICategoricalOption,
     enumDataTypes,
-    IGenericResponse
+    IGenericResponse,
+    IFieldPropert
 } from '@itmat-broker/itmat-types';
 import { v4 as uuid } from 'uuid';
 import { db } from '../../database/database';
@@ -30,10 +31,12 @@ import { errorCodes } from '../errors';
 import { makeGenericReponse } from '../responses';
 import { buildPipeline, translateMetadata } from '../../utils/query';
 import { dataStandardization } from '../../utils/query';
-import { dataCore, IDataClipInput } from '../core/dataCore';
+import { dataCore, IDataClipInput, ValueVerifierInput } from '../core/dataCore';
+import { FileUpload } from 'graphql-upload-minimal';
+import { version } from 'node:os';
 
 
-export const studyResolvers = {
+export const dataResolvers = {
     Query: {
         getFields: async (__unused__parent: Record<string, unknown>, { studyId, projectId, versionId }: { studyId: string, projectId: string | null, versionId?: string | null }, context: any): Promise<IField[]> => {
             /**
@@ -46,7 +49,7 @@ export const studyResolvers = {
              * @return IField - The list of objects of IField.
              */
 
-            const study: IStudy = await studyCore.getStudy(studyId);
+            const study: IStudy = (await studyCore.getStudies(studyId))[0];
 
             // TODO: Project check
 
@@ -80,59 +83,61 @@ export const studyResolvers = {
             return fields;
         },
 
-        getOntologyTree: async (__unused__parent: Record<string, unknown>, { studyId, projectId, treeId }: { studyId: string, projectId: string | null, treeId: string }, context: any): Promise<IOntologyTree> => {
-            /**
-             * Get the ontology by the name.
-             *
-             * @param studyId - The id of the study.
-             * @param projectId - The id of the project.
-             * @param treeName - The name of the tree.
-             *
-             * @return IOntologyTree
-             */
+        // getOntologyTree: async (__unused__parent: Record<string, unknown>, { studyId, projectId, treeId }: { studyId: string, projectId: string | null, treeId: string }, context: any): Promise<IOntologyTree> => {
+        //     /**
+        //      * Get the ontology by the name.
+        //      *
+        //      * @param studyId - The id of the study.
+        //      * @param projectId - The id of the project.
+        //      * @param treeName - The name of the tree.
+        //      *
+        //      * @return IOntologyTree
+        //      */
 
-            const requester: IUser = context.req.user;
+        //     const requester: IUser = context.req.user;
 
-            // we dont filters fields of an ontology tree by fieldIds
-            const hasProjectLevelPermission = await permissionCore.userHasTheNeccessaryManagementPermission(
-                IPermissionManagementOptions.ontologyTrees,
-                atomicOperation.READ,
-                requester.id,
-                studyId,
-                projectId
-            );
+        //     // we dont filters fields of an ontology tree by fieldIds
+        //     const hasProjectLevelPermission = await permissionCore.userHasTheNeccessaryManagementPermission(
+        //         IPermissionManagementOptions.ontologyTrees,
+        //         atomicOperation.READ,
+        //         requester.id,
+        //         studyId,
+        //         projectId
+        //     );
 
-            const hasStudyLevelPermission = await permissionCore.userHasTheNeccessaryManagementPermission(
-                IPermissionManagementOptions.ontologyTrees,
-                atomicOperation.READ,
-                requester.id,
-                studyId,
-                projectId
-            );
-            if (!hasStudyLevelPermission && !hasProjectLevelPermission) { throw new GraphQLError(errorCodes.NO_PERMISSION_ERROR); }
+        //     const hasStudyLevelPermission = await permissionCore.userHasTheNeccessaryManagementPermission(
+        //         IPermissionManagementOptions.ontologyTrees,
+        //         atomicOperation.READ,
+        //         requester.id,
+        //         studyId,
+        //         projectId
+        //     );
+        //     if (!hasStudyLevelPermission && !hasProjectLevelPermission) { throw new GraphQLError(errorCodes.NO_PERMISSION_ERROR); }
 
-            const ontologyTree: IOntologyTree = await dataCore.getOntologyTree(studyId, treeId);
-            return ontologyTree;
-        },
+        //     const ontologyTree: IOntologyTree = await dataCore.getOntologyTree(studyId, treeId);
+        //     return ontologyTree;
+        // },
 
-        getData: async (__unused__parent: Record<string, unknown>, { studyId, projectId, versionId }: { studyId: string, projectId: string | null, versionId: string | null }, context: any): Promise<Partial<IData>[]> => {
+        getData: async (__unused__parent: Record<string, unknown>, { studyId, versionId, filters, options }: { studyId: string, versionId: string | null, filters: Record<string, any>, options: Record<string, any> }, context: any): Promise<Partial<IData>[]> => {
             /**
              * Get the data of a study by version.
              *
              * @param studyId - The id of the study.
              * @param projectId - The id of the project.
              * @param versionId - The id of the version.
-             *
+             * @param filters - The filters of the data.
+             * @param options - The options of the data.
+             * 
              * @return Partial<IData>
              */
 
-            const study: IStudy = await studyCore.getStudy(studyId);
+            const study: IStudy = (await studyCore.getStudies(studyId))[0];
 
             // TODO: Project check
 
             const requester: IUser = context.req.user;
 
-            const combinedPermissions: ICombinedPermissions = await permissionCore.combineUserDataPermissions(requester.id, studyId, projectId, atomicOperation.READ);
+            const combinedPermissions: ICombinedPermissions = await permissionCore.combineUserDataPermissions(requester.id, studyId, null, atomicOperation.READ);
 
             if (versionId === null) {
                 if (!combinedPermissions.hasPriority || !combinedPermissions.hasVersioned) {
@@ -155,7 +160,34 @@ export const studyResolvers = {
                 availableDataVersions.push(null);
             }
 
-            const dataClips: Partial<IData>[] = await dataCore.getData(studyId, ['^.*$'], ['^.*$'], ['^.*$'], availableDataVersions);
+            /* Check filters */
+            /**
+             * subjectIds
+             * visitIds
+             * fieldIds
+             * dataTypes
+             */
+            
+            const availableFieldIds = await dataCore.getStudyFields(studyId, availableDataVersions, null);
+            const fieldIds = availableFieldIds.filter(el => {
+                if (filters.filedIds) {
+                    if (!filters.fieldIds.some((es: string) => (new RegExp(es)).test(el.id))) {
+                        return false;
+                    }
+                } 
+                if (filters.dataTypes) {
+                    if (!filters.dataTypes.includes(el.dataType)) {
+                        return false;
+                    }
+                }
+                return true;
+            }).map(el => `^${el.fieldId}$`);
+            const dataClips: Partial<IData>[] = await dataCore.getData(
+                studyId, 
+                filters.subjectIds ?? ['^.*$'], 
+                filters.visitIds ?? ['^.*$'], 
+                fieldIds, 
+                availableDataVersions);
 
             return dataClips;
         }
@@ -167,7 +199,7 @@ export const studyResolvers = {
 
     },
     Mutation: {
-        createField: async (__unused__parent: Record<string, unknown>, { studyId, fieldName, fieldId, description, tableName, dataType, categoricalOptions, unit, comments, verifier }: { studyId: string, fieldName: string, fieldId: string, description: string | null, tableName: string | null, dataType: enumDataTypes, categoricalOptions: ICategoricalOption[] | null, unit: string | null, comments: string | null, verifier: IFieldValueVerifier | null }, context: any): Promise<IField> => {
+        createField: async (__unused__parent: Record<string, unknown>, { studyId, fieldName, fieldId, description, tableName, dataType, categoricalOptions, unit, comments, verifier, properties }: { studyId: string, fieldName: string, fieldId: string, description: string | null, tableName: string | null, dataType: enumDataTypes, categoricalOptions: ICategoricalOption[] | null, unit: string | null, comments: string | null, verifier: ValueVerifierInput[][] | null, properties: Record<string, any> }, context: any): Promise<IField> => {
             /**
              * Create a field of a study.
              *
@@ -181,16 +213,15 @@ export const studyResolvers = {
              * @param unit - The unit of the field.
              * @param comments - The comments of the field.
              * @param verifier - The verifier of the field.
-             *
+             * @param properties - The properties of the field.
              * @return IField
              */
             const requester: IUser = context.req.user;
-            const hasPermission = await permissionCore.chekckFieldEntryValidFromUser(requester.id, studyId, null, fieldId, atomicOperation.WRITE);
-
-            if (!hasPermission) {
-                throw new GraphQLError(errorCodes.NO_PERMISSION_ERROR);
-            }
-
+            // const hasPermission = await permissionCore.chekckFieldEntryValidFromUser(requester.id, studyId, null, fieldId, atomicOperation.WRITE);
+            
+            // if (!hasPermission) {
+            //     throw new GraphQLError(errorCodes.NO_PERMISSION_ERROR);
+            // }
             const field = await dataCore.createField(requester.id, {
                 studyId: studyId,
                 fieldName: fieldName,
@@ -201,11 +232,12 @@ export const studyResolvers = {
                 categoricalOptions: categoricalOptions,
                 unit: unit,
                 comments: comments,
-                verifier: verifier
+                verifier: verifier,
+                properties: properties as IFieldPropert[] | null
             });
             return field;
         },
-        editField: async (__unused__parent: Record<string, unknown>, { studyId, fieldName, fieldId, description, tableName, dataType, categoricalOptions, unit, comments, verifier }: { studyId: string, fieldName: string, fieldId: string, description: string | null, tableName: string | null, dataType: enumDataTypes, categoricalOptions: ICategoricalOption[] | null, unit: string | null, comments: string | null, verifier: IFieldValueVerifier | null }, context: any): Promise<IGenericResponse> => {
+        editField: async (__unused__parent: Record<string, unknown>, { studyId, fieldName, fieldId, description, tableName, dataType, categoricalOptions, unit, comments, verifier, properties }: { studyId: string, fieldName: string, fieldId: string, description: string | null, tableName: string | null, dataType: enumDataTypes, categoricalOptions: ICategoricalOption[] | null, unit: string | null, comments: string | null, verifier: ValueVerifierInput[][] | null, properties: Record<string, any> }, context: any): Promise<IGenericResponse> => {
             /**
              * Edit a field of a study.
              *
@@ -219,6 +251,7 @@ export const studyResolvers = {
              * @param unit - The unit of the field.
              * @param comments - The comments of the field.
              * @param verifier - The verifier of the field.
+             * @param properties - The properties of the field.
              *
              * @return IField
              */
@@ -239,7 +272,8 @@ export const studyResolvers = {
                 categoricalOptions: categoricalOptions,
                 unit: unit,
                 comments: comments,
-                verifier: verifier
+                verifier: verifier,
+                properties: properties as IFieldPropert[] | null
             });
             return response;
 
@@ -280,124 +314,144 @@ export const studyResolvers = {
             const responses = await dataCore.uploadData(requester.id, studyId, data);
             return responses;
         },
-        deleteData: async (__unused__parent: Record<string, unknown>, { studyId, subjectIds, visitIds, fieldIds }: { studyId: string, subjectIds: string[], visitIds: string[], fieldIds: string[] }, context: any): Promise<IGenericResponse> => {
-            /**
-             * Delete data of a study.
-             *
-             * @param requester - The id of the requester.
-             * @param studyId - The id of the study.
-             * @param subjectIds - The list of ids of subjects.
-             * @param visitIds - The list of ids of visits.
-             * @param fieldIds - The list of ids of fields.
-             *
-             * @return IGenreicResponse - The object of IGenericResponse.
-             */
-            const requester = context.req.user;
-            // permission checked in core functions
-            const respones = await dataCore.deleteData(requester, studyId, subjectIds, visitIds, fieldIds);
-            return respones;
-        },
-        createOntologyTree: async (__unused__parent: Record<string, unknown>, { studyId, name, tag }: { studyId: string, name: string, tag: string }, context: any): Promise<IOntologyTree> => {
-            /**
-             * Create an ontology tree.
-             *
-             * @param studyId - The id of the study.
-             * @param name - The name of the tree.
-             * @param tag - The tag.
-             *
-             * @return IOntologyTree
-             */
+        // deleteData: async (__unused__parent: Record<string, unknown>, { studyId, subjectIds, visitIds, fieldIds }: { studyId: string, subjectIds: string[], visitIds: string[], fieldIds: string[] }, context: any): Promise<IGenericResponse> => {
+        //     /**
+        //      * Delete data of a study.
+        //      *
+        //      * @param requester - The id of the requester.
+        //      * @param studyId - The id of the study.
+        //      * @param subjectIds - The list of ids of subjects.
+        //      * @param visitIds - The list of ids of visits.
+        //      * @param fieldIds - The list of ids of fields.
+        //      *
+        //      * @return IGenreicResponse - The object of IGenericResponse.
+        //      */
+        //     const requester = context.req.user;
+        //     // permission checked in core functions
+        //     const respones = await dataCore.deleteData(requester, studyId, subjectIds, visitIds, fieldIds);
+        //     return respones;
+        // },
+        // createOntologyTree: async (__unused__parent: Record<string, unknown>, { studyId, name, tag }: { studyId: string, name: string, tag: string }, context: any): Promise<IOntologyTree> => {
+        //     /**
+        //      * Create an ontology tree.
+        //      *
+        //      * @param studyId - The id of the study.
+        //      * @param name - The name of the tree.
+        //      * @param tag - The tag.
+        //      *
+        //      * @return IOntologyTree
+        //      */
 
-            const requester = context.req.user;
+        //     const requester = context.req.user;
 
-            const hasStudyLevelPermission = await permissionCore.userHasTheNeccessaryManagementPermission(
-                IPermissionManagementOptions.ontologyTrees,
-                atomicOperation.WRITE,
-                requester.id,
-                studyId,
-                null
-            );
-            if (!hasStudyLevelPermission) { throw new GraphQLError(errorCodes.NO_PERMISSION_ERROR); }
-            const tree = await dataCore.createOntologyTree(requester.id, studyId, name, tag);
+        //     const hasStudyLevelPermission = await permissionCore.userHasTheNeccessaryManagementPermission(
+        //         IPermissionManagementOptions.ontologyTrees,
+        //         atomicOperation.WRITE,
+        //         requester.id,
+        //         studyId,
+        //         null
+        //     );
+        //     if (!hasStudyLevelPermission) { throw new GraphQLError(errorCodes.NO_PERMISSION_ERROR); }
+        //     const tree = await dataCore.createOntologyTree(requester.id, studyId, name, tag);
 
-            return tree;
-        },
-        deleteOntologyTree: async (__unused__parent: Record<string, unknown>, { studyId, ontologyTreeId }: { studyId: string, ontologyTreeId: string }, context: any): Promise<IGenericResponse> => {
+        //     return tree;
+        // },
+        // deleteOntologyTree: async (__unused__parent: Record<string, unknown>, { studyId, ontologyTreeId }: { studyId: string, ontologyTreeId: string }, context: any): Promise<IGenericResponse> => {
+        //     /**
+        //      * Delete an ontology tree.
+        //      *
+        //      * @param requester - The id of the requester.
+        //      * @param studyId - The id of the study.
+        //      * @param ontologyTreeId - The id of the ontology tree.
+        //      *
+        //      * @return IGenericResponse
+        //      */
+
+        //     const requester = context.req.user;
+
+        //     const hasStudyLevelPermission = await permissionCore.userHasTheNeccessaryManagementPermission(
+        //         IPermissionManagementOptions.ontologyTrees,
+        //         atomicOperation.READ,
+        //         requester.id,
+        //         studyId,
+        //         null
+        //     );
+        //     if (!hasStudyLevelPermission) { throw new GraphQLError(errorCodes.NO_PERMISSION_ERROR); }
+
+        //     const response = await dataCore.deleteOntologyTree(requester.id, studyId, ontologyTreeId);
+
+        //     return response;
+
+        // },
+        // addOntologyRoutes: async (__unused__parent: Record<string, unknown>, { studyId, ontologyTreeId, routes }: { studyId: string, ontologyTreeId: string, routes: { path: string[], name: string, fieldId: string }[] }, context: any): Promise<IGenericResponse[]> => {
+        //     /**
+        //      * Add ontology routes to an ontology tree.
+        //      *
+        //      * @param studyId - The id of the study.
+        //      * @param ontologyTreeId - The id of the ontologyTree.
+        //      * @param routes - The list of ontology routes.
+        //      *
+        //      * @return IGenericResponses
+        //      */
+
+        //     const requester = context.req.user;
+        //     const hasStudyLevelPermission = await permissionCore.userHasTheNeccessaryManagementPermission(
+        //         IPermissionManagementOptions.ontologyTrees,
+        //         atomicOperation.READ,
+        //         requester.id,
+        //         studyId,
+        //         null
+        //     );
+        //     if (!hasStudyLevelPermission) { throw new GraphQLError(errorCodes.NO_PERMISSION_ERROR); }
+        //     const responses = await dataCore.addOntologyRoutes(requester.id, studyId, ontologyTreeId, routes);
+
+        //     return responses;
+
+        // },
+        // deleteOntologyRoutes: async (__unused__parent: Record<string, unknown>, { studyId, ontologyTreeId, routeIds }: { studyId: string, ontologyTreeId: string, routeIds: string[] }, context: any): Promise<IGenericResponse[]> => {
+        //     /**
+        //      * Delete ontology routes from an ontology tree.
+        //      *
+        //      * @param studyId - The id of the study.
+        //      * @param ontologyTreeId - The id of the ontologyTree.
+        //      * @param routeIds - The list of ids of ontology routes.
+        //      *
+        //      * @return IGenericResponses
+        //      */
+
+        //     const requester = context.req.user;
+        //     const hasStudyLevelPermission = await permissionCore.userHasTheNeccessaryManagementPermission(
+        //         IPermissionManagementOptions.ontologyTrees,
+        //         atomicOperation.READ,
+        //         requester.id,
+        //         studyId,
+        //         null
+        //     );
+        //     if (!hasStudyLevelPermission) { throw new GraphQLError(errorCodes.NO_PERMISSION_ERROR); }
+        //     const responses = await dataCore.deleteOntologyRoutes(requester.id, studyId, ontologyTreeId, routeIds);
+
+        //     return responses;
+
+        // }
+        uploadFileData: async (__unused__parent: Record<string, unknown>, {studyId, file, properties, subjectId, fieldId, visitId, timestamps}: {studyId: string, file: Promise<FileUpload>, properties: Record<string, any>, subjectId: string, fieldId: string, visitId: string | null, timestamps: number | null}, context: any): Promise<IGenericResponse> => {
             /**
-             * Delete an ontology tree.
-             *
-             * @param requester - The id of the requester.
+             * Upload a data file.
+             * 
              * @param studyId - The id of the study.
-             * @param ontologyTreeId - The id of the ontology tree.
+             * @param file - The file to upload.
+             * @param properties - The properties of the file. Need to match field properties if defined.
+             * @param subjectId - The id of the subject.
+             * @param fieldId - The id of the field.
+             * @param visitId - The id of the visit.
+             * @param timestamps - The timestamps of the data.
              *
              * @return IGenericResponse
              */
-
             const requester = context.req.user;
+            const file_ = await file;
 
-            const hasStudyLevelPermission = await permissionCore.userHasTheNeccessaryManagementPermission(
-                IPermissionManagementOptions.ontologyTrees,
-                atomicOperation.READ,
-                requester.id,
-                studyId,
-                null
-            );
-            if (!hasStudyLevelPermission) { throw new GraphQLError(errorCodes.NO_PERMISSION_ERROR); }
-
-            const response = await dataCore.deleteOntologyTree(requester.id, studyId, ontologyTreeId);
-
+            const response = await dataCore.uploadFileData(requester.id, studyId, file_, properties, subjectId, fieldId, visitId, timestamps);
             return response;
-
-        },
-        addOntologyRoutes: async (__unused__parent: Record<string, unknown>, { studyId, ontologyTreeId, routes }: { studyId: string, ontologyTreeId: string, routes: { path: string[], name: string, fieldId: string }[] }, context: any): Promise<IGenericResponse[]> => {
-            /**
-             * Add ontology routes to an ontology tree.
-             *
-             * @param studyId - The id of the study.
-             * @param ontologyTreeId - The id of the ontologyTree.
-             * @param routes - The list of ontology routes.
-             *
-             * @return IGenericResponses
-             */
-
-            const requester = context.req.user;
-            const hasStudyLevelPermission = await permissionCore.userHasTheNeccessaryManagementPermission(
-                IPermissionManagementOptions.ontologyTrees,
-                atomicOperation.READ,
-                requester.id,
-                studyId,
-                null
-            );
-            if (!hasStudyLevelPermission) { throw new GraphQLError(errorCodes.NO_PERMISSION_ERROR); }
-            const responses = await dataCore.addOntologyRoutes(requester.id, studyId, ontologyTreeId, routes);
-
-            return responses;
-
-        },
-        deleteOntologyRoutes: async (__unused__parent: Record<string, unknown>, { studyId, ontologyTreeId, routeIds }: { studyId: string, ontologyTreeId: string, routeIds: string[] }, context: any): Promise<IGenericResponse[]> => {
-            /**
-             * Delete ontology routes from an ontology tree.
-             *
-             * @param studyId - The id of the study.
-             * @param ontologyTreeId - The id of the ontologyTree.
-             * @param routeIds - The list of ids of ontology routes.
-             *
-             * @return IGenericResponses
-             */
-
-            const requester = context.req.user;
-            const hasStudyLevelPermission = await permissionCore.userHasTheNeccessaryManagementPermission(
-                IPermissionManagementOptions.ontologyTrees,
-                atomicOperation.READ,
-                requester.id,
-                studyId,
-                null
-            );
-            if (!hasStudyLevelPermission) { throw new GraphQLError(errorCodes.NO_PERMISSION_ERROR); }
-            const responses = await dataCore.deleteOntologyRoutes(requester.id, studyId, ontologyTreeId, routeIds);
-
-            return responses;
-
         }
     },
     Subscription: {}

@@ -1,15 +1,16 @@
 .page_container {
     height: 100%;
     position: relative;
-    overflow: auto;
+    /* overflow: auto; */
+    overflow-y: scroll;
     display: grid;
     justify-content: space-between;
-    grid-template-areas: "LEFT RIGHT";
-    grid-template-columns: 39% 59%;
+    grid-template-areas: "LEFT RIGHT" "FILE FILE";
+    grid-template-columns: 40% 60%;
+    grid-template-rows: 750px 1fr;  /* Modify this line */
 }
 
 .profile_left {
-    flex: 1 0 39%;
     grid-area: LEFT;
     padding: 20px;
     background-color: white;
@@ -44,7 +45,6 @@
 }
 
 .profile_right {
-    flex: 1 0 59%;
     grid-area: RIGHT;
     padding: 20px;
     background-color: white;
@@ -62,3 +62,20 @@
     font-size: 25px;
     font-weight: bold;
 }
+
+.file_wrapper {
+    grid-area: FILE;
+    padding: 20px;
+    background-color: white;
+}
+
+.custom-text-hover {
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+  
+.custom-text-hover:hover {
+    font-weight: bold;
+    text-decoration: underline;
+}
+  

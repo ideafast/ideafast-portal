@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { db } from '../database/database';
 import { objStore } from '../objStore/objStore';
 import { permissionCore } from '../graphql/core/permissionCore';
-import { atomicOperation, IUser } from '@itmat-broker/itmat-types';
+import { atomicOperation, enumFileCategories, IUser } from '@itmat-broker/itmat-types';
 import jwt from 'jsonwebtoken';
 import { userRetrieval } from '../authentication/pubkeyAuthentication';
 import { ApolloServerErrorCode } from '@apollo/server/errors';
@@ -31,7 +31,7 @@ export const fileDownloadController = async (req: Request, res: Response): Promi
     }
     try {
         /* download file */
-        const file = await db.collections!.files_collection.findOne({ id: requestedFile, deleted: null })!;
+        const file = await db.collections!.files_collection.findOne({ id: requestedFile, 'life.deletedTime': null })!;
         if (!file) {
             res.status(404).json({ error: 'File not found or you do not have the necessary permission.' });
             return;
@@ -48,8 +48,18 @@ export const fileDownloadController = async (req: Request, res: Response): Promi
         //     res.status(404).json({ error: 'File not found or you do not have the necessary permission.' });
         //     return;
         // }
+        let bucket = '';
+        if (file.fileCategory === enumFileCategories.DOC_FILE) {
+            bucket = 'doc';
+        } else if (file.studyId && (file.fileCategory === enumFileCategories.STUDY_DATA_FILE || file.fileCategory === enumFileCategories.STUDY_PROFILE_FILE)) {
+            bucket = file.studyId;
+        } else if (file.fileCategory === enumFileCategories.USER_REPO_FILE || file.fileCategory === enumFileCategories.USER_PROFILE_FILE) {
+            bucket = 'user';
+        } else if (file.fileCategory === enumFileCategories.ORGANISATION_PROFILE_FILE) {
+            bucket = 'organisation';
+        }
 
-        const stream = await objStore.downloadFile(file.studyId ?? '', file.uri);
+        const stream = await objStore.downloadFile(bucket, file.uri);
         res.set('Content-Type', 'application/octet-stream');
         res.set('Content-Type', 'application/download');
         res.set('Content-Disposition', `attachment; filename="${file.fileName}"`);

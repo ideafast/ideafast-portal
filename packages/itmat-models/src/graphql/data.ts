@@ -9,12 +9,17 @@ export const FIELD_FRAGMENT = gql`
         fieldName
         tableName
         dataType
-        categoricalOptions
+        categoricalOptions {
+            id
+            code
+            description
+        }
         metadata
         unit
         comments
         dataVersion
         verifier
+        properties
         life {
             createdTime
             createdUser
@@ -25,20 +30,33 @@ export const FIELD_FRAGMENT = gql`
     }
 `;
 
-// export const GET_FIELDS = gql`
-//     query getFields($studyId: String!, $projectId: String, $versionId: String) {
-//         getStudyFields(studyId: $studyId, projectId: $projectId, versionId: $versionId) {
-//             ...ALL_FOR_FIELD
-//         }
-//     }
-//     ${FIELD_FRAGMENT}
-// `;
+export const GET_FIELDS = gql`
+    query getFields($studyId: String!, $versionId: String) {
+        getFields(studyId: $studyId, versionId: $versionId) {
+            ...ALL_FOR_FIELD
+        }
+    }
+    ${FIELD_FRAGMENT}
+`;
 
-// export const GET_DATA = gql`
-//     query getData($studyId: String!, $projectId: String, $versionId: String) {
-//         getDataRecords(studyId: $studyId, projectId: $projectId, versionId: $versionId)
-//     }
-// `;
+export const GET_DATA = gql`
+    query getData($studyId: String!, $versionId: String, $filters: JSON, $options: JSON) {
+        getData(studyId: $studyId, versionId: $versionId, filters: $filters, options: $options) {
+            id
+            subjectId
+            visitId
+            fieldId
+            value
+            timestamps
+            properties
+            life {
+                createdTime
+                createdUser
+            }
+            metadata
+        }
+    }
+`;
 
 // export const GET_ONTOLOGY_TREE = gql`
 //     query getOntologyTree($studyId: String!, $projectId: String, $treeId: String!) {
@@ -57,14 +75,14 @@ export const FIELD_FRAGMENT = gql`
 //     }
 // `;
 
-// export const UPLOAD_DATA = gql`
-//     mutation uploadData($studyId: String!, $data: [DataClipInput]) {
-//         uploadDataInArray(studyId: $studyId, data: $data) {
-//             ...ALL_FOR_RESPONSE
-//         }
-//     }
-//     ${GENERIC_RESPONSE}
-// `;
+export const UPLOAD_DATA = gql`
+    mutation uploadData($studyId: String!, $data: [DataClipInput]) {
+        uploadData(studyId: $studyId, data: $data) {
+            ...ALL_FOR_RESPONSE
+        }
+    }
+    ${GENERIC_RESPONSE}
+`;
 
 // export const DELETE_DATA = gql`
 //     mutation deleteData($studyId: String!, $subjectIds: [String], $visitIds: [String], $fieldIds: [String]) {
@@ -75,32 +93,41 @@ export const FIELD_FRAGMENT = gql`
 //     ${GENERIC_RESPONSE}
 // `;
 
-// export const CREATE_FIELD = gql`
-//     mutation createField($studyId: String!, $fieldName: String!, $fieldId: String!, $description: String, $tableName: String, $dataType: EnumFieldDataType, $categoricalOptions: [CategoricalOptionInput], $unit: String, $comments: String, $verifier: FieldValueVerifierInput) {
-//         createField(studyId: $studyId, fieldName: $fieldName, fieldId: $fieldId, description: $description, tableName: $tableName, dataType: $dataType, categoricalOptions: $categoricalOptions,unit: $unit, comments: $comments, verifier: $verifier) {
-//             ...ALL_FOR_FIELD
-//         }
-//     }
-//     ${FIELD_FRAGMENT}
-// `;
+export const CREATE_FIELD = gql`
+    mutation createField($studyId: String!, $fieldName: String!, $fieldId: String!, $description: String, $tableName: String, $dataType: EnumFieldDataType, $categoricalOptions: [CategoricalOptionInput], $unit: String, $comments: String, $verifier: JSON, $properties: JSON) {
+        createField(studyId: $studyId, fieldName: $fieldName, fieldId: $fieldId, description: $description, tableName: $tableName, dataType: $dataType, categoricalOptions: $categoricalOptions,unit: $unit, comments: $comments, verifier: $verifier, properties: $properties) {
+            ...ALL_FOR_FIELD
+        }
+    }
+    ${FIELD_FRAGMENT}
+`;
 
-// export const EDIT_FIELD = gql`
-//     mutation editField($studyId: String!, $fieldName: String, $fieldId: String!, $description: String, $tableName: String, $dataType: EnumFieldDataType, $categoricalOptions: [CategoricalOptionInput], $unit: String, $comments: String, $verifier: FieldValueVerifierInput) {
-//         editField(studyId: $studyId, fieldName: $fieldName, fieldId: $fieldId, description: $description, tableName: $tableName, dataType: $dataType, categoricalOptions: $categoricalOptions,unit: $unit, comments: $comments, verifier: $verifier) {
-//             ...ALL_FOR_RESPONSE
-//         }
-//     }
-//     ${GENERIC_RESPONSE}
-// `;
+export const EDIT_FIELD = gql`
+    mutation editField($studyId: String!, $fieldName: String, $fieldId: String!, $description: String, $tableName: String, $dataType: EnumFieldDataType, $categoricalOptions: [CategoricalOptionInput], $unit: String, $comments: String, $verifier: JSON, $properties: JSON) {
+        editField(studyId: $studyId, fieldName: $fieldName, fieldId: $fieldId, description: $description, tableName: $tableName, dataType: $dataType, categoricalOptions: $categoricalOptions,unit: $unit, comments: $comments, verifier: $verifier, properties: $properties) {
+            ...ALL_FOR_RESPONSE
+        }
+    }
+    ${GENERIC_RESPONSE}
+`;
 
-// export const DELETE_FIELD = gql`
-//     mutation deleteField($studyId: String!, $fieldId: String!) {
-//         deleteField(studyId: $studyId, fieldId: $fieldId) {
-//             ...ALL_FOR_RESPONSE
-//         }
-//     }
-//     ${GENERIC_RESPONSE}
-// `;
+export const DELETE_FIELD = gql`
+    mutation deleteField($studyId: String!, $fieldId: String!) {
+        deleteField(studyId: $studyId, fieldId: $fieldId) {
+            ...ALL_FOR_RESPONSE
+        }
+    }
+    ${GENERIC_RESPONSE}
+`;
+
+export const UPLOAD_FILE_DATA = gql`
+    mutation uploadFileData($studyId: String!, $file: Upload!, $properties: JSON, $subjectId: String!, $fieldId: String!, $visitId: String, $timestamps: Int) {
+        uploadFileData(studyId: $studyId, file: $file, properties: $properties, subjectId: $subjectId, fieldId: $fieldId, visitId: $visitId, timestamps: $timestamps) {
+            ...ALL_FOR_RESPONSE
+        }
+    }
+    ${GENERIC_RESPONSE}
+`
 
 // export const CREATE_ONTOLOGY_TREE = gql`
 //     mutation createOntologyTree($studyId: String!, $name: String!, $tag: String) {

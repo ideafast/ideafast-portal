@@ -133,8 +133,9 @@ input FieldValueVerifierInput {
 
 input ASTInput {
     type: EnumASTNodeType
-    op: EnumMathOp
-    args: [ASTInput]
+    operator: EnumMathOp,
+    value: String
+    parameter: JSON
 }
 
 enum EnumASTNodeType {
@@ -162,7 +163,7 @@ type Field {
     unit: String
     comments: String
     dataVersion: String
-    verifier: FieldValueVerifier
+    verifier: JSON
     life: LifeCircle
     metadata: JSON
 }
@@ -194,11 +195,13 @@ enum EnumFileNodeType {
 
 type FileNode {
     id: String!
-    value: String!
+    name: String!
+    fileId: String
     type: EnumFileNodeType!
     parent: String
     children: [String]
     sharedUsers: [String]
+    life: LifeCircle
 }
 
 type LifeCircle {
@@ -279,17 +282,28 @@ type StudyOrProjectUserRole {
     metadata: JSON
 }
 
+enum EnumFileCategories {
+    STUDY_DATA_FILE
+    STUDY_PROFILE_FILE 
+    USER_REPO_FILE
+    USER_PROFILE_FILE
+    DOC_FILE
+    ORGANISATION_PROFILE_FILE
+}
+
 type File {
     id: String!
-    uri: String!
-    fileName: String!
-    studyId: String!
-    projectId: String
+    studyId: String
+    userId: String
+    fileName: String
     fileSize: String
-    description: String!
-    uploadTime: String!
-    uploadedBy: String!
+    description: String
+    properties: JSON
+    uri: String!
     hash: String!
+    fileType: String
+    fileCategory: EnumFileCategories
+    life: LifeCircle
     metadata: JSON
 }
 
@@ -338,13 +352,13 @@ enum EnumGroupNodeType {
     GROUP
 }
 
-type GroupNode {
+type StudyGroupNode {
     id: String!
     name: String!
-    type: EnumFileNodeType!
+    type: EnumGroupNodeType!
     description: String
     parent: String
-    childeren: [GroupNode]
+    children: [String]
 }
 
 type Study {
@@ -353,7 +367,8 @@ type Study {
     currentDataVersion: Int
     dataVersions: [DataVersion]!
     description: String
-    groupList: [GroupNode]
+    profile: String
+    groupList: [StudyGroupNode]
     life: LifeCircle!
     metadata: JSON
 }
@@ -364,11 +379,12 @@ type Data {
     id: String!
     studyId: String!
     subjectId: String!
-    visitId: String!
+    visitId: String
     fieldId: String!
     dataVersion: String
     value: ANY
     timestamps: Int
+    properties: JSON
     life: LifeCircle
     metadata: JSON
 }
@@ -590,13 +606,34 @@ enum EnumConfigType {
     USERCONFIG
 }
 
+type Doc {
+    id: String!
+    title: String
+    type: EnumDocType!
+    description: String
+    tag: String
+    studyId: String
+    contents: String
+    priority: Int!
+    attachmentFileIds: [String]
+    life: LifeCircle!
+    metadata: JSON
+}
+
+enum EnumDocType {
+    HOMEPAGE
+    GENERAL
+    STUDYONLY
+}
+
 type Query {
     # USER
     whoAmI: User
     getUsers(userId: String): [User]
     validateResetPassword(encryptedEmail: String!, token: String!): GenericResponse
     recoverSessionExpireTime: GenericResponse
-    getFileRepo(userId: String!): [FileNode]
+    getUserFileNodes(userId: String!): [FileNode]
+    getUserProfile(userId: String!): String
     # ORGANISATION
     getOrganisations(orgId: String): [Organisation]
 
@@ -604,16 +641,20 @@ type Query {
     # getPubkeys(pubkeyId: String, associatedUserId: String): [Pubkey]
 
     # STUDY
-    getStudy(studyId: String!): Study
+    getStudies(studyId: String): [Study]
     # getProject(projectId: String!): Project
+    getStudyGroupNodes(studyId: String): [StudyGroupNode]
 
     # DATA
-    getFields(studyId: String!, projectId: String, versionId: String): [Field]
-    getData(studyId: String!, projectId: String, versionId: String): [Data]
+    getFields(studyId: String!, versionId: String): [Field]
+    getData(studyId: String!, versionId: String, filters: JSON, options: JSON): [Data]
     getOntologyTree(studyId: String!, projectId: String, treeId: String): [OntologyTree]
     # getStandardization(studyId: String, projectId: String, type: String, versionId: String): [Standardization]
     # checkDataComplete(studyId: String!): [SubjectDataRecordSummary]
     
+    # DOC
+    getDocs(docId: String, studyId: String, docTypes: [EnumDocType], verbose: Boolean): [Doc]
+
     # QUERY
     # getQueries(studyId: String, projectId: String): [QueryEntry]  # only returns the queries that the user has access to.
     # getQueryById(queryId: String!): QueryEntry
@@ -636,15 +677,24 @@ type Mutation {
     logout: GenericResponse
     requestUsernameOrResetPassword(forgotUsername: Boolean!, forgotPassword: Boolean!, email: String, username: String): GenericResponse
     resetPassword(encryptedEmail: String!, token: String!, newPassword: String!): GenericResponse
-    createUser(username: String!, firstname: String!, lastname: String!, email: String!, password: String!, description: String, organisation: String!): GenericResponse
+    createUser(username: String!, firstname: String!, lastname: String!, email: String!, password: String!, description: String, organisation: String!, profile: Upload): GenericResponse
     requestExpiryDate(username: String, email: String): GenericResponse
     editUser(userId: String!, username: String, type: USERTYPE, firstname: String, lastname: String, email: String, emailNotificationsActivated: Boolean, password: String, description: String, organisation: String, expiredAt: Int, profile: String): User
     deleteUser(userId: String!): GenericResponse
+    uploadUserProfile(userId: String!, description: String, fileType: String!, fileUpload: Upload!): GenericResponse
+    uploadUserFileNode(userId: String!, parentNodeId: String!, file: Upload, folderName: String): FileNode
+    editUserFileNode(userId: String!, nodeId: String!, parentNodeId: String, sharedUsers: [String]): GenericResponse
+    deleteUserFileNode(userId: String!, nodeId: String!): GenericResponse
+
+    # DOC
+    createDoc(title: String!, type: EnumDocType!, description: String, tag: String, studyId: String, priority: Int!, attachments: [Upload!], contents: String): Doc
+    editDoc(docId: String!, contents: String, title: String, tag: String, description: String, priority: Int, addAttachments: [Upload], removeAttachments: [String]): Doc
+    deleteDoc(docId: String!): GenericResponse
 
     # ORGANISATION
-    createOrganisation(name: String!, shortname: String): Organisation
-    editOrganisation(orgId: String!, name: String, shortname: String, profile: String): GenericResponse
-    deleteOrganisation(id: String!): Organisation
+    createOrganisation(name: String!, shortname: String, location: [Float], profile: Upload): Organisation
+    editOrganisation(orgId: String!, name: String, shortname: String, location: [Float], profile: Upload): GenericResponse
+    deleteOrganisation(orgId: String!): GenericResponse
 
     # PUBLIC KEY AUTHENTICATION
     # registerPubkey(pubkey: String!, signature: String!, associatedUserId: String): Pubkey    
@@ -658,22 +708,27 @@ type Mutation {
     
 
     # STUDY
-    createStudy(name: String!, description: String): Study
+    createStudy(name: String!, description: String, profile: Upload): Study
     deleteStudy(studyId: String!): GenericResponse
-    editStudy(studyId: String!, name: String, description: String): Study
+    editStudy(studyId: String!, name: String, description: String, profile: Upload): Study
     createDataVersion(studyId: String!, dataVersion: String!, tag: String): GenericResponse
     setDataversionAsCurrent(studyId: String!, dataVersionId: String!): GenericResponse
+    createStudyGroupNode(studyId: String!, groupNodeName: String!, groupNodeType: EnumGroupNodeType!, description: String, parentGroupNodeId: String!): StudyGroupNode
+    editStudyGroupNode(studyId: String!, groupNodeId: String!, groupNodeName: String, description: String, parentGroupNodeId: String, children: [String]): GenericResponse
+    deleteStudyGroupNode(studyId: String!, groupNodeId: String!): GenericResponse
+
 
     # DATA
+    uploadFileData(studyId: String!, file: Upload!, properties: JSON, subjectId: String!, fieldId: String!, visitId: String, timestamps: Int): GenericResponse
     uploadData(studyId: String!, data: [DataClipInput]): [GenericResponse]
-    deleteData(studyId: String!, subjectIds: [String], visitIds: [String], fieldIds: [String]): [GenericResponse]
-    createField(studyId: String!, fieldName: String!, fieldId: String!, description: String, tableName: String, dataType: EnumFieldDataType, categoricalOptions: [CategoricalOptionInput], unit: String, comments: String, verifier: FieldValueVerifierInput): Field
-    editField(studyId: String!, fieldName: String!, fieldId: String!, description: String, tableName: String, dataType: EnumFieldDataType, categoricalOptions: [CategoricalOptionInput], unit: String, comments: String, verifier: FieldValueVerifierInput): GenericResponse
+    # deleteData(studyId: String!, subjectIds: [String], visitIds: [String], fieldIds: [String]): [GenericResponse]
+    createField(studyId: String!, fieldName: String!, fieldId: String!, description: String, tableName: String, dataType: EnumFieldDataType, categoricalOptions: [CategoricalOptionInput], unit: String, comments: String, verifier: JSON, properties: JSON): Field
+    editField(studyId: String!, fieldName: String, fieldId: String!, description: String, tableName: String, dataType: EnumFieldDataType, categoricalOptions: [CategoricalOptionInput], unit: String, comments: String, verifier: JSON, properties: JSON): GenericResponse
     deleteField(studyId: String!, fieldId: String!): GenericResponse
-    createOntologyTree(studyId: String!, name: String!, tag: String): OntologyTree
-    deleteOntologyTree(studyId: String!, ontologyTreeId: String!): GenericResponse
-    addOntologyRoutes(studyId: String!, ontologyTreeId: String!, routes: OntologyRouteInput): [GenericResponse]
-    deleteOntologyRoutes(studyId: String!, ontologyTreeId: String!, routeIds: [String]): [GenericResponse]
+    # createOntologyTree(studyId: String!, name: String!, tag: String): OntologyTree
+    # deleteOntologyTree(studyId: String!, ontologyTreeId: String!): GenericResponse
+    # addOntologyRoutes(studyId: String!, ontologyTreeId: String!, routes: OntologyRouteInput): [GenericResponse]
+    # deleteOntologyRoutes(studyId: String!, ontologyTreeId: String!, routeIds: [String]): [GenericResponse]
 
     # STANDARDIZATION
     # deleteStandardization(studyId: String!, type: String, field: [String]!): GenericResponse

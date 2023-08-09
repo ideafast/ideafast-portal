@@ -1,5 +1,5 @@
 import { GraphQLError } from 'graphql';
-import { IField, enumDataTypes, ICategoricalOption, IFieldValueVerifier, IGenericResponse, IData, atomicOperation, enumConfigType, defaultSettings, IOntologyTree, IOntologyRoute } from '@itmat-broker/itmat-types';
+import { IField, enumDataTypes, ICategoricalOption, IValueVerifier, IGenericResponse, IData, atomicOperation, enumConfigType, defaultSettings, IOntologyTree, IOntologyRoute, IAST, enumConditionOps, enumFileTypes, enumFileCategories, IFieldPropert } from '@itmat-broker/itmat-types';
 import { v4 as uuid } from 'uuid';
 import { db } from '../../database/database';
 import { errorCodes } from '../errors';
@@ -11,15 +11,24 @@ import { FileUpload } from 'graphql-upload-minimal';
 import crypto from 'crypto';
 import { fileSizeLimit } from '../../utils/definition';
 import { makeGenericReponse } from '../responses';
+import { utilsCore } from './utilsCore';
+import { resetCaches } from 'graphql-tag';
+import { fileCore } from './fileCore';
 
 export interface IDataClipInput {
     subjectId: string;
     visitId: string;
     fieldId: string;
     value: string;
-    timestamp: number | null;
+    timestamps: number | null;
 }
 
+export interface ValueVerifierInput {
+    formula: IAST,
+    condition: enumConditionOps
+    value: string,
+    parameters: JSON
+}
 export class DataCore {
     public async getOntologyTree(studyId: string, treeId: string): Promise<IOntologyTree> {
         /**
@@ -226,9 +235,13 @@ export class DataCore {
         const fields = await db.collections!.field_dictionary_collection.aggregate([{
             $match: { 'studyId': studyId, 'life.deletedTime': null, 'dataVersion': { $in: dataVersions }, 'fieldId': selectedFields ? { $in: selectedFields } : /^.*$/ }
         }, {
+            $sort: {
+                'life.createdTime': -1
+            }
+        }, {
             $group: {
                 _id: '$fieldId',
-                doc: { $last: '$$ROOT' }
+                doc: { $first: '$$ROOT' }
             }
         }, {
             $replaceRoot: {
@@ -239,7 +252,7 @@ export class DataCore {
         return fields as IField[];
     }
 
-    public async createField(requester: string, fieldInput: { studyId: string, fieldName: string, fieldId: string, description: string | null, tableName: string | null, dataType: enumDataTypes, categoricalOptions: ICategoricalOption[] | null, unit: string | null, comments: string | null, verifier: IFieldValueVerifier | null }): Promise<IField> {
+    public async createField(requester: string, fieldInput: { studyId: string, fieldName: string, fieldId: string, description: string | null, tableName: string | null, dataType: enumDataTypes, categoricalOptions: ICategoricalOption[] | null, unit: string | null, comments: string | null, verifier: ValueVerifierInput[][] | null, properties: IFieldPropert[] | null }): Promise<IField> {
         /**
          * Create a field of a study.
          *
@@ -254,6 +267,7 @@ export class DataCore {
          * @param unit - The unit of the field.
          * @param comments - The comments of the field.
          * @param verifier - The verifier of the field.
+         * @param properties - The properties of the field.
          *
          * @return IField
          */
@@ -269,6 +283,27 @@ export class DataCore {
             throw new GraphQLError(`Field input error: ${JSON.stringify(errors)}`, { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
         }
 
+        // add id and life for verifier;
+        const verifierWithId: IValueVerifier[][] = [];
+        if (fieldInput.verifier) {
+            for (let i = 0; i < fieldInput.verifier.length; i++) {
+                verifierWithId.push([]);
+                for (let j = 0; j < fieldInput.verifier[i].length; j++) {
+                    verifierWithId[verifierWithId.length - 1].push({
+                        id: uuid(),
+                        ...fieldInput.verifier[i][j],
+                        life: {
+                            createdTime: Date.now(),
+                            createdUser: requester,
+                            deletedTime: null,
+                            deletedUser: null
+                        },
+                        metadata: {}
+                    });
+                }
+            }
+        }
+
         const fieldEntry: IField = {
             id: uuid(),
             studyId: fieldInput.studyId,
@@ -281,7 +316,8 @@ export class DataCore {
             unit: fieldInput.unit,
             comments: fieldInput.comments,
             dataVersion: null,
-            verifier: fieldInput.verifier,
+            verifier: verifierWithId,
+            properties: fieldInput.properties,
             life: {
                 createdTime: Date.now(),
                 createdUser: requester,
@@ -291,7 +327,7 @@ export class DataCore {
             metadata: {}
         };
 
-        await db.collections!.field_dictionary_collection.findOneAndUpdate({ 'studyId': fieldInput.studyId, 'fieldId': fieldEntry.fieldId, 'life.deletedTime': null }, {
+        await db.collections!.field_dictionary_collection.findOneAndUpdate({ 'studyId': fieldInput.studyId, 'fieldId': fieldEntry.fieldId, 'life.deletedTime': null, 'dataVersion': null }, {
             $set: fieldEntry
         }, {
             upsert: true
@@ -300,7 +336,7 @@ export class DataCore {
         return fieldEntry;
     }
 
-    public async editField(requester: string, fieldInput: { studyId: string, fieldName: string, fieldId: string, description: string | null, tableName: string | null, dataType: enumDataTypes, categoricalOptions: ICategoricalOption[] | null, unit: string | null, comments: string | null, verifier: IFieldValueVerifier | null }): Promise<IGenericResponse> {
+    public async editField(requester: string, fieldInput: { studyId: string, fieldName: string, fieldId: string, description: string | null, tableName: string | null, dataType: enumDataTypes, categoricalOptions: ICategoricalOption[] | null, unit: string | null, comments: string | null, verifier: ValueVerifierInput[][] | null, properties: IFieldPropert[] | null }): Promise<IGenericResponse> {
         /**
          * Edit a field of a study.
          *
@@ -315,6 +351,7 @@ export class DataCore {
          * @param unit - The unit of the field.
          * @param comments - The comments of the field.
          * @param verifier - The verifier of the field.
+         * @param properties - The properties of the field.
          *
          * @return IField
          */
@@ -335,6 +372,26 @@ export class DataCore {
             throw new GraphQLError(`Field input error: ${JSON.stringify(errors)}`, { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
         }
 
+        const verifierWithId: IValueVerifier[][] = [];
+        if (fieldInput.verifier) {
+            for (let i = 0; i < fieldInput.verifier.length; i++) {
+                verifierWithId.push([]);
+                for (let j = 0; j < fieldInput.verifier[i].length; j++) {
+                    verifierWithId[verifierWithId.length - 1].push({
+                        id: uuid(),
+                        ...fieldInput.verifier[i][j],
+                        life: {
+                            createdTime: Date.now(),
+                            createdUser: requester,
+                            deletedTime: null,
+                            deletedUser: null
+                        },
+                        metadata: {}
+                    });
+                }
+            }
+        }
+
         const fieldEntry: Partial<IField> = {
             fieldName: fieldInput.fieldName ?? field.fieldName,
             description: fieldInput.description ?? field.description,
@@ -344,13 +401,18 @@ export class DataCore {
             unit: fieldInput.unit ?? field.unit,
             comments: fieldInput.comments ?? field.comments,
             dataVersion: null,
-            verifier: fieldInput.verifier ?? field.verifier
+            verifier: fieldInput.verifier ? verifierWithId : field.verifier,
+            properties: fieldInput.properties ?? field.properties
         };
-
-        await db.collections!.field_dictionary_collection.findOneAndUpdate({ 'studyId': fieldInput.studyId, 'fieldId': fieldEntry.fieldId, 'dataVersion': null, 'life.deletedTime': null }, {
-            $set: fieldEntry
+        await db.collections!.field_dictionary_collection.findOneAndUpdate({ 'studyId': fieldInput.studyId, 'fieldId': fieldInput.fieldId, 'dataVersion': null, 'life.deletedTime': null }, {
+            $set: {
+                id: uuid(),
+                ...fieldEntry,
+                life: field.life,
+                metadata: field.metadata
+            }
         }, {
-            upsert: false
+            upsert: true
         });
 
         return makeGenericReponse(fieldInput.fieldId, true, undefined, `Field ${fieldInput.fieldId} has been edited.`);
@@ -468,8 +530,8 @@ export class DataCore {
             throw new GraphQLError('Field does not exist).', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
         }
 
-        const subjectIds: string[] = await db.collections!.data_collection.distinct('subjectId', { stuyId: studyId, dataVersion: { $ne: null } });
-        const visitIds: string[] = await db.collections!.data_collection.distinct('visitId', { stuyId: studyId, dataVersion: { $ne: null } });
+        const subjectIds: (string | null)[] = await db.collections!.data_collection.distinct('subjectId', { stuyId: studyId, dataVersion: { $ne: null } });
+        const visitIds: (string | null)[] = await db.collections!.data_collection.distinct('visitId', { stuyId: studyId, dataVersion: { $ne: null } });
 
         const session = db.client!.startSession();
         session.startTransaction();
@@ -490,7 +552,7 @@ export class DataCore {
                             fieldId: fieldId,
                             dataVersion: null,
                             value: null,
-                            timestamp: null,
+                            timestamps: null,
                             life: {
                                 createdTime: Date.now(),
                                 createdUser: requester,
@@ -652,6 +714,22 @@ export class DataCore {
                         break;
                     }
                 }
+                const verifier = availableFieldsMapping[dataClip.fieldId].verifier;
+                if (verifier) {
+                    const resEach: boolean[] = [];
+                    for (let i = 0; i < verifier.length; i++) {
+                        resEach.push(true);
+                        for (let j = 0; j < verifier[i].length; j++) {
+                            if (!utilsCore.validValueWithVerifier(parsedValue, verifier[i][j])) {
+                                resEach[resEach.length - 1] = false;
+                                break;
+                            }
+                        }
+                    }
+                    if (resEach.every(el => !el)) {
+                        error = makeGenericReponse(counter.toString(), false, errorCodes.CLIENT_MALFORMED_INPUT, `Field ${dataClip.fieldId} value ${parsedValue}: Failed to pass the verifier.`);
+                    }
+                }
             }
             if (error) {
                 response.push(error);
@@ -660,23 +738,24 @@ export class DataCore {
                 response.push(makeGenericReponse(counter.toString(), true, undefined, undefined));
             }
 
-            bulk.find({ studyId: studyId, subjectId: dataClip.subjectId, visitId: dataClip.visitId, fieldId: dataClip.fieldId, dataVersion: null }).upsert().updateOne({
-                $set: {
-                    id: uuid(),
-                    subjectId: dataClip.subjectId,
-                    visitId: dataClip.visitId,
-                    fieldId: dataClip.fieldId,
-                    dataVersion: null,
-                    value: parsedValue,
-                    timestamp: dataClip.timestamp,
-                    life: {
-                        createdTime: Date.now(),
-                        createdUser: requester,
-                        deletedTime: null,
-                        deletedUser: null
-                    }
-                }
+            bulk.insert({
+                id: uuid(),
+                studyId: study.id,
+                subjectId: dataClip.subjectId,
+                visitId: dataClip.visitId,
+                fieldId: dataClip.fieldId,
+                dataVersion: null,
+                value: parsedValue,
+                timestamps: dataClip.timestamps,
+                life: {
+                    createdTime: Date.now(),
+                    createdUser: requester,
+                    deletedTime: null,
+                    deletedUser: null
+                },
+                metadata: {}
             });
+
             if (bulk.batches.length > 999) {
                 await bulk.execute();
                 bulk = db.collections!.data_collection.initializeUnorderedBulkOp();
@@ -686,7 +765,7 @@ export class DataCore {
         return response;
     }
 
-    public async getData(studyId: string, subjectIds: string[], visitIds: string[], fieldIds: string[], dataVersions: Array<string | null>): Promise<Partial<IData>[]> {
+    public async getData(studyId: string, subjectIds: (string | null)[], visitIds: (string | null)[], fieldIds: string[], dataVersions: Array<string | null>): Promise<Partial<IData>[]> {
         /**
          * Get the data of a study.
          *
@@ -703,39 +782,66 @@ export class DataCore {
             throw new GraphQLError('Study does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
         }
 
+        let subjectfilter = {};
+        if (subjectIds.includes(null)) {
+            subjectfilter = {
+                $or: [{
+                    subjectId: { $in: (subjectIds.filter(el => el !== null) as string[]).map((es: string) => new RegExp(es)) }
+                }, {
+                    subjectId: null
+                }]
+            };
+        } else {
+            subjectfilter = { subjectId: { $in: (subjectIds as string[]).filter(el => el !== null).map((el: string) => new RegExp(el)) } };
+        }
+
+        let visitfilter = {};
+        if (visitIds.includes(null)) {
+            visitfilter = {
+                $or: [{
+                    visitId: { $in: (visitIds.filter(el => el !== null) as string[]).map((es: string) => new RegExp(es)) }
+                }, {
+                    visitId: null
+                }]
+            };
+        } else {
+            visitfilter = { visitId: { $in: (visitIds as string[]).filter(el => el !== null).map((el: string) => new RegExp(el)) } };
+        }
+
         const data = await db.collections!.data_collection.aggregate([{
             $match: {
                 studyId: studyId,
-                subjectIds: { $in: subjectIds.map((el: string) => new RegExp(el)) },
-                visitIds: { $in: visitIds.map((el: string) => new RegExp(el)) },
-                fieldIds: { $in: fieldIds.map((el: string) => new RegExp(el)) },
+                ...subjectfilter,
+                ...visitfilter,
+                fieldId: { $in: fieldIds.map((el: string) => new RegExp(el)) },
                 dataVersion: { $in: dataVersions }
             }
-        }, {
-            $sort: {
-                'subjectId': 1,
-                'visitId': 1,
-                'fieldId': 1,
-                'life.createdTime': -1
-            }
-        }, {
-            $group: {
-                _id: {
-                    createdTime: '$life.createdTime'
-                }
-            },
-            doc: { $first: '$$ROOT' }
-        }, {
-            $project: {
-                _id: 0,
-                id: '$doc.id',
-                studyId: '$doc.studyId',
-                subjectId: '$doc.subjectId',
-                visitId: '$doc.visitId',
-                fieldId: '$doc.fieldId',
-                timestamp: '$doc.timestamp'
-            }
         }]).toArray();
+        // , {
+        //     $sort: {
+        //         'subjectId': 1,
+        //         'visitId': 1,
+        //         'fieldId': 1,
+        //         'life.createdTime': -1
+        //     }
+        // }, {
+        //     $group: {
+        //         _id: {
+        //             createdTime: '$life.createdTime'
+        //         }
+        //     },
+        //     doc: { $first: '$$ROOT' }
+        // }, {
+        //     $project: {
+        //         _id: 0,
+        //         id: '$doc.id',
+        //         studyId: '$doc.studyId',
+        //         subjectId: '$doc.subjectId',
+        //         visitId: '$doc.visitId',
+        //         fieldId: '$doc.fieldId',
+        //         timestamps: '$doc.timestamps'
+        //     }
+        // }]).toArray();
 
         return data;
     }
@@ -771,7 +877,7 @@ export class DataCore {
                         $set: {
                             id: uuid(),
                             value: null,
-                            timestamp: null,
+                            timestamps: null,
                             life: {
                                 createdTime: Date.now(),
                                 createdUser: requester,
@@ -784,6 +890,82 @@ export class DataCore {
             }
         }
         return makeGenericReponse(undefined, true, undefined, 'Successfuly.');
+    }
+
+    public async uploadFileData(requester: string, studyId: string, file: FileUpload, properties: Record<string, any>, subjectId: string, fieldId: string, visitId: string | null, timestamps: number | null): Promise<IGenericResponse> {
+        /**
+         * Upload a data file.
+         *
+         * @param requester - The id of the requester.
+         * @param studyId - The id of the study.
+         * @param file - The file to upload.
+         * @param properties - The properties of the file. Need to match field properties if defined.
+         * @param subjectId - The id of the subject.
+         * @param fieldId - The id of the field.
+         * @param visitId - The id of the visit.
+         * @param timestamps - The timestamps of the data.
+         *
+         * @return IGenericResponse
+         */
+
+        const study = await db.collections!.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null });
+        if (!study) {
+            throw new GraphQLError('Study does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+        }
+
+        const availableDataVersions: (string | null)[] = (study.currentDataVersion === -1 ? [] : study.dataVersions.filter((__unused__el, index) => index <= study.currentDataVersion)).map(el => el.id);
+        availableDataVersions.push(null);
+        const field = (await this.getStudyFields(studyId, availableDataVersions, [fieldId]))[0];
+        if (!field) {
+            throw new GraphQLError('Field does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+        }
+
+        if (field.properties) {
+            for (let i = 0; i < field.properties.length; i++) {
+                const property = field.properties[i];
+                if (properties[property.name]) {
+                    if (!utilsCore.validValueWithVerifier(properties[property.name], property.verifier)) {
+                        throw new GraphQLError(`Property ${property.name} check failed. Failed value ${JSON.stringify(properties[property.name])}`, { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+                    }
+                }
+                if (property.required && !properties[property.name]) {
+                    throw new GraphQLError(`Property ${property.name} is missing.`, { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+                }
+
+            }
+        }
+
+        // uploadfile
+        const file_ = file;
+        if (file_) {
+            const supportedFormats: string[] = Object.keys(enumFileTypes);
+            if (!(supportedFormats.includes((file_.filename.split('.').pop() as string).toUpperCase()))) {
+                throw new GraphQLError('File type not supported.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+            }
+        }
+        const fileEntry = await fileCore.uploadFile(requester, studyId, null, file_, null, enumFileTypes[(file_.filename.split('.').pop() as string).toUpperCase() as keyof typeof enumFileTypes], enumFileCategories.STUDY_DATA_FILE, properties);
+
+        const dataEntry = {
+            id: uuid(),
+            studyId: study.id,
+            subjectId: subjectId,
+            visitId: visitId,
+            fieldId: fieldId,
+            dataVersion: null,
+            value: fileEntry.id,
+            timestamps: timestamps,
+            properties: properties,
+            life: {
+                createdTime: Date.now(),
+                createdUser: requester,
+                deletedTime: null,
+                deletedUser: null
+            },
+            metadata: {}
+        };
+
+        await db.collections!.data_collection.insertOne(dataEntry);
+        return makeGenericReponse(fileEntry.id, true, undefined, 'File has been uploaded.');
     }
 
     public async getStudySummary(studyId: string): Promise<Record<string, any>> {

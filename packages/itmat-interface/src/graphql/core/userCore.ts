@@ -2,7 +2,7 @@ import bcrypt from 'bcrypt';
 import { db } from '../../database/database';
 import config from '../../utils/configManager';
 import { GraphQLError } from 'graphql';
-import { IUser, enumUserTypes, IOrganisation, IPubkey, defaultSettings, IGenericResponse, enumFileNodeTypes, IFile, IFileNode, enumFileTypes, enumFileCategories, IResetPasswordRequest } from '@itmat-broker/itmat-types';
+import { IUser, enumUserTypes, IOrganisation, IPubkey, defaultSettings, IGenericResponse, enumFileNodeTypes, IFile, IFileNode, enumFileTypes, enumFileCategories, IResetPasswordRequest, enumConfigType } from '@itmat-broker/itmat-types';
 import { makeGenericReponse } from '../responses';
 import { v4 as uuid } from 'uuid';
 import { errorCodes } from '../errors';
@@ -42,6 +42,27 @@ export class UserCore {
         return [user];
     }
 
+    public async getUserProfile(userId: string): Promise<string | null> {
+        /**
+         * Get the url of the profile of the user.
+         * 
+         * @param userId - The id of the user.
+         * 
+         * @return string
+         */
+
+        const user = await db.collections!.users_collection.findOne({ 'id': userId, 'life.deletedTime': null });
+        if (!user) {
+            throw new GraphQLError('User does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+        }
+
+        const profile = await db.collections!.files_collection.findOne({studyId: null, userId: userId, fileCategory: enumFileCategories.USER_PROFILE_FILE, 'life.deletedTime': null});
+        if (!profile) {
+            return null; //throw new GraphQLError('No profile found.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+        }
+        return profile.id;
+    }
+
     public async getAllUsers(includeDeleted: boolean): Promise<IUser[]> {
         /**
          * Get all users.
@@ -61,7 +82,7 @@ export class UserCore {
         return clearedUsers;
     }
 
-    public async createUser(requester: string | null, username: string, email: string, firstname: string, lastname: string, organisation: string, type: enumUserTypes, emailNotificationsActivated: boolean, password: string, otpSecret: string, profile: string | null, description: string | null): Promise<Partial<IUser>> {
+    public async createUser(requester: string | null, username: string, email: string, firstname: string, lastname: string, organisation: string, type: enumUserTypes, emailNotificationsActivated: boolean, password: string, otpSecret: string, profile: FileUpload | null, description: string | null): Promise<Partial<IUser>> {
         /**
          * Create a user.
          *
@@ -75,7 +96,7 @@ export class UserCore {
          * @param emailNotificationsActivated - Whether email notification service is activared.
          * @param password - The password of the user, should be hashed.
          * @param otpSecret - The otp secret of the user.
-         * @param profile - The id of the image of the profile of the user. Could be null.
+         * @param profile - The profile of the user.
          * @param description - The description of the user.
          *
          * @return Partial<IUser> - The object of IUser. Remove private information.
@@ -89,12 +110,6 @@ export class UserCore {
         if (!org) {
             throw new GraphQLError('Organisation does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
         }
-        if (profile) {
-            const profileFile = await db.collections!.files_collection.findOne({ 'id': profile, 'life.deletedTime': null });
-            if (!profileFile) {
-                throw new GraphQLError('Profile file does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
-            }
-        }
 
         // fetch the config file
         const userConfig = defaultSettings.userConfig;
@@ -102,6 +117,13 @@ export class UserCore {
         const userId: string = uuid();
         const hashedPassword: string = await bcrypt.hash(password, config.bcrypt.saltround);
         const expiredAt = Date.now() + 86400 * 1000 /* millisec per day */ * (userConfig.defaultUserExpiredDays);
+        let fileEntry;
+        if (profile) {
+            if (!Object.keys(enumFileTypes).includes(profile?.filename?.split('.')[1].toUpperCase())) {
+                throw new GraphQLError('Profile file does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+            }
+            fileEntry = await fileCore.uploadFile(userId, null, userId, profile, null, enumFileTypes[profile.filename.split('.')[1].toUpperCase() as keyof typeof enumFileTypes], enumFileCategories.USER_PROFILE_FILE, []);
+        }
         const entry: IUser = {
             id: userId,
             username: username,
@@ -114,12 +136,13 @@ export class UserCore {
             resetPasswordRequests: [],
             password: hashedPassword,
             otpSecret: otpSecret,
-            profile: null,
+            profile: (profile && fileEntry) ? fileEntry.id: null,
             description: description,
             expiredAt: expiredAt,
             fileRepo: [{
                 id: uuid(),
-                value: 'My Files',
+                name: 'My Files',
+                fileId: null,
                 type: enumFileNodeTypes.FOLDER,
                 children: [],
                 parent: null,
@@ -163,7 +186,7 @@ export class UserCore {
         }
     }
 
-    public async editUser(requester: string, userId: string, username: string | null, email: string | null, firstname: string | null, lastname: string | null, organisation: string | null, type: enumUserTypes | null, emailNotificationsActivated: boolean | null, password: string | null, otpSecret: string | null, profile: string | null, description: string | null, expiredAt: number | null): Promise<Partial<IUser>> {
+    public async editUser(requester: string, userId: string, username: string | null, email: string | null, firstname: string | null, lastname: string | null, organisation: string | null, type: enumUserTypes | null, emailNotificationsActivated: boolean | null, password: string | null, otpSecret: string | null, profile: FileUpload | null, description: string | null, expiredAt: number | null): Promise<Partial<IUser>> {
         /**
          * Edit an existing user. Note, this function will use all default values, so if you want to keep some fields the same, you need to first fetch the original values as the inputs.
          *
@@ -178,7 +201,7 @@ export class UserCore {
          * @param emailNotificationsActivated - Optional. Whether email notification service is activared.
          * @param password - Optional. The password of the user, should be hashed.
          * @param otpSecret - Optional. The otp secret of the user.
-         * @param profile - Optional. The id of the image of the profile of the user. Could be null.
+         * @param profile - Optional. The image of the profile of the user. Could be null.
          * @param description - Optional. The description of the user.
          * @param expiredAt - Optional. The expired timestamps of the user.
          *
@@ -201,13 +224,15 @@ export class UserCore {
                 throw new GraphQLError('Organisation does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
             }
         }
+        let fileEntry;
         if (profile) {
-            const profileFile = await db.collections!.files_collection.findOne({ 'id': profile, 'life.deletedTime': null });
-            if (!profileFile) {
+            if (!Object.keys(enumFileTypes).includes(profile?.filename?.split('.')[1].toUpperCase())) {
                 throw new GraphQLError('Profile file does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
             }
+            fileEntry = await fileCore.uploadFile(requester, null, user.id, profile, null, enumFileTypes[profile.filename.split('.')[1].toUpperCase() as keyof typeof enumFileTypes], enumFileCategories.USER_PROFILE_FILE, []);
         }
         const hashedPassword: string | null = password ? await bcrypt.hash(password, config.bcrypt.saltround) : null;
+
         const result = await db.collections!.users_collection.findOneAndUpdate({ id: user.id }, {
             $set: {
                 username: username ?? user.username,
@@ -219,7 +244,7 @@ export class UserCore {
                 emailNotificationsActivated: emailNotificationsActivated ?? user.emailNotificationsActivated,
                 password: hashedPassword ?? user.password,
                 otpSecret: otpSecret ?? user.otpSecret,
-                profile: profile ?? user.profile,
+                profile: (profile && fileEntry) ? fileEntry.id : null,
                 description: description,
                 expiredAt: expiredAt ?? user.expiredAt
             }
@@ -302,13 +327,13 @@ export class UserCore {
          */
         const user = await db.collections!.users_collection.findOne({ 'id': userId, 'life.deletedTime': null });
         if (!user) {
-            throw new GraphQLError('User does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+            throw new GraphQLError('User does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
         }
 
         return user.fileRepo;
     }
 
-    public async addFileNodeToUserRepo(requester: string, userId: string, parentNodeId: string, description: Record<string, any>, fileType: enumFileTypes | null, file: Promise<FileUpload> | null, folderName: string | null): Promise<IGenericResponse> {
+    public async addFileNodeToUserRepo(requester: string, userId: string, parentNodeId: string, description: string | null, fileType: enumFileTypes | null, file: FileUpload | null, folderName: string | null): Promise<IFileNode> {
         /**
          * Add/Upload a file to the user file repo.
          *
@@ -320,18 +345,22 @@ export class UserCore {
          *
          * @return IGenericResponse - The object of the IGenericResponse.
          */
-
+        const user = await db.collections!.users_collection.findOne({id: userId, 'fileRepo.id': parentNodeId, 'life.deletedTime': null});
+        if (!user) {
+            throw new GraphQLError('User or parent node does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+        }
         const session = db.client!.startSession();
         session.startTransaction();
         try {
             let fileEntry: IFile | null = null;
             if (file && fileType) {
-                fileEntry = await fileCore.uploadFile(userId, null, file, description, fileType, enumFileCategories.USERFILE);
+                fileEntry = await fileCore.uploadFile(requester, null, userId, file, description, fileType, enumFileCategories.USER_REPO_FILE, []);
             }
             const fileNodeId: string = uuid();
             const fileNodeEntry: IFileNode = {
                 id: fileNodeId,
-                value: fileEntry ? fileEntry.uri : folderName ?? '',
+                name: fileEntry ? fileEntry.fileName : folderName ?? '',
+                fileId: fileEntry ? fileEntry.id : null,
                 type: fileEntry ? enumFileNodeTypes.FILE : enumFileNodeTypes.FOLDER,
                 parent: parentNodeId,
                 children: [],
@@ -354,7 +383,7 @@ export class UserCore {
             });
             await session.commitTransaction();
             session.endSession();
-            return makeGenericReponse(fileNodeId, true, undefined);
+            return fileNodeEntry;
         } catch (error) {
             await session.abortTransaction();
             session.endSession();
@@ -380,7 +409,7 @@ export class UserCore {
 
         const thisNode = await db.collections!.users_collection.findOne({ 'id': userId, 'life.deletedTime': null, 'fileRepo.id': fileNodeId });
         if (!thisNode) {
-            throw new GraphQLError('Parent node does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+            throw new GraphQLError('Node does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
         }
 
         const session = db.client!.startSession();
@@ -471,7 +500,7 @@ export class UserCore {
         const nodeIdsToShare: string[] = [];
         this.recursiveFindFiles(user.fileRepo, user.fileRepo.filter(el => el.id === fileNodeId)[0], fileIdsToShare, nodeIdsToShare);
         await db.collections!.users_collection.findOneAndUpdate({ 'id': userId, 'fileRepo.id': { $in: nodeIdsToShare } }, {
-            $push: { 'fileRepo.$[elem].sharedUsers': { $each: sharedUsers } }
+            $set: { 'fileRepo.$.sharedUsers': sharedUsers }
         });
 
         return makeGenericReponse(fileNodeId, true, undefined);
@@ -679,8 +708,8 @@ export class UserCore {
             return;
         }
         nodesList.push(root.id);
-        if (root.type === enumFileNodeTypes.FILE) {
-            filesList.push(root.value);
+        if (root.type === enumFileNodeTypes.FILE && root.fileId) {
+            filesList.push(root.fileId);
             return;
         }
         if (root.type === enumFileNodeTypes.FOLDER) {

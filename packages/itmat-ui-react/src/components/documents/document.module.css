@@ -1,0 +1,101 @@
+.page_container {
+    min-height: 100vh;
+    position: relative;
+    overflow: auto;
+    display: grid;
+    grid-template-areas: "TOP TOP" "LEFT RIGHT";
+    grid-template-rows: 100px auto; /* or whatever size you want for the top area */
+    grid-template-columns: 30% 70%;
+}
+
+.document_top {
+    grid-area: TOP;
+    height: 100px; /* or whatever size you want for the top area */
+}
+
+.document_left {
+    grid-area: LEFT;
+    padding: 20px;
+    background-color: aqua;
+    overflow: auto;
+    max-height: calc(100vh - 100px); /* the max height is the total viewport height minus the height of the top area */
+}
+
+.document_right {
+    grid-area: RIGHT;
+    padding: 20px;
+    background-color: white;
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+    max-height: calc(100vh - 100px); /* the max height is the total viewport height minus the height of the top area */
+}
+
+
+
+.qleditor {
+    height: 800px; /* Set this to your desired fixed height */
+    overflow-y: auto;
+}
+
+
+
+
+/* .profile_left {
+    grid-area: LEFT;
+    padding: 20px;
+    background-color: white;
+}
+
+.profile_summary_wrapper {
+    text-align: center;
+    border: 3px solid white;
+}
+
+.profile_summary_profile {
+    text-align: center;
+}
+
+.profile_summary_statistics {
+    text-align: center;
+}
+
+.profile_summary_statistics_value {
+    font-weight: bold;
+    font-size: 32px;
+}
+
+.profile_summary_statistics_tag {
+    font-size: 16px;
+    font-family: monospace;
+}
+
+.profile_summary_description {
+    font-size: 16px;
+    font-family: "Brush Script MT";
+}
+
+.profile_right {
+    grid-area: RIGHT;
+    padding: 20px;
+    background-color: white;
+}
+
+.profile_edit_submit {
+    float: right;
+}
+
+.profile_edit_normal_title {
+    font-size: 15px;
+}
+
+.profile_edit_special_title {
+    font-size: 25px;
+    font-weight: bold;
+}
+
+.file_wrapper {
+    grid-area: FILE;
+    padding: 20px;
+    background-color: white;
+} */

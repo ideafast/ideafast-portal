@@ -1,28 +1,41 @@
 import { FunctionComponent } from 'react';
 import { Mutation } from '@apollo/client/react/components';
-import { LOGIN, WHO_AM_I, GET_CONFIG } from '@itmat-broker/itmat-models';
+import { LOGIN, WHO_AM_I, GET_CONFIG, GET_DOCS } from '@itmat-broker/itmat-models';
 import { NavLink } from 'react-router-dom';
 import css from './login.module.css';
-import { Input, Form, Button, Alert, Checkbox, Image } from 'antd';
+import { Input, Form, Button, Alert, Checkbox, Image, Carousel } from 'antd';
 import { useMutation, useQuery } from '@apollo/client/react/hooks';
 import LoadSpinner from '../reusable/loadSpinner';
-import { enumConfigType } from '@itmat-broker/itmat-types';
+import { enumConfigType, enumDocTypes } from '@itmat-broker/itmat-types';
+import 'react-quill/dist/quill.snow.css'; // for Snow theme
 
 export const LoginBox: FunctionComponent = () => {
     const { loading: getConfigLoading, error: getConfigError, data: getConfigData } = useQuery(GET_CONFIG, { variables: { configType: enumConfigType.SYSTEMCONFIG, key: null } });
+    const {loading: getDocsLoading, error: getDocsError, data: getDocsData} = useQuery(GET_DOCS, { variables: { docId: null, studyId: null, docTypes: [enumDocTypes.HOMEPAGE], verbose: true} });
     const [login] = useMutation(LOGIN);
-    if (getConfigLoading) {
+    if (getConfigLoading || getDocsLoading) {
         return <LoadSpinner />;
     }
-    if (getConfigError) {
+    if (getConfigError || getDocsError) {
         return <p>
             An error occured, please contact your administrator
         </p>;
     }
     const systemConfig = getConfigData.getConfig.properties;
+    
+
     return (<div className={css.login_wrapper}>
         <div className={css.login_left}>
-
+            <Carousel autoplay>
+                {
+                    getDocsData.getDocs.map(el => (
+                    // <div className={css.carousel_block}>
+                        <div className={css.inner_block} dangerouslySetInnerHTML={{ __html: el.contents}}>
+                        </div>
+                    // </div>
+                    ))
+                }
+            </Carousel>
         </div>
         <div className={css.login_right}>
             <div className={css.login_logo}>

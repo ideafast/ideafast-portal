@@ -3,13 +3,16 @@ import { IBase } from './base';
 export interface IDoc extends IBase {
     title: string;
     type: enumDocTypes;
-    tag: string;
-    fileId: string; // the url of the file
+    description: string | null;
+    tag: string | null;
+    studyId: string | null; // enable study-individual documents
+    contents: string; // we store the contents as string for now
     priority: number;
-    attachments: string[]; // the list of urls of the attachments
+    attachmentFileIds: string[]; // the list of uris of the attachments
 }
 
 export enum enumDocTypes {
     HOMEPAGE = 'HOMEPAGE',
-    GENERAL = 'GENERAL'
+    GENERAL = 'GENERAL',
+    STUDYONLY = 'STUDYONLY'
 }

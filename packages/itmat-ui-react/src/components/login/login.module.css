@@ -1,21 +1,23 @@
 .login_wrapper {
-    height: 100%;
-    position: relative;
-    overflow: auto;
+    height: 100vh; /* Changed to viewport height */
     display: flex;
     justify-content: space-between;
 }
 
 .login_left {
     flex: 1 0 60%;
-    padding: 20px;
+    margin: 20px; /* Changed padding to margin */
     background-color: aqua;
+    box-sizing: border-box; /* Added box-sizing */
+    position: relative;
 }
 
 .login_right {
     flex: 1 0 40%;
-    padding: 20px;
-    background-color: aliceblue;
+    margin: 20px; /* Changed padding to margin */
+    background-color: white;
+    box-sizing: border-box; /* Added box-sizing */
+    position: relative;
 }
 
 .login_logo {
@@ -50,4 +52,31 @@
 .error_message {
     width: 100%;
     min-height: 20%;
+}
+
+.ql-align-center {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+}
+
+.inner_block {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    text-align: center;
+}
+
+.inner_block > * {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    flex-direction: column;
 }

@@ -4,6 +4,7 @@ import { db } from '../../database/database';
 import { organisationCore } from '../core/organisationCore';
 import { errorCodes } from '../errors';
 import { makeGenericReponse } from '../responses';
+import { FileUpload } from 'graphql-upload-minimal';
 
 export const organisationResolvers = {
     Query: {
@@ -21,13 +22,14 @@ export const organisationResolvers = {
         }
     },
     Mutation: {
-        createOrganisation: async (__unused__parent: Record<string, unknown>, { name, shortname, location }: { name: string, shortname: string, location: number[] | null }, context: any): Promise<IOrganisation> => {
+        createOrganisation: async (__unused__parent: Record<string, unknown>, { name, shortname, location, profile }: { name: string, shortname: string, location: number[] | null, profile: Promise<FileUpload> | null }, context: any): Promise<IOrganisation> => {
             /**
              * Create an organisation.
              *
              * @param name - The name of the organisation.
              * @param shortname - The shortname of the organisation.
              * @param location - The location of the organisation.
+             * @param profile - The profile of the organisation.
              *
              * @return IOrganisation - The object of IOrganisation.
              */
@@ -37,7 +39,11 @@ export const organisationResolvers = {
             if (requester.type !== enumUserTypes.ADMIN) {
                 throw new GraphQLError('Only admins can create organisations.', { extensions: { code: errorCodes.NO_PERMISSION_ERROR } });
             }
-            const organisation = await organisationCore.createOrganisation(requester.id, name, shortname, location, null);
+            let profile_ = null;
+            if (profile) {
+                profile_ = await profile;
+            }
+            const organisation = await organisationCore.createOrganisation(requester.id, name, shortname, location, profile_);
 
             return organisation;
         },
@@ -61,7 +67,7 @@ export const organisationResolvers = {
 
             return makeGenericReponse(orgId, true, undefined, `Organisation ${orgId} has been deleted.`);
         },
-        editOrganisation: async (__unused__parent: Record<string, unknown>, { orgId, name, shortname, location, profile }: { orgId: string, name: string | null, shortname: string | null, location: number[] | null, profile: string | null }, context: any): Promise<IGenericResponse> => {
+        editOrganisation: async (__unused__parent: Record<string, unknown>, { orgId, name, shortname, location, profile }: { orgId: string, name: string | null, shortname: string | null, location: number[] | null, profile: Promise<FileUpload> | null }, context: any): Promise<IGenericResponse> => {
             /**
              * Edit an organisation. Note, if value is null, it will user the old value.
              *
@@ -81,7 +87,12 @@ export const organisationResolvers = {
                 throw new GraphQLError('Only admins can edit organisations.', { extensions: { code: errorCodes.NO_PERMISSION_ERROR } });
             }
 
-            await organisationCore.editOrganisation(orgId, name, shortname, location, profile);
+            let profile_ = null;
+            if (profile) {
+                profile_ = await profile;
+            }
+
+            await organisationCore.editOrganisation(requester.id, orgId, name, shortname, location, profile_);
 
             return makeGenericReponse(orgId, true, undefined, `Organisation ${orgId} has been edited.`);
         }

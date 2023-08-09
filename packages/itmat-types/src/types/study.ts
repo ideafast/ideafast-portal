@@ -7,15 +7,16 @@ export interface IStudy extends IBase {
     currentDataVersion: number; // index; dataVersions[currentDataVersion] gives current version; // -1 if no data
     dataVersions: IStudyDataVersion[];
     description: string | null;
-    groupList: IGroupNode[];
+    profile: string | null;
+    groupList: IStudyGroupNode[];
 }
 
-export interface IGroupNode extends IBase {
+export interface IStudyGroupNode extends IBase {
     name: string;
     type: enumGroupNodeTypes;
     description: string | null;
     parent: string | null; // null for root node
-    children: IGroupNode[]
+    children: IStudyGroupNode[]
 }
 
 export enum enumGroupNodeTypes {
@@ -111,7 +112,7 @@ export interface IDataClip extends IBase {
     visitId: string | null; // null for data with no actual visit
     value: string | null; //
     dataVersion: string | null; // null for unversioned data
-    timestamp: number | null; // the exact timesamp of this data clip
+    timestamps: number | null; // the exact timesamp of this data clip
 }
 
 export interface ISubjectDataRecordSummary {

@@ -1,4 +1,5 @@
 import { IBase } from './base';
+import { IValueVerifier } from './utils';
 
 export interface IField extends IBase {
     studyId: string;
@@ -11,7 +12,15 @@ export interface IField extends IBase {
     unit: string | null;
     comments: string | null;
     dataVersion: string | null;
-    verifier: IFieldValueVerifier | null;
+    verifier: IValueVerifier[][] | null;
+    properties: IFieldPropert[] | null; // mostly used for file ddata
+}
+
+export interface IFieldPropert extends IBase {
+    name: string;
+    verifier: IValueVerifier;
+    description: string | null;
+    required: boolean;
 }
 
 export enum enumDataTypes {
@@ -26,51 +35,17 @@ export enum enumDataTypes {
 }
 
 export interface ICategoricalOption extends IBase {
-    value: string;
+    code: string;
     description: string;
 }
 
-export interface IFieldValueVerifier extends IBase {
-    formula: IAST;
-    condition: enumConditionOps;
-    value: number;
-    parameters: Array<number | string>;
-}
 
-export enum enumConditionOps {
-    EQUAL = '=',
-    NOTEQUAL = '!=',
-    LESSTHAN = '<',
-    GREATERTHAN = '>',
-    NOTLESSTHAN = '>=',
-    NOTGREATERTHAN = '<='
-}
-
-export interface IAST extends IBase {
-    type: enumASTNodeTypes;
-    op: enumMathOps;
-    args: IAST[];
-}
-
-export enum enumASTNodeTypes {
-    OPERATION = 'OPERATION',
-    VARIABLE = 'VARIABLE',
-    VALUE = 'VALUE'
-}
-
-export enum enumMathOps {
-    ADD = '+',
-    MINUS = '-',
-    MULTIPLY = '*',
-    DIVIDE = '/',
-    POW = '^'
-}
 
 export interface IData extends IBase {
     studyId: string;
     subjectId: string;
     fieldId: string;
-    visitId: string;
+    visitId: string | null;
     dataVersion: string | null;
     value: any;
     timestamps: number | null;

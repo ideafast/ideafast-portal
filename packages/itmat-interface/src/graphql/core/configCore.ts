@@ -1,5 +1,5 @@
 import { GraphQLError } from 'graphql';
-import { IField, enumDataTypes, ICategoricalOption, IFieldValueVerifier, IGenericResponse, IData, atomicOperation, enumConfigType, defaultSettings, IOntologyTree, IOntologyRoute, IConfig } from '@itmat-broker/itmat-types';
+import { IField, enumDataTypes, ICategoricalOption, IValueVerifier, IGenericResponse, IData, atomicOperation, enumConfigType, defaultSettings, IOntologyTree, IOntologyRoute, IConfig } from '@itmat-broker/itmat-types';
 import { v4 as uuid } from 'uuid';
 import { db } from '../../database/database';
 import { errorCodes } from '../errors';

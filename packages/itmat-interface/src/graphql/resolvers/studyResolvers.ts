@@ -15,7 +15,9 @@ import {
     atomicOperation,
     IPermissionManagementOptions,
     IData,
-    IGenericResponse
+    IGenericResponse,
+    IStudyGroupNode,
+    enumGroupNodeTypes
 } from '@itmat-broker/itmat-types';
 import { v4 as uuid } from 'uuid';
 import { db } from '../../database/database';
@@ -26,39 +28,47 @@ import { errorCodes } from '../errors';
 import { makeGenericReponse } from '../responses';
 import { buildPipeline, translateMetadata } from '../../utils/query';
 import { dataStandardization } from '../../utils/query';
+import { FileUpload } from 'graphql-upload-minimal';
 
 export const studyResolvers = {
     Query: {
-        getStudy: async (__unused__parent: Record<string, unknown>, { studyId }: { studyId: string }, context: any): Promise<Partial<IStudy>> => {
+        getStudies: async (__unused__parent: Record<string, unknown>, { studyId }: { studyId: string | null }, context: any): Promise<Partial<IStudy>[]> => {
             /**
-             * Get the info of a study.
+             * Get the info of studies.
              *
              * @param studyId - The if of the study.
              *
              * @return Partial<IStudy>
              */
             const requester: IUser = context.req.user;
-            /* user can get study if he has readonly permission */
-            const hasPermission = await permissionCore.userHasTheNeccessaryManagementPermission(
-                IPermissionManagementOptions.own,
-                atomicOperation.READ,
-                requester.id,
-                studyId,
-                null
-            );
 
-            if (!hasPermission) { throw new GraphQLError(errorCodes.NO_PERMISSION_ERROR); }
+            const studies = await studyCore.getStudies(studyId);
 
-            const study = await studyCore.getStudy(studyId);
-
-            return {
-                id: study.id,
-                name: study.name,
-                description: study.description,
-                currentDataVersion: requester.type === enumUserTypes.ADMIN ? study.currentDataVersion : undefined,
-                dataVersions: requester.type === enumUserTypes.ADMIN ? study.dataVersions : undefined,
-                groupList: requester.type === enumUserTypes.ADMIN ? study.groupList : undefined
-            };
+            const filteredStudies: Partial<IStudy>[] = [];
+            for (const study of studies) {
+                filteredStudies.push({
+                    id: study.id,
+                    name: study.name,
+                    description: study.description,
+                    currentDataVersion: requester.type === enumUserTypes.ADMIN ? study.currentDataVersion : undefined,
+                    dataVersions: requester.type === enumUserTypes.ADMIN ? study.dataVersions : undefined,
+                    groupList: requester.type === enumUserTypes.ADMIN ? study.groupList : undefined,
+                    profile: study.profile
+                });
+            }
+            return filteredStudies;
+        },
+        getStudyGroupNodes:async (__unused__parent: Record<string, unknown>, {studyId}: {studyId: string}, context: any): Promise<Partial<IStudyGroupNode>[]> => {
+            /**
+             * Get the list of groups of a study.
+             * 
+             * @param studyId - The id of the study.
+             * 
+             * @return Partial<IStudyGroupNode>[]
+             */
+        
+            const groups = await studyCore.getStudyGroups(studyId);
+            return groups;
         }
 
         /** TODO */
@@ -523,13 +533,13 @@ export const studyResolvers = {
         // }
     },
     Mutation: {
-        createStudy: async (__unused__parent: Record<string, unknown>, { name, description }: { name: string, description: string }, context: any): Promise<IStudy> => {
+        createStudy: async (__unused__parent: Record<string, unknown>, { name, description, profile }: { name: string, description: string, profile: Promise<FileUpload>}, context: any): Promise<Partial<IStudy>> => {
             /**
              * Create a study.
              *
              * @param name - The name of the study.
              * @param description - The description of the study.
-             *
+             * @param profile - The profile of the study.
              *
              * @return IStudy
              */
@@ -537,28 +547,35 @@ export const studyResolvers = {
             if (requester.type !== enumUserTypes.ADMIN) {
                 throw new GraphQLError(errorCodes.NO_PERMISSION_ERROR);
             }
-
+            let profile_ = null;
+            if (profile) {
+                profile_ = await profile;
+            }
             /* create study */
-            const study = await studyCore.createStudy(requester.id, name, description);
+            const study = await studyCore.createStudy(requester.id, name, description, profile_);
             return study;
         },
-        editStudy: async (__unused__parent: Record<string, unknown>, { studyId, name, description }: { studyId: string, name: string, description: string }, context: any): Promise<IStudy> => {
+        editStudy: async (__unused__parent: Record<string, unknown>, { studyId, name, description, profile }: { studyId: string, name: string, description: string, profile: Promise<FileUpload> | null }, context: any): Promise<Partial<IStudy>> => {
             /**
              * Edit a study.
              *
              * @param studyId - The id of the study.
              * @param name - The name of the study.
              * @param description - The description of the study.
+             * @param profile - The profile of the user.
              *
-             * @return
+             * @return Partial<IStudy>
              */
 
             const requester: IUser = context.req.user;
             if (requester.type !== enumUserTypes.ADMIN) {
                 throw new GraphQLError(errorCodes.NO_PERMISSION_ERROR);
             }
-
-            const study = await studyCore.editStudy(studyId, name, description);
+            let profile_ = null;
+            if (profile) {
+                profile_ = await profile;
+            }
+            const study = await studyCore.editStudy(requester.id, studyId, name, description, profile_);
             return study;
         },
         deleteStudy: async (__unused__parent: Record<string, unknown>, { studyId }: { studyId: string }, context: any): Promise<IGenericResponse> => {
@@ -600,6 +617,58 @@ export const studyResolvers = {
             }
 
             const response = await studyCore.createDataVersion(requester, studyId, tag, dataVersion);
+            return response;
+        },
+        createStudyGroupNode:async (__unused__parent: Record<string, unknown>, {studyId, groupNodeName, groupNodeType, description, parentGroupNodeId}: {studyId: string, groupNodeName: string, groupNodeType: enumGroupNodeTypes, description: string | null, parentGroupNodeId: string}, context: any): Promise<Partial<IStudyGroupNode>> => {
+            /**
+             * Create a study group.
+             *
+             * @param studyId - The id of the study.
+             * @param groupName - The name of the study.
+             * @param groupType - The type of the group.
+             * @param description - The description of the group.
+             * @param parentGroupId - The id of the parent group.
+             *
+             * @return IStudyGroupNode - The object of IStudyGroupNode
+             */
+
+            const requester = context.req.user;
+
+            const group = await studyCore.createStudyGroup(requester.id, studyId, groupNodeName, groupNodeType, description, parentGroupNodeId);
+            return group;
+        },
+        editStudyGroupNode:async (__unused__parent: Record<string, unknown>, {studyId, groupNodeId, groupNodeName, description, parentGroupNodeId, children}: {studyId: string, groupNodeId: string, groupNodeName: string | null, description: string| null, parentGroupNodeId: string, children: string[] | null}, context: any): Promise<IGenericResponse> => {
+            /**
+             * Edit a group.
+             *
+             * @param studyId - The id of the study.
+             * @param groupId - The id of the group.
+             * @param description - The new description of the group.
+             * @param targetParentId - The id of the target parent.
+             * @param children - The ids of the children groups of the group.
+             *
+             * @return IGenericResponse - The object of IGenericRespnse
+             */
+
+            const requester = context.req.user;
+
+            const response = await studyCore.editStudyGroup(studyId, groupNodeId, groupNodeName, description, parentGroupNodeId, children);
+            return response;
+        },
+        deleteStudyGroupNode:async (__unused__parent: Record<string, unknown>, {studyId, groupNodeId}: {studyId: string, groupNodeId: string}, context: any): Promise<IGenericResponse> => {
+            /**
+             * Delete a group of a study.
+             *
+             * @param requester - The id of the requester.
+             * @param studyId - The id of the study.
+             * @param groupId - The id of the group.
+             *
+             * @return IGenericResponse - The object of IGenericResponse.
+             */
+
+            const requester = context.req.user;
+
+            const response = await studyCore.deleteStudyGroup(requester.id, studyId, groupNodeId);
             return response;
         },
         // createProject: async (__unused__parent: Record<string, unknown>, { studyId, projectName }: { studyId: string, projectName: string }, context: any): Promise<IProject> => {
