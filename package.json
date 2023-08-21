@@ -35,7 +35,7 @@
         "@nx/react": "16.6.0",
         "@nx/web": "16.6.0",
         "@nx/webpack": "16.6.0",
-        "@nx/workspace": "16.6.0",
+        "@nx/workspace": "16.7.2",
         "@pmmmwh/react-refresh-webpack-plugin": "^0.5.10",
         "@svgr/webpack": "8.0.1",
         "@swc/cli": "0.1.62",
