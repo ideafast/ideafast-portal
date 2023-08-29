@@ -12,7 +12,7 @@
         "serve-ui": "nx serve itmat-ui-react",
         "serve-interface": "nx serve itmat-interface",
         "serve-executor": "nx serve itmat-job-executor",
-        "build": "nx run-many --exclude=itmat-docker --target=build",
+        "build": "nx run-many --exclude=itmat-docker --target=build --verbose",
         "build-noui": "nx run-many --exclude=itmat-docker,itmat-ui-react --target=build",
         "dockerise": "nx build itmat-docker --tag datascienceinstitute/itmat-broker:latest",
         "dockerise-staging": "nx build itmat-docker --tag datascienceinstitute/itmat-broker:staging",

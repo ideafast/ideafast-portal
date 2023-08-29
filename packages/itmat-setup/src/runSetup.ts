@@ -2,7 +2,8 @@ import { setupDatabase } from './index';
 import chalk from 'chalk';
 import fs from 'fs';
 
-const content = fs.readFileSync('../config/config.json', 'utf-8');
+console.log(process.cwd())
+const content = fs.readFileSync('./packages/itmat-interface/config/config.json', 'utf-8');
 let config;
 try {
     config = JSON.parse(content);
