@@ -29,7 +29,7 @@
         "@nx/esbuild": "16.7.3",
         "@nx/eslint-plugin": "16.7.3",
         "@nx/express": "16.7.3",
-        "@nx/jest": "16.7.3",
+        "@nx/jest": "16.7.4",
         "@nx/js": "16.7.3",
         "@nx/linter": "16.7.3",
         "@nx/node": "16.7.3",
