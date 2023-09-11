@@ -23,7 +23,7 @@
         "lint-fix": "nx affected --target=lint --fix"
     },
     "devDependencies": {
-        "@babel/core": "^7.22.15",
+        "@babel/core": "^7.22.17",
         "@babel/preset-react": "^7.22.15",
         "@nx/cypress": "16.8.0",
         "@nx/esbuild": "16.8.0",
