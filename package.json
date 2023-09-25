@@ -25,7 +25,7 @@
     "devDependencies": {
         "@babel/core": "^7.22.15",
         "@babel/preset-react": "^7.22.15",
-        "@nx/cypress": "16.8.1",
+        "@nx/cypress": "16.9.0",
         "@nx/esbuild": "16.8.1",
         "@nx/eslint-plugin": "16.8.1",
         "@nx/express": "16.8.1",
