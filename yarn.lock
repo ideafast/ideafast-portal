@@ -4777,10 +4777,10 @@ ansi-styles@^5.0.0:
   resolved "https://registry.yarnpkg.com/ansi-styles/-/ansi-styles-5.2.0.tgz#07449690ad45777d1924ac2abb2fc8895dba836b"
   integrity sha512-Cxwpt2SfTzTtXcfOlzGEee8O+c+MmUgGrNiBcXnuWxuFJHe6a5Hz7qwhwe5OgaSYI0IJvkLqWX1ASG+cJOkEiA==
 
-antd@5.9.3:
-  version "5.9.3"
-  resolved "https://registry.yarnpkg.com/antd/-/antd-5.9.3.tgz#7829fc7e1ccd78f634aab12283ee1f8e567e767e"
-  integrity sha512-a7gY6hfsjoDLOENHKzjXZgmAxi1hDdsuIvYm6YMTctb08EhTEXCZoeFOekwz9S0vrTcdSpUMblRWsiwuYRdPYg==
+antd@5.9.4:
+  version "5.9.4"
+  resolved "https://registry.yarnpkg.com/antd/-/antd-5.9.4.tgz#296b5a3fa0a9b83f11f5f7528a225823b79fd21b"
+  integrity sha512-eyNn1C/Q9ESn4ktfTlRIIXBbWT5L/Rr38xP37dIvJ3FeD/a4vaVcMqqLz5ywwMPKxgWnuUxggo1mJwWdPoIdSg==
   dependencies:
     "@ant-design/colors" "^7.0.0"
     "@ant-design/cssinjs" "^1.16.0"
@@ -4820,7 +4820,7 @@ antd@5.9.3:
     rc-slider "~10.2.1"
     rc-steps "~6.0.1"
     rc-switch "~4.1.0"
-    rc-table "~7.34.0"
+    rc-table "~7.34.4"
     rc-tabs "~12.12.1"
     rc-textarea "~1.4.0"
     rc-tooltip "~6.0.1"
@@ -11524,7 +11524,7 @@ rc-switch@~4.1.0:
     classnames "^2.2.1"
     rc-util "^5.30.0"
 
-rc-table@~7.34.0:
+rc-table@~7.34.4:
   version "7.34.4"
   resolved "https://registry.yarnpkg.com/rc-table/-/rc-table-7.34.4.tgz#027a1052846fffb1ff38b2e0df95acb0ac508254"
   integrity sha512-os+i88Y2AO/6dNkOgJkKSHgXYaZZGnuOEEe+nyaq5IRgvAQNhLysUjXt2objtBeFDEZR8TqXrajwBNRUwunmdw==
