@@ -1,9 +1,16 @@
 import jStat from 'jstat';
 import { IFieldEntry, IOntologyTree, IOntologyRoute } from '@itmat-broker/itmat-types';
 
-export function get_t_test(t_array1: number[], t_array2: number[], digits: number) {
-    if (t_array1.length <= 1 || t_array2.length <= 1) {
-        return [0, 0];
+export function get_t_test(t_array1: any[], t_array2: any[], digits: number) {
+    t_array1 = filterAndConvertToNumbers(t_array1);
+    t_array2 = filterAndConvertToNumbers(t_array2);
+    if (t_array1.length <= 1 || t_array2.length <= 1 || arraysAreEqual(t_array1, t_array2)) {
+        return [0, 1];
+    }
+    const sorted1 = [...t_array1].sort();
+    const sorted2 = [...t_array1].sort();
+    for (let i = 0; i < sorted1.length; i++) {
+        if (sorted1[i] !== sorted2[i]) return false;
     }
     const meanA = jStat.mean(t_array1);
     const meanB = jStat.mean(t_array2);
@@ -13,9 +20,11 @@ export function get_t_test(t_array1: number[], t_array2: number[], digits: numbe
     return [parseFloat(t_score.toFixed(digits)), parseFloat(t_pval.toFixed(digits))];
 }
 
-export function get_z_test(t_array1: number[], t_array2: number[], digits: number) {
-    if (t_array1.length <= 1 || t_array2.length <= 1) {
-        return [0, 0];
+export function get_z_test(t_array1: any[], t_array2: any[], digits: number) {
+    t_array1 = filterAndConvertToNumbers(t_array1);
+    t_array2 = filterAndConvertToNumbers(t_array2);
+    if (t_array1.length <= 1 || t_array2.length <= 1 || arraysAreEqual(t_array1, t_array2)) {
+        return [0, 1];
     }
     const meanA = jStat.mean(t_array1);
     const meanB = jStat.mean(t_array2);
@@ -257,4 +266,24 @@ export function findDmField(ontologyTree: IOntologyTree, fields: IFieldEntry[], 
         ...field,
         visitRange: node.visitRange
     } : null;
+}
+
+export function isNumberOrNumericString(value: any): boolean {
+    return typeof value === 'number' || (typeof value === 'string' && !isNaN(Number(value)) && value.trim() !== '');
+}
+
+export function filterAndConvertToNumbers(arr: any[]): number[] {
+    return arr
+        .filter(value => isNumberOrNumericString(value))
+        .map(value => Number(value));
+}
+
+function arraysAreEqual(arr1: any[], arr2: any[]): boolean {
+    if (arr1.length !== arr2.length) return false;
+    const sorted1 = [...arr1].sort();
+    const sorted2 = [...arr2].sort();
+    for (let i = 0; i < sorted1.length; i++) {
+        if (sorted1[i] !== sorted2[i]) return false;
+    }
+    return true;
 }

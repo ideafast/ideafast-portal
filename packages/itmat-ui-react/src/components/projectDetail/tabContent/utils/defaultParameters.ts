@@ -1,12 +1,10 @@
 export const options: any = {
     ops: ['=', '!=', '<', '>', '>=', '<='],
     tagColors: {
-        visit: 'red',
-        race: 'volcano',
-        genderID: 'cyan',
-        siteID: 'orange',
-        mh: 'blue',
-        cm: 'lime',
+        VISIT: 'red',
+        RACE: 'volcano',
+        GENDER: 'cyan',
+        SITE: 'orange',
         filters: 'purple'
     }
 };

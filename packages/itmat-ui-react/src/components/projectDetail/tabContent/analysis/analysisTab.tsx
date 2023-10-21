@@ -1,14 +1,14 @@
 import { FunctionComponent, useEffect, useState } from 'react';
 import { statisticsTypes, analysisTemplate, options, dataTypeMapping } from '../utils/defaultParameters';
-import { get_t_test, get_z_test, mannwhitneyu, findDmField, generateCascader } from '../../../../utils/tools';
+import { get_t_test, get_z_test, mannwhitneyu, findDmField, generateCascader, isNumberOrNumericString } from '../../../../utils/tools';
 import { useQuery, useLazyQuery } from '@apollo/client/react/hooks';
 import { GET_STUDY_FIELDS, GET_PROJECT, GET_DATA_RECORDS, GET_ONTOLOGY_TREE } from '@itmat-broker/itmat-models';
 import { IFieldEntry, IProject, enumValueType, IOntologyTree, IOntologyRoute } from '@itmat-broker/itmat-types';
 import LoadSpinner from '../../../reusable/loadSpinner';
-import { SubsectionWithComment } from '../../../reusable/subsection/subsection';
+import { Subsection, SubsectionWithComment } from '../../../reusable/subsection/subsection';
 import css from './tabContent.module.css';
 import exportFromJSON from 'export-from-json';
-import { Select, Form, Modal, Divider, Slider, Table, Button, Input, Tag, Popconfirm, message, Tooltip, Cascader, Popover, Space, Progress, Collapse, Typography } from 'antd';
+import { Select, Form, Modal, Divider, Slider, Table, Button, Input, Tag, Popconfirm, message, Tooltip, Cascader, Popover, Space, Collapse, Typography } from 'antd';
 import { Heatmap, Violin, Column } from '@ant-design/plots';
 import { PlusOutlined, MinusCircleOutlined, CopyOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useParams } from 'react-router-dom';
@@ -20,16 +20,148 @@ const { Title, Text } = Typography;
 
 export const AnalysisTabContent: FunctionComponent<{ studyId: string }> = ({ studyId }) => {
     const { projectId } = useParams();
-
     const { loading: getStudyFieldsLoading, error: getStudyFieldsError, data: getStudyFieldsData } = useQuery(GET_STUDY_FIELDS, { variables: { studyId: studyId, projectId: projectId } });
     const { loading: getProjectLoading, error: getProjectError, data: getProjectData } = useQuery(GET_PROJECT, { variables: { projectId: projectId, admin: false } });
     const [getDataRecords, { loading: getDataRecordsLoading, data: getDataRecordsData }] = useLazyQuery(GET_DATA_RECORDS, {
         fetchPolicy: 'network-only'
     });
     const [currentStep, setCurrentStep] = useState(-1);
+    // const [filters, setFilters] = useState<any>({
+    //     groups: [],
+    //     comparedFields: []
+    // });
     const [filters, setFilters] = useState<any>({
-        groups: [],
-        comparedFields: []
+        groups: [
+            {
+                VISIT: 'Baseline',
+                RACE: [],
+                SITE: [],
+                SEX: [],
+                AGE: [
+                    0,
+                    100
+                ],
+                filters: [
+                    {
+                        field: '25',
+                        op: '<',
+                        value: '80'
+                    },
+                    {
+                        field: '207',
+                        op: '=',
+                        value: 'cohort_a'
+                    }
+                ]
+            },
+            {
+                VISIT: 'Baseline',
+                RACE: [],
+                SITE: [],
+                SEX: [],
+                AGE: [
+                    0,
+                    100
+                ],
+                filters: [
+                    {
+                        field: '25',
+                        op: '<',
+                        value: '80'
+                    },
+                    {
+                        field: '207',
+                        op: '=',
+                        value: 'cohort_b'
+                    }
+                ]
+            },
+            {
+                VISIT: 'Baseline',
+                RACE: [],
+                SITE: [],
+                SEX: [],
+                AGE: [
+                    0,
+                    100
+                ],
+                filters: [
+                    {
+                        field: '25',
+                        op: '<',
+                        value: '80'
+                    },
+                    {
+                        field: '207',
+                        op: '=',
+                        value: 'cohort_c'
+                    }
+                ]
+            },
+            {
+                VISIT: 'Baseline',
+                RACE: [],
+                SITE: [],
+                SEX: [],
+                AGE: [
+                    0,
+                    100
+                ],
+                filters: [
+                    {
+                        field: '25',
+                        op: '<',
+                        value: '80'
+                    },
+                    {
+                        field: '207',
+                        op: '=',
+                        value: 'cohort_d'
+                    }
+                ]
+            },
+            {
+                VISIT: 'Baseline',
+                RACE: [],
+                SITE: [],
+                SEX: [],
+                AGE: [
+                    0,
+                    100
+                ],
+                filters: [
+                    {
+                        field: '25',
+                        op: '<',
+                        value: '80'
+                    },
+                    {
+                        field: '207',
+                        op: '=',
+                        value: 'cohort_v'
+                    }
+                ]
+            }
+        ],
+        comparedFields: [
+            '143',
+            '144',
+            '145',
+            '146',
+            '147',
+            '148',
+            '149',
+            '150',
+            '151',
+            '152',
+            '153',
+            '154',
+            '155',
+            '156',
+            '157',
+            '158',
+            '159'
+        ]
     });
     const { loading: getOntologyTreeLoading, error: getOntologyTreeError, data: getOntologyTreeData } = useQuery(GET_ONTOLOGY_TREE, {
         variables: {
@@ -70,7 +202,7 @@ export const AnalysisTabContent: FunctionComponent<{ studyId: string }> = ({ stu
     const ageField: any = findDmField(getOntologyTreeData.getOntologyTree[0], getStudyFieldsData.getStudyFields, 'AGE');
     const siteField: any = findDmField(getOntologyTreeData.getOntologyTree[0], getStudyFieldsData.getStudyFields, 'SITE');
     const results = divideResults(filters, getDataRecordsData?.getDataRecords.data, getStudyFieldsData.getStudyFields,
-        [genderField, raceField, ageField, siteField]);
+        [genderField, raceField, ageField, siteField], getOntologyTreeData.getOntologyTree);
     return (<div className={css.tab_page_wrapper}>
         <div className={css.scaffold_wrapper}></div>
         <FilterSelector guideTool={[currentStep, setCurrentStep]} filtersTool={[filters, setFilters]} fields={getStudyFieldsData.getStudyFields} project={getProjectData.getProject} query={getDataRecords}
@@ -95,53 +227,22 @@ const FilterSelector: FunctionComponent<{ guideTool: any, filtersTool: any, fiel
         form.setFieldsValue(formInitialValues(form, filtersTool[0], currentGroupIndex));
     });
     const [genderField, raceField] = dmFields;
-
     return (<div className={css.scaffold_wrapper}>
         <div>
-            <SubsectionWithComment title='Introduction' comment={
-                <Space>
-                    <Button onClick={() => {
-                        guideTool[1](0);
-                        filtersTool[1]({
-                            groups: [],
-                            comparedFields: []
-                        });
-                    }}>Start to Guide</Button>
-                    <Button onClick={() => {
-                        guideTool[1](-1);
-                        filtersTool[1]({
-                            groups: [],
-                            comparedFields: []
-                        });
-                    }}>Exit Guide</Button>
-                </Space>
-            }>
+            <Subsection title='Introduction'>
                 <Modal
-                    title={popoverContents[guideTool[0]]?.title || ''}
+                    title={''}
                     open={guideTool[0] === 0}
                     onOk={() => guideTool[1](guideTool[0] + 1)}
                     onCancel={() => guideTool[1](-1)}
                     okText={'Continue'}
                     cancelText={'Exit'}
                 >
-                    {popoverContents[guideTool[0]]?.content || ''}
                 </Modal>
                 {
                     guideTool[0] === -1 ? null :
                         <div>
                             <div style={{ fontSize: '40px' }}><span>Progress</span></div>
-                            <Progress
-                                strokeColor={{
-                                    from: '#108ee9',
-                                    to: '#87d068'
-                                }}
-                                style={{ width: '80%' }}
-                                percent={(guideTool[0] + 1) / popoverContents.length * 100}
-                                type={'line'}
-                                // steps={popoverContents.length}
-                                format={() => { return null; }}
-                            >
-                            </Progress>
                         </div>
                 }
                 <Collapse ghost>
@@ -154,48 +255,34 @@ const FilterSelector: FunctionComponent<{ guideTool: any, filtersTool: any, fiel
                         <Text>Several basic statistics analysis are provided. The results can be exported in a json format.</Text>
                     </Panel>
                 </Collapse>
-            </SubsectionWithComment>
+            </Subsection>
         </div><br />
         <div>
             <SubsectionWithComment
                 title='Data Selection'
                 comment={<div>
                     <Space>
-                        <Popover
-                            visible={guideTool[0] === popoverContents[1].step && !isModalOn}
-                            title={popoverContents[1].title}
-                            content={<div style={{ overflow: 'hidden' }}>
-                                <span>{popoverContents[1].content}</span><br />
-                                {/* <Button style={{ float: 'left' }} onClick={() => setCurrentStep(currentStep + 1)}>Continue</Button> */}
-                                <Button style={{ float: 'right' }} onClick={() => guideTool[1](-1)}>Exit</Button>
-                            </div>}
-                        >
-                            <Button className={css.button} onClick={() => {
-                                if (guideTool[0] !== -1) {
-                                    guideTool[1](guideTool[0] + 1);
-                                }
-                                setIsModalOn(true);
-                                setCurrentGroupIndex(-1);
-                            }} disabled={guideTool[0] !== -1 && guideTool[0] !== popoverContents[1].step}>Create group</Button>
-                        </Popover>
+
+                        <Button className={css.button} onClick={() => {
+                            if (guideTool[0] !== -1) {
+                                guideTool[1](guideTool[0] + 1);
+                            }
+                            setIsModalOn(true);
+                            setCurrentGroupIndex(-1);
+                        }} disabled={false}>Create group</Button>
                         <Button className={css.button}
                             onClick={() => {
                                 if (currentGroupIndex === -1) {
-                                    if (guideTool[0] === popoverContents[guideTool[0] - 1]?.step) {
-                                        message.error('You havn\'t copy that.');
-                                    }
                                     return;
                                 } else {
-                                    if (guideTool[0] === popoverContents[3]?.step) {
-                                        guideTool[1](guideTool[0] + 1);
-                                    }
                                     const newFilters = { ...filtersTool[0] };
-                                    newFilters.groups = [...filtersTool[0].groups, filtersTool[0].groups[currentGroupIndex]];
+                                    newFilters.groups = [...filtersTool[0].groups];
+                                    newFilters.groups.push(filtersTool[0].groups[currentGroupIndex]);
                                     filtersTool[1](newFilters);
                                 }
                             }}
-                            disabled={guideTool[0] !== -1 && guideTool[0] !== popoverContents[3].step}
-                            danger={guideTool[0] === popoverContents[3]?.step && currentGroupIndex !== -1}
+                            disabled={false}
+                            danger={false}
                         >Paste group</Button>
                         <Button className={css.button} onClick={() => {
                             setIsTemplateModalOn(true);
@@ -210,10 +297,7 @@ const FilterSelector: FunctionComponent<{ guideTool: any, filtersTool: any, fiel
                                     }
                                 }
                             });
-                            if (guideTool[0] === popoverContents[5].step) {
-                                guideTool[1](guideTool[0] + 1);
-                            }
-                        }} disabled={guideTool[0] !== -1 && guideTool[0] !== popoverContents[5].step} danger={guideTool[0] === popoverContents[5].step}>Analyse</Button>
+                        }} disabled={false} danger={false}>Analyse</Button>
                     </Space>
                 </div>}>
                 <Modal
@@ -258,13 +342,11 @@ const FilterSelector: FunctionComponent<{ guideTool: any, filtersTool: any, fiel
                             message.error('You must select a specific visit.');
                             return;
                         }
-                        if (guideTool[0] === popoverContents[2].step || guideTool[0] === popoverContents[4].step) {
-                            guideTool[1](guideTool[0] + 1);
-                        }
                         const data = { ...form.getFieldsValue(true) };
+
                         for (let i = 0; i < data.filters.length; i++) {
                             const route: IOntologyRoute | undefined = ontologyTree.routes?.filter(el => {
-                                return JSON.stringify(el.path.concat(el.name)) === JSON.stringify(data.filters[i].field);
+                                return el.field[0].slice(1) === data.filters[i].field;
                             })[0];
                             if (route === undefined) {
                                 data.filters.splice(i, 1);
@@ -287,38 +369,14 @@ const FilterSelector: FunctionComponent<{ guideTool: any, filtersTool: any, fiel
                         setIsModalOn(false);
                         guideTool[1](-1);
                     }}
-                    okText={guideTool[0] === -1 ? 'Ok' : 'Continue'}
-                    cancelText={guideTool[0] === -1 ? 'Cancel' : 'Exit'}
+                // okText={guideTool[0] === -1 ? 'Ok' : 'Continue'}
+                // cancelText={guideTool[0] === -1 ? 'Cancel' : 'Exit'}
                 >
                     <Form
                         layout='horizontal'
                         form={form}
                     >
-                        {
-                            guideTool[0] === popoverContents[2].step ?
-
-                                <>
-                                    <div style={{ overflow: 'hidden' }}>
-                                        <span style={{ float: 'left' }}>{popoverContents[1].content}</span><br />
-                                        <Button style={{ float: 'right' }} onClick={() => {
-                                            form.setFieldsValue({
-                                                visit: 2,
-                                                race: [raceField.possibleValues[1].code],
-                                                genderID: [genderField.possibleValues[0].code],
-                                                siteID: [],
-                                                age: [
-                                                    0,
-                                                    100
-                                                ],
-                                                filters: []
-                                            });
-                                        }}>Fill in</Button>
-                                    </div>
-                                    <br />
-                                </>
-                                : null
-                        }
-                        <Form.Item label='Select Visit' name='visit'
+                        <Form.Item label='Select Visit' name='VISIT'
                             labelAlign={'left'}
                             rules={[
                                 {
@@ -336,7 +394,7 @@ const FilterSelector: FunctionComponent<{ guideTool: any, filtersTool: any, fiel
                                 })}
                             </Select>
                         </Form.Item>
-                        <Form.Item label='Select Race' name='race'
+                        <Form.Item label='Select Race' name='RACE'
                             labelAlign={'left'}
                         >
                             <Select
@@ -352,7 +410,7 @@ const FilterSelector: FunctionComponent<{ guideTool: any, filtersTool: any, fiel
                                 }
                             </Select>
                         </Form.Item>
-                        <Form.Item label='Select Gender' name='genderID'
+                        <Form.Item label='Select Gender' name='SEX'
                             labelAlign={'left'}
                         >
                             <Select
@@ -368,12 +426,12 @@ const FilterSelector: FunctionComponent<{ guideTool: any, filtersTool: any, fiel
                                 }
                             </Select>
                         </Form.Item>
-                        <Form.Item label='Input Site' name='siteID'
+                        <Form.Item label='Input Site' name='SITE'
                             labelAlign={'left'}
                         >
                             <Input />
                         </Form.Item>
-                        <Form.Item label='Select Age' name='age'
+                        <Form.Item label='Select Age' name='AGE'
                             labelAlign={'left'}
                         >
                             <Slider
@@ -416,35 +474,28 @@ const FilterSelector: FunctionComponent<{ guideTool: any, filtersTool: any, fiel
                     dataSource={[...(filtersTool[0].groups || [])]}
                     size='middle'
                 ></Table>
-                <Popover
-                    visible={guideTool[0] === popoverContents[5].step}
-                    title={popoverContents[5].title}
-                    content={popoverContents[5].content}
-                    placement={'bottom'}
-                >
-                    <Cascader
-                        style={{ width: '100%' }}
-                        options={fieldPathOptions}
-                        onChange={(value) => {
-                            const newFields: string[] = [];
-                            value.forEach(el => {
-                                const route: IOntologyRoute | undefined = ontologyTree.routes?.filter(es => {
-                                    return JSON.stringify(es.path.concat(es.name)) === JSON.stringify(el);
-                                })[0];
-                                if (route !== undefined) {
-                                    newFields.push(route.field[0].replace('$', ''));
-                                }
-                            });
-                            const newFilters = { ...filtersTool[0] };
-                            newFilters.comparedFields = [...newFields];
-                            filtersTool[1](newFilters);
-                        }}
-                        getPopupContainer={trigger => trigger.parentElement}
-                        multiple
-                        maxTagCount='responsive'
-                        showCheckedStrategy={SHOW_CHILD}
-                    />
-                </Popover>
+                <Cascader
+                    style={{ width: '100%' }}
+                    options={fieldPathOptions}
+                    onChange={(value) => {
+                        const newFields: string[] = [];
+                        value.forEach(el => {
+                            const route: IOntologyRoute | undefined = ontologyTree.routes?.filter(es => {
+                                return JSON.stringify(es.path.concat(es.name)) === JSON.stringify(el);
+                            })[0];
+                            if (route !== undefined) {
+                                newFields.push(route.field[0].replace('$', ''));
+                            }
+                        });
+                        const newFilters = { ...filtersTool[0] };
+                        newFilters.comparedFields = [...newFields];
+                        filtersTool[1](newFilters);
+                    }}
+                    getPopupContainer={trigger => trigger.parentElement}
+                    multiple
+                    maxTagCount='responsive'
+                    showCheckedStrategy={SHOW_CHILD}
+                />
             </SubsectionWithComment>
         </div>
     </div >);
@@ -533,7 +584,7 @@ const ResultsVisualization: FunctionComponent<{ project: IProject, fields: IFiel
                 if ([enumValueType.DECIMAL, enumValueType.INTEGER].includes(fieldDef.dataType)) {
                     return (<div>
                         <Violin
-                            data={record.dataForGraph}
+                            data={record.dataForGraph.filter(ek => isNumberOrNumericString(ek.y))}
                             xField={'x'}
                             yField={'y'}
                         />
@@ -812,12 +863,12 @@ function filterTableColumns(guideTool: any, fields: IFieldEntry[], dmFields: any
             dataIndex: 'visit',
             key: 'visit',
             render: (__unused__value, record) => {
-                return <Tag color={options.tagColors.visit} >{record.visit}</Tag>;
+                return <Tag color={options.tagColors.VISIT} >{record.VISIT}</Tag>;
             }
         }
     ];
     if (filtersTool[0] !== undefined) {
-        if (filtersTool[0].groups.some(el => el.race.length !== 0)) {
+        if (filtersTool[0].groups.some(el => el.RACE.length !== 0)) {
             columns.push({
                 title: 'Race',
                 dataIndex: 'race',
@@ -825,7 +876,7 @@ function filterTableColumns(guideTool: any, fields: IFieldEntry[], dmFields: any
                 render: (__unused__value, record) => {
                     return <div>
                         {
-                            record.race.map(el => <Tag color={options.tagColors.race} >{raceField?.possibleValues?.filter(ed => ed.code === el.toString())[0].description}</Tag>)
+                            record.RACE.map(el => <Tag color={options.tagColors.RACE} >{raceField?.possibleValues?.filter(ed => ed.code === el.toString())[0].description}</Tag>)
                         }
                     </div>;
                 }
@@ -833,7 +884,7 @@ function filterTableColumns(guideTool: any, fields: IFieldEntry[], dmFields: any
         }
     }
     if (filtersTool[0] !== undefined) {
-        if (filtersTool[0].groups.some(el => el.genderID.length !== 0)) {
+        if (filtersTool[0].groups.some(el => el.SEX.length !== 0)) {
             columns.push({
                 title: 'Sex',
                 dataIndex: 'sex',
@@ -841,40 +892,40 @@ function filterTableColumns(guideTool: any, fields: IFieldEntry[], dmFields: any
                 render: (__unused__value, record) => {
                     return <div>
                         {
-                            record.genderID.map(el => <Tag color={options.tagColors.genderID} >{genderField?.possibleValues?.filter(ed => ed.code === el.toString())[0].description}</Tag>)
+                            record.SEX.map(el => <Tag color={options.tagColors.SEX} >{genderField?.possibleValues?.filter(ed => ed.code === el.toString())[0].description}</Tag>)
                         }
                     </div>;
                 }
             });
         }
     }
+    // if (filtersTool[0] !== undefined) {
+    //     if (filtersTool[0].groups.some(el => el.mh.length !== 0)) {
+    //         columns.push({
+    //             title: 'Medical History',
+    //             dataIndex: 'mh',
+    //             key: 'mh',
+    //             render: (__unused__value, record) => {
+    //                 return <div>
+    //                     <Tooltip title={record.mh?.map(el => {
+    //                         const field = fields.filter(es => es.fieldId === el)[0];
+    //                         return <Tag color={options.tagColors.mh} >{field.fieldName.toString()}</Tag>;
+    //                     })}>
+    //                         {record.mh.length.toString()}
+    //                     </Tooltip>
+    //                 </div>;
+    //             }
+    //         });
+    //     }
+    // }
     if (filtersTool[0] !== undefined) {
-        if (filtersTool[0].groups.some(el => el.mh.length !== 0)) {
-            columns.push({
-                title: 'Medical History',
-                dataIndex: 'mh',
-                key: 'mh',
-                render: (__unused__value, record) => {
-                    return <div>
-                        <Tooltip title={record.mh?.map(el => {
-                            const field = fields.filter(es => es.fieldId === el)[0];
-                            return <Tag color={options.tagColors.mh} >{field.fieldName.toString()}</Tag>;
-                        })}>
-                            {record.mh.length.toString()}
-                        </Tooltip>
-                    </div>;
-                }
-            });
-        }
-    }
-    if (filtersTool[0] !== undefined) {
-        if (filtersTool[0].groups.some(el => (el.age[0] !== 0 || el.age[1] !== 100))) {
+        if (filtersTool[0].groups.some(el => (el.AGE[0] !== 0 || el.AGE[1] !== 100))) {
             columns.push({
                 title: 'Age',
                 dataIndex: 'age',
                 key: 'age',
                 render: (__unused__value, record) => {
-                    return record.age.join('~');
+                    return record.AGE.join('~');
                 }
             });
         }
@@ -909,19 +960,12 @@ function filterTableColumns(guideTool: any, fields: IFieldEntry[], dmFields: any
             key: 'copy',
             render: (__unused__value, record, index) => {
                 return <div>
-                    <Popover
-                        visible={guideTool[0] === popoverContents[3].step}
-                        title={popoverContents[guideTool[0]]?.title || ''}
-                        content={popoverContents[guideTool[0]]?.content || ''}
-                        placement={'bottomRight'}
-                    >
-                        <CopyOutlined
-                            style={{ color: guideTool[0] === popoverContents[3].step ? 'red' : 'blue' }}
-                            key='copy'
-                            onClick={() => {
-                                setCurrentGroupIndex(index);
-                            }} />
-                    </Popover>
+                    <CopyOutlined
+                        style={{ color: 'blue' }}
+                        key='copy'
+                        onClick={() => {
+                            setCurrentGroupIndex(index);
+                        }} />
 
                 </div>;
             }
@@ -932,20 +976,13 @@ function filterTableColumns(guideTool: any, fields: IFieldEntry[], dmFields: any
             key: 'edit',
             render: (__unused__value, __unused__record, index) => {
                 return <div>
-                    <Popover
-                        visible={guideTool[0] === 4 && index === 1}
-                        title={popoverContents[4].title}
-                        content={popoverContents[4].content}
-                        placement={'bottomRight'}
-                    >
-                        <EditOutlined
-                            style={{ color: guideTool[0] === popoverContents[4].step ? 'red' : 'blue' }}
-                            key='edit'
-                            onClick={() => {
-                                setCurrentGroupIndex(index);
-                                setIsModalOn(true);
-                            }} />
-                    </Popover>
+                    <EditOutlined
+                        style={{ color: 'blue' }}
+                        key='edit'
+                        onClick={() => {
+                            setCurrentGroupIndex(index);
+                            setIsModalOn(true);
+                        }} />
                 </div >;
             }
         });
@@ -981,12 +1018,11 @@ function filterTableColumns(guideTool: any, fields: IFieldEntry[], dmFields: any
 function formInitialValues(form: any, filters: any, index: number) {
     if (index === -1) {
         return {
-            visit: null,
-            race: [],
-            siteID: [],
-            genderID: [],
-            age: [0, 100],
-            mh: [],
+            VISIT: null,
+            RACE: [],
+            SITE: [],
+            SEX: [],
+            AGE: [0, 100],
             filters: []
         };
     } else {
@@ -1009,7 +1045,7 @@ function combineFilters(fields: IFieldEntry[], filters: any, dmFields: any[]) {
     }
     queryString.format = 'grouped';
     queryString.subjects_requested = null;
-    for (const eachVisit of Array.from(new Set(filters.groups.map(el => el.visit)))) {
+    for (const eachVisit of Array.from(new Set(filters.groups.map(el => el.VISIT)))) {
         queryString.cohort.push([{
             field: 'm_visitId',
             op: '=',
@@ -1019,61 +1055,75 @@ function combineFilters(fields: IFieldEntry[], filters: any, dmFields: any[]) {
     return queryString;
 }
 
-function divideResults(filters, results, fields, dmFields: any[]) {
+function divideResults(filters, results, fields, dmFields: any[], ontologyTree: any) {
     if (filters === undefined || results === undefined || fields === undefined) {
         return;
     }
+    const fieldsDict = fields.reduce((a, c) => {
+        a[c.fieldId] = c;
+        return a;
+    }, {});
+    const ontologyRoutes = ontologyTree[0].routes;
+    const defaultDMFields = dmFields.reduce((a, c) => {
+        const route = ontologyRoutes.filter(el => el.field[0].slice(1) === c.fieldId)[0];
+        if (route) {
+            a[route.name] = c;
+        }
+        return a;
+    }, {});
     const data: any = [];
-    const dms: any = {
-        genderID: dmFields[0],
-        race: dmFields[1],
-        age: dmFields[2],
-        siteID: dmFields[3]
-    };
+    const dms: any = {};
+    for (const route of ontologyRoutes) {
+        if (route.visitRange.length === 1 && route.visitRange[0] === '0') {
+            dms[route.field[0].slice(1)] = fieldsDict[route.field[0].slice(1)];
+        }
+    }
+    const dmsKeys: string[] = Object.keys(dms);
     filters.comparedFields.forEach(el => {
-        const fieldDef: IFieldEntry = fields.filter(ek => ek.fieldId === el)[0];
-        if (![enumValueType.DECIMAL, enumValueType.INTEGER, enumValueType.CATEGORICAL, enumValueType.BOOLEAN].includes(fieldDef.dataType)) {
+        const fieldDef: IFieldEntry = fieldsDict[el];
+        if (!fieldDef) {
             return;
         }
-        if (fieldDef.tableName === 'Participants') {
+        if (![enumValueType.DECIMAL, enumValueType.INTEGER, enumValueType.CATEGORICAL, enumValueType.BOOLEAN, enumValueType.STRING].includes(fieldDef.dataType)) {
             return;
         }
         const dataClip: any = {};
         dataClip.field = el;
         dataClip.data = {};
         filters.groups.forEach((es, index) => {
-            if (fieldDef === undefined) {
-                return;
-            }
             dataClip.data['Group-'.concat(index.toString())] = [];
-            if (results[el] === undefined || results[el][es.visit] === undefined) {
+            if (!results[el]) {
                 return;
             }
-            const dataByVisit = results[el][es.visit]?.data;
+            const modifiedVisit = dmsKeys.includes(el) ? ontologyRoutes.filter(ek => ek.field[0].slice(1) === el)[0].visitRange[0] : es.VISIT;
+            const dataByVisit = results[el][modifiedVisit]?.data;
+            console.log(results);
+            console.log(el, modifiedVisit);
             // check demographics
             let valid;
             for (let i = 0; i < dataByVisit.length; i++) {
                 valid = true;
-                for (const key of Object.keys(dms)) {
+                for (const key of Object.keys(defaultDMFields)) {
+                    const dmVisit = ontologyRoutes.filter(el => el.name === key)[0].visitRange[0];
                     if (!dms[key]) {
                         continue;
                     }
-                    if (key === 'visit') {
+                    if (key === 'VISIT') {
                         continue;
                     }
                     if (es[key].length === 0) {
                         continue;
                     }
-                    if (!results[dms[key]?.fieldId]) {
+                    if (!results[defaultDMFields[key].fieldId]) {
                         continue;
                     }
-                    if (key !== 'age') {
-                        if (!es[key].includes(results[dms[key]?.fieldId][dms[key]?.visitRange[0]]?.data[i])) {
+                    if (key !== 'AGE') {
+                        if (!es[key].includes(results[defaultDMFields[key].fieldId][dmVisit]?.data[i])) {
                             valid = false;
                             break;
                         }
-                    } else if (key === 'age') {
-                        if (!(es[key][0] <= results[dms[key]?.fieldId][dms[key]?.visitRange[0]].data[i] && es[key][1] >= results[dms[key]?.fieldId][dms[key]?.visitRange[0]].data[i])) {
+                    } else if (key === 'AGE') {
+                        if (!(es[key][0] <= results[defaultDMFields[key].fieldId][dmVisit].data[i] && es[key][1] >= results[defaultDMFields[key].fieldId][dmVisit].data[i])) {
                             valid = false;
                             break;
                         }
@@ -1082,39 +1132,61 @@ function divideResults(filters, results, fields, dmFields: any[]) {
 
                 // check filters
                 for (const eachFilter of es.filters) {
+                    if (!valid) {
+                        break;
+                    }
+                    const modifiedVisit = dmsKeys.includes(eachFilter.field) ? ontologyRoutes.filter(ek => ek.field[0].slice(1) === eachFilter.field)[0].visitRange[0] : es.VISIT;
                     switch (eachFilter.op) {
                         case '=': {
-                            if (results[eachFilter.field][es.visit].data[i] !== eachFilter.value) {
+                            if (!results[eachFilter.field][modifiedVisit].data[i]) {
                                 valid = false;
+                            }
+                            else if ([enumValueType.DECIMAL, enumValueType.INTEGER].includes(fieldsDict[eachFilter.field].dataType)) {
+                                if (parseFloat(results[eachFilter.field][modifiedVisit].data[i]) !== parseFloat(eachFilter.value)) {
+                                    valid = false;
+                                }
+                            } else {
+                                if (results[eachFilter.field][modifiedVisit].data[i].toString() !== eachFilter.value.toString()) {
+                                    valid = false;
+                                }
                             }
                             break;
                         }
                         case '!=': {
-                            if (results[eachFilter.field][es.visit].data[i] === eachFilter.value) {
+                            if (!results[eachFilter.field][modifiedVisit].data[i]) {
                                 valid = false;
+                            }
+                            else if ([enumValueType.DECIMAL, enumValueType.INTEGER].includes(fieldsDict[eachFilter.field].dataType)) {
+                                if (parseFloat(results[eachFilter.field][modifiedVisit]?.data[i]) === parseFloat(eachFilter.value)) {
+                                    valid = false;
+                                }
+                            } else {
+                                if (results[eachFilter.field][modifiedVisit].data[i].toString() === eachFilter.value.toString()) {
+                                    valid = false;
+                                }
                             }
                             break;
                         }
                         case '<': {
-                            if (results[eachFilter.field][es.visit].data[i] >= eachFilter.value) {
+                            if (parseFloat(results[eachFilter.field][modifiedVisit]?.data[i]) >= parseFloat(eachFilter.value)) {
                                 valid = false;
                             }
                             break;
                         }
                         case '>': {
-                            if (results[eachFilter.field][es.visit].data[i] <= eachFilter.value) {
+                            if (parseFloat(results[eachFilter.field][modifiedVisit]?.data[i]) <= parseFloat(eachFilter.value)) {
                                 valid = false;
                             }
                             break;
                         }
                         case '<=': {
-                            if (results[eachFilter.field][es.visit].data[i] > eachFilter.value) {
+                            if (parseFloat(results[eachFilter.field][modifiedVisit]?.data[i]) > parseFloat(eachFilter.value)) {
                                 valid = false;
                             }
                             break;
                         }
                         case '>=': {
-                            if (results[eachFilter.field][es.visit].data[i] < eachFilter.value) {
+                            if (parseFloat(results[eachFilter.field][modifiedVisit]?.data[i]) < parseFloat(eachFilter.value)) {
                                 valid = false;
                             }
                             break;
@@ -1125,11 +1197,16 @@ function divideResults(filters, results, fields, dmFields: any[]) {
                         }
                     }
                 }
-                if (valid && dataByVisit[i] !== '99999') {
-                    dataClip.data['Group-'.concat(index.toString())].push(parseFloat(dataByVisit[i]));
+                if (valid && !dataByVisit[i]) {
+                    dataClip.data['Group-'.concat(index.toString())].push('NA');
+                } else if (valid && dataByVisit[i] === '99999') {
+                    dataClip.data['Group-'.concat(index.toString())].push('Missing');
+                } else if (valid && dataByVisit[i] && dataByVisit[i] !== '99999') {
+                    dataClip.data['Group-'.concat(index.toString())].push(dataByVisit[i]);
                 }
             }
         });
+
         // construct data for visualization
         if ([enumValueType.INTEGER, enumValueType.DECIMAL].includes(fieldDef.dataType)) {
             const dataForGraph: any = Object.keys(dataClip.data).reduce((acc, curr) => {
@@ -1152,9 +1229,17 @@ function divideResults(filters, results, fields, dmFields: any[]) {
                             type: ek.description
                         });
                     });
-                } else {
-                    return acc;
                 }
+                acc.push({
+                    x: curr,
+                    y: dataClip.data[curr].filter(es => es.toString() === 'Missing').length,
+                    type: 'Missing'
+                });
+                acc.push({
+                    x: curr,
+                    y: dataClip.data[curr].filter(es => es.toString() === 'NA').length,
+                    type: 'NA'
+                });
                 return acc;
             }, ([] as any));
             dataClip.dataForGraph = dataForGraph;
@@ -1212,48 +1297,3 @@ function divideResults(filters, results, fields, dmFields: any[]) {
     });
     return data;
 }
-
-
-const popoverContents = [
-    {
-        step: 0,
-        title: 'Let\'s start!',
-        content: 'We will compare results from BPI Questionnaire by gender/sex of a specific visit.',
-        requireContinue: true
-    },
-    {
-        step: 1,
-        title: 'Creating the first group.',
-        content: 'We will create a group of male participants only.',
-        requireContinue: true
-    },
-    {
-        step: 2,
-        title: 'Set up the filters.',
-        content: 'You need to filter participants by the following criteria. You can use our template by clicking Fill in.',
-        requireContinue: true
-    },
-    {
-        step: 3,
-        title: 'Create the second group.',
-        content: 'Copy the first group and paste it.',
-        requireContinue: true
-    },
-    {
-        step: 4,
-        title: 'Change the filters.',
-        content: 'Change the sex to male.',
-        requireContinue: true
-    },
-    {
-        step: 5,
-        title: 'Select the fields to compare.',
-        content: 'We will select all fields of the BMI questionnires. Then click Analyse.',
-        requireContinue: true
-    },
-    {
-        step: 6,
-        title: 'View the results.',
-        content: 'You can view the results from now.'
-    }
-];
