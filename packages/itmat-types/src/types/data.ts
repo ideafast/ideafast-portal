@@ -1,4 +1,5 @@
-import { IBase } from './base';
+import { z } from 'zod';
+import { IBase, ZBase } from './base';
 import { IValueVerifier } from './utils';
 
 export interface IField extends IBase {
@@ -18,7 +19,7 @@ export interface IField extends IBase {
 
 export interface IFieldPropert extends IBase {
     name: string;
-    verifier: IValueVerifier;
+    verifier: IValueVerifier[][] | null;
     description: string | null;
     required: boolean;
 }
@@ -39,16 +40,17 @@ export interface ICategoricalOption extends IBase {
     description: string;
 }
 
-
+export const ZCategoricalOption = z.object({
+    code: z.string(),
+    description: z.string()
+}).merge(ZBase);
 
 export interface IData extends IBase {
     studyId: string;
-    subjectId: string;
     fieldId: string;
-    visitId: string | null;
     dataVersion: string | null;
     value: any;
-    timestamps: number | null;
+    properties: Record<string, any>;
 }
 
 export interface IOntologyTree extends IBase {

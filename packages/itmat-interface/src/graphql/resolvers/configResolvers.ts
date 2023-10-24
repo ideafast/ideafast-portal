@@ -26,7 +26,7 @@ export const configResolvers = {
              *
              * @return IConfig
              */
-            return await configCore.getConfig(configType, key);
+            return await configCore.getConfig(configType, key, true);
         }
     }
 };

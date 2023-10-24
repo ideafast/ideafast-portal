@@ -1,4 +1,4 @@
-import type { IFile, IJob, IProject, IQueryEntry, IData } from '@itmat-broker/itmat-types';
+import type { IFile, IJob, IProject, IQueryEntry, IData, IDriveNode } from '@itmat-broker/itmat-types';
 import { Database as DatabaseBase, IDatabaseBaseConfig } from '@itmat-broker/itmat-commons';
 import type { Collection } from 'mongodb';
 
@@ -10,7 +10,8 @@ export interface IDatabaseConfig extends IDatabaseBaseConfig {
         files_collection: string,
         data_collection: string,
         queries_collection: string,
-        projects_collection: string
+        projects_collection: string,
+        drives_collection: string
     };
 }
 
@@ -21,7 +22,8 @@ export interface IDatabaseCollectionConfig {
     files_collection: Collection<IFile>,
     data_collection: Collection<IData>,
     queries_collection: Collection<IQueryEntry>,
-    projects_collection: Collection<IProject>
+    projects_collection: Collection<IProject>,
+    drives_collection: Collection<IDriveNode>
 }
 
 export const db = new DatabaseBase<IDatabaseBaseConfig, IDatabaseCollectionConfig>();

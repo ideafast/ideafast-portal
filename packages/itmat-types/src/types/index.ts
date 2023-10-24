@@ -13,6 +13,10 @@ import * as Reserved from './reserved';
 import * as Response from './response';
 import * as Doc from './doc';
 import * as Utils from './utils';
+import * as Cache from './cache';
+import * as Drive from './drive';
+import * as Group from './group';
+import * as Permission from './permission';
 
 export * from './file';
 export * from './job';
@@ -29,5 +33,8 @@ export * from './reserved';
 export * from './response';
 export * from './doc';
 export * from './utils';
+export * from './drive';
+export * from './group';
+export * from './permission';
 
-export const Types = { File, Job, Log, User, Pubkey, Study, Query, Data, Standardization, Base, Config, Reserved, Response, Doc, Utils };
+export const Types = { File, Job, Log, User, Pubkey, Study, Query, Data, Standardization, Base, Config, Reserved, Response, Doc, Utils, Cache, Drive, Group, Permission };

@@ -1,4 +1,4 @@
-import { IProject, IStandardization, IUser, atomicOperation } from '@itmat-broker/itmat-types';
+import { IProject, IStandardization, IUser } from '@itmat-broker/itmat-types';
 import { permissionCore } from '../core/permissionCore';
 import { studyCore } from '../core/studyCore';
 import { GraphQLError } from 'graphql';

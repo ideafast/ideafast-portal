@@ -11,20 +11,20 @@ import { RegisterNewUser } from './components/login/register';
 import { WHO_AM_I } from '@itmat-broker/itmat-models';
 import LoadSpinner from './components/reusable/loadSpinner';
 import { StatusBar } from './components/scaffold/statusBar';
-import { useQuery } from '@apollo/client/react/hooks';
+import { convertRCFileToSchema, trpc } from './utils/trpc';
 
 export const Fence: FunctionComponent = () => {
-    const { loading, error, data } = useQuery(WHO_AM_I);
+    const whoAmI = trpc.user.whoAmI.useQuery();
     let component: JSX.Element | null = null;
-    if (loading)
+    if (whoAmI.isLoading)
         component = <LoadSpinner />;
-    else if (error)
+    else if (whoAmI.isError)
         component = <p>
             Error
             {' '}
-            {error?.message}
+            {whoAmI.error?.message}
         </p>;
-    else if (data.whoAmI !== null && data.whoAmI !== undefined && data.whoAmI.username !== null) {
+    else if (whoAmI.data !== null && whoAmI.data !== undefined) {
         component = <div className={css.app + ' dark_theme'}>
             <MainMenuBar projects={[]} />
             <MainPanel />

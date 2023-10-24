@@ -1,13 +1,19 @@
 import { IBase } from './base';
 
 export interface ILog extends IBase {
-    requesterId: string;
-    userAgent: enumUserAgent,
-    type: enumEventType,
-    operationName: enumEventOperation,
-    parameters: any,
-    status: enumEventStatus,
-    errors: string[]
+    requester: string;
+    type: enumEventType;
+    apiResolver: enumAPIResolver,
+    event: string; // we do not use enum to avoid extra codes
+    parameters: any;
+    status: enumEventStatus;
+    errors: string[];
+    timeConsumed: number | null;
+}
+
+export enum enumAPIResolver {
+    'tRPC' = 'tRPC',
+    'GraphQL' = 'GraphQL'
 }
 
 export enum enumUserAgent {
@@ -16,8 +22,8 @@ export enum enumUserAgent {
 }
 
 export enum enumEventType {
-    SYSTEM_LOG = 'SYSTEM_LOG',
-    API_LOG = 'API_LOG'
+    SYSTEM_LOG = 'SYSTEMLOG',
+    API_LOG = 'APILOG'
 }
 
 export enum enumEventOperation {
@@ -95,5 +101,6 @@ export enum enumEventOperation {
 
 export enum enumEventStatus {
     SUCCESS = 'SUCCESS',
-    FAIL = 'FAIL'
+    FAIL = 'FAIL',
+    UNKNOWN = 'UNKNOWN'
 }

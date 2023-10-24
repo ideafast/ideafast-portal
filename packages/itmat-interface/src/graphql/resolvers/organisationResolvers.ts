@@ -16,13 +16,11 @@ export const organisationResolvers = {
              *
              * @return IOrganisation[] - The list of objects of IOrganisation.
              */
-            const queryObj = orgId === null ? { deleted: null } : { deleted: null, id: orgId };
-            const cursor = db.collections!.organisations_collection.find<IOrganisation>(queryObj, { projection: { _id: 0 } });
-            return cursor.toArray();
+            return organisationCore.getOrganisations(orgId);
         }
     },
     Mutation: {
-        createOrganisation: async (__unused__parent: Record<string, unknown>, { name, shortname, location, profile }: { name: string, shortname: string, location: number[] | null, profile: Promise<FileUpload> | null }, context: any): Promise<IOrganisation> => {
+        createOrganisation: async (__unused__parent: Record<string, unknown>, { name, shortname, location, profile }: { name: string, shortname: string, location: number[] | null, profile: any | null }, context: any): Promise<IOrganisation> => {
             /**
              * Create an organisation.
              *
@@ -67,7 +65,7 @@ export const organisationResolvers = {
 
             return makeGenericReponse(orgId, true, undefined, `Organisation ${orgId} has been deleted.`);
         },
-        editOrganisation: async (__unused__parent: Record<string, unknown>, { orgId, name, shortname, location, profile }: { orgId: string, name: string | null, shortname: string | null, location: number[] | null, profile: Promise<FileUpload> | null }, context: any): Promise<IGenericResponse> => {
+        editOrganisation: async (__unused__parent: Record<string, unknown>, { orgId, name, shortname, location, profile }: { orgId: string, name: string | null, shortname: string | null, location: number[] | null, profile: any | null }, context: any): Promise<IGenericResponse> => {
             /**
              * Edit an organisation. Note, if value is null, it will user the old value.
              *

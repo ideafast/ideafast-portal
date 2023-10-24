@@ -164,6 +164,7 @@ type Field {
     comments: String
     dataVersion: String
     verifier: JSON
+    properties: JSON
     life: LifeCircle
     metadata: JSON
 }
@@ -172,9 +173,7 @@ type Field {
 input DataClipInput {
     fieldId: String!
     value: String
-    subjectId: String!
-    visitId: String
-    timestamps: Int
+    properties: JSON
 }
 
 type UserAccess {
@@ -226,6 +225,7 @@ type User {
     description: String
     expiredAt: Float
     fileRepo: [FileNode]
+    sharedFileRepos: JSON
     life: LifeCircle!
     metadata: JSON
 }
@@ -378,12 +378,9 @@ scalar ANY
 type Data {
     id: String!
     studyId: String!
-    subjectId: String!
-    visitId: String
     fieldId: String!
     dataVersion: String
     value: ANY
-    timestamps: Int
     properties: JSON
     life: LifeCircle
     metadata: JSON
@@ -684,6 +681,7 @@ type Mutation {
     uploadUserProfile(userId: String!, description: String, fileType: String!, fileUpload: Upload!): GenericResponse
     uploadUserFileNode(userId: String!, parentNodeId: String!, file: Upload, folderName: String): FileNode
     editUserFileNode(userId: String!, nodeId: String!, parentNodeId: String, sharedUsers: [String]): GenericResponse
+    shareUserFileNodeByEmail(userId: String!, nodeId: String!, sharedUserEmails: [String!]): GenericResponse
     deleteUserFileNode(userId: String!, nodeId: String!): GenericResponse
 
     # DOC

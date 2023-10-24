@@ -26,6 +26,9 @@
     "server": {
         "port": 3333
     },
+    "tRPCServer": {
+        "port": 4444
+    },
     "bcrypt": {
         "saltround": 2
     },

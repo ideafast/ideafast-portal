@@ -10,7 +10,7 @@ import { makeGenericReponse } from '../responses';
 import { use } from 'passport';
 
 export class FileCore {
-    public async uploadFile(requester: string, studyId: string | null, userId: string | null, fileUpload: FileUpload, description: string | null, fileType: enumFileTypes, fileCategory: enumFileCategories, properties: Record<string, any> | null): Promise<IFile> {
+    public async uploadFile(requester: string, studyId: string | null, userId: string | null, fileUpload: any, description: string | null, fileType: enumFileTypes, fileCategory: enumFileCategories, properties: Record<string, any> | null): Promise<IFile> {
         /**
          * Upload a file to storage.
          *
@@ -25,7 +25,7 @@ export class FileCore {
          *
          * @return IFile - The object of IFile.
          */
-        
+
         // if (studyId) {
         //     const study = await db.collections!.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null });
         //     if (!study) {
@@ -75,43 +75,40 @@ export class FileCore {
             if (!fileConfig) {
                 fileConfig = defaultSettings.docConfig;
             }
+        } else if (fileCategory === enumFileCategories.CACHE) {
+            fileConfig = await db.collections!.configs_collection.findOne({ type: enumConfigType.CACHECONFIG, key: null });
+            if (!fileConfig) {
+                fileConfig = defaultSettings.cacheConfig;
+            }
         } else {
             throw new GraphQLError('Config file missing.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
         }
         return new Promise<IFile>((resolve, reject) => {
             (async () => {
                 try {
-                    const stream = file.createReadStream();
+                    const buffer = fileUpload.fileBuffer; // Directly access the buffer from your fileUpload object.
                     const fileUri = uuid();
                     const hash = crypto.createHash('sha256');
-                    let readBytes = 0;
 
-                    stream.pause();
-
-                    /* if the client cancelled the request mid-stream it will throw an error */
-                    stream.on('error', (e) => {
-                        reject(new GraphQLError('Upload resolver file stream failure', { extensions: { code: errorCodes.FILE_STREAM_ERROR, error: e } }));
+                    // Validate against the file size limit
+                    if (buffer.length > fileSizeLimit) {
+                        reject(new GraphQLError('File should not be larger than 8GB', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } }));
                         return;
-                    });
+                    }
 
-                    stream.on('data', (chunk) => {
-                        readBytes += chunk.length;
-                        if (readBytes > fileSizeLimit) {
-                            stream.destroy();
-                            reject(new GraphQLError('File should not be larger than 8GB', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } }));
-                            return;
-                        }
-                        hash.update(chunk);
-                    });
-                    await objStore.uploadFile(stream, studyId ? studyId : fileConfig.defaultFileBucketId, fileUri);
+                    hash.update(buffer); // Update the hash directly using the buffer.
+
+                    // Assuming objStore.uploadFile can accept a buffer.
+                    await objStore.uploadFile(buffer, studyId ? studyId : fileConfig.defaultFileBucketId, fileUri);
 
                     const hashString = hash.digest('hex');
+
                     const fileEntry: IFile = {
                         id: uuid(),
                         studyId: studyId,
                         userId: userId,
-                        fileName: file.filename,
-                        fileSize: readBytes,
+                        fileName: fileUpload.filename, // Access filename directly from the fileUpload object.
+                        fileSize: buffer.length, // Use buffer's length for file size.
                         description: description,
                         uri: fileUri,
                         hash: hashString,

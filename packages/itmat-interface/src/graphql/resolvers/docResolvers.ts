@@ -19,7 +19,7 @@ import { docCore } from '../core/docCore';
 
 export const docResolvers = {
     Query: {
-        getDocs: async (__unused__parent: Record<string, unknown>, {docId, studyId, docTypes, verbose}: {docId: string | null, studyId: string | null, docTypes: enumDocTypes[] | null, verbose: boolean}): Promise<Partial<IDoc>[]> => {
+        getDocs: async (__unused__parent: Record<string, unknown>, { docId, studyId, docTypes, verbose }: { docId: string | null, studyId: string | null, docTypes: enumDocTypes[] | null, verbose: boolean }): Promise<Partial<IDoc>[]> => {
             /**
              * Get the docs.
              *
@@ -30,12 +30,12 @@ export const docResolvers = {
              *
              * @return Partial<IDoc>[]
              */
-            
+
             return await docCore.getDocs(docId, studyId, docTypes, verbose);
         }
     },
     Mutation: {
-        createDoc: async (__unused__parent: Record<string, unknown>, {title, type, description, tag, studyId, priority, attachments, contents}: {title: string, type: enumDocTypes, description: string | null, tag: string | null, studyId: string | null, priority: number, attachments: Promise<FileUpload>[] | null, contents: string}, context: any): Promise<Partial<IDoc>> => {
+        createDoc: async (__unused__parent: Record<string, unknown>, { title, type, description, tag, studyId, priority, attachments, contents }: { title: string, type: enumDocTypes, description: string | null, tag: string | null, studyId: string | null, priority: number, attachments: any | null, contents: string }, context: any): Promise<Partial<IDoc>> => {
             /**
              * Create a doc.
              *
@@ -50,10 +50,10 @@ export const docResolvers = {
              * @param attachments - The attachments of the doc.
              *
              * @return IDoc
-             */       
+             */
 
             const requester = context.req.user;
-            const attachements_ = [];
+            const attachements_: any[] = [];
             if (attachments) {
                 for (const attachment of attachments) {
                     attachements_.push(await attachment);
@@ -62,10 +62,10 @@ export const docResolvers = {
             const doc = await docCore.createDoc(requester.id, title, studyId, description, type, tag, contents, priority, attachments ? attachements_ : null);
             return doc;
         },
-        editDoc: async (__unused__parent: Record<string, unknown>, {docId, contents, title, tag, description, priority, addAttachments, removeAttachments}: {docId: string, contents: string | null, title: string, tag: string | null, description: string | null, priority: number | null, addAttachments: Promise<FileUpload>[] | null, removeAttachments: string[] | null}, context: any): Promise<Partial<IDoc>> => {
+        editDoc: async (__unused__parent: Record<string, unknown>, { docId, contents, title, tag, description, priority, addAttachments, removeAttachments }: { docId: string, contents: string | null, title: string, tag: string | null, description: string | null, priority: number | null, addAttachments: any | null, removeAttachments: string[] | null }, context: any): Promise<Partial<IDoc>> => {
             /**
              * Edit a doc.
-             * 
+             *
              * @param docId - The id of the doc.
              * @param contents - The contents of the doc.
              * @param title - The title of the doc.
@@ -74,12 +74,12 @@ export const docResolvers = {
              * @param priority - The priority of the doc.
              * @param addAttachments - Attachments to add to the doc.
              * @param removeAttachments - Attachments to remove from the doc.
-             * 
+             *
              * @return IDoc
-             */    
+             */
             const requester = context.req.user;
 
-            const attachements_ = []
+            const attachements_: any[] = [];
             if (addAttachments) {
                 for (const attachment of addAttachments) {
                     attachements_.push(await attachment);
@@ -88,12 +88,12 @@ export const docResolvers = {
             const doc = await docCore.editDoc(requester.id, docId, contents, title, tag, description, priority, addAttachments ? attachements_ : null, removeAttachments);
             return doc;
         },
-        deleteDoc: async (__unused__parent: Record<string, unknown>, {docId}: {docId: string}, context: any): Promise<IGenericResponse> => {
+        deleteDoc: async (__unused__parent: Record<string, unknown>, { docId }: { docId: string }, context: any): Promise<IGenericResponse> => {
             /**
              * Delete a doc.
-             * 
+             *
              * @param docId - The id of the doc.
-             * 
+             *
              * @return IGenericResponse
              */
 

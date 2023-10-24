@@ -8,7 +8,7 @@ import { GraphQLError } from 'graphql';
 import { errorCodes } from '../errors';
 
 export class DocCore {
-    public async getDocs(docId: string | null, studyId: string | null, type: enumDocTypes[] | null, verbose: boolean): Promise<Partial<IDoc>[]> {
+    public async getDocs(docId: string | null, studyId: string | null, type: enumDocTypes[] | null, verbose: boolean): Promise<IDoc[]> {
         /**
          * Get the docs.
          *
@@ -20,7 +20,7 @@ export class DocCore {
          * @return Partial<IDoc>[]
          */
         const docs = await db.collections!.docs_collection.find({
-            'id':  docId ? docId : { $in: [new RegExp('^.*$')] },
+            'id': docId ? docId : { $in: [new RegExp('^.*$')] },
             'studyId': studyId,
             'type': { $in: type ?? [new RegExp('^.*$')] },
             'life.deletedTime': null
@@ -30,15 +30,15 @@ export class DocCore {
             const nonVerbose: Partial<IDoc>[] = [...docs];
             for (const item of nonVerbose) {
                 if ('contents' in item) {
-                    delete item['contents'];
+                    item.contents = '';
                 }
             }
         }
 
-        return docs as Partial<IDoc>[];
+        return docs as IDoc[];
     }
 
-    public async createDoc(requester: string, title: string, studyId: string | null, description: string | null, type: enumDocTypes, tag: string | null, contents: string, priority: number | null, attachments: FileUpload[] | null): Promise<IDoc> {
+    public async createDoc(requester: string, title: string, studyId: string | null, description: string | null, type: enumDocTypes, tag: string | null, contents: string, priority: number | null, attachments: any | null): Promise<IDoc> {
         /**
          * Create a doc.
          *
@@ -82,7 +82,7 @@ export class DocCore {
                     if (!Object.keys(enumFileTypes).includes((attachment?.filename?.split('.').pop() as string).toUpperCase())) {
                         throw new GraphQLError('Profile file does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
                     }
-                    
+
                     const file = await fileCore.uploadFile(requester, null, null, attachment, null, enumFileTypes[(attachment.filename.split('.').pop() as string).toUpperCase() as keyof typeof enumFileTypes], enumFileCategories.DOC_FILE, []);
                     attachmentsFileIds.push(file.id);
                 }
@@ -102,10 +102,10 @@ export class DocCore {
         }
     }
 
-    public async editDoc(requester: string, docId: string, contents: string | null, title: string, tag: string | null, description: string | null, priority: number | null, addAttachments: FileUpload[] | null, removeAttachments: string[] | null): Promise<Partial<IDoc>> {
+    public async editDoc(requester: string, docId: string, contents: string | null, title: string, tag: string | null, description: string | null, priority: number | null, addAttachments: any | null, removeAttachments: string[] | null): Promise<Partial<IDoc>> {
         /**
          * Edit a doc.
-         * 
+         *
          * @param requester - The id of the requester.
          * @param docId - The id of the doc.
          * @param contents - The contents of the doc.
@@ -115,11 +115,11 @@ export class DocCore {
          * @param priority - The priority of the doc.
          * @param addAttachments - Attachments to add to the doc.
          * @param removeAttachments - Attachments to remove from the doc.
-         * 
+         *
          * @return IDoc
          */
 
-        const doc = await db.collections!.docs_collection.findOne({id: docId, 'life.deletedTime': null});
+        const doc = await db.collections!.docs_collection.findOne({ 'id': docId, 'life.deletedTime': null });
         if (!doc) {
             throw new GraphQLError('Document does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
         }
@@ -133,7 +133,7 @@ export class DocCore {
                     if (!Object.keys(enumFileTypes).includes((attachment.filename?.split('.').pop() as string).toUpperCase())) {
                         throw new GraphQLError('Profile file does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
                     }
-                    
+
                     const file = await fileCore.uploadFile(requester, null, null, attachment, null, enumFileTypes[(attachment.filename.split('.').pop() as string).toUpperCase() as keyof typeof enumFileTypes], enumFileCategories.DOC_FILE, []);
                     attachmentsFileIds.push(file.id);
                 }
@@ -145,7 +145,7 @@ export class DocCore {
                 }
             }
 
-            const res = await db.collections!.docs_collection.findOneAndUpdate({id: docId}, {
+            const res = await db.collections!.docs_collection.findOneAndUpdate({ id: docId }, {
                 $set: {
                     title: title ?? doc.title,
                     contents: contents ?? doc.contents,
@@ -156,7 +156,7 @@ export class DocCore {
                 }
             }, {
                 returnDocument: 'after'
-            })
+            });
 
             await session.commitTransaction();
             session.endSession();
@@ -178,18 +178,18 @@ export class DocCore {
     public async deleteDoc(requeser: string, docId: string): Promise<IGenericResponse> {
         /**
          * Delete a doc.
-         * 
+         *
          * @param requeser - The id of the requester.
          * @param docId - The id of the doc.
          */
 
-        await db.collections!.docs_collection.findOneAndUpdate({id: docId}, {
+        await db.collections!.docs_collection.findOneAndUpdate({ id: docId }, {
             $set: {
                 'life.deletedTime': Date.now(),
                 'life.deletedUser': requeser
             }
         });
-        return makeGenericReponse(docId, true, undefined, `Document ${docId} has been deleted.`)
+        return makeGenericReponse(docId, true, undefined, `Document ${docId} has been deleted.`);
     }
 }
 

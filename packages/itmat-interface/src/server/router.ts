@@ -31,6 +31,40 @@ import { createProxyMiddleware, RequestHandler } from 'http-proxy-middleware';
 import qs from 'qs';
 import { IUser } from '@itmat-broker/itmat-types';
 
+import { routers } from '../tRPC/procedures/index';
+
+import { inferAsyncReturnType, initTRPC } from '@trpc/server';
+import * as trpcExpress from '@trpc/server/adapters/express';
+import { z } from 'zod';
+import multer from 'multer';
+
+// created for each request
+
+const createContext = async ({
+    req,
+    res
+}: trpcExpress.CreateExpressContextOptions) => {
+    const token: string = req.headers.authorization || '';
+    if ((token !== '') && (req.user === undefined)) {
+        const decodedPayload = jwt.decode(token);
+        const pubkey = (decodedPayload as any).publicKey;
+        // verify the JWT
+        jwt.verify(token, pubkey, function (error: any) {
+            if (error) {
+                throw new GraphQLError('JWT verification failed. ' + error, { extensions: { code: ApolloServerErrorCode.BAD_USER_INPUT, error } });
+            }
+        });
+        const associatedUser = await userRetrieval(pubkey);
+        req.user = associatedUser;
+    }
+    // console.log(req);
+    return ({ req, res });
+}; // no context
+type Context = inferAsyncReturnType<typeof createContext>;
+const t = initTRPC.context<Context>().create();
+const appRouter = t.router(routers);
+
+export type AppRouter = typeof appRouter;
 interface ApolloServerContext {
     token?: string;
 }
@@ -51,9 +85,6 @@ export class Router {
             windowMs: 1 * 60 * 1000,
             max: 500
         }));
-
-        // if (process.env.NODE_ENV === 'development')
-        //     this.app.use(cors({ credentials: true }));
 
         this.app.use(express.json({ limit: '50mb' }));
         this.app.use(express.urlencoded({ extended: true }));
@@ -76,8 +107,6 @@ export class Router {
                 }
             })
         );
-
-
         /* authenticating user of the request */
         this.app.use(passport.initialize());
         this.app.use(passport.session());
@@ -115,8 +144,6 @@ export class Router {
             resolvers: {
                 ...resolvers,
                 BigInt: scalarResolvers,
-                // This maps the `Upload` scalar to the implementation provided
-                // by the `graphql-upload` package.
                 Upload: GraphQLUpload
             }
         });
@@ -152,9 +179,6 @@ export class Router {
                 ApolloServerPluginDrainHttpServer({ httpServer: this.server })
             ],
             formatError: (error) => {
-                // TO_DO: generate a ref uuid for errors so the clients can contact admin
-                // TO_DO: check if the error is not thrown my me manually then switch to generic error to client and log
-                // Logger().error(error);
                 return error;
             }
         });
@@ -204,10 +228,6 @@ export class Router {
 
         this.proxies.push(ae_proxy);
 
-        /* AE routers */
-        // pun for AE portal
-        // node and rnode for AE application
-        // public for public resource like favicon and logo
         const proxy_routers = ['/pun', '/node', '/rnode', '/public'];
 
         proxy_routers.forEach(router => {
@@ -263,17 +283,52 @@ export class Router {
         // telling the WebSocketServer to start listening
         const serverCleanup = useServer({ schema: schema, execute: execute, subscribe: subscribe }, wsServer);
 
-        /* Bounce all unauthenticated non-graphql HTTP requests */
-        // this.app.use((req: Request, res: Response, next: NextFunction) => {
-        //     if (req.user === undefined || req.user.username === undefined) {
-        //         res.status(401).json(new CustomError('Please log in first.'));
-        //         return;
-        //     }
-        //     next();
-        // });
-
         this.app.get('/file/:fileId', fileDownloadController);
 
+        const upload = multer({ storage: multer.memoryStorage() });
+        this.app.use(upload.any());
+
+        this.app.use('/trpc', (req, res, next) => {
+            if (req.files) {
+                const filesArray = req.files as Express.Multer.File[];
+                filesArray.forEach(file => {
+                    // If the fieldname doesn't exist yet or isn't an array, create an array for it.
+                    if (!req.body[file.fieldname] || !Array.isArray(req.body[file.fieldname])) {
+                        req.body[file.fieldname] = [];
+                    }
+
+                    // Push the file data into the field array.
+                    req.body[file.fieldname].push({
+                        fileBuffer: file.buffer,
+                        filename: file.originalname,
+                        mimetype: file.mimetype,
+                        size: file.size
+                        // ... any other relevant file properties ...
+                    });
+                });
+            }
+
+            // If there are other fields in the multipart request that aren't in req.body yet,
+            // you can add them to req.body here as well.
+
+            // Pass on to the next middleware (tRPC in this case)
+            next();
+        });
+
+        // this.app.get('/', (req, res) => {
+        //     res.send('Server is running!');
+        // });
+
+        this.app.use(
+            '/trpc',
+            trpcExpress.createExpressMiddleware({
+                router: appRouter,
+                createContext
+            })
+        );
+
+
+        // this.app.listen(4200);
     }
 
     public getApp(): Express {

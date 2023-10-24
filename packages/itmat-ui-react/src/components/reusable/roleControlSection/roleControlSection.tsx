@@ -1,12 +1,5 @@
-import { FunctionComponent, useState } from 'react';
-import { Mutation } from '@apollo/client/react/components';
-import { useQuery, useMutation } from '@apollo/client/react/hooks';
-import { GET_USERS, GET_ORGANISATIONS } from '@itmat-broker/itmat-models';
-import { IUser, atomicOperation, IPermissionManagementOptions } from '@itmat-broker/itmat-types';
-import LoadSpinner from '../loadSpinner';
-import css from './roleControlSection.module.css';
-import { Tag, Select, Button, Form, Input, Alert, Popconfirm, Checkbox, Collapse, Divider, Table, Col, Row } from 'antd';
-import { PlusOutlined, DeleteOutlined, MinusCircleOutlined } from '@ant-design/icons';
+import { FunctionComponent } from 'react';
+import { Collapse } from 'antd';
 const { Panel } = Collapse;
 
 type RoleControlSectionProps = {

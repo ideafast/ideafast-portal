@@ -2,15 +2,46 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import registerServiceWorker, { unregister as unregisterServiceWorker } from './registerServiceWorker';
+import { trpc } from './utils/trpc';
+import React, { useState } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { httpBatchLink, httpLink } from '@trpc/client';
+
+const AppWithTRPC = () => {
+    const [queryClient] = useState(() => new QueryClient());
+    const [trpcClient] = useState(() =>
+        trpc.createClient({
+            links: [
+                httpBatchLink({
+                    url: 'http://localhost:4200/trpc',
+                    async headers() {
+                        return {
+                            // Add any headers if necessary
+                            authorization: document.cookie
+                        };
+                    }
+                })
+            ]
+        })
+    );
+    return (
+        <trpc.Provider client={trpcClient} queryClient={queryClient}>
+            <QueryClientProvider client={queryClient}>
+                <App />
+            </QueryClientProvider>
+        </trpc.Provider>
+    );
+};
 
 const mountApp = () => {
     const container = document.getElementById('root');
     if (!container)
         return;
+
     const root = createRoot(container);
     root.render(
         <StrictMode>
-            <App />
+            <AppWithTRPC />
         </StrictMode>
     );
 };

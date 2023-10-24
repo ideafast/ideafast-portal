@@ -7,10 +7,12 @@ import { DatasetPage } from '../dataset';
 // import { UserPage } from '../users';
 // import { LogPage } from '../log';
 // import { MyFilePage } from '../files';
-import { DocumentPage } from '../documents';
 import { ProfilePage } from '../profile';
 import { OrganisationPage } from '../organisations';
 import css from './scaffold.module.css';
+import { LogPage } from '../logs';
+import { DocumentPage } from '../documents';
+
 
 export const MainPanel: FunctionComponent = () => {
     return (
@@ -22,7 +24,7 @@ export const MainPanel: FunctionComponent = () => {
                 <Route path='/datasets' element={<DatasetPage />} />
                 {/* <Route path='/users' element={<UserPage />} /> */}
                 {/* <Route path='/users/:userId' element={<UserPage />} /> */}
-                {/* <Route path='/logs' element={<LogPage />} /> */}
+                <Route path='/logs' element={<LogPage />} />
                 <Route path='/profile' element={<ProfilePage />} />
                 <Route path='/documents' element={<DocumentPage />} />
                 <Route path='/organisations' element={<OrganisationPage />} />

@@ -24,9 +24,9 @@ export const logResolvers = {
             if (user.type !== enumUserTypes.ADMIN && user.type !== enumUserTypes.OBSERVER) {
                 throw new GraphQLError('You have no permissions to view logs.', { extensions: { code: errorCodes.NO_PERMISSION_ERROR } });
             }
-
-            const logs = await logCore.getLogs(requesterId, userAgent, type, operationName, status, startIndex, endIndex);
-            return logs;
+            return [];
+            // const logs = await logCore.getLogs(requesterId, userAgent, type, operationName, status, startIndex, endIndex);
+            // return logs;
         }
     }
 };

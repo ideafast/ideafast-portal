@@ -2,14 +2,13 @@ import bcrypt from 'bcrypt';
 import { db } from '../../database/database';
 import config from '../../utils/configManager';
 import { GraphQLError } from 'graphql';
-import { IUser, enumUserTypes, IOrganisation, IPubkey, defaultSettings, IGenericResponse, enumFileNodeTypes, IFile, IFileNode, enumFileTypes, enumFileCategories, IResetPasswordRequest, enumConfigType } from '@itmat-broker/itmat-types';
+import { IUser, enumUserTypes, IOrganisation, IPubkey, defaultSettings, IGenericResponse, enumFileTypes, enumFileCategories, IResetPasswordRequest, enumGroupNodeTypes, IGroupNode, IDriveNode, IFile, enumDriveNodeTypes } from '@itmat-broker/itmat-types';
 import { makeGenericReponse } from '../responses';
 import { v4 as uuid } from 'uuid';
 import { errorCodes } from '../errors';
 import { FileUpload } from 'graphql-upload-minimal';
 import { fileCore } from './fileCore';
 import * as mfa from '../../utils/mfa';
-import { MarkOptional } from 'ts-essentials';
 
 export class UserCore {
     public async getUser(userId: string | null, username: string | null, email: string | null): Promise<IUser[]> {
@@ -45,9 +44,9 @@ export class UserCore {
     public async getUserProfile(userId: string): Promise<string | null> {
         /**
          * Get the url of the profile of the user.
-         * 
+         *
          * @param userId - The id of the user.
-         * 
+         *
          * @return string
          */
 
@@ -56,7 +55,7 @@ export class UserCore {
             throw new GraphQLError('User does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
         }
 
-        const profile = await db.collections!.files_collection.findOne({studyId: null, userId: userId, fileCategory: enumFileCategories.USER_PROFILE_FILE, 'life.deletedTime': null});
+        const profile = await db.collections!.files_collection.findOne({ 'studyId': null, 'userId': userId, 'fileCategory': enumFileCategories.USER_PROFILE_FILE, 'life.deletedTime': null }, { sort: { 'life.createdTime': -1 } });
         if (!profile) {
             return null; //throw new GraphQLError('No profile found.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
         }
@@ -71,7 +70,7 @@ export class UserCore {
          * @return Partial<IUser> - The object of IUser. Remove private information.
          */
         const users = await db.collections!.users_collection.find({}).toArray();
-        const clearedUsers = [];
+        const clearedUsers: IUser[] = [];
         for (const user of users) {
             if (!includeDeleted && user.life.deletedTime !== null) {
                 continue;
@@ -82,7 +81,7 @@ export class UserCore {
         return clearedUsers;
     }
 
-    public async createUser(requester: string | null, username: string, email: string, firstname: string, lastname: string, organisation: string, type: enumUserTypes, emailNotificationsActivated: boolean, password: string, otpSecret: string, profile: FileUpload | null, description: string | null): Promise<Partial<IUser>> {
+    public async createUser(requester: string | null, username: string, email: string, firstname: string, lastname: string, organisation: string, type: enumUserTypes, emailNotificationsActivated: boolean, password: string, otpSecret: string, profile: any | null, description: string | null): Promise<Partial<IUser>> {
         /**
          * Create a user.
          *
@@ -120,7 +119,7 @@ export class UserCore {
         let fileEntry;
         if (profile) {
             if (!Object.keys(enumFileTypes).includes(profile?.filename?.split('.')[1].toUpperCase())) {
-                throw new GraphQLError('Profile file does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+                throw new GraphQLError('Profile file type does not support.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
             }
             fileEntry = await fileCore.uploadFile(userId, null, userId, profile, null, enumFileTypes[profile.filename.split('.')[1].toUpperCase() as keyof typeof enumFileTypes], enumFileCategories.USER_PROFILE_FILE, []);
         }
@@ -136,25 +135,25 @@ export class UserCore {
             resetPasswordRequests: [],
             password: hashedPassword,
             otpSecret: otpSecret,
-            profile: (profile && fileEntry) ? fileEntry.id: null,
+            profile: (profile && fileEntry) ? fileEntry.id : null,
             description: description,
             expiredAt: expiredAt,
-            fileRepo: [{
-                id: uuid(),
-                name: 'My Files',
-                fileId: null,
-                type: enumFileNodeTypes.FOLDER,
-                children: [],
-                parent: null,
-                sharedUsers: [],
-                life: {
-                    createdTime: Date.now(),
-                    createdUser: requester ?? userId,
-                    deletedTime: null,
-                    deletedUser: null
-                },
-                metadata: {}
-            }],
+            // fileRepo: [{
+            //     id: uuid(),
+            //     name: 'My Files',
+            //     fileId: null,
+            //     type: enumDriveNodeTypes.FOLDER,
+            //     children: [],
+            //     parent: null,
+            //     sharedUsers: [],
+            //     life: {
+            //         createdTime: Date.now(),
+            //         createdUser: requester ?? userId,
+            //         deletedTime: null,
+            //         deletedUser: null
+            //     },
+            //     metadata: {}
+            // }],
             life: {
                 createdTime: Date.now(),
                 createdUser: requester ?? userId,
@@ -177,8 +176,7 @@ export class UserCore {
                 emailNotificationsActivated: entry.emailNotificationsActivated,
                 profile: entry.profile,
                 description: entry.description,
-                expiredAt: entry.expiredAt,
-                fileRepo: entry.fileRepo
+                expiredAt: entry.expiredAt
             };
             return cleared;
         } else {
@@ -262,8 +260,7 @@ export class UserCore {
             emailNotificationsActivated: result.value.emailNotificationsActivated,
             profile: result.value.profile,
             description: result.value.description,
-            expiredAt: result.value.expiredAt,
-            fileRepo: result.value.fileRepo
+            expiredAt: result.value.expiredAt
         };
         return cleared;
     }
@@ -317,194 +314,245 @@ export class UserCore {
         }
     }
 
-    public async getFileNodes(userId: string): Promise<IFileNode[]> {
-        /**
-         * Get the list of file nodes of a user.
-         *
-         * @param userId - The id of the user.
-         *
-         * @return IFileNode[]
-         */
-        const user = await db.collections!.users_collection.findOne({ 'id': userId, 'life.deletedTime': null });
-        if (!user) {
-            throw new GraphQLError('User does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
-        }
+    // public async getSharedFileNodes(userId: string): Promise<Partial<IUser>[]> {
+    //     /**
+    //      * Get the list of file nodes of a user.
+    //      *
+    //      * @param userId - The id of the user.
+    //      *
+    //      * @return IFileNode[]
+    //      */
+    //     const user = await db.collections!.users_collection.findOne({ 'id': userId, 'life.deletedTime': null });
+    //     if (!user) {
+    //         throw new GraphQLError('User does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+    //     }
 
-        return user.fileRepo;
-    }
+    //     const res = await db.collections!.users_collection.aggregate([
+    //         {
+    //             $match: { 'fileRepo.sharedUsers': userId }
+    //         },
+    //         {
+    //             $project: {
+    //                 id: 1,
+    //                 email: 1,
+    //                 firstname: 1,
+    //                 lastname: 1,
+    //                 profile: 1,
+    //                 fileNodes: {
+    //                     $map: {
+    //                         input: {
+    //                             $filter: {
+    //                                 input: '$fileRepo',
+    //                                 as: 'fileNode',
+    //                                 cond: { $in: [userId, '$$fileNode.sharedUsers'] }
+    //                             }
+    //                         },
+    //                         as: 'filteredFileNode',
+    //                         in: {
+    //                             id: '$$filteredFileNode.id',
+    //                             name: '$$filteredFileNode.name',
+    //                             fileId: '$$filteredFileNode.fileId',
+    //                             type: '$$filteredFileNode.type',
+    //                             parent: '$$filteredFileNode.parent',
+    //                             children: '$$filteredFileNode.children'
+    //                         }
+    //                     }
+    //                 }
+    //             }
+    //         }
+    //     ]).toArray();
 
-    public async addFileNodeToUserRepo(requester: string, userId: string, parentNodeId: string, description: string | null, fileType: enumFileTypes | null, file: FileUpload | null, folderName: string | null): Promise<IFileNode> {
+    //     for (const item of res) {
+    //         const nodes = item.fileNodes;
+    //         const nodeIds: string[] = nodes.map((el: { id: any; }) => el.id);
+    //         const parentNodes = nodes.filter((el: { parent: string; }) => !(nodeIds.includes(el.parent)));
+    //         // push a parent node
+    //         const rootNode = {
+    //             id: uuid(),
+    //             name: `${item.firstname} ${item.lastname}`,
+    //             fileId: null,
+    //             type: enumDriveNodeTypes.FILE,
+    //             parent: null,
+    //             children: parentNodes.map((el: { id: any; }) => el.id)
+    //         };
+    //         for (const node of parentNodes) {
+    //             node.parent = rootNode.id;
+    //         }
+    //         item.fileNodes.push(rootNode);
+    //     }
+
+    //     return res as Partial<IUser>[];
+    // }
+
+    public async addFileDriveNode(requester: string, parentNodeId: string, description: string | null, fileType: enumFileTypes | null, file: FileUpload | null): Promise<IDriveNode> {
         /**
          * Add/Upload a file to the user file repo.
          *
          * @param requester - The id of the requester.
-         * @param userId - The id of the user of the file repo. Usually should be the same as The id of the requester.
          * @param parentNodeId - The id of the file Node.
          * @param file - The file to upload.
          * @param folderName - The name of the folder. Should be numm if file is not null.
          *
          * @return IGenericResponse - The object of the IGenericResponse.
          */
-        const user = await db.collections!.users_collection.findOne({id: userId, 'fileRepo.id': parentNodeId, 'life.deletedTime': null});
-        if (!user) {
-            throw new GraphQLError('User or parent node does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+        // const user = await db.collections!.users_collection.findOne({ 'id': userId, 'fileRepo.id': parentNodeId, 'life.deletedTime': null });
+        // if (!user) {
+        //     throw new GraphQLError('User or parent node does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+        // }
+        let fileEntry: IFile | null = null;
+        if (file && fileType) {
+            fileEntry = await fileCore.uploadFile(requester, null, requester, file, description, fileType, enumFileCategories.USER_REPO_FILE, []);
         }
-        const session = db.client!.startSession();
-        session.startTransaction();
-        try {
-            let fileEntry: IFile | null = null;
-            if (file && fileType) {
-                fileEntry = await fileCore.uploadFile(requester, null, userId, file, description, fileType, enumFileCategories.USER_REPO_FILE, []);
-            }
-            const fileNodeId: string = uuid();
-            const fileNodeEntry: IFileNode = {
-                id: fileNodeId,
-                name: fileEntry ? fileEntry.fileName : folderName ?? '',
-                fileId: fileEntry ? fileEntry.id : null,
-                type: fileEntry ? enumFileNodeTypes.FILE : enumFileNodeTypes.FOLDER,
-                parent: parentNodeId,
-                children: [],
-                sharedUsers: [],
-                life: {
-                    createdTime: Date.now(),
-                    createdUser: requester,
-                    deletedTime: null,
-                    deletedUser: null
-                },
-                metadata: {}
-            };
-
-            await db.collections!.users_collection.findOneAndUpdate({ 'id': userId, 'life.deletedTime': null }, {
-                $push: { fileRepo: fileNodeEntry }
-            });
-
-            await db.collections!.users_collection.findOneAndUpdate({ 'id': userId, 'life.deletedTime': null, 'fileRepo.id': parentNodeId }, {
-                $push: { 'fileRepo.$.children': fileNodeId }
-            });
-            await session.commitTransaction();
-            session.endSession();
-            return fileNodeEntry;
-        } catch (error) {
-            await session.abortTransaction();
-            session.endSession();
-            throw new GraphQLError(`${JSON.stringify(error)}`, { extensions: { code: errorCodes.DATABASE_ERROR } });
+        if (!fileEntry) {
+            throw new GraphQLError(errorCodes.DATABASE_ERROR);
         }
-    }
-
-    public async moveFileNodeFromUserRepo(userId: string, fileNodeId: string, toParentId: string): Promise<IGenericResponse> {
-        /**
-         * Move a file node to another parent.
-         *
-         * @param userId - The id of the user.
-         * @param fileNodeId - The id of the file node.
-         * @param toParentId - The id of the new parent.
-         *
-         * @return IGenericResponse - The object of IGenericResponse
-         */
-
-        const parentNode = await db.collections!.users_collection.findOne({ 'id': userId, 'life.deletedTime': null, 'fileRepo.id': toParentId });
+        // inherite sharedUsers from parent nodes
+        const parentNode = await db.collections!.drives_collection.findOne({ 'id': parentNodeId, 'life.deletedTime': null });
         if (!parentNode) {
             throw new GraphQLError('Parent node does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
         }
+        const fileNodeId: string = uuid();
+        const fileNodeEntry: IDriveNode = {
+            id: fileNodeId,
+            managerId: requester,
+            restricted: false,
+            description: description,
+            name: fileEntry.fileName,
+            fileId: fileEntry.id,
+            type: enumDriveNodeTypes.FILE,
+            parent: parentNodeId,
+            children: [],
+            sharedUsers: [...parentNode.sharedUsers],
+            sharedGroups: [...parentNode.sharedGroups],
+            life: {
+                createdTime: Date.now(),
+                createdUser: requester,
+                deletedTime: null,
+                deletedUser: null
+            },
+            metadata: {}
+        };
 
-        const thisNode = await db.collections!.users_collection.findOne({ 'id': userId, 'life.deletedTime': null, 'fileRepo.id': fileNodeId });
-        if (!thisNode) {
-            throw new GraphQLError('Node does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
-        }
+        await db.collections!.drives_collection.insertOne(fileNodeEntry);
 
-        const session = db.client!.startSession();
-        session.startTransaction();
-        try {
-            await db.collections!.users_collection.findOneAndUpdate({ 'id': userId, 'life.deletedTime': null, 'fileRepo.children': fileNodeId }, {
-                $pull: { 'fileRepo.$.children': fileNodeId }
-            });
+        await db.collections!.drives_collection.findOneAndUpdate({ 'id': parentNodeId, 'life.deletedTime': null }, {
+            $push: { children: fileNodeId }
+        });
+        return fileNodeEntry;
 
-            await db.collections!.users_collection.findOneAndUpdate({ 'id': userId, 'life.deletedTime': null, 'fileRepo.id': fileNodeId }, {
-                $set: { 'fileRepo.$.parent': toParentId }
-            });
-            await session.commitTransaction();
-            session.endSession();
-            return makeGenericReponse(fileNodeId, true, undefined);
-        } catch (error) {
-            await session.abortTransaction();
-            session.endSession();
-            throw new GraphQLError(`${JSON.stringify(error)}`, { extensions: { code: errorCodes.DATABASE_ERROR } });
-        }
     }
 
-    public async deleteFileNodeFromUserRepo(requester: string, userId: string, fileNodeId: string): Promise<IGenericResponse> {
+    public async addFolderDriveNode(requester: string, parentNodeId: string, description: string | null, folderName: string): Promise<IDriveNode> {
         /**
-         * Delete a file node.
+         * Add/Upload a file to the user file repo.
          *
          * @param requester - The id of the requester.
-         * @param userId - The id of the user.
-         * @param fileNodeId - The id of the file node.
+         * @param parentNodeId - The id of the file Node.
+         * @param folderName - The name of the folder. Should be numm if file is not null.
          *
-         * @return IGenericRespoinse - The object of IGenericResponse
+         * @return IGenericResponse - The object of the IGenericResponse.
          */
-
-        const user = await db.collections!.users_collection.findOne({ 'id': userId, 'life.deletedTime': null, 'fileRepo.id': fileNodeId });
-        if (!user) {
-            throw new GraphQLError('User or parent node does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+        const parentNode = await db.collections!.drives_collection.findOne({ 'id': parentNodeId, 'life.deletedTime': null });
+        if (!parentNode) {
+            throw new GraphQLError('Parent node does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
         }
+        const folderNodeId: string = uuid();
+        const folderNodeEntry: IDriveNode = {
+            id: folderNodeId,
+            managerId: requester,
+            restricted: false,
+            description: description,
+            name: folderName,
+            fileId: null,
+            type: enumDriveNodeTypes.FILE,
+            parent: parentNodeId,
+            children: [],
+            sharedUsers: [...parentNode.sharedUsers],
+            sharedGroups: [...parentNode.sharedGroups],
+            life: {
+                createdTime: Date.now(),
+                createdUser: requester,
+                deletedTime: null,
+                deletedUser: null
+            },
+            metadata: {}
+        };
 
-        const rootNode: IFileNode = user.fileRepo.filter(el => el.id === fileNodeId)[0];
+        await db.collections!.drives_collection.insertOne(folderNodeEntry);
 
-        const session = db.client!.startSession();
-        session.startTransaction();
-        try {
-            const fileIdsToDelete: string[] = [];
-            const nodeIdsToDelete: string[] = [];
-            this.recursiveFindFiles(user.fileRepo, rootNode, fileIdsToDelete, nodeIdsToDelete);
-            await db.collections!.users_collection.findOneAndUpdate({ 'id': userId, 'life.deletedTime': null, 'fileRepo.children': fileNodeId }, {
-                $pull: { 'fileRepo.$.children': fileNodeId }
-            });
-
-            await db.collections!.users_collection.findOneAndUpdate({ 'id': userId, 'life.deletedTime': null }, {
-                $pull: { fileRepo: { id: { $in: nodeIdsToDelete } } }
-            });
-
-            await db.collections!.files_collection.updateMany({ 'id': { $in: fileIdsToDelete }, 'life.deletedTime': null }, {
-                $set: {
-                    'life.deletedTime': Date.now(),
-                    'life.deletedUser': requester
-                }
-            });
-
-            await session.commitTransaction();
-            session.endSession();
-            return makeGenericReponse(fileNodeId, true, undefined);
-        } catch (error) {
-            await session.abortTransaction();
-            session.endSession();
-            throw new GraphQLError(`${JSON.stringify(error)}`, { extensions: { code: errorCodes.DATABASE_ERROR } });
-        }
-    }
-
-    public async shareFileNodeToUsers(userId: string, fileNodeId: string, sharedUsers: string[]): Promise<IGenericResponse> {
-        /**
-         * Share a file node to other users.
-         *
-         * @param userId - The id of the user.
-         * @param fileNodeId - The id of the file node.
-         * @param sharedUsers - The ids of the users to share with.
-         *
-         * @return IGenericResponse - The object of IGenericResponse.
-         */
-        const user = await db.collections!.users_collection.findOne({ 'id': userId, 'life.deletedTime': null, 'fileRepo.id': fileNodeId });
-        if (!user) {
-            throw new GraphQLError('User or parent node does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
-        }
-
-        const fileIdsToShare: string[] = [];
-        const nodeIdsToShare: string[] = [];
-        this.recursiveFindFiles(user.fileRepo, user.fileRepo.filter(el => el.id === fileNodeId)[0], fileIdsToShare, nodeIdsToShare);
-        await db.collections!.users_collection.findOneAndUpdate({ 'id': userId, 'fileRepo.id': { $in: nodeIdsToShare } }, {
-            $set: { 'fileRepo.$.sharedUsers': sharedUsers }
+        await db.collections!.drives_collection.findOneAndUpdate({ 'id': parentNodeId, 'life.deletedTime': null }, {
+            $push: { children: folderNodeId }
         });
-
-        return makeGenericReponse(fileNodeId, true, undefined);
+        return folderNodeEntry;
     }
+
+    // public async moveFileNodeFromUserRepo(userId: string, fileNodeId: string, toParentId: string): Promise<IGenericResponse> {
+    //     /**
+    //      * Move a file node to another parent.
+    //      *
+    //      * @param userId - The id of the user.
+    //      * @param fileNodeId - The id of the file node.
+    //      * @param toParentId - The id of the new parent.
+    //      *
+    //      * @return IGenericResponse - The object of IGenericResponse
+    //      */
+
+    //     const parentNode = await db.collections!.users_collection.findOne({ 'id': userId, 'life.deletedTime': null, 'fileRepo.id': toParentId });
+    //     if (!parentNode) {
+    //         throw new GraphQLError('Parent node does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+    //     }
+
+    //     const thisNode = await db.collections!.users_collection.findOne({ 'id': userId, 'life.deletedTime': null, 'fileRepo.id': fileNodeId });
+    //     if (!thisNode) {
+    //         throw new GraphQLError('Node does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+    //     }
+
+    //     const session = db.client!.startSession();
+    //     session.startTransaction();
+    //     try {
+    //         await db.collections!.users_collection.findOneAndUpdate({ 'id': userId, 'life.deletedTime': null, 'fileRepo.children': fileNodeId }, {
+    //             $pull: { 'fileRepo.$.children': fileNodeId }
+    //         });
+
+    //         await db.collections!.users_collection.findOneAndUpdate({ 'id': userId, 'life.deletedTime': null, 'fileRepo.id': fileNodeId }, {
+    //             $set: { 'fileRepo.$.parent': toParentId }
+    //         });
+    //         await session.commitTransaction();
+    //         session.endSession();
+    //         return makeGenericReponse(fileNodeId, true, undefined);
+    //     } catch (error) {
+    //         await session.abortTransaction();
+    //         session.endSession();
+    //         throw new GraphQLError(`${JSON.stringify(error)}`, { extensions: { code: errorCodes.DATABASE_ERROR } });
+    //     }
+    // }
+
+    // public async shareFileNodeToUsers(userId: string, fileNodeId: string, sharedUsers: string[]): Promise<IGenericResponse> {
+    //     /**
+    //      * Share a file node to other users.
+    //      *
+    //      * @param userId - The id of the user.
+    //      * @param fileNodeId - The id of the file node.
+    //      * @param sharedUsers - The ids of the users to share with.
+    //      *
+    //      * @return IGenericResponse - The object of IGenericResponse.
+    //      */
+    //     const user = await db.collections!.users_collection.findOne({ 'id': userId, 'life.deletedTime': null, 'fileRepo.id': fileNodeId });
+    //     if (!user) {
+    //         throw new GraphQLError('User or parent node does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+    //     }
+
+    //     const fileIdsToShare: string[] = [];
+    //     const nodeIdsToShare: string[] = [];
+    //     this.recursiveFindFiles(user.fileRepo, user.fileRepo.filter(el => el.id === fileNodeId)[0], fileIdsToShare, nodeIdsToShare);
+    //     await db.collections!.users_collection.findOneAndUpdate({ id: userId }, {
+    //         $set: { 'fileRepo.$[elem].sharedUsers': sharedUsers }
+    //     }, {
+    //         arrayFilters: [{ 'elem.id': { $in: nodeIdsToShare } }]
+    //     });
+
+    //     return makeGenericReponse(fileNodeId, true, undefined);
+    // }
 
     public async getUserFileRepo(userId: string): Promise<any> {
         /**
@@ -693,38 +741,6 @@ export class UserCore {
         }
     }
 
-    public recursiveFindFiles(fileNodesList: IFileNode[], root: IFileNode, filesList: string[], nodesList: string[]) {
-        /**
-         * Recursive find the files and file nodes that are in the same tree.
-         *
-         * @param fileNodesList - The all file nodes of the tree.
-         * @param root - The root from which to start.
-         * @param filesList - The ids of the files that belongs to this root.
-         * @param nodesList - The ids of the file nodes that belongs to this root.
-         *
-         * @return null
-         */
-        if (!root) {
-            return;
-        }
-        nodesList.push(root.id);
-        if (root.type === enumFileNodeTypes.FILE && root.fileId) {
-            filesList.push(root.fileId);
-            return;
-        }
-        if (root.type === enumFileNodeTypes.FOLDER) {
-            for (const child in root.children) {
-                const thisNode = fileNodesList.filter(el => el.id === child)[0];
-                if (!thisNode) {
-                    continue;
-                } else {
-                    this.recursiveFindFiles(fileNodesList, thisNode, filesList, nodesList);
-                }
-            }
-        }
-        return;
-    }
-
     public async addResetPasswordRequest(userId: string, resetPasswordRequest: IResetPasswordRequest): Promise<IGenericResponse> {
         /**
          * Insert a request of resetting password in IUser. Should tag all previous request as true before.
@@ -819,6 +835,213 @@ export class UserCore {
         }
 
         return updateResult.value as Partial<IUser>;
+    }
+
+    public async createUserGroup(requester: string, studyId: string | null, reference: string, groupType: enumGroupNodeTypes, description: string | null, parentGroupId: string): Promise<IGroupNode> {
+        /**
+         * Create a study group.
+         *
+         * @param requester - The id of the requester.
+         * @param studyId - The id of the study.
+         * @param reference - Group name or user id.
+         * @param groupType - The type of the group.
+         * @param description - The description of the group.
+         * @param parentGroupId - The id of the parent group.
+         *
+         * @return IGroupNode - The object of IGroupNode
+         */
+
+        if (studyId) {
+            const study = await db.collections!.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null });
+            if (!study) {
+                throw new GraphQLError('Study does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+            }
+        }
+        if (parentGroupId) {
+            const parent = await db.collections?.groups_collection.findOne({ 'id': parentGroupId, 'life.deletedTime': null });
+            if (!parent) {
+                throw new GraphQLError('Parent node does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+            }
+        }
+        let user;
+        if (groupType === enumGroupNodeTypes.USER) {
+            user = await db.collections!.users_collection.findOne({ 'id': reference, 'life.deletedTime': null });
+            if (!user) {
+                throw new GraphQLError('User does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+            }
+        }
+        const groupEntry: IGroupNode = {
+            id: uuid(),
+            nameOrId: reference,
+            managerId: requester,
+            studyId: studyId,
+            type: groupType,
+            description: description,
+            parentId: parentGroupId,
+            children: [],
+            life: {
+                createdTime: Date.now(),
+                createdUser: requester,
+                deletedTime: null,
+                deletedUser: null
+            },
+            metadata: {}
+        };
+
+        await db.collections!.groups_collection.insertOne(groupEntry);
+        await db.collections!.groups_collection.findOneAndUpdate({ id: parentGroupId }, {
+            $push: {
+                children: groupEntry.id
+            }
+        });
+
+        return groupEntry;
+    }
+
+    public async editUserGroup(managerId: string | null, groupId: string, reference: string | null, description: string | null, targetParentId: string | null, children: string[] | null): Promise<IGenericResponse> {
+        /**
+         * Edit a group.
+         *
+         * @param groupId - The id of the group.
+         * @param reference - The name of the group.
+         * @param description - The new description of the group.
+         * @param targetParentId - The id of the target parent.
+         * @param children - The ids of the children groups of the group.
+         *
+         * @return IGenericResponse - The object of IGenericRespnse
+         */
+        const group = await db.collections!.groups_collection.findOne({ 'id': groupId, 'life.deletedTime': null });
+        if (!group) {
+            throw new GraphQLError('Study or group does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+        }
+
+        if (managerId) {
+            const manager = await db.collections!.users_collection.findOne({ 'id': managerId, 'life.deletedTime': null });
+            if (!manager) {
+                throw new GraphQLError('Manger id does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+            }
+        }
+
+        if (reference) {
+            if (group.type === enumGroupNodeTypes.USER) {
+                const user = await db.collections!.users_collection.findOne({ 'id': reference, 'life.deletedTime': null });
+                if (!user) {
+                    throw new GraphQLError('User does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+                }
+            }
+        }
+
+        if (targetParentId) {
+            const targetParentGroup: IGroupNode | null = await db.collections!.groups_collection.findOne({ 'id': targetParentId, 'life.deletedTime': null });
+            if (!targetParentGroup) {
+                throw new GraphQLError('Target group does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+            }
+        }
+
+        if (children) {
+            const groupNodeIds: string[] = (await db.collections!.groups_collection.find({ 'life.deletedTime': null }).toArray()).map(el => el.id);
+            if (children.some(el => !groupNodeIds.includes(el))) {
+                throw new GraphQLError('Children do not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+            }
+        }
+
+        await db.collections!.groups_collection.findOneAndUpdate({ id: groupId }, {
+            $set: {
+                managerId: managerId ?? group.managerId,
+                description: description ?? group.description,
+                nameOrId: reference ?? group.nameOrId,
+                parentId: targetParentId ?? group.parentId,
+                children: children ?? group.children
+            }
+        });
+
+        return makeGenericReponse(groupId, true, undefined, `Group ${groupId}'s description has been edited.`);
+    }
+
+    public async deleteUserGroup(requester: string, groupId: string): Promise<IGenericResponse> {
+        /**
+         * Delete a group of a study.
+         *
+         * @param requester - The id of the requester.
+         * @param studyId - The id of the study.
+         * @param groupId - The id of the group.
+         *
+         * @return IGenericResponse - The object of IGenericResponse.
+         */
+
+        const group = await db.collections!.groups_collection.findOne({ id: groupId });
+        if (!group) {
+            throw new GraphQLError('Study or group does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+        }
+
+        if (requester !== group.managerId) {
+            throw new GraphQLError('Only group manager can delete a group.', { extensions: { code: errorCodes.NO_PERMISSION_ERROR } });
+        }
+
+        const groupIds: string[] = [];
+        this.recursiveFindFiles(group, groupIds);
+
+        await db.collections!.groups_collection.updateMany({ id: { $in: groupIds } }, {
+            $set: {
+                'life.deletedTime': Date.now(),
+                'life.deletedUser': requester
+            }
+        });
+
+        return makeGenericReponse(groupId, true, undefined, `Group ${groupId} has been deleted.`);
+    }
+
+
+    public async recursiveFindFiles(root: IGroupNode, groupIds: string[]) {
+        /**
+         * Recursive find the files and file nodes that are in the same tree.
+         *
+         * @param fileNodesList - The all file nodes of the tree.
+         * @param root - The root from which to start.
+         * @param filesList - The ids of the files that belongs to this root.
+         * @param nodesList - The ids of the file nodes that belongs to this root.
+         *
+         * @return null
+         */
+        if (!root) {
+            return;
+        }
+        groupIds.push(root.id);
+        if (root.type === enumGroupNodeTypes.USER) {
+            groupIds.push(root.id);
+            return;
+        }
+        if (root.type === enumGroupNodeTypes.GROUP) {
+            for (const child of root.children) {
+                const thisGroup = await db.collections!.groups_collection.findOne({ id: child });
+                if (!thisGroup) {
+                    continue;
+                } else {
+                    this.recursiveFindFiles(thisGroup, groupIds);
+                }
+            }
+        }
+        return;
+    }
+
+    public async getUserGroups(userId: string): Promise<Partial<IGroupNode>[]> {
+        /**
+         * Get the list of groups of a study.
+         *
+         * @param userId - The id of the user.
+         *
+         * @return Partial<IGroupNode>[]
+         */
+
+        const groups = await db.collections!.groups_collection.find({
+            'life.deletedTime': null,
+            '$or': [{
+                managerId: userId
+            }, {
+                nameOrId: userId
+            }]
+        }).toArray();
+        return groups;
     }
 }
 

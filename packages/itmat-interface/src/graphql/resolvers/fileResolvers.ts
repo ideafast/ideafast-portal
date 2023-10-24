@@ -1,5 +1,5 @@
 import { GraphQLError } from 'graphql';
-import { IFile, IOrganisation, IUser, atomicOperation, IPermissionManagementOptions, IData, IGenericResponse, enumFileTypes, enumFileCategories } from '@itmat-broker/itmat-types';
+import { IFile, IOrganisation, IUser, IData, IGenericResponse, enumFileTypes, enumFileCategories } from '@itmat-broker/itmat-types';
 import { v4 as uuid } from 'uuid';
 import { FileUpload } from 'graphql-upload-minimal';
 import { db } from '../../database/database';
@@ -33,18 +33,18 @@ export const fileResolvers = {
         //      *
         //      * @note Parameters must be provides via the following form
         //      * fileCategory                            studyId    fieldId
-        //      * STUDY_DATA_FILE participant-level          Y          Y 
+        //      * STUDY_DATA_FILE participant-level          Y          Y
         //      * STUDY_DATA_FILE study-level                Y          N
         //      * USER_REPO_FILE                             N          N
         //      * PROFILE_FILE                               N          N
-        //      * DOC_FILE                                  Y/N         N    
-        //      * 
+        //      * DOC_FILE                                  Y/N         N
+        //      *
         //      * @return IFile - The object of IFile.
         //      */
 
         //     const requester: IUser = context.req.user;
-            
-        //     // fetch the config            
+
+        //     // fetch the config
         //     if (fileCategory === enumFileCategories.STUDY_DATA_FILE) {
         //         if (fieldId) {
         //             // STUDY_DATA_FILE participant-level
@@ -60,7 +60,7 @@ export const fileResolvers = {
         //     } else {
         //         throw new GraphQLError('File category is invalid', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
         //     }
-            
+
         //     // get the target fieldId of this file
         //     const study = await studyCore.findOneStudy_throwErrorIfNotExist(args.studyId);
 

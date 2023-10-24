@@ -4,6 +4,7 @@ export enum enumUserTypes {
     ADMIN = 'ADMIN',
     STANDARD = 'STANDARD',
     SYSTEM = 'SYSTEM',
+    MANAGER = 'MANAGER',
     OBSERVER = 'OBSERVER'
 }
 
@@ -20,8 +21,7 @@ export interface IUser extends IBase {
     otpSecret: string;
     profile: string | null; // id of the profile image
     description: string | null;
-    expiredAt: number;
-    fileRepo: IFileNode[];
+    expiredAt: number | null;
 }
 
 export interface IResetPasswordRequest {
@@ -37,16 +37,3 @@ export interface IOrganisation extends IBase {
     profile: string | null; // id of the profile image
 }
 
-export interface IFileNode extends IBase {
-    name: string; //
-    fileId: string | null;
-    type: enumFileNodeTypes;
-    parent: string | null; // null for root node
-    children: string[]; // ids of the file nodes
-    sharedUsers: string[];
-}
-
-export enum enumFileNodeTypes {
-    FOLDER = 'FOLDER',
-    FILE = 'FILE'
-}

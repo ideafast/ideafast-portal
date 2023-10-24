@@ -23,6 +23,7 @@ export const USER_FRAGMENT = gql`
             children
             sharedUsers
         }
+        sharedFileRepos
     }
 `;
 
@@ -275,7 +276,9 @@ export const UPLOAD_USER_FILE_NODE = gql`
             sharedUsers
         }
     }
-`
+
+`;
+
 export const EDIT_USER_FILE_NODE = gql`
     mutation editUserFileNode(
         $userId: String!
@@ -293,7 +296,24 @@ export const EDIT_USER_FILE_NODE = gql`
         }
     }
     ${GENERIC_RESPONSE}
-`
+`;
+
+export const SHARE_USER_FILE_NODE_BY_EMAIL = gql`
+    mutation shareUserFileNodeByEmail(
+        $userId: String!
+        $nodeId: String!
+        $sharedUserEmails: [String!]
+    ) {
+        shareUserFileNodeByEmail (
+            userId: $userId,
+            nodeId: $nodeId,
+            sharedUserEmails: $sharedUserEmails
+        ) {
+            ...ALL_FOR_RESPONSE
+        }
+    }
+    ${GENERIC_RESPONSE}
+`;
 
 export const DELETE_USER_FILE_NODE = gql`
     mutation deleteUserFileNode(
@@ -308,9 +328,9 @@ export const DELETE_USER_FILE_NODE = gql`
         }
     }
     ${GENERIC_RESPONSE}
-`
+`;
 
-export const UPLOAD_USER_PROFILE =gql`
+export const UPLOAD_USER_PROFILE = gql`
     mutation uploadUserProfile(
         $userId: String!,
         $description: String,
@@ -327,7 +347,7 @@ export const UPLOAD_USER_PROFILE =gql`
         }
     }
     ${GENERIC_RESPONSE}
-`
+`;
 
 export const GET_USER_PROFILE = gql`
     query getUserProfile(
@@ -337,4 +357,4 @@ export const GET_USER_PROFILE = gql`
             userId: $userId
         )
     }
-`
+`;

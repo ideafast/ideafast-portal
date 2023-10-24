@@ -1,6 +1,7 @@
 .page_container {
     display: grid;
-    grid-template-columns: repeat(4, 1fr); /* Adjust the number of columns here */
-    grid-gap: 1px; 
+    grid-template-columns: repeat(4, 1fr);
+    /* Adjust the number of columns here */
+    grid-gap: 1px;
     padding: 20px;
 }

@@ -1,6 +1,7 @@
-import type { IData, IField, IFile, IJob, ILog, IOrganisation, IProject, IPubkey, IQueryEntry, IRole, IStudy, IUser, IStandardization, IConfig, IOntologyTree, IDoc } from '@itmat-broker/itmat-types';
+import type { IData, IField, IFile, IJob, ILog, IOrganisation, IProject, IPubkey, IQueryEntry, IRole, IStudy, IUser, IStandardization, IConfig, IOntologyTree, IDoc, IDriveNode, IGroupNode } from '@itmat-broker/itmat-types';
 import { Database as DatabaseBase, IDatabaseBaseConfig } from '@itmat-broker/itmat-commons';
 import type { Collection } from 'mongodb';
+import { ICache } from 'packages/itmat-types/src/types/cache';
 
 export interface IDatabaseConfig extends IDatabaseBaseConfig {
     collections: {
@@ -19,7 +20,10 @@ export interface IDatabaseConfig extends IDatabaseBaseConfig {
         standardizations_collection: string,
         configs_collection: string,
         ontologies_collection: string,
-        docs_collection: string
+        docs_collection: string,
+        cache_collection: string,
+        drives_collection: string,
+        groups_collection: string
     };
 }
 
@@ -39,7 +43,10 @@ export interface IDatabaseCollectionConfig {
     standardizations_collection: Collection<IStandardization>,
     configs_collection: Collection<IConfig>,
     ontologies_collection: Collection<IOntologyTree>,
-    docs_collection: Collection<IDoc>
+    docs_collection: Collection<IDoc>,
+    cache_collection: Collection<ICache>,
+    drives_collection: Collection<IDriveNode>,
+    groups_collection: Collection<IGroupNode>
 }
 
 export const db = new DatabaseBase<IDatabaseBaseConfig, IDatabaseCollectionConfig>();

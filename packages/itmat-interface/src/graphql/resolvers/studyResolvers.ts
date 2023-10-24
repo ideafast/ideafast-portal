@@ -12,11 +12,9 @@ import {
     IRole,
     IOntologyTree,
     enumUserTypes,
-    atomicOperation,
-    IPermissionManagementOptions,
     IData,
     IGenericResponse,
-    IStudyGroupNode,
+    IGroupNode,
     enumGroupNodeTypes
 } from '@itmat-broker/itmat-types';
 import { v4 as uuid } from 'uuid';
@@ -29,6 +27,7 @@ import { makeGenericReponse } from '../responses';
 import { buildPipeline, translateMetadata } from '../../utils/query';
 import { dataStandardization } from '../../utils/query';
 import { FileUpload } from 'graphql-upload-minimal';
+import { userCore } from '../core/userCore';
 
 export const studyResolvers = {
     Query: {
@@ -52,22 +51,21 @@ export const studyResolvers = {
                     description: study.description,
                     currentDataVersion: requester.type === enumUserTypes.ADMIN ? study.currentDataVersion : undefined,
                     dataVersions: requester.type === enumUserTypes.ADMIN ? study.dataVersions : undefined,
-                    groupList: requester.type === enumUserTypes.ADMIN ? study.groupList : undefined,
                     profile: study.profile
                 });
             }
             return filteredStudies;
         },
-        getStudyGroupNodes:async (__unused__parent: Record<string, unknown>, {studyId}: {studyId: string}, context: any): Promise<Partial<IStudyGroupNode>[]> => {
+        getStudyGroupNodes: async (__unused__parent: Record<string, unknown>, { studyId }: { studyId: string }, context: any): Promise<Partial<IGroupNode>[]> => {
             /**
              * Get the list of groups of a study.
-             * 
+             *
              * @param studyId - The id of the study.
-             * 
-             * @return Partial<IStudyGroupNode>[]
+             *
+             * @return Partial<IGroupNode>[]
              */
-        
-            const groups = await studyCore.getStudyGroups(studyId);
+
+            const groups = await userCore.getUserGroups(studyId);
             return groups;
         }
 
@@ -533,7 +531,7 @@ export const studyResolvers = {
         // }
     },
     Mutation: {
-        createStudy: async (__unused__parent: Record<string, unknown>, { name, description, profile }: { name: string, description: string, profile: Promise<FileUpload>}, context: any): Promise<Partial<IStudy>> => {
+        createStudy: async (__unused__parent: Record<string, unknown>, { name, description, profile }: { name: string, description: string, profile: Promise<FileUpload> }, context: any): Promise<Partial<IStudy>> => {
             /**
              * Create a study.
              *
@@ -547,7 +545,7 @@ export const studyResolvers = {
             if (requester.type !== enumUserTypes.ADMIN) {
                 throw new GraphQLError(errorCodes.NO_PERMISSION_ERROR);
             }
-            let profile_ = null;
+            let profile_: any = null;
             if (profile) {
                 profile_ = await profile;
             }
@@ -555,7 +553,7 @@ export const studyResolvers = {
             const study = await studyCore.createStudy(requester.id, name, description, profile_);
             return study;
         },
-        editStudy: async (__unused__parent: Record<string, unknown>, { studyId, name, description, profile }: { studyId: string, name: string, description: string, profile: Promise<FileUpload> | null }, context: any): Promise<Partial<IStudy>> => {
+        editStudy: async (__unused__parent: Record<string, unknown>, { studyId, name, description, profile }: { studyId: string, name: string, description: string, profile: any | null }, context: any): Promise<Partial<IStudy>> => {
             /**
              * Edit a study.
              *
@@ -566,7 +564,6 @@ export const studyResolvers = {
              *
              * @return Partial<IStudy>
              */
-
             const requester: IUser = context.req.user;
             if (requester.type !== enumUserTypes.ADMIN) {
                 throw new GraphQLError(errorCodes.NO_PERMISSION_ERROR);
@@ -619,7 +616,7 @@ export const studyResolvers = {
             const response = await studyCore.createDataVersion(requester, studyId, tag, dataVersion);
             return response;
         },
-        createStudyGroupNode:async (__unused__parent: Record<string, unknown>, {studyId, groupNodeName, groupNodeType, description, parentGroupNodeId}: {studyId: string, groupNodeName: string, groupNodeType: enumGroupNodeTypes, description: string | null, parentGroupNodeId: string}, context: any): Promise<Partial<IStudyGroupNode>> => {
+        createStudyGroupNode: async (__unused__parent: Record<string, unknown>, { studyId, groupNodeName, groupNodeType, description, parentGroupNodeId }: { studyId: string, groupNodeName: string, groupNodeType: enumGroupNodeTypes, description: string | null, parentGroupNodeId: string }, context: any): Promise<Partial<IGroupNode>> => {
             /**
              * Create a study group.
              *
@@ -629,15 +626,15 @@ export const studyResolvers = {
              * @param description - The description of the group.
              * @param parentGroupId - The id of the parent group.
              *
-             * @return IStudyGroupNode - The object of IStudyGroupNode
+             * @return IGroupNode - The object of IGroupNode
              */
 
             const requester = context.req.user;
 
-            const group = await studyCore.createStudyGroup(requester.id, studyId, groupNodeName, groupNodeType, description, parentGroupNodeId);
+            const group = await userCore.createUserGroup(requester.id, studyId, groupNodeName, groupNodeType, description, parentGroupNodeId);
             return group;
         },
-        editStudyGroupNode:async (__unused__parent: Record<string, unknown>, {studyId, groupNodeId, groupNodeName, description, parentGroupNodeId, children}: {studyId: string, groupNodeId: string, groupNodeName: string | null, description: string| null, parentGroupNodeId: string, children: string[] | null}, context: any): Promise<IGenericResponse> => {
+        editStudyGroupNode: async (__unused__parent: Record<string, unknown>, { studyId, groupNodeId, groupNodeName, description, parentGroupNodeId, children }: { studyId: string, groupNodeId: string, groupNodeName: string | null, description: string | null, parentGroupNodeId: string, children: string[] | null }, context: any): Promise<IGenericResponse> => {
             /**
              * Edit a group.
              *
@@ -652,10 +649,10 @@ export const studyResolvers = {
 
             const requester = context.req.user;
 
-            const response = await studyCore.editStudyGroup(studyId, groupNodeId, groupNodeName, description, parentGroupNodeId, children);
+            const response = await userCore.editUserGroup(studyId, groupNodeId, groupNodeName, description, parentGroupNodeId, children);
             return response;
         },
-        deleteStudyGroupNode:async (__unused__parent: Record<string, unknown>, {studyId, groupNodeId}: {studyId: string, groupNodeId: string}, context: any): Promise<IGenericResponse> => {
+        deleteStudyGroupNode: async (__unused__parent: Record<string, unknown>, { studyId, groupNodeId }: { studyId: string, groupNodeId: string }, context: any): Promise<IGenericResponse> => {
             /**
              * Delete a group of a study.
              *
@@ -668,7 +665,7 @@ export const studyResolvers = {
 
             const requester = context.req.user;
 
-            const response = await studyCore.deleteStudyGroup(requester.id, studyId, groupNodeId);
+            const response = await userCore.deleteUserGroup(requester.id, groupNodeId);
             return response;
         },
         // createProject: async (__unused__parent: Record<string, unknown>, { studyId, projectName }: { studyId: string, projectName: string }, context: any): Promise<IProject> => {

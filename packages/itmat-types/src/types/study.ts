@@ -8,20 +8,6 @@ export interface IStudy extends IBase {
     dataVersions: IStudyDataVersion[];
     description: string | null;
     profile: string | null;
-    groupList: IStudyGroupNode[];
-}
-
-export interface IStudyGroupNode extends IBase {
-    name: string;
-    type: enumGroupNodeTypes;
-    description: string | null;
-    parent: string | null; // null for root node
-    children: IStudyGroupNode[]
-}
-
-export enum enumGroupNodeTypes {
-    USER = 'USER',
-    GROUP = 'GROUP'
 }
 
 export interface IStudyDataVersion extends IBase {
@@ -30,72 +16,72 @@ export interface IStudyDataVersion extends IBase {
     tag?: string;
 }
 
-export enum atomicOperation {
-    READ = 'READ',
-    WRITE = 'WRITE'
-}
+// export enum atomicOperation {
+//     READ = 'READ',
+//     WRITE = 'WRITE'
+// }
 
-export enum IPermissionManagementOptions {
-    own = 'own',
-    role = 'role',
-    job = 'job',
-    query = 'query',
-    ontologyTrees = 'ontologyTrees'
-}
+// export enum IPermissionManagementOptions {
+//     own = 'own',
+//     role = 'role',
+//     job = 'job',
+//     query = 'query',
+//     ontologyTrees = 'ontologyTrees'
+// }
 
-export interface ICombinedPermissions {
-    hasPriority: boolean, // if true, skip the check
-    roleMatch: Array<Record<string, any>>,
-    hasVersioned: boolean,
-    dataRE: {
-        subjectIds: string[],
-        visitIds: string[],
-        fieldIds: string[]
-    }
-}
+// export interface ICombinedPermissions {
+//     hasPriority: boolean, // if true, skip the check
+//     roleMatch: Array<Record<string, any>>,
+//     hasVersioned: boolean,
+//     dataRE: {
+//         subjectIds: string[],
+//         visitIds: string[],
+//         fieldIds: string[]
+//     }
+// }
 
-export interface IPermissionChanges {
-    data: {
-        subjectIds: string[],
-        visitIds: string[],
-        fieldIds: string[],
-        hasVersioned: boolean,
-        operations: atomicOperation[],
-        filters: any[]
-    },
-    manage: {
-        [IPermissionManagementOptions.own]: atomicOperation[],
-        [IPermissionManagementOptions.role]: atomicOperation[],
-        [IPermissionManagementOptions.job]: atomicOperation[],
-        [IPermissionManagementOptions.query]: atomicOperation[],
-        [IPermissionManagementOptions.ontologyTrees]: atomicOperation[]
-    }
-}
+// export interface IPermissionChanges {
+//     data: {
+//         subjectIds: string[],
+//         visitIds: string[],
+//         fieldIds: string[],
+//         hasVersioned: boolean,
+//         operations: atomicOperation[],
+//         filters: any[]
+//     },
+//     manage: {
+//         [IPermissionManagementOptions.own]: atomicOperation[],
+//         [IPermissionManagementOptions.role]: atomicOperation[],
+//         [IPermissionManagementOptions.job]: atomicOperation[],
+//         [IPermissionManagementOptions.query]: atomicOperation[],
+//         [IPermissionManagementOptions.ontologyTrees]: atomicOperation[]
+//     }
+// }
 
-export interface IRole {
-    id: string;
-    studyId: string;
-    projectId: string | null;
-    name: string;
-    permissions: {
-        data?: {
-            subjectIds?: string[];
-            visitIds?: string[];
-            fieldIds?: string[];
-            hasVersioned?: boolean;
-            operations?: atomicOperation[];
-        },
-        manage?: {
-            [IPermissionManagementOptions.own]?: atomicOperation[];
-            [IPermissionManagementOptions.role]?: atomicOperation[];
-            [IPermissionManagementOptions.job]?: atomicOperation[];
-            [IPermissionManagementOptions.query]?: atomicOperation[];
-            [IPermissionManagementOptions.ontologyTrees]: atomicOperation[];
-        }
-    };
-    description: string | null;
-    users: string[];
-}
+// export interface IRole {
+//     id: string;
+//     studyId: string;
+//     projectId: string | null;
+//     name: string;
+//     permissions: {
+//         data?: {
+//             subjectIds?: string[];
+//             visitIds?: string[];
+//             fieldIds?: string[];
+//             hasVersioned?: boolean;
+//             operations?: atomicOperation[];
+//         },
+//         manage?: {
+//             [IPermissionManagementOptions.own]?: atomicOperation[];
+//             [IPermissionManagementOptions.role]?: atomicOperation[];
+//             [IPermissionManagementOptions.job]?: atomicOperation[];
+//             [IPermissionManagementOptions.query]?: atomicOperation[];
+//             [IPermissionManagementOptions.ontologyTrees]: atomicOperation[];
+//         }
+//     };
+//     description: string | null;
+//     users: string[];
+// }
 
 
 export interface IProject extends IBase {

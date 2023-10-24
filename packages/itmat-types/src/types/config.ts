@@ -6,7 +6,7 @@ import { IFile } from './file';
 export interface IConfig extends IBase {
     type: enumConfigType;
     key: string | null; // studyid for study; userid for user; null for system
-    properties: ISystemConfig | IStudyConfig | IUserConfig | IDocConfig;
+    properties: ISystemConfig | IStudyConfig | IUserConfig | IDocConfig | ICacheConfig;
 }
 
 export enum enumConfigType {
@@ -15,7 +15,8 @@ export enum enumConfigType {
     USERCONFIG = 'USERCONFIG',
     FILECONFIG = 'FILECONFIG',
     ORGANISATIONCONFIG = 'ORGANISATIONCONFIG',
-    DOCCONFIG = 'DOCCONFIG'
+    DOCCONFIG = 'DOCCONFIG',
+    CACHECONFIG = 'CACHECONFIG'
 }
 
 export interface ISystemConfig extends IBase {
@@ -23,7 +24,9 @@ export interface ISystemConfig extends IBase {
     defaultMaximumFileSize: number;
     defaultFileBucketId: string;
     logoLink: string | null; // TODO: fetch file from database;
-    logoSize: number[] // width * height
+    logoSize: string[]; // width * height
+    archiveAddress: string;
+    defaultEventTimeConsumptionBar: number[];
 }
 
 export interface IStudyConfig extends IBase {
@@ -31,18 +34,25 @@ export interface IStudyConfig extends IBase {
     defaultMaximumFileSize: number;
     defaultMaximumProfileSize: number;
     defaultRepresentationForMissingValue: string;
+    defaultFileColumns: any;
+    defaultFileColumnsPropertyColor: string | null;
 }
 
 export interface IUserConfig extends IBase {
     defaultUserExpiredDays: number
     defaultMaximumFileSize: number;
     defaultMaximumFileRepoSize: number;
+    defaultMaximumRepoSize: number;
     defaultMaximumProfileSize: number;
     defaultFileBucketId: string;
 }
 
 export interface IOrganisationConfig extends IBase {
     defaultMaximumProfileSize: number;
+    defaultFileBucketId: string;
+}
+
+export interface ICacheConfig extends IBase {
     defaultFileBucketId: string;
 }
 
@@ -82,7 +92,9 @@ export class DefaultSettings implements IDefaultSettings {
         defaultMaximumFileSize: 1 * 1024 * 1024 * 1024, // 1 GB
         defaultFileBucketId: 'system',
         logoLink: null,
-        logoSize: [224, 224]
+        logoSize: ['224px', '224px'],
+        archiveAddress: '',
+        defaultEventTimeConsumptionBar: [50, 100]
     };
 
     public readonly studyConfig: IStudyConfig = {
@@ -97,7 +109,9 @@ export class DefaultSettings implements IDefaultSettings {
         defaultStudyProfile: null,
         defaultMaximumFileSize: 8 * 1024 * 1024 * 1024, // 8 GB,
         defaultMaximumProfileSize: 10 * 1024 * 1024, // 10MB
-        defaultRepresentationForMissingValue: '99999'
+        defaultRepresentationForMissingValue: '99999',
+        defaultFileColumns: [],
+        defaultFileColumnsPropertyColor: 'black'
     };
 
     public readonly userConfig: IUserConfig = {
@@ -112,6 +126,7 @@ export class DefaultSettings implements IDefaultSettings {
         defaultUserExpiredDays: 90,
         defaultMaximumFileSize: 100 * 1024 * 1024, // 100 MB
         defaultMaximumFileRepoSize: 500 * 1024 * 1024, // 500 MB
+        defaultMaximumRepoSize: 10 * 1024 * 1024 * 1024, // 10GB
         defaultMaximumProfileSize: 10 * 1024 * 1024, // 10MB
         defaultFileBucketId: 'user'
     };
@@ -128,7 +143,7 @@ export class DefaultSettings implements IDefaultSettings {
         defaultFileTypeList: {
             STUDY_DATA_FILE: 'STUDY_DATA_FILE',
             USER_REPO_FILE: 'USER_REPO_FILE',
-            PROFILE_FILE: 'PROFILE_FILE', // file should be images
+            PROFILE_FILE: 'PROFILE_FILE' // file should be images
         },
         defaultFileBucketId: 'doc'
     };
@@ -144,7 +159,19 @@ export class DefaultSettings implements IDefaultSettings {
         metadata: {},
         defaultMaximumProfileSize: 10 * 1024 * 1024, // 10MB
         defaultFileBucketId: 'organisation'
-    }
+    };
+
+    public readonly cacheConfig: ICacheConfig = {
+        id: uuid(),
+        life: {
+            createdTime: Date.now(),
+            createdUser: enumReservedDefs.SYSTEMAGENT,
+            deletedTime: null,
+            deletedUser: null
+        },
+        metadata: {},
+        defaultFileBucketId: 'cache'
+    };
 }
 
 export const defaultSettings = Object.freeze(new DefaultSettings());

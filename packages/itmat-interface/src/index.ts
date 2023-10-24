@@ -113,7 +113,7 @@ async function emailNotification() {
                     Dear ${user.firstname},
                 <p>
                 <p>
-                    Your account will expire at ${new Date(user.expiredAt).toDateString()}.
+                    Your account will expire at ${user.expiredAt ? new Date(user.expiredAt).toDateString() : 'NA'}.
                     You can make a request on the login page at ${config.appName}.
                 </p>
 

@@ -1,5 +1,5 @@
 import { GraphQLError } from 'graphql';
-import { IFile, IUser, IProject, IStudy, IStudyDataVersion, IDataClip, IRole, deviceTypes, IOrganisation, IGenericResponse, enumGroupNodeTypes, IField, IStudyGroupNode, enumFileTypes, enumFileCategories } from '@itmat-broker/itmat-types';
+import { IFile, IUser, IProject, IStudy, IStudyDataVersion, IDataClip, IRole, deviceTypes, IOrganisation, IGenericResponse, enumGroupNodeTypes, IField, IGroupNode, enumFileTypes, enumFileCategories } from '@itmat-broker/itmat-types';
 import { v4 as uuid } from 'uuid';
 import { db } from '../../database/database';
 import { errorCodes } from '../errors';
@@ -25,15 +25,15 @@ export class StudyCore {
          * @return IStudy - The object of IStudy.
          */
 
-        
-        let query: any = { 'life.deletedTime': null };
+
+        const query: any = { 'life.deletedTime': null };
 
         if (studyId) {
             query.id = studyId;
         }
         const studies = await db.collections!.studies_collection.find(query).toArray();
 
-        
+
         if (studies.length === 0) {
             throw new GraphQLError('Study does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
         }
@@ -58,7 +58,7 @@ export class StudyCore {
 
 
         const studyId = uuid();
-        let fileEntry = null;
+        let fileEntry: IFile | null = null;
         if (profile) {
             if (!Object.keys(enumFileTypes).includes(profile?.filename?.split('.')[1].toUpperCase())) {
                 throw new GraphQLError('Profile file does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
@@ -72,21 +72,6 @@ export class StudyCore {
             dataVersions: [],
             description: description,
             profile: fileEntry ? fileEntry.id : null,
-            groupList: [{
-                id: uuid(),
-                name: studyName,
-                type: enumGroupNodeTypes.GROUP,
-                description: description,
-                parent: null,
-                children: [],
-                life: {
-                    createdTime: Date.now(),
-                    createdUser: requester,
-                    deletedTime: null,
-                    deletedUser: null
-                },
-                metadata: {}
-            }],
             life: {
                 createdTime: Date.now(),
                 createdUser: requester,
@@ -231,50 +216,50 @@ export class StudyCore {
             }
 
             // update permissions based on roles
-            const roles = await db.collections!.roles_collection.find<IRole>({ 'studyId': studyId, 'life.deletedTime': null }).toArray();
-            for (const role of roles) {
-                const filters: Record<string, string[]> = {
-                    subjectIds: role.permissions.data?.subjectIds || [],
-                    visitIds: role.permissions.data?.visitIds || [],
-                    fieldIds: role.permissions.data?.fieldIds || []
-                };
-                const tag = `metadata.${'role:'.concat(role.id)}`;
-                // no need to add role to old data, which should be updated on role changes
-                await db.collections!.data_collection.updateMany({
-                    m_studyId: studyId,
-                    m_versionId: newDataVersionId,
-                    m_subjectId: { $in: filters.subjectIds.map((el: string) => new RegExp(el)) },
-                    m_visitId: { $in: filters.visitIds.map((el: string) => new RegExp(el)) },
-                    m_fieldId: { $in: filters.fieldIds.map((el: string) => new RegExp(el)) }
-                }, {
-                    $set: { [tag]: true }
-                });
-                await db.collections!.data_collection.updateMany({
-                    m_studyId: studyId,
-                    m_versionId: newDataVersionId,
-                    $or: [
-                        { m_subjectId: { $nin: filters.subjectIds.map((el: string) => new RegExp(el)) } },
-                        { m_visitId: { $nin: filters.visitIds.map((el: string) => new RegExp(el)) } },
-                        { m_fieldId: { $nin: filters.fieldIds.map((el: string) => new RegExp(el)) } }
-                    ]
-                }, {
-                    $set: { [tag]: false }
-                });
-                await db.collections!.field_dictionary_collection.updateMany({
-                    studyId: studyId,
-                    dataVersion: newDataVersionId,
-                    fieldId: { $in: filters.fieldIds.map((el: string) => new RegExp(el)) }
-                }, {
-                    $set: { [tag as any]: true }
-                });
-                await db.collections!.field_dictionary_collection.updateMany({
-                    studyId: studyId,
-                    dataVersion: newDataVersionId,
-                    fieldId: { $nin: filters.fieldIds.map((el: string) => new RegExp(el)) }
-                }, {
-                    $set: { [tag as any]: false }
-                });
-            }
+            // const roles = await db.collections!.roles_collection.find<IRole>({ 'studyId': studyId, 'life.deletedTime': null }).toArray();
+            // for (const role of roles) {
+            //     const filters: Record<string, string[]> = {
+            //         subjectIds: role.permissions.data?.subjectIds || [],
+            //         visitIds: role.permissions.data?.visitIds || [],
+            //         fieldIds: role.permissions.data?.fieldIds || []
+            //     };
+            //     const tag = `metadata.${'role:'.concat(role.id)}`;
+            //     // no need to add role to old data, which should be updated on role changes
+            //     await db.collections!.data_collection.updateMany({
+            //         m_studyId: studyId,
+            //         m_versionId: newDataVersionId,
+            //         m_subjectId: { $in: filters.subjectIds.map((el: string) => new RegExp(el)) },
+            //         m_visitId: { $in: filters.visitIds.map((el: string) => new RegExp(el)) },
+            //         m_fieldId: { $in: filters.fieldIds.map((el: string) => new RegExp(el)) }
+            //     }, {
+            //         $set: { [tag]: true }
+            //     });
+            //     await db.collections!.data_collection.updateMany({
+            //         m_studyId: studyId,
+            //         m_versionId: newDataVersionId,
+            //         $or: [
+            //             { m_subjectId: { $nin: filters.subjectIds.map((el: string) => new RegExp(el)) } },
+            //             { m_visitId: { $nin: filters.visitIds.map((el: string) => new RegExp(el)) } },
+            //             { m_fieldId: { $nin: filters.fieldIds.map((el: string) => new RegExp(el)) } }
+            //         ]
+            //     }, {
+            //         $set: { [tag]: false }
+            //     });
+            //     await db.collections!.field_dictionary_collection.updateMany({
+            //         studyId: studyId,
+            //         dataVersion: newDataVersionId,
+            //         fieldId: { $in: filters.fieldIds.map((el: string) => new RegExp(el)) }
+            //     }, {
+            //         $set: { [tag as any]: true }
+            //     });
+            //     await db.collections!.field_dictionary_collection.updateMany({
+            //         studyId: studyId,
+            //         dataVersion: newDataVersionId,
+            //         fieldId: { $nin: filters.fieldIds.map((el: string) => new RegExp(el)) }
+            //     }, {
+            //         $set: { [tag as any]: false }
+            //     });
+            // }
 
             // insert a new version into study
             const newDataVersion: IStudyDataVersion = {
@@ -334,160 +319,6 @@ export class StudyCore {
         return makeGenericReponse(dataVersionId, true, undefined, `Data version ${dataVersionId} has been set as the current data version.`);
     }
 
-    public async createStudyGroup(requester: string, studyId: string, groupName: string, groupType: enumGroupNodeTypes, description: string | null, parentGroupId: string): Promise<IStudyGroupNode> {
-        /**
-         * Create a study group.
-         *
-         * @param requester - The id of the requester.
-         * @param studyId - The id of the study.
-         * @param groupName - The name of the study.
-         * @param groupType - The type of the group.
-         * @param description - The description of the group.
-         * @param parentGroupId - The id of the parent group.
-         *
-         * @return IStudyGroupNode - The object of IStudyGroupNode
-         */
-
-        const study = await db.collections!.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null, 'groupList.id': parentGroupId });
-        if (!study) {
-            throw new GraphQLError('Study or parent node does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
-        }
-
-        let userId: string;
-        if (groupType === enumGroupNodeTypes.USER) {
-            const user = await db.collections!.users_collection.findOne({ 'id': groupName, 'life.deletedTime': null });
-            if (!user) {
-                throw new GraphQLError('User does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
-            }
-        }
-        const groupEntry: IStudyGroupNode = {
-            id: uuid(),
-            name: groupName,
-            type: groupType,
-            description: description,
-            parent: parentGroupId,
-            children: [],
-            life: {
-                createdTime: Date.now(),
-                createdUser: requester,
-                deletedTime: null,
-                deletedUser: null
-            },
-            metadata: {}
-        };
-
-        await db.collections!.studies_collection.findOneAndUpdate({ id: studyId }, {
-            $push: { groupList: groupEntry }
-        });
-        await db.collections!.studies_collection.findOneAndUpdate({id: studyId, 'groupList.id': parentGroupId}, {
-            $push: {
-                'groupList.$.children': groupEntry.id
-            }
-        });
-
-        return groupEntry;
-    }
-
-    public async editStudyGroup(studyId: string, groupId: string, groupName: string | null, description: string | null, targetParentId: string | null, children: string[] | null): Promise<IGenericResponse> {
-        /**
-         * Edit a group.
-         *
-         * @param studyId - The id of the study.
-         * @param groupId - The id of the group.
-         * @param groupName - The name of the group.
-         * @param description - The new description of the group.
-         * @param targetParentId - The id of the target parent.
-         * @param children - The ids of the children groups of the group.
-         *
-         * @return IGenericResponse - The object of IGenericRespnse
-         */
-        const study = await db.collections!.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null, 'groupList.id': groupId });
-        if (!study) {
-            throw new GraphQLError('Study or group does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
-        }
-
-        const thisGroup: IStudyGroupNode = study.groupList.filter(el => el.id === groupId)[0];
-
-        if (groupName) {
-            if (thisGroup.type === enumGroupNodeTypes.USER) {
-                const user = await db.collections!.users_collection.findOne({id: groupName, 'life.deletedTime': null});
-                if (!user) {
-                    throw new GraphQLError('User does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
-                }
-            }
-        }
-
-        if (targetParentId) {
-            const targetParentGroup: IStudyGroupNode | null = study.groupList.filter(el => el.id === targetParentId)[0];
-            if (!targetParentGroup) {
-                throw new GraphQLError('Target group does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
-            }
-        }
-
-        if (children) {
-            const groupNodeIds: string[] = study.groupList.map(el => el.id);
-            if (children.some(el => !groupNodeIds.includes(el))) {
-                throw new GraphQLError('Children do not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
-            }
-        }
-
-        await db.collections!.studies_collection.findOneAndUpdate({ 'id': studyId, 'groupList.id': groupId }, {
-            $set: {
-                'groupList.$.description': description ?? thisGroup.description,
-                'groupList.$.name': groupName ?? thisGroup.name,
-                'groupList.$.targetParentId': targetParentId ?? thisGroup.parent,
-                'groupList.$.children': children ?? thisGroup.children
-            }
-        });
-
-        return makeGenericReponse(groupId, true, undefined, `Group ${groupId}'s description has been edited.`);
-    }
-
-    public async deleteStudyGroup(requester: string, studyId: string, groupId: string): Promise<IGenericResponse> {
-        /**
-         * Delete a group of a study.
-         *
-         * @param requester - The id of the requester.
-         * @param studyId - The id of the study.
-         * @param groupId - The id of the group.
-         *
-         * @return IGenericResponse - The object of IGenericResponse.
-         */
-        const study = await db.collections!.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null, 'groupList.id': groupId });
-        if (!study) {
-            throw new GraphQLError('Study or group does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
-        }
-
-        const thisGroup: IStudyGroupNode = study.groupList.filter(el => el.id === groupId)[0];
-
-        for (const nodeId of [groupId, ...thisGroup.children]) {
-            await db.collections!.studies_collection.findOneAndUpdate({ 'id': studyId, 'groupList.id': nodeId }, {
-                $set: {
-                    'groupList.$.life.deletedUser': requester,
-                    'groupList.$.life.deletedTime': Date.now()
-                }
-            });
-        }
-
-        return makeGenericReponse(groupId, true, undefined, `Group ${groupId} of study ${studyId} has been deleted.`);
-    }
-
-    public async getStudyGroups(studyId: string): Promise<Partial<IStudyGroupNode>[]> {
-        /**
-         * Get the list of groups of a study.
-         * 
-         * @param studyId - The id of the study.
-         * 
-         * @return Partial<IStudyGroupNode>[]
-         */
-
-        const study = await db.collections!.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null });
-        if (!study) {
-            throw new GraphQLError('Study does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
-        }
-
-        return study.groupList.filter(el => !el.life.deletedTime);
-    }
 
     /** TODO */
     // public async createProjectForStudy(requester: string, studyId: string, projectName: string): Promise<IProject> {

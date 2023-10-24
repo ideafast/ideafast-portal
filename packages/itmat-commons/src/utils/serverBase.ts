@@ -2,6 +2,9 @@ export interface IServerBaseConfig {
     server: {
         port: number
     };
+    tRPCServer: {
+        port: number
+    }
 }
 
 export abstract class ServerBase<T extends IServerBaseConfig> {

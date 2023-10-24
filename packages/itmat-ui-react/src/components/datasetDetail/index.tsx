@@ -1,11 +1,12 @@
 import { FunctionComponent } from 'react';
 import { Query } from '@apollo/client/react/components';
 import { NavLink, Route, Routes, useParams, Navigate } from 'react-router-dom';
-import {  GET_STUDIES, WHO_AM_I } from '@itmat-broker/itmat-models';
+import { GET_STUDIES, WHO_AM_I } from '@itmat-broker/itmat-models';
 import LoadSpinner from '../reusable/loadSpinner';
 import css from './projectPage.module.css';
 import { enumUserTypes } from '@itmat-broker/itmat-types';
 import { FileRepositoryTabContent } from './tabContent';
+import { DashboardTabContent } from './tabContent/dashboard/dashboardTab';
 
 export const DatasetDetailPage: FunctionComponent = () => {
     const { studyId } = useParams();
@@ -55,7 +56,7 @@ export const DatasetDetailPage: FunctionComponent = () => {
                     </div >
                     <div className={css.content}>
                         <Routes>
-                            {/* <Route path='dashboard' element={<DashboardTabContent studyId={studyId} jobs={data.getStudy.jobs} />} /> */}
+                            <Route path='dashboard' element={<DashboardTabContent studyId={studyId} />} />
                             {/* <Route path='field_management' element={<FieldManagementTabContentFetch studyId={studyId} />} /> */}
                             {/* <Route path='data_management' element={<DataManagementTabContentFetch />} /> */}
                             <Route path='files' element={<FileRepositoryTabContent studyId={studyId} />} />

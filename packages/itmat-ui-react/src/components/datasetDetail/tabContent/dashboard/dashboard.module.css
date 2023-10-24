@@ -1,0 +1,81 @@
+.page_container {
+    height: 100%;
+    position: relative;
+    /* overflow: auto; */
+    overflow-y: scroll;
+    display: grid;
+    justify-content: space-between;
+    grid-template-areas: "LEFT RIGHT" "FILE FILE";
+    grid-template-columns: 40% 60%;
+    grid-template-rows: 500px 1fr;
+    /* Modify this line */
+}
+
+.study_left {
+    grid-area: LEFT;
+    padding: 20px;
+    background-color: white;
+}
+
+.study_summary_wrapper {
+    text-align: center;
+    border: 3px solid white;
+}
+
+.study_summary_profile {
+    text-align: center;
+}
+
+.study_summary_statistics {
+    text-align: center;
+}
+
+.study_summary_statistics_value {
+    font-weight: bold;
+    font-size: 32px;
+}
+
+.study_summary_statistics_tag {
+    font-size: 16px;
+    font-family: monospace;
+}
+
+.study_summary_description {
+    font-size: 16px;
+    font-family: "Brush Script MT";
+}
+
+.study_right {
+    grid-area: RIGHT;
+    padding: 20px;
+    background-color: white;
+}
+
+.study_edit_submit {
+    float: right;
+}
+
+.study_edit_normal_title {
+    font-size: 15px;
+}
+
+.study_edit_special_title {
+    font-size: 25px;
+    font-weight: bold;
+}
+
+.file_wrapper {
+    grid-area: FILE;
+    padding: 20px;
+    background-color: white;
+}
+
+.custom-text-hover {
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.custom-text-hover:hover {
+    font-weight: bold;
+    text-decoration: underline;
+}

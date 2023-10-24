@@ -25,6 +25,9 @@
     "server": {
         "port": 3003
     },
+    "tRPCServer": {
+        "port": 4444
+    },
     "objectStore": {
         "host": "localhost",
         "port": 9000,

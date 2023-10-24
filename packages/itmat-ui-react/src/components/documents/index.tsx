@@ -5,6 +5,6 @@ import { DocumentSection } from './documents';
 
 export const DocumentPage: FunctionComponent = () => {
     return (
-            <DocumentSection />
+        <DocumentSection />
     );
 };

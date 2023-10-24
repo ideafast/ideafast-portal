@@ -14,23 +14,23 @@ export class LogPlugin {
          * Log helpers for server start.
          */
         const id = uuid();
-        await db.collections!.log_collection.insertOne({
-            id: id,
-            requesterId: 'SYSTEM',
-            userAgent: enumUserAgent.OTHER,
-            type: enumEventType.SYSTEM_LOG,
-            operationName: enumEventOperation.startSERVER,
-            parameters: {},
-            status: enumEventStatus.SUCCESS,
-            errors: [],
-            life: {
-                createdTime: Date.now(),
-                createdUser: 'SYSTEM',
-                deletedTime: null,
-                deletedUser: null
-            },
-            metadata: {}
-        });
+        // await db.collections!.log_collection.insertOne({
+        //     id: id,
+        //     requester: 'SYSTEM',
+        //     // userAgent: enumUserAgent.OTHER,
+        //     type: enumEventType.SYSTEM_LOG,
+        //     operationName: enumEventOperation.startSERVER,
+        //     parameters: {},
+        //     status: enumEventStatus.SUCCESS,
+        //     errors: [],
+        //     life: {
+        //         createdTime: Date.now(),
+        //         createdUser: 'SYSTEM',
+        //         deletedTime: null,
+        //         deletedUser: null
+        //     },
+        //     metadata: {}
+        // });
         return null;
     }
 
@@ -42,23 +42,23 @@ export class LogPlugin {
             return null;
         }
 
-        await db.collections!.log_collection.insertOne({
-            id: uuid(),
-            requesterId: requestContext.contextValue?.req?.user?.username ?? 'NA',
-            userAgent: (requestContext.contextValue.req.headers['user-agent'] as string)?.startsWith('Mozilla') ? enumUserAgent.MOZILLA : enumUserAgent.OTHER,
-            type: enumEventType.API_LOG,
-            operationName: (enumEventOperation as any)[requestContext.operationName],
-            parameters: JSON.stringify(ignoreFieldsHelper(requestContext.request.variables, requestContext.operationName)),
-            status: requestContext.errors === undefined ? enumEventStatus.SUCCESS : enumEventStatus.FAIL,
-            errors: requestContext.errors === undefined ? '' : requestContext.errors[0].message,
-            life: {
-                createdTime: Date.now(),
-                createdUser: requestContext.contextValue?.req?.user?.username ?? 'NA',
-                deletedTime: null,
-                deletedUser: null
-            },
-            metadata: {}
-        });
+        // await db.collections!.log_collection.insertOne({
+        //     id: uuid(),
+        //     requester: requestContext.contextValue?.req?.user?.username ?? 'NA',
+        //     userAgent: (requestContext.contextValue.req.headers['user-agent'] as string)?.startsWith('Mozilla') ? enumUserAgent.MOZILLA : enumUserAgent.OTHER,
+        //     type: enumEventType.API_LOG,
+        //     operationName: (enumEventOperation as any)[requestContext.operationName],
+        //     parameters: JSON.stringify(ignoreFieldsHelper(requestContext.request.variables, requestContext.operationName)),
+        //     status: requestContext.errors === undefined ? enumEventStatus.SUCCESS : enumEventStatus.FAIL,
+        //     errors: requestContext.errors === undefined ? '' : requestContext.errors[0].message,
+        //     life: {
+        //         createdTime: Date.now(),
+        //         createdUser: requestContext.contextValue?.req?.user?.username ?? 'NA',
+        //         deletedTime: null,
+        //         deletedUser: null
+        //     },
+        //     metadata: {}
+        // });
         return null;
     }
 }

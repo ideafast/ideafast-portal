@@ -2,7 +2,7 @@ import { ApolloServerErrorCode } from '@apollo/server/errors';
 import { GraphQLError } from 'graphql';
 import bcrypt from 'bcrypt';
 import { mailer } from '../../emailer/emailer';
-import { IUser, IGenericResponse, IResetPasswordRequest, enumUserTypes, IOrganisation, IFileNode, enumFileTypes, enumFileCategories } from '@itmat-broker/itmat-types';
+import { IUser, IGenericResponse, IResetPasswordRequest, enumUserTypes, IOrganisation, enumFileTypes, enumFileCategories } from '@itmat-broker/itmat-types';
 import { Logger } from '@itmat-broker/itmat-commons';
 import { v4 as uuid } from 'uuid';
 import config from '../../utils/configManager';
@@ -15,6 +15,7 @@ import { decryptEmail, encryptEmail, makeAESIv, makeAESKeySalt } from '../../enc
 import * as mfa from '../../utils/mfa';
 import { FileUpload } from 'graphql-upload-minimal';
 import { fileCore } from '../core/fileCore';
+import { dataCore } from '../core/dataCore';
 
 export const userResolvers = {
     Query: {
@@ -57,7 +58,6 @@ export const userResolvers = {
                     if (priority) {
                         cleared.emailNotificationsActivated = user.emailNotificationsActivated;
                         cleared.expiredAt = user.expiredAt;
-                        cleared.fileRepo = user.fileRepo;
                     }
                     clearedUsers.push(cleared);
                 }
@@ -74,36 +74,36 @@ export const userResolvers = {
             return makeGenericReponse();
         },
 
-        getUserProfile: async (__unused__parent: Record<string, unknown>, {userId}: {userId: string}): Promise<string | null> => {
+        getUserProfile: async (__unused__parent: Record<string, unknown>, { userId }: { userId: string }): Promise<string | null> => {
             /**
              * Get the url of the profile of the user.
-             * 
+             *
              * @param userId - The id of the user.
-             * 
+             *
              * @return string
              */
             const url = await userCore.getUserProfile(userId);
             return url;
-        },
-
-        getUserFileNodes: async (__unused__parent: Record<string, unknown>, { userId }: { userId: string }, context: any): Promise<IFileNode[]> => {
-            /**
-             * Get the list of file nodes of a user.
-             *
-             * @param userId - The id of the user.
-             *
-             * @return IFileNode[]
-             */
-
-            const requester: IUser = context.req.user;
-
-            if (!(requester.type === enumUserTypes.ADMIN) || !(requester.id === userId)) {
-                throw new GraphQLError('', { extensions: { code: errorCodes.NO_PERMISSION_ERROR } });
-            }
-
-            return await userCore.getFileNodes(userId);
-
         }
+
+        // getUserFileNodes: async (__unused__parent: Record<string, unknown>, { userId }: { userId: string }, context: any): Promise<IFileNode[]> => {
+        //     /**
+        //      * Get the list of file nodes of a user.
+        //      *
+        //      * @param userId - The id of the user.
+        //      *
+        //      * @return IFileNode[]
+        //      */
+
+        //     const requester: IUser = context.req.user;
+
+        //     if (!(requester.type === enumUserTypes.ADMIN) || !(requester.id === userId)) {
+        //         throw new GraphQLError('', { extensions: { code: errorCodes.NO_PERMISSION_ERROR } });
+        //     }
+
+        //     return await userCore.getFileNodes(userId);
+
+        // }
     },
     Mutation: {
         requestExpiryDate: async (__unused__parent: Record<string, unknown>, { userId }: { userId: string }): Promise<IGenericResponse> => {
@@ -248,7 +248,6 @@ export const userResolvers = {
             const filteredUser: Partial<IUser> = { ...user };
             delete filteredUser.password;
             delete filteredUser.otpSecret;
-            delete filteredUser.fileRepo;
 
             return new Promise((resolve) => {
                 req.login(filteredUser, (err: any) => {
@@ -284,7 +283,7 @@ export const userResolvers = {
             });
         },
         createUser: async (__unused__parent: Record<string, unknown>, { username, firstname, lastname, email, password, description, organisation, profile }: {
-            username: string, firstname: string, lastname: string, email: string, password: string, description: string | null, organisation: string, profile: Promise<FileUpload> | null
+            username: string, firstname: string, lastname: string, email: string, password: string, description: string | null, organisation: string, profile: any | null
         }, context: any): Promise<Partial<IUser>> => {
             /**
              * Create a user.
@@ -297,7 +296,7 @@ export const userResolvers = {
              * @param description - The description of the user.
              * @param organisation - The organisation of the user.
              * @param profile - The profile of the user.
-             * 
+             *
              * @return IUser
              */
 
@@ -386,7 +385,7 @@ export const userResolvers = {
              */
 
             const requester: IUser = context.req.user;
-            
+
             /* Admins can delete anyone, while general user can only delete themself */
             if (!(requester.type === enumUserTypes.ADMIN) && !(requester.id === userId)) {
                 throw new GraphQLError('', { extensions: { code: errorCodes.NO_PERMISSION_ERROR } });
@@ -473,7 +472,7 @@ export const userResolvers = {
             return makeGenericReponse();
         },
         editUser: async (__unused__parent: Record<string, unknown>, { userId, username, type, firstname, lastname, email, emailNotificationsActivated, password, description, organisation, expiredAt, profile }: {
-            userId: string, username: string | null, type: enumUserTypes | null, firstname: string | null, lastname: string | null, email: string | null, emailNotificationsActivated: boolean | null, password: string | null, description: string | null, organisation: string | null, expiredAt: number | null, profile: Promise<FileUpload> | null
+            userId: string, username: string | null, type: enumUserTypes | null, firstname: string | null, lastname: string | null, email: string | null, emailNotificationsActivated: boolean | null, password: string | null, description: string | null, organisation: string | null, expiredAt: number | null, profile: any | null
         }, context: any): Promise<Partial<IUser>> => {
             /**
              * Edit a user. Besides description, other fields whose values is null will not be updated.
@@ -552,15 +551,15 @@ export const userResolvers = {
                 throw new GraphQLError('Database error.', { extensions: { code: errorCodes.DATABASE_ERROR } });
             }
         },
-        uploadUserProfile: async (parent: Record<string, unknown>, {userId, description, fileType, fileUpload}: {userId: string, description: string | null, fileType: enumFileTypes, fileUpload: Promise<FileUpload>}, context: any): Promise<IGenericResponse> => {
+        uploadUserProfile: async (parent: Record<string, unknown>, { userId, description, fileType, fileUpload }: { userId: string, description: string | null, fileType: enumFileTypes, fileUpload: Promise<FileUpload> }, context: any): Promise<IGenericResponse> => {
             /**
              * Upload a profile of a user.
-             * 
+             *
              * @param userId - The id of the user.
              * @param description - The description of the file.
              * @param fileType - The type of the file.
              * @param fileUpload - The file upload.
-             * 
+             *
              * @retunr IGenericResponse
              */
             const requester = context.req.user;
@@ -584,88 +583,127 @@ export const userResolvers = {
                 enumFileTypes[file.filename.split('.')[1].toUpperCase() as keyof typeof enumFileTypes],
                 enumFileCategories.USER_PROFILE_FILE,
                 []
-            )
+            );
             if (res) {
                 return makeGenericReponse(res.id, true, '', 'Profile has been uploaded successfully');
             } else {
                 throw new GraphQLError(errorCodes.DATABASE_ERROR);
             }
-        },
-        uploadUserFileNode: async (__unused__parent: Record<string, unknown>, {userId, parentNodeId, file, folderName}: {userId: string, parentNodeId: string, file: Promise<FileUpload> | null, folderName: string}, context: any): Promise<IFileNode> => {
-            /**
-             * Add/Upload a file to the user file repo.
-             *
-             * @param requester - The id of the requester.
-             * @param userId - The id of the user of the file repo. Usually should be the same as The id of the requester.
-             * @param parentNodeId - The id of the file Node.
-             * @param file - The file to upload.
-             * @param folderName - The name of the folder. Should be numm if file is not null.
-             *
-             * @return IGenericResponse - The object of the IGenericResponse.
-             */
-            
-            const requester = context.req.user;
-            if (requester.type !== enumUserTypes.ADMIN || requester.id !== userId) {
-                throw new GraphQLError('User can only upload file of themself.', { extensions: { code: errorCodes.NO_PERMISSION_ERROR } });
-            }
-            const file_ = await file;
-            if (file_) {
-                const supportedFormats: string[] = Object.keys(enumFileTypes);
-                if (!(supportedFormats.includes((file_.filename.split('.').pop() as string).toUpperCase()))) {
-                    throw new GraphQLError('Only JPG, JPEG and PNG are supported.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
-                }
-            }
-            const fileNode: IFileNode = await userCore.addFileNodeToUserRepo(requester.id, userId, parentNodeId, null, file_ ? enumFileTypes[(file_.filename.split('.').pop() as string).toUpperCase() as keyof typeof enumFileTypes] : null, file_, folderName);
-            return fileNode;
-        },
-        editUserFileNode: async (__unused__parent: Record<string, unknown>, {userId, nodeId, parentNodeId, sharedUsers}: {userId: string, nodeId: string, parentNodeId: string | null, sharedUsers: string[] | null}, context: any): Promise<IGenericResponse> => {
-            /**
-             * Edit the file node of a user. 
-             * 
-             * @param userId - The id of the user.
-             * @param parentNodeId - The id of the parent node id.
-             * @param sharedUsers - The list of shared users.
-             * 
-             * @return IGenericResponse
-             */
-
-            const requester = context.req.user;
-
-            if (requester.type !== enumUserTypes.ADMIN || requester.id !== userId) {
-                throw new GraphQLError('User can only upload file of themself.', { extensions: { code: errorCodes.NO_PERMISSION_ERROR } });
-            }
-
-            if (parentNodeId) {
-                await userCore.moveFileNodeFromUserRepo(userId, nodeId, parentNodeId);
-            }
-            if (sharedUsers) {
-                await userCore.shareFileNodeToUsers(userId, nodeId, sharedUsers);
-            }
-
-            return makeGenericReponse(nodeId, true, undefined, undefined);
-
-        },
-        deleteUserFileNode: async (__unused__parent: Record<string, unknown>, {userId, nodeId}: {userId: string, nodeId: string}, context: any): Promise<IGenericResponse> => {
-            /**
-             * Delete a file node. Note we only tag the node as deleted.
-             * 
-             * @param userId - The id of the user.
-             * @param nodeId - The id of the node.
-             * 
-             * @reutrn IGenericResponse
-             */
-
-            const requester = context.req.user;
-
-            if (requester.type !== enumUserTypes.ADMIN || requester.id !== userId) {
-                throw new GraphQLError('User can only upload file of themself.', { extensions: { code: errorCodes.NO_PERMISSION_ERROR } });
-            }
-
-            const respone = await userCore.deleteFileNodeFromUserRepo(requester.id, userId, nodeId);
-            return respone;
         }
+        // uploadUserFileNode: async (__unused__parent: Record<string, unknown>, { userId, parentNodeId, file, folderName }: { userId: string, parentNodeId: string, file: Promise<FileUpload> | null, folderName: string }, context: any): Promise<IFileNode> => {
+        //     /**
+        //      * Add/Upload a file to the user file repo.
+        //      *
+        //      * @param requester - The id of the requester.
+        //      * @param userId - The id of the user of the file repo. Usually should be the same as The id of the requester.
+        //      * @param parentNodeId - The id of the file Node.
+        //      * @param file - The file to upload.
+        //      * @param folderName - The name of the folder. Should be numm if file is not null.
+        //      *
+        //      * @return IGenericResponse - The object of the IGenericResponse.
+        //      */
+
+        //     const requester = context.req.user;
+        //     if (requester.type !== enumUserTypes.ADMIN || requester.id !== userId) {
+        //         throw new GraphQLError('User can only upload file of themself.', { extensions: { code: errorCodes.NO_PERMISSION_ERROR } });
+        //     }
+        //     const file_ = await file;
+        //     if (file_) {
+        //         const supportedFormats: string[] = Object.keys(enumFileTypes);
+        //         if (!(supportedFormats.includes((file_.filename.split('.').pop() as string).toUpperCase()))) {
+        //             throw new GraphQLError('Only JPG, JPEG and PNG are supported.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+        //         }
+        //     }
+        //     const fileNode: IFileNode = await userCore.addFileNodeToUserRepo(requester.id, userId, parentNodeId, null, file_ ? enumFileTypes[(file_.filename.split('.').pop() as string).toUpperCase() as keyof typeof enumFileTypes] : null, file_, folderName);
+        //     return fileNode;
+        // },
+        // editUserFileNode: async (__unused__parent: Record<string, unknown>, { userId, nodeId, parentNodeId, sharedUsers }: { userId: string, nodeId: string, parentNodeId: string | null, sharedUsers: string[] | null }, context: any): Promise<IGenericResponse> => {
+        //     /**
+        //      * Edit the file node of a user.
+        //      *
+        //      * @param userId - The id of the user.
+        //      * @param parentNodeId - The ids of the parent node id.
+        //      * @param sharedUsers - The list of shared users.
+        //      *
+        //      * @return IGenericResponse
+        //      */
+
+        //     const requester = context.req.user;
+
+        //     if (requester.type !== enumUserTypes.ADMIN || requester.id !== userId) {
+        //         throw new GraphQLError('User can only upload file of themself.', { extensions: { code: errorCodes.NO_PERMISSION_ERROR } });
+        //     }
+
+        //     if (parentNodeId) {
+        //         await userCore.moveFileNodeFromUserRepo(userId, nodeId, parentNodeId);
+        //     }
+        //     if (sharedUsers) {
+        //         await userCore.shareFileNodeToUsers(userId, nodeId, sharedUsers);
+        //     }
+
+        //     return makeGenericReponse(nodeId, true, undefined, undefined);
+
+        // },
+        // shareUserFileNodeByEmail: async (__unused__parent: Record<string, unknown>, { userId, nodeId, sharedUserEmails }: { userId: string, nodeId: string, sharedUserEmails: string[] }, context: any): Promise<IGenericResponse> => {
+        //     /**
+        //      * Edit the file node of a user.
+        //      *
+        //      * @param userId - The id of the user.
+        //      * @param parentNodeId - The ids of the parent node id.
+        //      * @param sharedUserEmails - The list of emails of shared users.
+        //      *
+        //      * @return IGenericResponse
+        //      */
+
+        //     const requester = context.req.user;
+
+        //     if (requester.type !== enumUserTypes.ADMIN || requester.id !== userId) {
+        //         throw new GraphQLError('User can only upload file of themself.', { extensions: { code: errorCodes.NO_PERMISSION_ERROR } });
+        //     }
+
+        //     const userIds: string[] = [];
+
+        //     for (const email of sharedUserEmails) {
+        //         const users = await userCore.getUser(null, null, email);
+        //         if (users.length === 1) {
+        //             userIds.push(users[0].id);
+        //         }
+        //     }
+
+        //     const response = await userCore.shareFileNodeToUsers(userId, nodeId, userIds);
+
+        //     return response;
+
+        // },
+        // deleteUserFileNode: async (__unused__parent: Record<string, unknown>, { userId, nodeId }: { userId: string, nodeId: string }, context: any): Promise<IGenericResponse> => {
+        //     /**
+        //      * Delete a file node. Note we only tag the node as deleted.
+        //      *
+        //      * @param userId - The id of the user.
+        //      * @param nodeId - The id of the node.
+        //      *
+        //      * @reutrn IGenericResponse
+        //      */
+
+        //     const requester = context.req.user;
+
+        //     if (requester.type !== enumUserTypes.ADMIN || requester.id !== userId) {
+        //         throw new GraphQLError('User can only upload file of themself.', { extensions: { code: errorCodes.NO_PERMISSION_ERROR } });
+        //     }
+
+        //     const respone = await userCore.deleteFileNodeFromUserRepo(requester.id, userId, nodeId);
+        //     return respone;
+        // }
     },
-    Subscription: {}
+    Subscription: {},
+    User: {
+        // sharedFileRepos: async (user: IUser, __unused__arg: any, context: any): Promise<Partial<IUser>[]> => {
+        //     const requester: IUser = context.req.user;
+        //     /* only admin can access this field */
+
+        //     return userCore.getSharedFileNodes(requester.id);
+        // }
+    }
 };
 
 async function formatEmailForForgottenPassword({ username, firstname, to, resetPasswordToken, origin }: { resetPasswordToken: string, to: string, username: string, firstname: string, origin: any }) {

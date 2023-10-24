@@ -1,13 +1,15 @@
 .page_container {
     height: 100%;
     position: relative;
-    /* overflow: auto; */
     overflow-y: scroll;
     display: grid;
     justify-content: space-between;
-    grid-template-areas: "LEFT RIGHT" "FILE FILE";
+    grid-template-areas:
+        "LEFT RIGHT"
+        "FILE FILE"
+        "SHARED SHARED";
     grid-template-columns: 40% 60%;
-    grid-template-rows: 750px 1fr;  /* Modify this line */
+    grid-template-rows: 750px 1fr;
 }
 
 .profile_left {
@@ -72,10 +74,40 @@
 .custom-text-hover {
     cursor: pointer;
     transition: all 0.3s ease;
-  }
-  
+}
+
 .custom-text-hover:hover {
     font-weight: bold;
     text-decoration: underline;
 }
-  
+
+.shared_container {
+    grid-area: SHARED;
+    display: grid;
+    grid-template-areas: "SHAREDLEFT SHAREDRIGHT";
+    grid-template-columns: 30% 70%;
+
+}
+
+.shared_file_left {
+    /* This will automatically occupy the first column (20%) of the shared_container */
+    grid-area: SHAREDLEFT;
+    background-color: aqua;
+    /* Just for visualization */
+}
+
+.shared_file_right {
+    grid-area: SHAREDRIGHT;
+    /* This will automatically occupy the second column (80%) of the shared_container */
+    background-color: lightgray;
+    /* Just for visualization */
+}
+
+.ellipsis-style {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    max-width: 150px;
+    /* Adjust this width based on your requirement */
+    display: block;
+}

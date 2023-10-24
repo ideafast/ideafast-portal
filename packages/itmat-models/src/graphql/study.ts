@@ -49,9 +49,13 @@ export const EDIT_STUDY = gql`
             id
             name
             currentDataVersion
-            dataVersions
+            dataVersions {
+                id
+                version
+                tag
+            }
             description
-            groupList
+            profile
         }
     }
 `;
@@ -75,7 +79,7 @@ export const CREATE_STUDY_GROUP_NODE = gql`
             parent
         }
     }
-`
+`;
 
 export const EDIT_STUDY_GROUP_NODE = gql`
     mutation editStudyGroupNode($studyId: String!, $groupNodeId: String!, $groupNodeName: String, $description: String, $parentGroupNodeId: String, $children: [String]) {
@@ -91,7 +95,7 @@ export const EDIT_STUDY_GROUP_NODE = gql`
         }
     }
     ${GENERIC_RESPONSE}
-`
+`;
 
 export const GET_STUDY_GROUP_NODES = gql`
     query getStudyGroupNodes($studyId: String!) {
@@ -104,7 +108,7 @@ export const GET_STUDY_GROUP_NODES = gql`
             children
         }
     }
-`
+`;
 
 export const DELETE_STUDY_GROUP_NODE = gql`
     mutation deleteStudyGroupNode($studyId: String!, $groupNodeId: String!) {
@@ -113,7 +117,7 @@ export const DELETE_STUDY_GROUP_NODE = gql`
         }
     }
     ${GENERIC_RESPONSE}
-`
+`;
 
 export const CREATE_DATA_VERSION = gql`
     mutation createDataVersion($studyId: String!, $dataVersion: String!, $tag: String){

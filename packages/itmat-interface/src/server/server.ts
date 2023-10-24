@@ -8,7 +8,7 @@ export interface IServerConfig extends IServerBaseConfig {
 }
 
 export class Runner extends ServerBase<IServerConfig> {
-    constructor(protected config: IConfiguration) {
+    constructor(protected override config: IConfiguration) {
         super(config);
     }
     protected async additionalChecksAndActions(): Promise<void> {

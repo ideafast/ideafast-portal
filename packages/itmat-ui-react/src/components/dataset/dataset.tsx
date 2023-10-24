@@ -8,21 +8,23 @@ import css from './dataset.module.css';
 import React from 'react';
 import 'react-quill/dist/quill.snow.css';
 import { Link } from 'react-router-dom';
+import { trpc } from '../../utils/trpc';
 const { Meta } = Card;
 
 interface StudyProps {
     study: {
         id: string;
         name: string;
-        profile: string;
-        description: string;
+        profile: string | null;
+        description: string | null;
     };
 }
 
 export const DatasetSection: React.FunctionComponent = () => {
-    const { loading: getStudiesLoading, error: getStudiesError, data: getStudiesData } = useQuery(GET_STUDIES, { variables: { studyId: null } });
+    const getStudies = trpc.study.getStudies.useQuery({ studyId: null });
+    // const { loading: getStudiesLoading, error: getStudiesError, data: getStudiesData } = useQuery(GET_STUDIES, { variables: { studyId: null } });
 
-    if (getStudiesLoading) {
+    if (getStudies.isLoading) {
         return <>
             <div className='page_ariane'>Loading...</div>
             <div className='page_content'>
@@ -31,13 +33,13 @@ export const DatasetSection: React.FunctionComponent = () => {
         </>;
     }
 
-    if (getStudiesError || !getStudiesData?.getStudies) {
+    if (getStudies.isError) {
         return <>An error occurred.</>;
     }
 
     return (
         <div className={css.page_container}>
-            {getStudiesData.getStudies.map((study) => (
+            {getStudies.data.map((study) => (
                 <StudyCard key={study.id} study={study} />
             ))}
         </div>
@@ -56,3 +58,5 @@ const StudyCard: React.FunctionComponent<StudyProps> = ({ study }) => {
         </Card>
     );
 };
+
+

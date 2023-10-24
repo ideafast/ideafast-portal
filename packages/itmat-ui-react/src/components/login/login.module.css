@@ -1,39 +1,68 @@
 .login_wrapper {
-    height: 100vh; /* Changed to viewport height */
     display: flex;
-    justify-content: space-between;
+    /* flex-direction: column; */
+    height: 100vh;
 }
 
+
 .login_left {
-    flex: 1 0 60%;
-    margin: 20px; /* Changed padding to margin */
+    flex: 6;
+    /* width: 60%; */
+    min-width: 0;
     background-color: aqua;
-    box-sizing: border-box; /* Added box-sizing */
-    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.carousel_wrapper {
+    height: 100%;
+    width: 100%;
+    /* This ensures it takes the full width of its parent */
+    /* display: flex; */
+}
+
+.ant-carousel {
+    display: flex;
+    justify-content: center;
+    /* Center items horizontally */
+    align-items: center;
+    /* Center items vertically */
 }
 
 .login_right {
-    flex: 1 0 40%;
-    margin: 20px; /* Changed padding to margin */
+    flex: 4;
+    /* width: 40%; */
+    min-width: 0;
     background-color: white;
-    box-sizing: border-box; /* Added box-sizing */
+    display: flex;
+    justify-content: center;
+    align-items: center;
     position: relative;
+    /* added this line */
 }
 
 .login_logo {
     position: absolute;
-    top: 5px;
-    right: 5px;
+    /* Position it absolutely within the relative parent */
+    top: 10px;
+    /* Align it to the top of the parent */
+    right: 0px;
+    /* Align it to the right of the parent */
 }
 
-.login_box {
+.login_author {
     position: absolute;
-    top: 25%;
-    right: calc((10% - 400px) / 2);
-    width: 38rem;
-    text-align: center;
-    transform: translate(-50%);
-    padding-bottom: 4rem;
+    bottom: 10px;
+    /* Provide some space from the bottom */
+    left: 10px;
+    /* Provide some space from the right */
+}
+
+
+.login_box {
+    transform: translateY(-50px);
+    /* Adjust this value as needed */
 }
 
 .login_box_input {
@@ -47,6 +76,48 @@
 
 .login_box img {
     transform: translateX(10%);
+}
+
+.hello_text {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    /* Fallback fonts */
+    font-weight: bold;
+    font-size: 32px;
+    /* Adjust size as needed */
+    letter-spacing: 1.2px;
+    color: #333;
+    /* Dark gray */
+    margin-bottom: 20px;
+    /* Spacing below the text */
+    text-align: center;
+    /* Center the text */
+}
+
+
+/* Styling for the NavLink tags */
+.login_box .navlink {
+    display: block;
+    /* Make the NavLink display as a block element to occupy the full width */
+    text-align: center;
+    /* Center the text */
+    font-size: 16px;
+    /* Adjust the font size */
+    font-weight: bold;
+    /* Make the font bold */
+    color: grey;
+    /* Set the font color */
+    margin-bottom: 10px;
+    /* Add some space below each NavLink */
+    text-decoration: none;
+    /* Remove the default underline */
+}
+
+/* Styling for the NavLink tags on hover */
+.login_box .navlink:hover {
+    color: #0056b3;
+    /* Change the font color on hover */
+    text-decoration: underline;
+    /* Add an underline on hover */
 }
 
 .error_message {
@@ -63,20 +134,15 @@
 
 .inner_block {
     width: 100%;
+    /* Take up the full width of the parent */
     height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    /* Take up the full height of the parent */
     overflow: hidden;
-    text-align: center;
-}
-
-.inner_block > * {
-    margin: 0;
+    /* Hide any overflowing content */
     display: flex;
-    align-items: center;
+    /* Use flexbox for centering */
     justify-content: center;
-    width: 100%;
-    height: 100%;
-    flex-direction: column;
+    /* Center the content horizontally */
+    align-items: center;
+    /* Center the content vertically */
 }

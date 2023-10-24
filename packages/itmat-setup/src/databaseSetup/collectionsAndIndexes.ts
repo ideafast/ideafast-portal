@@ -112,6 +112,24 @@ const collections = {
         indexes: [
             { key: { id: 1 }, unique: true }
         ]
+    },
+    cache_collection: {
+        name: 'CACHE_COLLECTION',
+        indexes: [
+            { key: { id: 1 }, unique: true }
+        ]
+    },
+    drives_collection: {
+        name: 'DRIVE_COLLECTION',
+        indexes: [
+            { key: { id: 1, iid: 1 }, unique: true }
+        ]
+    },
+    groups_colleciton: {
+        name: 'GROUP_COLLECTION',
+        indexes: [
+            { key: { id: 1 } }
+        ]
     }
 };
 

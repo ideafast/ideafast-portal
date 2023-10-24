@@ -12,10 +12,7 @@ import {
     IRole,
     IOntologyTree,
     enumUserTypes,
-    atomicOperation,
-    IPermissionManagementOptions,
     IData,
-    ICombinedPermissions,
     IValueVerifier,
     ICategoricalOption,
     enumDataTypes,
@@ -55,22 +52,22 @@ export const dataResolvers = {
 
             const requester: IUser = context.req.user;
 
-            const combinedPermissions: ICombinedPermissions = await permissionCore.combineUserDataPermissions(requester.id, studyId, projectId, atomicOperation.READ);
+            // const combinedPermissions: ICombinedPermissions = await permissionCore.combineUserDataPermissions(requester.id, studyId, projectId, atomicOperation.READ);
 
-            if (versionId === null) {
-                if (!combinedPermissions.hasPriority || !combinedPermissions.hasVersioned) {
-                    throw new GraphQLError('You have no permission to unversioned data.', { extensions: { code: errorCodes.NO_PERMISSION_ERROR } });
-                }
-            }
+            // if (versionId === null) {
+            //     if (!combinedPermissions.hasPriority || !combinedPermissions.hasVersioned) {
+            //         throw new GraphQLError('You have no permission to unversioned data.', { extensions: { code: errorCodes.NO_PERMISSION_ERROR } });
+            //     }
+            // }
 
-            if (versionId) {
-                if (!combinedPermissions.hasPriority) {
-                    throw new GraphQLError('You have no permission to specify a data version.', { extensions: { code: errorCodes.NO_PERMISSION_ERROR } });
-                }
-                if (!study.dataVersions.map(el => el.id).includes(versionId)) {
-                    throw new GraphQLError('Version id does not exist .', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
-                }
-            }
+            // if (versionId) {
+            //     if (!combinedPermissions.hasPriority) {
+            //         throw new GraphQLError('You have no permission to specify a data version.', { extensions: { code: errorCodes.NO_PERMISSION_ERROR } });
+            //     }
+            //     if (!study.dataVersions.map(el => el.id).includes(versionId)) {
+            //         throw new GraphQLError('Version id does not exist .', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+            //     }
+            // }
 
             const availableDataVersions: Array<string | null> = !versionId ? (study.currentDataVersion === -1 ? [] : study.dataVersions.filter((__unused__el, index) => index <= study.currentDataVersion)).map(el => el.id)
                 : study.dataVersions.filter((__unused__el, index) => index <= study.dataVersions.findIndex(el => el.id === versionId)).map(el => el.id);
@@ -127,7 +124,7 @@ export const dataResolvers = {
              * @param versionId - The id of the version.
              * @param filters - The filters of the data.
              * @param options - The options of the data.
-             * 
+             *
              * @return Partial<IData>
              */
 
@@ -137,22 +134,22 @@ export const dataResolvers = {
 
             const requester: IUser = context.req.user;
 
-            const combinedPermissions: ICombinedPermissions = await permissionCore.combineUserDataPermissions(requester.id, studyId, null, atomicOperation.READ);
+            // const combinedPermissions: ICombinedPermissions = await permissionCore.combineUserDataPermissions(requester.id, studyId, null, atomicOperation.READ);
 
-            if (versionId === null) {
-                if (!combinedPermissions.hasPriority || !combinedPermissions.hasVersioned) {
-                    throw new GraphQLError('You have no permission to unversioned data.', { extensions: { code: errorCodes.NO_PERMISSION_ERROR } });
-                }
-            }
+            // if (versionId === null) {
+            //     if (!combinedPermissions.hasPriority || !combinedPermissions.hasVersioned) {
+            //         throw new GraphQLError('You have no permission to unversioned data.', { extensions: { code: errorCodes.NO_PERMISSION_ERROR } });
+            //     }
+            // }
 
-            if (versionId) {
-                if (!combinedPermissions.hasPriority) {
-                    throw new GraphQLError('You have no permission to specify a data version.', { extensions: { code: errorCodes.NO_PERMISSION_ERROR } });
-                }
-                if (!study.dataVersions.map(el => el.id).includes(versionId)) {
-                    throw new GraphQLError('Version id does not exist .', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
-                }
-            }
+            // if (versionId) {
+            //     if (!combinedPermissions.hasPriority) {
+            //         throw new GraphQLError('You have no permission to specify a data version.', { extensions: { code: errorCodes.NO_PERMISSION_ERROR } });
+            //     }
+            //     if (!study.dataVersions.map(el => el.id).includes(versionId)) {
+            //         throw new GraphQLError('Version id does not exist .', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+            //     }
+            // }
 
             const availableDataVersions: Array<string | null> = (study.currentDataVersion === -1 ? [] : study.dataVersions.filter((__unused__el, index) => index <= study.currentDataVersion)).map(el => el.id);
 
@@ -167,14 +164,14 @@ export const dataResolvers = {
              * fieldIds
              * dataTypes
              */
-            
+
             const availableFieldIds = await dataCore.getStudyFields(studyId, availableDataVersions, null);
             const fieldIds = availableFieldIds.filter(el => {
                 if (filters.filedIds) {
                     if (!filters.fieldIds.some((es: string) => (new RegExp(es)).test(el.id))) {
                         return false;
                     }
-                } 
+                }
                 if (filters.dataTypes) {
                     if (!filters.dataTypes.includes(el.dataType)) {
                         return false;
@@ -183,11 +180,13 @@ export const dataResolvers = {
                 return true;
             }).map(el => `^${el.fieldId}$`);
             const dataClips: Partial<IData>[] = await dataCore.getData(
-                studyId, 
-                filters.subjectIds ?? ['^.*$'], 
-                filters.visitIds ?? ['^.*$'], 
-                fieldIds, 
-                availableDataVersions);
+                requester.id,
+                studyId,
+                fieldIds,
+                availableDataVersions,
+                {},
+                false,
+                false);
 
             return dataClips;
         }
@@ -218,7 +217,7 @@ export const dataResolvers = {
              */
             const requester: IUser = context.req.user;
             // const hasPermission = await permissionCore.chekckFieldEntryValidFromUser(requester.id, studyId, null, fieldId, atomicOperation.WRITE);
-            
+
             // if (!hasPermission) {
             //     throw new GraphQLError(errorCodes.NO_PERMISSION_ERROR);
             // }
@@ -256,11 +255,11 @@ export const dataResolvers = {
              * @return IField
              */
             const requester: IUser = context.req.user;
-            const hasPermission = await permissionCore.chekckFieldEntryValidFromUser(requester.id, studyId, null, fieldId, atomicOperation.WRITE);
+            // const hasPermission = await permissionCore.chekckFieldEntryValidFromUser(requester.id, studyId, null, fieldId, atomicOperation.WRITE);
 
-            if (!hasPermission) {
-                throw new GraphQLError(errorCodes.NO_PERMISSION_ERROR);
-            }
+            // if (!hasPermission) {
+            //     throw new GraphQLError(errorCodes.NO_PERMISSION_ERROR);
+            // }
 
             const response = await dataCore.editField(requester.id, {
                 studyId: studyId,
@@ -289,11 +288,11 @@ export const dataResolvers = {
              */
 
             const requester = context.req.user;
-            const hasPermission = await permissionCore.chekckFieldEntryValidFromUser(requester.id, studyId, null, fieldId, atomicOperation.WRITE);
+            // const hasPermission = await permissionCore.chekckFieldEntryValidFromUser(requester.id, studyId, null, fieldId, atomicOperation.WRITE);
 
-            if (!hasPermission) {
-                throw new GraphQLError(errorCodes.NO_PERMISSION_ERROR);
-            }
+            // if (!hasPermission) {
+            //     throw new GraphQLError(errorCodes.NO_PERMISSION_ERROR);
+            // }
 
             const response = await dataCore.deleteField(requester.id, studyId, fieldId);
             return response;
@@ -433,10 +432,10 @@ export const dataResolvers = {
         //     return responses;
 
         // }
-        uploadFileData: async (__unused__parent: Record<string, unknown>, {studyId, file, properties, subjectId, fieldId, visitId, timestamps}: {studyId: string, file: Promise<FileUpload>, properties: Record<string, any>, subjectId: string, fieldId: string, visitId: string | null, timestamps: number | null}, context: any): Promise<IGenericResponse> => {
+        uploadFileData: async (__unused__parent: Record<string, unknown>, { studyId, file, properties, subjectId, fieldId, visitId, timestamps }: { studyId: string, file: Promise<FileUpload>, properties: Record<string, any>, subjectId: string, fieldId: string, visitId: string | null, timestamps: number | null }, context: any): Promise<IGenericResponse> => {
             /**
              * Upload a data file.
-             * 
+             *
              * @param studyId - The id of the study.
              * @param file - The file to upload.
              * @param properties - The properties of the file. Need to match field properties if defined.

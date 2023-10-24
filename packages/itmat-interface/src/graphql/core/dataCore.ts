@@ -1,5 +1,5 @@
 import { GraphQLError } from 'graphql';
-import { IField, enumDataTypes, ICategoricalOption, IValueVerifier, IGenericResponse, IData, atomicOperation, enumConfigType, defaultSettings, IOntologyTree, IOntologyRoute, IAST, enumConditionOps, enumFileTypes, enumFileCategories, IFieldPropert } from '@itmat-broker/itmat-types';
+import { IField, enumDataTypes, ICategoricalOption, IValueVerifier, IGenericResponse, IData, enumConfigType, defaultSettings, IOntologyTree, IOntologyRoute, IAST, enumConditionOps, enumFileTypes, enumFileCategories, IFieldPropert, enumASTNodeTypes, IFile, permissionString } from '@itmat-broker/itmat-types';
 import { v4 as uuid } from 'uuid';
 import { db } from '../../database/database';
 import { errorCodes } from '../errors';
@@ -14,13 +14,20 @@ import { makeGenericReponse } from '../responses';
 import { utilsCore } from './utilsCore';
 import { resetCaches } from 'graphql-tag';
 import { fileCore } from './fileCore';
+import { z } from 'zod';
+import { dataTransformationCore } from './transformationCore';
+import { parser } from 'stream-json';
+import { streamArray } from 'stream-json/streamers/StreamArray';
+import stream, { PassThrough } from 'stream';
+import { enumCacheStatus } from 'packages/itmat-types/src/types/cache';
+import { availableParallelism } from 'os';
+
 
 export interface IDataClipInput {
-    subjectId: string;
-    visitId: string;
     fieldId: string;
     value: string;
     timestamps: number | null;
+    properties: Record<string, any>;
 }
 
 export interface ValueVerifierInput {
@@ -29,6 +36,11 @@ export interface ValueVerifierInput {
     value: string,
     parameters: JSON
 }
+
+export const ZValueVerifier = z.object({
+
+});
+
 export class DataCore {
     public async getOntologyTree(studyId: string, treeId: string): Promise<IOntologyTree> {
         /**
@@ -613,15 +625,14 @@ export class DataCore {
         let counter = -1; // index of the data
         for (const dataClip of data) {
             counter++;
-            dataClip.subjectId = dataClip.subjectId.replace('-', '');
             if (!(dataClip.fieldId in availableFieldsMapping)) {
                 response.push(makeGenericReponse(counter.toString(), false, errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY, `Field ${dataClip.fieldId}: Field Not found`));
                 continue;
             }
 
-            if (!(await permissionCore.chekckDataEntryValidFromUser(requester, studyId, null, dataClip.fieldId, dataClip.subjectId, dataClip.visitId, atomicOperation.WRITE))) {
-                response.push(makeGenericReponse(counter.toString(), false, errorCodes.NO_PERMISSION_ERROR, 'You do not have permission to edit this field.'));
-            }
+            // if (!(await permissionCore.chekckDataEntryValidFromUser(requester, studyId, null, dataClip.fieldId, dataClip.subjectId, dataClip.visitId, atomicOperation.WRITE))) {
+            //     response.push(makeGenericReponse(counter.toString(), false, errorCodes.NO_PERMISSION_ERROR, 'You do not have permission to edit this field.'));
+            // }
 
             /* Check value is value */
             let error: any = null;
@@ -629,7 +640,8 @@ export class DataCore {
             if (dataClip.value.toString() === studyConfig.defaultRepresentationForMissingValue) {
                 parsedValue = studyConfig.defaultRepresentationForMissingValue;
             } else {
-                switch (availableFieldsMapping[dataClip.fieldId].dataType) {
+                const field = availableFieldsMapping[dataClip.fieldId];
+                switch (field.dataType) {
                     case enumDataTypes.DECIMAL: {// decimal
                         if (typeof (dataClip.value) !== 'string') {
                             error = makeGenericReponse(counter.toString(), false, errorCodes.CLIENT_MALFORMED_INPUT, `Field ${dataClip.fieldId}: Cannot parse as decimal.`);
@@ -730,6 +742,29 @@ export class DataCore {
                         error = makeGenericReponse(counter.toString(), false, errorCodes.CLIENT_MALFORMED_INPUT, `Field ${dataClip.fieldId} value ${parsedValue}: Failed to pass the verifier.`);
                     }
                 }
+                if (field.properties) {
+                    for (const property of field.properties) {
+                        if (property.required && !dataClip.properties[property.name]) {
+                            error = makeGenericReponse(counter.toString(), false, errorCodes.CLIENT_MALFORMED_INPUT, `Field ${dataClip.fieldId}: Property ${property.name} is required.`);
+                            break;
+                        }
+                        if (property.verifier) {
+                            const resEach: boolean[] = [];
+                            for (let i = 0; i < property.verifier.length; i++) {
+                                resEach.push(true);
+                                for (let j = 0; j < property.verifier[i].length; j++) {
+                                    if (!utilsCore.validValueWithVerifier(dataClip.properties[property.name], property.verifier[i][j])) {
+                                        resEach[resEach.length - 1] = false;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (resEach.every(el => !el)) {
+                                error = makeGenericReponse(counter.toString(), false, errorCodes.CLIENT_MALFORMED_INPUT, `Field ${dataClip.fieldId} value ${parsedValue}: Property ${property.name} failed to pass the verifier.`);
+                            }
+                        }
+                    }
+                }
             }
             if (error) {
                 response.push(error);
@@ -741,11 +776,10 @@ export class DataCore {
             bulk.insert({
                 id: uuid(),
                 studyId: study.id,
-                subjectId: dataClip.subjectId,
-                visitId: dataClip.visitId,
                 fieldId: dataClip.fieldId,
                 dataVersion: null,
                 value: parsedValue,
+                properties: dataClip.properties,
                 timestamps: dataClip.timestamps,
                 life: {
                     createdTime: Date.now(),
@@ -765,15 +799,17 @@ export class DataCore {
         return response;
     }
 
-    public async getData(studyId: string, subjectIds: (string | null)[], visitIds: (string | null)[], fieldIds: string[], dataVersions: Array<string | null>): Promise<Partial<IData>[]> {
+    public async getData(requester: string, studyId: string, fieldIds: string[], dataVersions: Array<string | null>, aggregation: any, useCache: boolean, forceUpdate: boolean): Promise<any> {
         /**
          * Get the data of a study.
          *
+         * @param requester - The id of the requester.
          * @param studyId - The id of the study.
-         * @param subjectIds - The list of regular expressions of subjects to return.
-         * @param visitIds - The list of regular expressions of visits to return.
          * @param fieldIds - The list of regular expressions of fields to return.
          * @param dataVersions - The list of data versions to return.
+         * @param aggregation - The pipeline of the data aggregation.
+         * @param useCache - Whether to use the cached data.
+         * @param forceUpdate - Whether to force update the cache.
          *
          * @return Partial<IData>[] - The list of objects of Partial<IData>
          */
@@ -781,69 +817,74 @@ export class DataCore {
         if (!study) {
             throw new GraphQLError('Study does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
         }
-
-        let subjectfilter = {};
-        if (subjectIds.includes(null)) {
-            subjectfilter = {
-                $or: [{
-                    subjectId: { $in: (subjectIds.filter(el => el !== null) as string[]).map((es: string) => new RegExp(es)) }
-                }, {
-                    subjectId: null
-                }]
-            };
-        } else {
-            subjectfilter = { subjectId: { $in: (subjectIds as string[]).filter(el => el !== null).map((el: string) => new RegExp(el)) } };
+        const userRoles = (await permissionCore.getUserRoles(requester));
+        const permissionFilters: any[] = [];
+        for (const role of userRoles) {
+            const filter: any = {};
+            filter[`metadata.role:${role.id}`] = { $in: permissionString.read };
+            permissionFilters.push(filter);
         }
 
-        let visitfilter = {};
-        if (visitIds.includes(null)) {
-            visitfilter = {
-                $or: [{
-                    visitId: { $in: (visitIds.filter(el => el !== null) as string[]).map((es: string) => new RegExp(es)) }
-                }, {
-                    visitId: null
-                }]
-            };
-        } else {
-            visitfilter = { visitId: { $in: (visitIds as string[]).filter(el => el !== null).map((el: string) => new RegExp(el)) } };
-        }
-
-        const data = await db.collections!.data_collection.aggregate([{
-            $match: {
+        /** Check hash first */
+        let hash: string;
+        if (useCache) {
+            hash = utilsCore.computeHash({
+                query: 'getData',
+                requester: requester,
                 studyId: studyId,
-                ...subjectfilter,
-                ...visitfilter,
-                fieldId: { $in: fieldIds.map((el: string) => new RegExp(el)) },
-                dataVersion: { $in: dataVersions }
+                fieldIds: fieldIds,
+                dataVersions: dataVersions,
+                aggregation: aggregation
+            });
+            const hashedInfo = await db.collections!.cache_collection.findOne({ 'keyHash': hash, 'life.deletedTime': null });
+            if (hashedInfo && !forceUpdate) {
+                return hashedInfo;
+            } else {
+                const data = await db.collections!.data_collection.aggregate([{
+                    $match: {
+                        studyId: studyId,
+                        fieldId: { $in: fieldIds.map((el: string) => new RegExp(el)) },
+                        dataVersion: { $in: dataVersions }
+                    }
+                }]).toArray();
+                const transformed = await dataTransformationCore.transformationAggregate(data, aggregation);
+                // write to minio and cache collection
+                const info = await this.convertToBufferAndUpload(transformed, fileCore.uploadFile, uuid() + '.json', requester);
+                await db.collections!.cache_collection.insertOne({
+                    id: uuid(),
+                    keyHash: hash,
+                    uri: info.uri,
+                    life: {
+                        createdTime: Date.now(),
+                        createdUser: requester,
+                        deletedTime: null,
+                        deletedUser: null
+                    },
+                    status: enumCacheStatus.INUSE,
+                    keys: {
+                        query: 'getData',
+                        requester: requester,
+                        studyId: studyId,
+                        fieldIds: fieldIds,
+                        dataVersions: dataVersions,
+                        aggregation: aggregation
+                    },
+                    metadata: {}
+                });
+                return info;
             }
-        }]).toArray();
-        // , {
-        //     $sort: {
-        //         'subjectId': 1,
-        //         'visitId': 1,
-        //         'fieldId': 1,
-        //         'life.createdTime': -1
-        //     }
-        // }, {
-        //     $group: {
-        //         _id: {
-        //             createdTime: '$life.createdTime'
-        //         }
-        //     },
-        //     doc: { $first: '$$ROOT' }
-        // }, {
-        //     $project: {
-        //         _id: 0,
-        //         id: '$doc.id',
-        //         studyId: '$doc.studyId',
-        //         subjectId: '$doc.subjectId',
-        //         visitId: '$doc.visitId',
-        //         fieldId: '$doc.fieldId',
-        //         timestamps: '$doc.timestamps'
-        //     }
-        // }]).toArray();
-
-        return data;
+        } else {
+            const data = await db.collections!.data_collection.aggregate([{
+                $match: {
+                    studyId: studyId,
+                    fieldId: { $in: fieldIds },
+                    dataVersion: { $in: dataVersions }
+                    // $or: permissionFilters
+                }
+            }]).toArray();
+            const transformed = await dataTransformationCore.transformationAggregate(data, aggregation);
+            return transformed;
+        }
     }
 
     public async deleteData(requester: string, studyId: string, subjectIds: string[], visitIds: string[], fieldIds: string[]): Promise<IGenericResponse> {
@@ -923,13 +964,21 @@ export class DataCore {
         if (field.properties) {
             for (let i = 0; i < field.properties.length; i++) {
                 const property = field.properties[i];
-                if (properties[property.name]) {
-                    if (!utilsCore.validValueWithVerifier(properties[property.name], property.verifier)) {
-                        throw new GraphQLError(`Property ${property.name} check failed. Failed value ${JSON.stringify(properties[property.name])}`, { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+                if (property.required && !properties[property.name]) {
+                    throw new GraphQLError(`Property ${property.name} is required.`, { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+                }
+                const resEach: boolean[] = [];
+                for (let i = 0; i < properties.verifier.length; i++) {
+                    resEach.push(true);
+                    for (let j = 0; j < properties.verifier[i].length; j++) {
+                        if (!utilsCore.validValueWithVerifier(properties[property.name], properties.verifier[i][j])) {
+                            resEach[resEach.length - 1] = false;
+                            break;
+                        }
                     }
                 }
-                if (property.required && !properties[property.name]) {
-                    throw new GraphQLError(`Property ${property.name} is missing.`, { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+                if (resEach.every(el => !el)) {
+                    throw new GraphQLError(`Property ${property.name} check failed. Failed value ${JSON.stringify(properties[property.name])}`, { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
                 }
 
             }
@@ -1004,6 +1053,87 @@ export class DataCore {
             numberOfFields: numberOfFields
         };
     }
+    public async getFile(fileId: string): Promise<IFile | null> {
+        /**
+         * Get the metadata of a file by id.
+         *
+         * @param fileId - The id of the file.
+         */
+
+        return await db.collections!.files_collection.findOne({ 'id': fileId, 'life.deletedTime': null });
+    }
+
+    /* TODO: Data Transformation */
+    // public async dataTransform(fields: IField[], data: IData[], rules: any) {
+
+    // }
+
+
+
+    public convertToBufferAndUpload(
+        jsonObject: any,
+        uploadFunc: any,
+        fileName: string,
+        requester: string
+    ): Promise<any> {
+        // Convert the JSON object into a JSON string, chunk by chunk
+        function* chunkedStringify(jsonObject: any, chunkSize = 1024): Generator<string> {
+            const jsonString = JSON.stringify(jsonObject);
+            let index = 0;
+            while (index < jsonString.length) {
+                yield jsonString.slice(index, index + chunkSize);
+                index += chunkSize;
+            }
+        }
+
+        // Your promise should wrap the core logic
+        return new Promise((resolve, reject) => {
+            // Create a passthrough stream to gather data
+            const gatherStream = new PassThrough();
+
+            // This array will collect chunks of data
+            const chunks: Buffer[] = [];
+
+            // Collect chunks in the array
+            gatherStream.on('data', (chunk: Buffer) => {
+                chunks.push(chunk);
+            });
+
+            // Once the stream ends, concatenate all chunks to produce the final buffer
+            gatherStream.on('end', () => {
+                const fileBuffer = Buffer.concat(chunks);
+
+                const result = {
+                    fileBuffer: fileBuffer,
+                    filename: fileName,
+                    mimetype: 'application/json',
+                    size: fileBuffer.length
+                };
+
+                // Upload to MinIO or any other target using the provided upload function
+                fileCore.uploadFile(
+                    requester,
+                    null,
+                    null,
+                    result, // fileupload
+                    null, // description
+                    enumFileTypes.JSON,
+                    enumFileCategories.CACHE,
+                    null
+                ).then(resolve).catch(reject);
+            });
+
+            // Send the JSON chunks to our gathering stream
+            for (const chunk of chunkedStringify(jsonObject)) {
+                gatherStream.write(chunk);
+            }
+
+            gatherStream.end();
+        });
+    }
+
+
 }
+
 
 export const dataCore = Object.freeze(new DataCore());
