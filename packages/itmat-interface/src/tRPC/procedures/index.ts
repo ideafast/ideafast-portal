@@ -7,6 +7,7 @@ import { dataRouter } from './dataProcedure';
 import { driveRouter } from './driveProcedure';
 import { permissionRouter } from './permissionProcedure';
 import { logRouter } from './logProcedure';
+import { jobRouter } from './jobProcedure';
 export const routers = {
     user: userRouter,
     doc: docRouter,
@@ -16,5 +17,6 @@ export const routers = {
     data: dataRouter,
     drive: driveRouter,
     permission: permissionRouter,
-    log: logRouter
+    log: logRouter,
+    job: jobRouter
 };

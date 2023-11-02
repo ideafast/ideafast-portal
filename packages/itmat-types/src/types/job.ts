@@ -9,13 +9,13 @@ export interface IJob extends IBase {
     data: JSON;
     parameters: JSON;
     priority: number;
-    history: IJobHistory[];
-    error: JSON;
+    history: IJobHistory[]; // by default we will only keep the latest history
+    status: enumJobStatus;
 }
 
-export interface IJobHistory extends IBase {
-    status: enumJobStatus;
+export interface IJobHistory {
     time: number;
+    errors: string[];
 }
 
 export enum enumJobType {
@@ -24,12 +24,13 @@ export enum enumJobType {
 }
 
 export enum enumJobStatus {
-    SUCCESS = 'SUCCESS',
-    FAIL = 'FAIL',
     PENDING = 'PENDING',
-    CANCELLED = 'CANCELLED'
+    CANCELLED = 'CANCELLED',
+    FINISHED = 'FINISHED'
 }
 
-export interface IExecutor extends IBase {
+export interface IExecutor {
     id: string;
+    path: string; // for DMPAPI, use the trpc router path
+    type: string | null;
 }

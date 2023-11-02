@@ -5,7 +5,7 @@ import registerServiceWorker, { unregister as unregisterServiceWorker } from './
 import { trpc } from './utils/trpc';
 import React, { useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { httpBatchLink, httpLink } from '@trpc/client';
+import { httpBatchLink } from '@trpc/client';
 
 const AppWithTRPC = () => {
     const [queryClient] = useState(() => new QueryClient());

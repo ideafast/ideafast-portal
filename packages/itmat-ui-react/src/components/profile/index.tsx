@@ -3,6 +3,7 @@ import { ProfileManagementSection } from './profile';
 import { MyFile } from './file';
 import css from './profile.module.css';
 import { Divider } from 'antd';
+import { MyGroup } from './group';
 
 export const ProfilePage: FunctionComponent = () => {
     return (
@@ -10,6 +11,8 @@ export const ProfilePage: FunctionComponent = () => {
             <ProfileManagementSection />
             <Divider />
             <MyFile />
+            <Divider />
+            <MyGroup />
         </div>
     );
 };

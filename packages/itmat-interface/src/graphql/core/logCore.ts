@@ -1,9 +1,5 @@
 import { db } from '../../database/database';
-import { GraphQLError } from 'graphql';
-import { IOrganisation, IGenericResponse, ILog, enumUserAgent, enumEventType, enumAPIResolver, enumEventStatus } from '@itmat-broker/itmat-types';
-import { makeGenericReponse } from '../responses';
-import { v4 as uuid } from 'uuid';
-import { errorCodes } from '../errors';
+import { ILog, enumEventType, enumAPIResolver, enumEventStatus } from '@itmat-broker/itmat-types';
 
 export class LogCore {
     public async getLogs(caller: string | null, type: enumEventType[] | null, apiResolver: enumAPIResolver[] | null, event: string[] | null, status: enumEventStatus[] | null, indexRange: number[] | null, timeRange: number[] | null): Promise<ILog[]> {
@@ -21,7 +17,7 @@ export class LogCore {
          *
          * @return ILog[]
          */
-
+        console.log('----db----', db);
         const filters: any = {};
         if (caller) {
             filters.requester = caller;
@@ -49,6 +45,7 @@ export class LogCore {
                 }
             }).toArray();
         } else {
+            console.log('--------', db.collections?.log_collection);
             logs = await db.collections!.log_collection.find(filters).toArray();
         }
         return logs;

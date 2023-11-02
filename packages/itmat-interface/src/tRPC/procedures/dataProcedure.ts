@@ -91,12 +91,25 @@ export const dataRouter = t.router({
         const filteredFieldIds = fields.filter(el => el.dataType === enumDataTypes.FILE).map(el => el.fieldId);
         return await dataCore.getData(user.id, opts.input.studyId, filteredFieldIds, availableDataVersions, opts.input.aggregation, opts.input.useCache, opts.input.forceUpdate);
     }),
+    /**
+     * Get the data of a study.
+     *
+     * @param studyId - The id of the study.
+     * @param versionId - The id of the data version. By default not specified for the latest version.
+     * @param aggregation - The aggregation pipeline. Used for data post preocessing.
+     * @param fieldIds - The list of fields to return.
+     * @param useCache - Whether to use fetch the data from cache.
+     * @param forceUpdate - Whether to update the cache with the results from this call.
+     *
+     * @return Partial<IData>[] - The list of objects of Partial<IData>
+     */
     getData: baseProcedure.input(z.object({
         studyId: z.string(),
-        versionId: z.union([z.string(), z.null()]),
+        versionId: z.optional(z.union([z.string(), z.null()])),
         aggregation: z.optional(z.any()),
-        useCache: z.boolean(),
-        forceUpdate: z.boolean()
+        fieldIds: z.optional(z.union([z.array(z.string()), z.null()])),
+        useCache: z.optional(z.boolean()),
+        forceUpdate: z.optional(z.boolean())
     })).query(async (opts: any) => {
         const user = opts.ctx.req.user;
         const study = (await studyCore.getStudies(opts.input.studyId))[0];

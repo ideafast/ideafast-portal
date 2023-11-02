@@ -1,3 +1,4 @@
+import { Database } from '@itmat-broker/itmat-commons';
 import { IJob } from '@itmat-broker/itmat-types';
 
 export abstract class JobHandler {

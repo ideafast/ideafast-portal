@@ -839,9 +839,9 @@ export const userRouter = t.router({
         return response;
     }),
     getUserGroups: baseProcedure.input(z.object({
-        studyId: z.string()
+        userId: z.string()
     })).query(async (opts: any) => {
-        const groups = await userCore.getUserGroups(opts.input.studyId);
+        const groups = await userCore.getUserGroups(opts.input.userId);
         return groups;
     })
 });

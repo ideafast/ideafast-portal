@@ -7,6 +7,7 @@ import { Runner } from './server/server';
 import { JobPoller } from '@itmat-broker/itmat-commons';
 import { JobDispatcher } from './jobDispatch/dispatcher';
 import { MongoClient } from 'mongodb';
+import { APIHandler } from './jobHandlers/apiJobHandler';
 
 class ITMATJobExecutorRunner extends Runner {
 
@@ -27,15 +28,13 @@ class ITMATJobExecutorRunner extends Runner {
             db.connect(this.config.database, MongoClient)
                 .then(() => objStore.connect(this.config.objectStore))
                 .then(() => {
-
                     _this.router = new Router();
-
                     const jobDispatcher = new JobDispatcher();
 
                     /* TO_DO: can we figure out the files at runtime and import at runtime */
                     // jobDispatcher.registerJobType('QUERY_EXECUTION', QueryHandler.prototype.getInstance.bind(QueryHandler));
                     // jobDispatcher.registerJobType('UKB_IMAGE_UPLOAD', UKB_IMAGE_UPLOAD_Handler.prototype.getInstance);
-
+                    jobDispatcher.registerJobType('DMPAPI', APIHandler.prototype.getInstance.bind(APIHandler));
                     const poller = new JobPoller({
                         identity: uuid(),
                         jobCollection: db.collections!.jobs_collection,

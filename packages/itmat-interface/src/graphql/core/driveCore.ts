@@ -251,8 +251,9 @@ export class DriveCore {
         });
         const driveIds: string[] = [];
         await this.recursiveFindDrives(drive, [], driveIds);
-        // Update children drives permission
+        // TODO: Update children drives permission
         const childrenDrives = updated.value?.children ?? [];
+
         await db.collections!.drives_collection.updateMany({
             id: { $in: driveIds }
         }, {

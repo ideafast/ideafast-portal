@@ -314,271 +314,6 @@ export class UserCore {
         }
     }
 
-    // public async getSharedFileNodes(userId: string): Promise<Partial<IUser>[]> {
-    //     /**
-    //      * Get the list of file nodes of a user.
-    //      *
-    //      * @param userId - The id of the user.
-    //      *
-    //      * @return IFileNode[]
-    //      */
-    //     const user = await db.collections!.users_collection.findOne({ 'id': userId, 'life.deletedTime': null });
-    //     if (!user) {
-    //         throw new GraphQLError('User does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
-    //     }
-
-    //     const res = await db.collections!.users_collection.aggregate([
-    //         {
-    //             $match: { 'fileRepo.sharedUsers': userId }
-    //         },
-    //         {
-    //             $project: {
-    //                 id: 1,
-    //                 email: 1,
-    //                 firstname: 1,
-    //                 lastname: 1,
-    //                 profile: 1,
-    //                 fileNodes: {
-    //                     $map: {
-    //                         input: {
-    //                             $filter: {
-    //                                 input: '$fileRepo',
-    //                                 as: 'fileNode',
-    //                                 cond: { $in: [userId, '$$fileNode.sharedUsers'] }
-    //                             }
-    //                         },
-    //                         as: 'filteredFileNode',
-    //                         in: {
-    //                             id: '$$filteredFileNode.id',
-    //                             name: '$$filteredFileNode.name',
-    //                             fileId: '$$filteredFileNode.fileId',
-    //                             type: '$$filteredFileNode.type',
-    //                             parent: '$$filteredFileNode.parent',
-    //                             children: '$$filteredFileNode.children'
-    //                         }
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //     ]).toArray();
-
-    //     for (const item of res) {
-    //         const nodes = item.fileNodes;
-    //         const nodeIds: string[] = nodes.map((el: { id: any; }) => el.id);
-    //         const parentNodes = nodes.filter((el: { parent: string; }) => !(nodeIds.includes(el.parent)));
-    //         // push a parent node
-    //         const rootNode = {
-    //             id: uuid(),
-    //             name: `${item.firstname} ${item.lastname}`,
-    //             fileId: null,
-    //             type: enumDriveNodeTypes.FILE,
-    //             parent: null,
-    //             children: parentNodes.map((el: { id: any; }) => el.id)
-    //         };
-    //         for (const node of parentNodes) {
-    //             node.parent = rootNode.id;
-    //         }
-    //         item.fileNodes.push(rootNode);
-    //     }
-
-    //     return res as Partial<IUser>[];
-    // }
-
-    public async addFileDriveNode(requester: string, parentNodeId: string, description: string | null, fileType: enumFileTypes | null, file: FileUpload | null): Promise<IDriveNode> {
-        /**
-         * Add/Upload a file to the user file repo.
-         *
-         * @param requester - The id of the requester.
-         * @param parentNodeId - The id of the file Node.
-         * @param file - The file to upload.
-         * @param folderName - The name of the folder. Should be numm if file is not null.
-         *
-         * @return IGenericResponse - The object of the IGenericResponse.
-         */
-        // const user = await db.collections!.users_collection.findOne({ 'id': userId, 'fileRepo.id': parentNodeId, 'life.deletedTime': null });
-        // if (!user) {
-        //     throw new GraphQLError('User or parent node does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
-        // }
-        let fileEntry: IFile | null = null;
-        if (file && fileType) {
-            fileEntry = await fileCore.uploadFile(requester, null, requester, file, description, fileType, enumFileCategories.USER_REPO_FILE, []);
-        }
-        if (!fileEntry) {
-            throw new GraphQLError(errorCodes.DATABASE_ERROR);
-        }
-        // inherite sharedUsers from parent nodes
-        const parentNode = await db.collections!.drives_collection.findOne({ 'id': parentNodeId, 'life.deletedTime': null });
-        if (!parentNode) {
-            throw new GraphQLError('Parent node does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
-        }
-        const fileNodeId: string = uuid();
-        const fileNodeEntry: IDriveNode = {
-            id: fileNodeId,
-            managerId: requester,
-            restricted: false,
-            description: description,
-            name: fileEntry.fileName,
-            fileId: fileEntry.id,
-            type: enumDriveNodeTypes.FILE,
-            parent: parentNodeId,
-            children: [],
-            sharedUsers: [...parentNode.sharedUsers],
-            sharedGroups: [...parentNode.sharedGroups],
-            life: {
-                createdTime: Date.now(),
-                createdUser: requester,
-                deletedTime: null,
-                deletedUser: null
-            },
-            metadata: {}
-        };
-
-        await db.collections!.drives_collection.insertOne(fileNodeEntry);
-
-        await db.collections!.drives_collection.findOneAndUpdate({ 'id': parentNodeId, 'life.deletedTime': null }, {
-            $push: { children: fileNodeId }
-        });
-        return fileNodeEntry;
-
-    }
-
-    public async addFolderDriveNode(requester: string, parentNodeId: string, description: string | null, folderName: string): Promise<IDriveNode> {
-        /**
-         * Add/Upload a file to the user file repo.
-         *
-         * @param requester - The id of the requester.
-         * @param parentNodeId - The id of the file Node.
-         * @param folderName - The name of the folder. Should be numm if file is not null.
-         *
-         * @return IGenericResponse - The object of the IGenericResponse.
-         */
-        const parentNode = await db.collections!.drives_collection.findOne({ 'id': parentNodeId, 'life.deletedTime': null });
-        if (!parentNode) {
-            throw new GraphQLError('Parent node does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
-        }
-        const folderNodeId: string = uuid();
-        const folderNodeEntry: IDriveNode = {
-            id: folderNodeId,
-            managerId: requester,
-            restricted: false,
-            description: description,
-            name: folderName,
-            fileId: null,
-            type: enumDriveNodeTypes.FILE,
-            parent: parentNodeId,
-            children: [],
-            sharedUsers: [...parentNode.sharedUsers],
-            sharedGroups: [...parentNode.sharedGroups],
-            life: {
-                createdTime: Date.now(),
-                createdUser: requester,
-                deletedTime: null,
-                deletedUser: null
-            },
-            metadata: {}
-        };
-
-        await db.collections!.drives_collection.insertOne(folderNodeEntry);
-
-        await db.collections!.drives_collection.findOneAndUpdate({ 'id': parentNodeId, 'life.deletedTime': null }, {
-            $push: { children: folderNodeId }
-        });
-        return folderNodeEntry;
-    }
-
-    // public async moveFileNodeFromUserRepo(userId: string, fileNodeId: string, toParentId: string): Promise<IGenericResponse> {
-    //     /**
-    //      * Move a file node to another parent.
-    //      *
-    //      * @param userId - The id of the user.
-    //      * @param fileNodeId - The id of the file node.
-    //      * @param toParentId - The id of the new parent.
-    //      *
-    //      * @return IGenericResponse - The object of IGenericResponse
-    //      */
-
-    //     const parentNode = await db.collections!.users_collection.findOne({ 'id': userId, 'life.deletedTime': null, 'fileRepo.id': toParentId });
-    //     if (!parentNode) {
-    //         throw new GraphQLError('Parent node does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
-    //     }
-
-    //     const thisNode = await db.collections!.users_collection.findOne({ 'id': userId, 'life.deletedTime': null, 'fileRepo.id': fileNodeId });
-    //     if (!thisNode) {
-    //         throw new GraphQLError('Node does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
-    //     }
-
-    //     const session = db.client!.startSession();
-    //     session.startTransaction();
-    //     try {
-    //         await db.collections!.users_collection.findOneAndUpdate({ 'id': userId, 'life.deletedTime': null, 'fileRepo.children': fileNodeId }, {
-    //             $pull: { 'fileRepo.$.children': fileNodeId }
-    //         });
-
-    //         await db.collections!.users_collection.findOneAndUpdate({ 'id': userId, 'life.deletedTime': null, 'fileRepo.id': fileNodeId }, {
-    //             $set: { 'fileRepo.$.parent': toParentId }
-    //         });
-    //         await session.commitTransaction();
-    //         session.endSession();
-    //         return makeGenericReponse(fileNodeId, true, undefined);
-    //     } catch (error) {
-    //         await session.abortTransaction();
-    //         session.endSession();
-    //         throw new GraphQLError(`${JSON.stringify(error)}`, { extensions: { code: errorCodes.DATABASE_ERROR } });
-    //     }
-    // }
-
-    // public async shareFileNodeToUsers(userId: string, fileNodeId: string, sharedUsers: string[]): Promise<IGenericResponse> {
-    //     /**
-    //      * Share a file node to other users.
-    //      *
-    //      * @param userId - The id of the user.
-    //      * @param fileNodeId - The id of the file node.
-    //      * @param sharedUsers - The ids of the users to share with.
-    //      *
-    //      * @return IGenericResponse - The object of IGenericResponse.
-    //      */
-    //     const user = await db.collections!.users_collection.findOne({ 'id': userId, 'life.deletedTime': null, 'fileRepo.id': fileNodeId });
-    //     if (!user) {
-    //         throw new GraphQLError('User or parent node does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
-    //     }
-
-    //     const fileIdsToShare: string[] = [];
-    //     const nodeIdsToShare: string[] = [];
-    //     this.recursiveFindFiles(user.fileRepo, user.fileRepo.filter(el => el.id === fileNodeId)[0], fileIdsToShare, nodeIdsToShare);
-    //     await db.collections!.users_collection.findOneAndUpdate({ id: userId }, {
-    //         $set: { 'fileRepo.$[elem].sharedUsers': sharedUsers }
-    //     }, {
-    //         arrayFilters: [{ 'elem.id': { $in: nodeIdsToShare } }]
-    //     });
-
-    //     return makeGenericReponse(fileNodeId, true, undefined);
-    // }
-
-    public async getUserFileRepo(userId: string): Promise<any> {
-        /**
-         *  Get the file repo of a user. Including shared files.
-         *
-         * @param requester - The id of the requester.
-         * @param userId - The id of the user.
-         *
-         * @return Record<string, IFileNode[]> - The json object where the key is the userId and the value is the file nodes
-         */
-
-        const user = await db.collections!.users_collection.findOne({ 'id': userId, 'life.deletedTime': null });
-        if (!user) {
-            throw new GraphQLError('Parent node does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
-        }
-
-        const nodes = await db.collections!.users_collection.aggregate([{
-            $match: { 'life.deletedTime': null, 'fileRepo.sharedUsers': userId }
-        }, {
-            $group: { _id: '$id', nodes: { $push: '$fileRepo' } }
-        }, {
-            $project: { _id: 0, data: { $arrayToObject: [[{ k: '$_id', v: '$nodes' }]] } }
-        }]);
-        return nodes;
-    }
-
     public async getOrganisations(organisationId: string | null): Promise<IOrganisation[]> {
         /**
          * Get the list of organisations. If input is null, return all organisaitons.
@@ -1026,22 +761,34 @@ export class UserCore {
 
     public async getUserGroups(userId: string): Promise<Partial<IGroupNode>[]> {
         /**
-         * Get the list of groups of a study.
+         * Get the list of groups of a user.
          *
          * @param userId - The id of the user.
          *
          * @return Partial<IGroupNode>[]
          */
 
+        // const groups = await db.collections!.groups_collection.find({
+        //     'life.deletedTime': null,
+        //     '$or': [{
+        //         managerId: userId
+        //     }, {
+        //         nameOrId: userId
+        //     }]
+        // }).toArray();
         const groups = await db.collections!.groups_collection.find({
             'life.deletedTime': null,
-            '$or': [{
-                managerId: userId
-            }, {
-                nameOrId: userId
-            }]
+            'children': userId
         }).toArray();
         return groups;
+    }
+
+    public async getGroup(groupId: string): Promise<IGroupNode> {
+        const group = await db.collections!.groups_collection.findOne({ id: groupId });
+        if (!group) {
+            throw new GraphQLError('Study or group does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+        }
+        return group;
     }
 }
 

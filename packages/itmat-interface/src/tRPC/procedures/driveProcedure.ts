@@ -108,6 +108,17 @@ export const driveRouter = t.router({
         }
         return await driveCore.editDriveNodes(opts.ctx.req.user.id, opts.input.driveId, null, null, null, null, null, userIds, null);
     }),
+    shareDriveToGroupById: baseProcedure.input(z.object({
+        groupId: z.string(),
+        driveId: z.string(),
+        permissions: z.object({
+            read: z.boolean(),
+            write: z.boolean(),
+            delete: z.boolean()
+        })
+    })).mutation(async (opts: any) => {
+        return await driveCore.editDriveNodes(opts.ctx.req.user.id, opts.input.driveId, null, null, null, null, null, null, { iid: opts.input.groupId, ...opts.input.permissions });
+    }),
     deleteDrive: baseProcedure.input(z.object({
         driveId: z.string()
     })).mutation(async (opts: any) => {

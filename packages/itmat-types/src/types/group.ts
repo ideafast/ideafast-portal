@@ -1,7 +1,7 @@
 import { IBase } from './base';
 
 export interface IGroupNode extends IBase {
-    studyId: string | null;
+    studyId: string | null; // null by default, used further for merging groups and roles
     managerId: string;
     nameOrId: string; // name for group or id for user
     type: enumGroupNodeTypes;

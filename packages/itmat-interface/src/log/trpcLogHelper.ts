@@ -56,31 +56,53 @@ export const baseProcedure = t.procedure.use(async (opts: any) => {
 
     const endTime = Date.now();
     const executionTime = endTime - startTime;
-
-    const listEvents = parseBatchedUrl(opts.ctx.req.url, executionTime);
-    const logs: ILog[] = [];
-    for (const event of listEvents) {
-        logs.push({
-            id: uuid(),
-            requester: opts.ctx.req.user?.id ?? 'NA',
-            type: enumEventType.API_LOG,
-            apiResolver: enumAPIResolver.tRPC,
-            event: event.apiName,
-            parameters: event.parameters,
-            status: enumEventStatus.SUCCESS,
-            errors: [],
-            timeConsumed: event.executionTime,
-            life: {
-                createdTime: Date.now(),
-                createdUser: 'SYSTEMAGENT',
-                deletedTime: null,
-                deletedUser: null
-            },
-            metadata: {}
-        });
+    if (opts.ctx.req) {
+        const listEvents = parseBatchedUrl(opts.ctx.req.url, executionTime);
+        const logs: ILog[] = [];
+        for (const event of listEvents) {
+            logs.push({
+                id: uuid(),
+                requester: opts.ctx.req.user?.id ?? 'NA',
+                type: enumEventType.API_LOG,
+                apiResolver: enumAPIResolver.tRPC,
+                event: event.apiName,
+                parameters: event.parameters,
+                status: enumEventStatus.SUCCESS,
+                errors: [],
+                timeConsumed: event.executionTime,
+                life: {
+                    createdTime: Date.now(),
+                    createdUser: 'SYSTEMAGENT',
+                    deletedTime: null,
+                    deletedUser: null
+                },
+                metadata: {}
+            });
+        }
+        await db.collections!.log_collection.insertMany(logs);
+        return result;
     }
-    await db.collections!.log_collection.insertMany(logs);
-    return result;
+    else {
+        // await db.collections!.log_collection.insertOne({
+        //     id: uuid(),
+        //     requester: opts.ctx.req.user?.id ?? 'NA',
+        //     type: enumEventType.API_LOG,
+        //     apiResolver: enumAPIResolver.tRPC,
+        //     event: opts.path,
+        //     parameters: opts.rawInput,
+        //     status: enumEventStatus.SUCCESS,
+        //     errors: [],
+        //     timeConsumed: executionTime,
+        //     life: {
+        //         createdTime: Date.now(),
+        //         createdUser: 'SYSTEMAGENT',
+        //         deletedTime: null,
+        //         deletedUser: null
+        //     },
+        //     metadata: {}
+        // });
+        return result;
+    }
 });
 
 

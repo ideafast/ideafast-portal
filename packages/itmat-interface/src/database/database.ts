@@ -2,7 +2,6 @@ import type { IData, IField, IFile, IJob, ILog, IOrganisation, IProject, IPubkey
 import { Database as DatabaseBase, IDatabaseBaseConfig } from '@itmat-broker/itmat-commons';
 import type { Collection } from 'mongodb';
 import { ICache } from 'packages/itmat-types/src/types/cache';
-
 export interface IDatabaseConfig extends IDatabaseBaseConfig {
     collections: {
         users_collection: string,
