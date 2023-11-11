@@ -69,8 +69,9 @@ export class JobPoller {
             Logger.log('Find job');
             await this.action(updateResult);
             // this.setInterval();
-        } else if (!updateResult) {
-            Logger.error(`${this.identity} Errored during database update: ${updateResult}`);
         }
+        // else if (!updateResult) {
+        //     Logger.error(`${this.identity} Errored during database update: ${updateResult}`);
+        // }
     }
 }

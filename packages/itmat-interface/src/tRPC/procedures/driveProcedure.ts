@@ -56,10 +56,10 @@ export const driveRouter = t.router({
         return await driveCore.createDriveFileNode(requester.id, opts.input.parentId, opts.input.description, file_.filename.split('.')[1].toUpperCase(), file_);
     }),
     getDrives: baseProcedure.input(z.object({
-        managerId: z.string(),
+        userId: z.string(),
         rootId: z.union([z.string(), z.null()])
     })).query(async (opts: any) => {
-        return driveCore.getDriveNodes(opts.input.managerId, opts.input.rootId);
+        return driveCore.getDriveNodes(opts.input.userId, opts.input.rootId);
     }),
     editDrive: baseProcedure.input(z.object({
         driveId: z.string(),

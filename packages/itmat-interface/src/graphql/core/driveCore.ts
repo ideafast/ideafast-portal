@@ -116,16 +116,7 @@ export class DriveCore {
             'children': requester,
             'life.deletedTime': null
         }).toArray()).map(el => el.id);
-        // const drives = await db.collections!.drives_collection.find({
-        //     'life.deletedTime': null,
-        //     $or: [{
-        //         managerId: requester
-        //     }, {
-        //         'sharedUsers.iid': requester
-        //     }, {
-        //         'sharedGroups.iid': { $in: groupIds }
-        //     }]
-        // }).toArray();
+
         const drivesByUser = await db.collections!.drives_collection.aggregate([
             {
                 $match: {

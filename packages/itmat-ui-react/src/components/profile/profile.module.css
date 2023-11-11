@@ -7,7 +7,8 @@
     grid-template-areas:
         "LEFT RIGHT"
         "FILE FILE"
-        "SHARED SHARED";
+        "SHARED SHARED"
+        "GROUP GROUP";
     grid-template-columns: 40% 60%;
     grid-template-rows: 750px 1fr;
 }
@@ -110,4 +111,10 @@
     max-width: 150px;
     /* Adjust this width based on your requirement */
     display: block;
+}
+
+.group_wrapper {
+    grid-area: GROUP;
+    padding: 20px;
+    background-color: white;
 }

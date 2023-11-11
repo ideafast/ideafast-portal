@@ -36,6 +36,10 @@ export interface IStudyConfig extends IBase {
     defaultRepresentationForMissingValue: string;
     defaultFileColumns: any;
     defaultFileColumnsPropertyColor: string | null;
+    defaultFileDirectoryStructure: {
+        pathLabels: string[],
+        description: string | null
+    }
 }
 
 export interface IUserConfig extends IBase {
@@ -111,7 +115,11 @@ export class DefaultSettings implements IDefaultSettings {
         defaultMaximumProfileSize: 10 * 1024 * 1024, // 10MB
         defaultRepresentationForMissingValue: '99999',
         defaultFileColumns: [],
-        defaultFileColumnsPropertyColor: 'black'
+        defaultFileColumnsPropertyColor: 'black',
+        defaultFileDirectoryStructure: {
+            pathLabels: [],
+            description: null
+        }
     };
 
     public readonly userConfig: IUserConfig = {

@@ -79,7 +79,7 @@ export const dataRouter = t.router({
         useCache: z.boolean(),
         forceUpdate: z.boolean()
     })).query(async (opts: any) => {
-        const user = opts.ctx.req.user;
+        const user = opts.ctx.req?.user ?? opts.ctx;
         const study = (await studyCore.getStudies(opts.input.studyId))[0];
         // get the versions
         const availableDataVersions: Array<string | null> = !opts.input.versionId ? (study.currentDataVersion === -1 ? [] : study.dataVersions.filter((__unused__el, index) => index <= study.currentDataVersion)).map(el => el.id)

@@ -496,7 +496,7 @@ export class DataTransformationCore {
     }
 
     public transformationAggregate(data: IDataTransformationClip, transformationsAgg: Record<string, Array<{ operationName: string, params: any }>>): Record<string, IDataTransformationType> {
-        if (Object.keys(transformationsAgg).length === 0) {
+        if (!transformationsAgg || Object.keys(transformationsAgg).length === 0) {
             return data;
         }
         const aggregation: any = {};

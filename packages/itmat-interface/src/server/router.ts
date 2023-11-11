@@ -30,7 +30,9 @@ import { userRetrieval } from '../authentication/pubkeyAuthentication';
 import { createProxyMiddleware, RequestHandler } from 'http-proxy-middleware';
 import qs from 'qs';
 import { IUser } from '@itmat-broker/itmat-types';
-
+import { v2 as webdav } from 'webdav-server';
+import { DMPFileSystem, DMPWebDAVAuthentication } from '../webdav/dmpWebDAV';
+import { Client as MinioClient, BucketItemStat } from 'minio';
 import { routers } from '../tRPC/procedures/index';
 
 import { inferAsyncReturnType, initTRPC } from '@trpc/server';
@@ -284,6 +286,44 @@ export class Router {
         const serverCleanup = useServer({ schema: schema, execute: execute, subscribe: subscribe }, wsServer);
 
         this.app.get('/file/:fileId', fileDownloadController);
+
+
+        // User manager will handle our users
+        const userManager = new webdav.SimpleUserManager();
+        const user = userManager.addUser('user1', 'password1', false); // Add a user with username 'user1' and password 'password1'
+
+        // Privilege manager will handle our privileges
+        const privilegeManager = new webdav.SimplePathPrivilegeManager();
+        privilegeManager.setRights(user, '/', ['all']); // Give 'user1' all privileges for the root
+
+        // Set up HTTP Basic Authentication with our user manager
+        const httpAuthentication = new DMPWebDAVAuthentication();
+
+        const webServer = new webdav.WebDAVServer({
+            port: 1900,
+            //@ts-ignore
+            httpAuthentication: httpAuthentication
+        });
+
+        webServer.setFileSystem('/dav', new DMPFileSystem(), (success) => {
+            console.log('MinIO file system attached:', success);
+        });
+        // webServer.setFileSystem('/dav', new webdav.PhysicalFileSystem('/Users/siyao/Documents/DMP'), (success) => {
+        //     webServer.start(() => console.log('READY'));
+        // });
+
+        webServer.afterRequest((arg, next) => {
+            console.log('>>', arg.request.method, arg.fullUri(), '>', arg.response.statusCode, arg.response.statusMessage);
+            next();
+        });
+
+        // Start the WebDAV server
+        webServer.start(() => {
+            console.log('WebDAV server started on port 1900');
+        });
+
+
+
 
         const upload = multer({ storage: multer.memoryStorage() });
         this.app.use(upload.any());
