@@ -26,7 +26,7 @@
         "@babel/core": "^7.23.2",
         "@babel/preset-react": "^7.22.15",
         "@nx/cypress": "17.0.1",
-        "@nx/esbuild": "17.0.1",
+        "@nx/esbuild": "17.1.1",
         "@nx/eslint": "17.0.1",
         "@nx/eslint-plugin": "17.0.1",
         "@nx/express": "17.0.1",
