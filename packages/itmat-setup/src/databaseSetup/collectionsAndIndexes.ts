@@ -94,6 +94,12 @@ const collections = {
         indexes: [
             { key: { id: 1 }, unique: true }
         ]
+    },
+    hashnode_collection: {
+        name: 'HASHNODE_COLLECTION',
+        indexes: [
+            { key: { rootHash: 1 }, unique: true }
+        ]
     }
 };
 

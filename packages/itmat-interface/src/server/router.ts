@@ -30,6 +30,7 @@ import { userRetrieval } from '../authentication/pubkeyAuthentication';
 import { createProxyMiddleware, RequestHandler } from 'http-proxy-middleware';
 import qs from 'qs';
 import { IUser } from '@itmat-broker/itmat-types';
+import { MerkleTreeLog } from '../log/merkleTree';
 
 interface ApolloServerContext {
     token?: string;
@@ -41,6 +42,7 @@ export class Router {
     private readonly server: http.Server;
     private readonly config: IConfiguration;
     public readonly proxies: Array<RequestHandler> = [];
+    public merkleTreeLog: MerkleTreeLog;
 
     constructor(config: IConfiguration) {
 
@@ -103,6 +105,8 @@ export class Router {
             socket.setTimeout(0);
             (socket as any).timeout = 0;
         });
+
+        this.merkleTreeLog = new MerkleTreeLog(null);
     }
 
     async init() {
@@ -128,8 +132,10 @@ export class Router {
             allowBatchedHttpRequests: true,
             plugins: [
                 {
+                    // Server log
                     async serverWillStart() {
                         logPlugin.serverWillStartLogPlugin();
+                        _this.merkleTreeLog.initLog();
                         return {
                             async drainServer() {
                                 serverCleanup.dispose();
@@ -145,6 +151,7 @@ export class Router {
                             },
                             async willSendResponse(requestContext) {
                                 logPlugin.requestDidStartLogPlugin(requestContext);
+                                _this.merkleTreeLog.updateLog(requestContext);
                             }
                         };
                     }

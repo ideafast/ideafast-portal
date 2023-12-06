@@ -1,4 +1,4 @@
-import type { IDataEntry, IFieldEntry, IFile, IJobEntry, ILogEntry, IOrganisation, IProject, IPubkey, IQueryEntry, IRole, IStudy, IUser, IStandardization } from '@itmat-broker/itmat-types';
+import type { IDataEntry, IFieldEntry, IFile, IHashNode, IJobEntry, ILogEntry, IOrganisation, IProject, IPubkey, IQueryEntry, IRole, IStudy, IUser, IStandardization } from '@itmat-broker/itmat-types';
 import { Database as DatabaseBase, IDatabaseBaseConfig } from '@itmat-broker/itmat-commons';
 import type { Collection } from 'mongodb';
 
@@ -17,6 +17,7 @@ export interface IDatabaseConfig extends IDatabaseBaseConfig {
         pubkeys_collection: string,
         data_collection: string,
         standardizations_collection: string,
+        hashnode_collection: string,
     };
 }
 
@@ -34,6 +35,7 @@ export interface IDatabaseCollectionConfig {
     pubkeys_collection: Collection<IPubkey>,
     data_collection: Collection<IDataEntry>,
     standardizations_collection: Collection<IStandardization>,
+    hashnode_collection: Collection<IHashNode>,
 }
 
 export const db = new DatabaseBase<IDatabaseBaseConfig, IDatabaseCollectionConfig>();

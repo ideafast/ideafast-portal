@@ -8,6 +8,7 @@ export const logActionRecordWhiteList = Object.keys(LOG_ACTION);
 // only requests in white list will be recorded
 export const logActionShowWhiteList = Object.keys(LOG_ACTION);
 
+// Server log
 export class LogPlugin {
     public async serverWillStartLogPlugin(): Promise<null> {
         await db.collections!.log_collection.insertOne({
