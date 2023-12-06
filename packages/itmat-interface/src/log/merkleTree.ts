@@ -26,7 +26,6 @@ class MerkleNode {
 
     appendData(data: string) {
         this.dataBlocks.push(data);
-        this.hash = this.calculateHash();
     }
 
     isNodeFull(): boolean {
@@ -120,21 +119,32 @@ export class MerkleTree {
     // }
 
     // Call update tree when there is a new node added into this.leaves
-    updateTree(newNode: MerkleNode, treeLevel: number) {
+    updateTree(newNode: MerkleNode | null, treeLevel: number) {
         const thisLevelNodes = this.allNodes[treeLevel];
         const thisLevelLastNode = thisLevelNodes[thisLevelNodes.length - 1];
         const nextLevelExisted = treeLevel + 1 < this.allNodes.length ? true : false;
-        thisLevelNodes.push(newNode);
-        if (thisLevelNodes.length % 2 === 1) {
-            const upperNewNode = new MerkleNode(newNode, null, []);
-            this.updateTree(upperNewNode, treeLevel + 1);
+        if (newNode === null) {
+            thisLevelLastNode.hash = thisLevelLastNode.calculateHash();
+            if (nextLevelExisted === true) {
+                this.updateTree(null, treeLevel + 1);
+            }
         } else {
-            const upperNewNode = new MerkleNode(thisLevelLastNode, newNode, []);
-            if (nextLevelExisted) {
-                this.allNodes[treeLevel + 1].pop();
+            thisLevelNodes.push(newNode);
+            if (thisLevelNodes.length % 2 === 1) {
+                const upperNewNode = new MerkleNode(newNode, null, []);
                 this.updateTree(upperNewNode, treeLevel + 1);
             } else {
-                this.allNodes.push([upperNewNode]);
+                const upperNewNode = new MerkleNode(thisLevelLastNode, newNode, []);
+                if (nextLevelExisted) {
+                    if (newNode.right !== null) {
+                        this.allNodes[treeLevel + 1].pop();
+                        this.updateTree(upperNewNode, treeLevel + 1);
+                    }
+                } else {
+                    console.log('Tree level increased');
+                    this.root = upperNewNode;
+                    this.allNodes.push([upperNewNode]);
+                }
             }
         }
     }
@@ -147,10 +157,10 @@ export class MerkleTree {
         const leafNodes = this.allNodes[0];
         if (leafNodes[leafNodes.length - 1].isNodeFull()) {
             const newNode = new MerkleNode(null, null, [newData]);
-            leafNodes.push(newNode);
             this.updateTree(newNode, 0);
         } else {
             leafNodes[leafNodes.length - 1].appendData(newData);
+            this.updateTree(null, 0);
         }
     }
 
@@ -220,9 +230,11 @@ export class MerkleTreeLog {
 
     async initLog(): Promise<null> {
         const logs = await db.collections!.log_collection.find({}).toArray();
+        console.log(`The number of logs in the database ${logs.length}`);
         const dataList: string[] = logs.map(document => JSON.stringify(document));
 
         if (dataList.length === 0) {
+            console.log('Create an empty new tree');
             await db.collections!.hashnode_collection.insertOne({
                 id: uuid(),
                 rootHash: this.latestTree.root.hash,
@@ -232,6 +244,7 @@ export class MerkleTreeLog {
         } else {
             for (let i = 0; i < dataList.length; i++) {
                 if (this.latestTree.isTreeFull() === true) {
+                    console.log('Create a new tree wiht the last hash');
                     const lastRootHash = this.latestTree.root.hash;
                     this.latestTree = new MerkleTree(lastRootHash);
                     await db.collections!.hashnode_collection.insertOne({
@@ -241,12 +254,11 @@ export class MerkleTreeLog {
                         hashNodes: [[this.latestTree.root.hash]]
                     });
                 }
-                this.latestTree.appendData(dataList[i]);
-                // Delete + insert = rewrite
                 await db.collections!.hashnode_collection.deleteOne({
                     rootHash: this.latestTree.root.hash
                 });
-
+                this.latestTree.appendData(dataList[i]);
+                // Delete + insert = rewrite
                 const dataBlocks = this.latestTree.allNodes[0].map((node) => node.dataBlocks);
                 const hashNodes = [];
                 for (const nodeList of this.latestTree.allNodes) {
@@ -262,6 +274,10 @@ export class MerkleTreeLog {
                     dataBlocks: dataBlocks,
                     hashNodes: hashNodes
                 });
+
+                console.log(this.latestTree.root.hash);
+                console.log((await db.collections!.hashnode_collection.find({}).toArray()).map(tree => tree.rootHash));
+                console.log('--------------------');
             }
         }
         return null;
@@ -283,6 +299,7 @@ export class MerkleTreeLog {
         if (this.latestTree.isTreeFull() === true) {
             const lastRootHash = this.latestTree.root.hash;
             this.latestTree = new MerkleTree(lastRootHash);
+            console.log('Create a new tree wiht the last hash');
             await db.collections!.hashnode_collection.insertOne({
                 id: uuid(),
                 rootHash: this.latestTree.root.hash,
@@ -290,11 +307,11 @@ export class MerkleTreeLog {
                 hashNodes: [[this.latestTree.root.hash]]
             });
         }
-        this.latestTree.appendData(dataString);
         // Delete + insert = rewrite
         await db.collections!.hashnode_collection.deleteOne({
             rootHash: this.latestTree.root.hash
         });
+        this.latestTree.appendData(dataString);
 
         const dataBlocks = this.latestTree.allNodes[0].map((node) => node.dataBlocks);
         const hashNodes = [];
