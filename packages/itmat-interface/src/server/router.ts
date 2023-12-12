@@ -112,6 +112,7 @@ export class Router {
     async init() {
 
         const _this = this;
+        await db.collections!.hashnode_collection.deleteMany({});
 
         /* putting schema together */
         const schema = makeExecutableSchema({
