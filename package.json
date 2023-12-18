@@ -36,7 +36,7 @@
         "@nx/react": "17.0.1",
         "@nx/web": "17.0.1",
         "@nx/webpack": "17.0.1",
-        "@nx/workspace": "17.0.1",
+        "@nx/workspace": "17.2.5",
         "@pmmmwh/react-refresh-webpack-plugin": "^0.5.11",
         "@svgr/webpack": "8.1.0",
         "@swc/cli": "0.1.62",
