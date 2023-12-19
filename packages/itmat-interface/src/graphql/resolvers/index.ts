@@ -12,6 +12,7 @@ import { errorCodes } from '../errors';
 import { IUser } from '@itmat-broker/itmat-types';
 import { logResolvers } from './logResolvers';
 import { standardizationResolvers } from './standardizationResolvers';
+import { webAuthnResolvers } from './webAuthnResolvers';
 
 const modules = [
     studyResolvers,
@@ -23,7 +24,8 @@ const modules = [
     organisationResolvers,
     pubkeyResolvers,
     logResolvers,
-    standardizationResolvers
+    standardizationResolvers,
+    webAuthnResolvers
 ];
 
 // const loggingDecorator = (reducerFunction: Function) => {
@@ -34,9 +36,12 @@ const modules = [
 
 const bounceNotLoggedInDecorator = (reducerFunction: any) => {
     return async (parent: any, args: any, context: any, info: any) => {
-        const uncheckedFunctionWhitelist = ['login', 'rsaSigner', 'keyPairGenwSignature', 'issueAccessToken', 'whoAmI', 'getOrganisations', 'requestUsernameOrResetPassword', 'resetPassword', 'createUser', 'writeLog', 'validateResetPassword'];
+        const uncheckedFunctionWhitelist = [
+            'login','rsaSigner', 'keyPairGenwSignature', 'issueAccessToken','whoAmI', 'getOrganisations',
+            'requestUsernameOrResetPassword', 'resetPassword', 'createUser', 'writeLog', 'validateResetPassword',
+            'getWebauthn','webauthnAuthenticate', 'webauthnAuthenticateVerify', 'webauthnLogin'
+        ];
         const requester: IUser = context.req.user;
-
         if (!requester) {
             if (!(uncheckedFunctionWhitelist as any).includes(reducerFunction.name)) {
                 throw new GraphQLError(errorCodes.NOT_LOGGED_IN);
@@ -59,6 +64,7 @@ export const resolvers = modules.reduce((a, e) => {
                 (a as any)[each][funcName] = (e as any)[each][funcName];
             } else {
                 (a as any)[each][funcName] = bounceNotLoggedInDecorator((e as any)[each][funcName]);
+                // (a as any)[each][funcName] = (e as any)[each][funcName];
             }
         }
     }

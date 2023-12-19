@@ -2,10 +2,32 @@ import bcrypt from 'bcrypt';
 import { db } from '../../database/database';
 import config from '../../utils/configManager';
 import { GraphQLError } from 'graphql';
-import { IUser, IUserWithoutToken, userTypes, IOrganisation, IPubkey } from '@itmat-broker/itmat-types';
+import { IUser, IUserWithoutToken, userTypes, IOrganisation, IPubkey, AuthenticatorDevice } from '@itmat-broker/itmat-types';
 import { v4 as uuid } from 'uuid';
 import { errorCodes } from '../errors';
 import { MarkOptional } from 'ts-essentials';
+import {generateSecret} from '../../utils/mfa';
+import {
+    generateRegistrationOptions,
+    verifyRegistrationResponse,
+    generateAuthenticationOptions,
+    verifyAuthenticationResponse
+
+} from '@simplewebauthn/server';
+import type {
+    // AuthenticatorDevice,
+    RegistrationResponseJSON,
+    PublicKeyCredentialRequestOptionsJSON,
+    AuthenticationResponseJSON
+    // WebAuthnCredentialsInput,
+} from '@simplewebauthn/typescript-types';
+
+import { isoBase64URL, isoUint8Array } from '@simplewebauthn/server/helpers';
+
+const rpName = 'DMP';
+const origin = process.env['NX_WEBAUTHN_ORIGIN'] ?? 'http://localhost:4200';
+const rpID = new URL(origin).hostname;
+
 
 export class UserCore {
     public async getOneUser_throwErrorIfNotExists(username: string): Promise<IUser> {
@@ -124,6 +146,239 @@ export class UserCore {
             throw new GraphQLError('Database error', { extensions: { code: errorCodes.DATABASE_ERROR } });
         }
     }
+    private generate_challenge(): Uint8Array {
+
+        const randomStringFromServer = generateSecret(20);
+        const challenge: Uint8Array = new TextEncoder().encode(randomStringFromServer);
+        return challenge;
+    }
+
+    public async getWebauthnDevices(user: IUser) {
+
+        const webauthnCursor = await db.collections!.webauthn_collection.findOne({userId: user.id}, { projection: { _id: 0 } });
+
+        return await webauthnCursor?.devices ?? [];
+    }
+
+    public async deleteWebauthnDevices(user: IUser, device_id: string) {
+        const webAuthnData = await db.collections!.webauthn_collection.findOne({ userId: user.id });
+        if (webAuthnData){
+            const deviceIndex = webAuthnData.devices.findIndex(device => device.id === device_id);
+            if (deviceIndex === -1) {
+                throw new Error('Device not found for deletion');
+            }
+            webAuthnData.devices.splice(deviceIndex, 1);
+            await db.collections!.webauthn_collection.updateOne({ userId: user.id }, { $set: { devices: webAuthnData.devices } });
+        }
+
+        return webAuthnData?.devices ?? [];
+    }
+
+    public async getWebauthnRegistrationOptions(user: IUser) {
+
+        const challenge = this.generate_challenge();
+        const webauthnStore = await db.collections?.webauthn_collection.findOne({
+            userId: user.id
+        });
+
+        if (webauthnStore) {
+            await db.collections?.webauthn_collection.updateOne({
+                userId: user.id
+            }, {
+                $set: {
+                    challenge,
+                    challengeTimestamp: Date.now()
+                }
+            });
+        } else {
+            await db.collections?.webauthn_collection.insertOne({
+                id: uuid(),
+                userId: user.id,
+                username: user.username,
+                devices: [],
+                challenge,
+                challengeTimestamp: Date.now()
+            });
+        }
+
+        const devices = webauthnStore?.devices ?? [];
+        const options = await generateRegistrationOptions({
+            rpName: rpName,
+            rpID: rpID,
+            userID: user.id,
+            userName: user.username,
+            timeout: 60000,
+            attestationType: 'none',
+            excludeCredentials: devices.map((authenticator:AuthenticatorDevice) => ({
+                id: authenticator.credentialID.buffer as Uint8Array,
+                type: 'public-key',
+                transports: authenticator.transports
+            })),
+            challenge: challenge.buffer as Uint8Array,
+            authenticatorSelection: {
+                residentKey: 'discouraged'
+            },
+            supportedAlgorithmIDs: [-7, -257]
+
+        });
+        return options;
+    }
+
+    public async handleRegistrationVerify(user: IUser, attestationResponse: RegistrationResponseJSON) {
+
+        console.log('webauthn verify backend');
+        const webauthn = await db.collections?.webauthn_collection.findOne({
+            userId: user.id
+        });
+
+        if (!webauthn)
+            throw new GraphQLError('Webauthn not initialised', {
+                extensions: { code: errorCodes.DATABASE_ERROR }
+            });
+
+        const { devices, challenge} = webauthn;
+
+        const decodedString = isoBase64URL.fromBuffer(challenge.buffer as Uint8Array);
+
+        try{
+            const {verified, registrationInfo} = await verifyRegistrationResponse({
+                response: attestationResponse,
+                expectedChallenge: decodedString,
+                expectedOrigin: origin,
+                expectedRPID: rpID,
+                requireUserVerification: true
+            });
+
+            if (verified && registrationInfo) {
+                const { credentialPublicKey, credentialID, counter } = registrationInfo;
+
+                const newDevice: AuthenticatorDevice = {
+                    credentialPublicKey,
+                    credentialID,
+                    counter,
+                    transports: attestationResponse.response.transports,
+                    id: uuid()
+                };
+                devices.push(newDevice);
+
+                const updateResult = await db.collections!.webauthn_collection.updateOne(
+                    { id: webauthn.id },
+                    {
+                        $set: {
+                            devices: devices
+                        }
+                    }
+                );
+                if (!updateResult.acknowledged) {
+                    throw new GraphQLError('Failed to update devices list', {
+                        extensions: { code: errorCodes.DATABASE_ERROR }
+                    });
+                }
+                return { webauthnId: webauthn.id, verified: true };
+            }
+            return { webauthnId: undefined, verified: false };
+        } catch (_error) {
+            console.error(_error);
+            return { webauthnId: undefined, verified: false };
+        }
+    }
+
+    public async getWebauthnAuthenticationOptions(user:IUser): Promise<PublicKeyCredentialRequestOptionsJSON>{
+
+        console.log('backend  webauthn authenticationOptions', user.id);
+
+        const webauthn = await db.collections?.webauthn_collection.findOne({
+            userId: user.id
+        });
+
+        if (!webauthn)
+            throw new GraphQLError('Webauthn not initialised', {
+                extensions: { code: errorCodes.DATABASE_ERROR }
+            });
+
+        const {devices, challenge} = webauthn;
+
+
+        const options = await generateAuthenticationOptions({
+            challenge: challenge.buffer as Uint8Array,
+            timeout: 60000,
+            allowCredentials: devices.map((authenticator) => ({
+                id: authenticator.credentialID.buffer,
+                type: 'public-key',
+                transports: authenticator.transports
+            })),
+            userVerification: 'required',
+            rpID
+        });
+
+        return options;
+    }
+
+    public async handleAuthenticationVerify(user:IUser, assertionResponse: AuthenticationResponseJSON): Promise<boolean> {
+
+        console.log('backend  webauthn authentication Verify');
+        const webauthn = await db.collections?.webauthn_collection.findOne({
+            userId: user.id
+        });
+
+        if (!webauthn)
+            throw new GraphQLError('Webauthn not initialised', {
+                extensions: { code: errorCodes.DATABASE_ERROR }
+            });
+
+        const { devices, challenge} = webauthn;
+
+        const decodedString = isoBase64URL.fromBuffer(challenge.buffer as Uint8Array);
+        const bodyCredIDBuffer = isoBase64URL.toBuffer(assertionResponse.rawId);
+        const deviceIndex = devices.findIndex(d =>isoUint8Array.areEqual(d.credentialID.buffer as Uint8Array, bodyCredIDBuffer));
+
+
+        if (deviceIndex < 0) {
+            console.log('Authenticator is not registered with this site');
+            return false;
+        }
+        try {
+            const verification = await verifyAuthenticationResponse({
+                response: assertionResponse,
+                expectedChallenge: decodedString,
+                expectedOrigin: origin,
+                expectedRPID: rpID,
+                authenticator: {
+                    credentialPublicKey: devices[deviceIndex].credentialPublicKey.buffer as Uint8Array,
+                    credentialID: devices[deviceIndex].credentialID.buffer as Uint8Array,
+                    counter: devices[deviceIndex].counter
+                },
+                requireUserVerification: true
+            });
+
+            const { verified } = verification;
+
+            if (verified) {
+                const { authenticationInfo } = verification;
+                const { newCounter } = authenticationInfo;
+
+                devices[deviceIndex].counter = newCounter;
+
+                const updateResult = await db.collections!.webauthn_collection.updateOne(
+                    { id: webauthn.id },
+                    { $set: { devices } }
+                );
+
+                if (!updateResult.acknowledged) {
+                    throw new GraphQLError('Failed to update authenticators', {
+                        extensions: { code: errorCodes.DATABASE_ERROR }
+                    });
+                }
+            }
+            return true;
+        } catch (_error) {
+            console.error(_error);
+            return false;
+        }
+
+        return false;
+    }
+
 }
 
 export const userCore = Object.freeze(new UserCore());

@@ -396,6 +396,9 @@ enum LOG_ACTION {
     CREATE_QUERY
     GET_QUERY_BY_ID
     CREATE_QUERY_CURATION_JOB
+
+    #
+    
 }
 
 type Log {
@@ -511,12 +514,198 @@ input FieldInput {
     metadata: JSON
 }
 
+
 type SubjectDataRecordSummary {
     subjectId: String!
     visitId: String!
     fieldId: String!
     error: String!
 }
+
+## --->> webauthn type define start <<---
+
+scalar PublicKeyCredentialType
+
+#enum PublicKeyCredentialType {
+#    public-key
+#} 
+
+enum UserVerificationRequirement {
+    discouraged
+    preferred
+    required
+}
+
+type PublicKeyCredentialRpEntity {
+    id: String
+    name: String
+}
+
+type PublicKeyCredentialParameters {
+    alg: Int
+    type: String
+}
+
+# --> define type PublicKeyCredentialRequestOptions
+type PublicKeyCredentialCreationOptions {
+    rp: PublicKeyCredentialRpEntity
+    user: PublicKeyCredentialUserEntityJSON
+    challenge: String!
+    pubKeyCredParams: [PublicKeyCredentialParameters]
+    timeout: Int
+    excludeCredentials: [PublicKeyCredentialDescriptorJSON]
+    authenticatorSelection: AuthenticatorSelectionCriteria
+    attestation: AttestationConveyancePreference
+    extensions: AuthenticationExtensionsClientInputs
+}
+
+type PublicKeyCredentialRequestOptions {
+    challenge: String
+    timeout: Int
+    rpId: String
+    allowCredentials: [PublicKeyCredentialDescriptorJSON]
+    userVerification: UserVerificationRequirement
+    extensions: AuthenticationExtensionsClientInputs
+}
+  
+type PublicKeyCredentialDescriptorJSON {
+    id: String
+    type: PublicKeyCredentialType
+    transports: [AuthenticatorTransportFuture]
+}
+
+type PublicKeyCredentialUserEntityJSON {
+    id: String
+    name: String
+    displayName: String
+}
+  
+enum AuthenticatorTransportFuture {
+    ble
+    cable
+    hybrid
+    internal
+    nfc
+    smartCard
+    usb
+}
+  
+enum AttestationConveyancePreference {
+    direct
+    enterprise
+    indirect
+    none
+}
+  
+type AuthenticatorSelectionCriteria {
+    authenticatorAttachment: AuthenticatorAttachment
+    requireResidentKey: Boolean
+    residentKey: ResidentKeyRequirement
+    userVerification: UserVerificationRequirement
+}
+
+# --> define input RegistrationResponseJSON
+
+input RegistrationResponseJSON {
+  id: String
+  rawId: String
+  response: AuthenticatorAttestationResponseJSON
+  authenticatorAttachment: AuthenticatorAttachment
+  clientExtensionResults: AuthenticationExtensionsClientOutputs
+  type: PublicKeyCredentialType
+}
+
+input AuthenticatorAttestationResponseJSON {
+  clientDataJSON: String
+  attestationObject: String
+  authenticatorData: String
+  transports: [AuthenticatorTransportFuture]
+  publicKeyAlgorithm: Int
+  publicKey: String
+}
+
+input AuthenticationExtensionsClientOutputs {
+  appid: Boolean
+  credProps: CredentialPropertiesOutput
+  hmacCreateSecret: Boolean
+}
+
+input CredentialPropertiesOutput {
+  rk: Boolean
+}
+
+# <-- end of input RegistrationResponseJSON
+
+# --> define the type PublicKeyCredentialRequestOptionsJSON
+
+type PublicKeyCredentialRequestOptionsJSON {
+    challenge: String!
+    timeout: Int
+    rpId: String
+    allowCredentials: [PublicKeyCredentialDescriptorJSON]
+    userVerification: UserVerificationRequirement
+    extensions: AuthenticationExtensionsClientInputs
+}
+
+# <-- end of type PublicKeyCredentialRequestOptionsJSON
+
+
+scalar AuthenticatorAttachment
+  # enum AuthenticatorAttachment {
+  #  cross-platform
+  #  platform
+  #}
+  
+enum ResidentKeyRequirement {
+    discouraged
+    preferred
+    required
+}
+  
+type AuthenticationExtensionsClientInputs {
+    appid: String
+    credProps: Boolean
+    hmacCreateSecret: Boolean
+}
+
+# --> define the input AuthenticationResponseJSON
+input AuthenticatorAssertionResponseJSON {
+    clientDataJSON: String
+    authenticatorData: String
+    signature: String
+    userHandle: String
+}
+
+input AuthenticationResponseJSON {
+    id: String
+    rawId: String
+    response: AuthenticatorAssertionResponseJSON
+    authenticatorAttachment: AuthenticatorAttachment
+    clientExtensionResults: AuthenticationExtensionsClientOutputs
+    type: PublicKeyCredentialType
+}
+
+type AuthenticatorDevice {
+    id: String!
+    name: String
+    credentialPublicKey: String
+    credentialID: String
+    counter: Int
+    transports: [String]
+
+}
+
+type IWebAuthn {
+    id: String
+    username: String
+    userId: String
+    devices: [AuthenticatorDevice]
+    challenge: String
+    challenge_timestamp: Int
+}
+
+## --->> webauthn type define end <<---
+
 
 type Query {
     # USER
@@ -533,7 +722,7 @@ type Query {
 
     # STUDY
     getStudy(studyId: String!): Study
-    getProject(projectId: String!): Project
+    getProject(projectId: String!): Project 
     getStudyFields(studyId: String!, projectId: String, versionId: String): [Field]
     getDataRecords(studyId: String!, queryString: JSON, versionId: String, projectId: String): JSON
     getOntologyTree(studyId: String!, projectId: String, treeName: String, versionId: String): [OntologyTree]
@@ -549,6 +738,11 @@ type Query {
 
     # LOG
     getLogs(requesterName: String, requesterType: USERTYPE, logType: LOG_TYPE, actionType: LOG_ACTION, status: LOG_STATUS): [Log]
+
+    # WEBAUTHN
+    getWebauthn(webauthn_ids: [String]): [IWebAuthn]
+    getWebauthnRegisteredDevices: [AuthenticatorDevice]
+
 }
 
 type Mutation {
@@ -618,6 +812,13 @@ type Mutation {
     createQueryCurationJob(queryId: [String], studyId: String, projectId: String): Job
     setDataversionAsCurrent(studyId: String!, dataVersionId: String!): Study
 
+    # WEBAUTHN
+    webauthnRegister: PublicKeyCredentialCreationOptions
+    webauthnRegisterVerify(attestationResponse: RegistrationResponseJSON!): GenericResponse
+    webauthnAuthenticate(userId: String!): PublicKeyCredentialRequestOptionsJSON
+    webauthnAuthenticateVerify(userId: String!, assertionResponse: AuthenticationResponseJSON!): GenericResponse
+    webauthnLogin(userId: String!): User
+    deleteWebauthnRegisteredDevices(deviceId: String!): [AuthenticatorDevice]
 }
 
 type Subscription {
