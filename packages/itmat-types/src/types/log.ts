@@ -1,3 +1,4 @@
+import { WEBAUTHN_REGISTER_VERIFY } from '@itmat-broker/itmat-models';
 import { userTypes } from './user';
 
 export interface ILogEntry {
@@ -92,7 +93,14 @@ export enum LOG_ACTION {
     getQueries = 'GET_QUERY',
     createQuery = 'CREATE_QUERY',
     getQueryById = 'GET_QUERY_BY_ID',
-    createQueryCurationJob = 'CREATE_QUERY_CURATION_JOB'
+    createQueryCurationJob = 'CREATE_QUERY_CURATION_JOB',
+
+    // WEBAUTHN
+    webAuthnRegister = 'WEBAUTHN_REGISTER',
+    webAuthnRegisterVerify = 'WEBAUTHN_REGISTER_VERIFY',
+    webauthnAuthenticate = 'WEBAUTHN_AUTHENTICATE',
+    webauthnAuthenticateVerify = 'WEBAUTHN_AUTHENTICATE_VERIFY',
+    webauthnLogin = 'WEBAUTHN_LOGIN'
 
 }
 

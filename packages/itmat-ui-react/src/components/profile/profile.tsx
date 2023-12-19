@@ -1,8 +1,8 @@
-import { ChangeEvent, FunctionComponent, useState } from 'react';
+import { ChangeEvent, FunctionComponent, useState} from 'react';
 import { Mutation } from '@apollo/client/react/components';
 import { useQuery, useMutation } from '@apollo/client/react/hooks';
-import { IUserWithoutToken, IPubkey, IOrganisation } from '@itmat-broker/itmat-types';
-import { WHO_AM_I, EDIT_USER, REQUEST_USERNAME_OR_RESET_PASSWORD, REGISTER_PUBKEY, GET_PUBKEYS, ISSUE_ACCESS_TOKEN, GET_ORGANISATIONS, REQUEST_EXPIRY_DATE } from '@itmat-broker/itmat-models';
+import { IUserWithoutToken, IPubkey, IOrganisation} from '@itmat-broker/itmat-types';
+import { WHO_AM_I, EDIT_USER, REQUEST_USERNAME_OR_RESET_PASSWORD, REGISTER_PUBKEY, GET_PUBKEYS, ISSUE_ACCESS_TOKEN, GET_ORGANISATIONS, REQUEST_EXPIRY_DATE} from '@itmat-broker/itmat-models';
 import { Subsection } from '../reusable';
 import LoadSpinner from '../reusable/loadSpinner';
 import { ProjectSection } from '../users/projectSection';
@@ -10,6 +10,7 @@ import { Form, Input, Select, DatePicker, Button, Alert, Checkbox } from 'antd';
 import dayjs from 'dayjs';
 import { WarningOutlined, PauseCircleOutlined } from '@ant-design/icons';
 import { Key } from '../../utils/dmpCrypto/dmp.key';
+import {WebauthnManagement} from '../../utils/dmpWebauthn/webauthn.manage';
 
 export const ProfileManagementSection: FunctionComponent = () => {
     const { loading: whoamiloading, error: whoamierror, data: whoamidata } = useQuery(WHO_AM_I);
@@ -104,6 +105,12 @@ export const ProfileManagementSection: FunctionComponent = () => {
                     <br />
                     <br />
                 </Subsection>
+
+                {<Subsection title='Access Webauthn management'>
+                    <WebauthnManagement />
+                    <br />
+                    <br />
+                </Subsection>}
 
             </div>
         </>
