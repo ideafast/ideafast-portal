@@ -11,7 +11,10 @@ import { errorCodes } from '../errors';
 import * as pubkeycrypto from '../../utils/pubkeycrypto';
 export const pubkeyResolvers = {
     Query: {
-        getPubkeys: async (__unused__parent: Record<string, unknown>, args: any): Promise<IPubkey[]> => {
+        getPubkeys: async (__unused__parent: Record<string, unknown>, args): Promise<IPubkey[]> => {
+            if (!db.collections) {
+                throw new GraphQLError(errorCodes.DATABASE_ERROR);
+            }
             // a user is allowed to obtain his/her registered public key.
             let queryObj;
             if (args.pubkeyId === undefined) {
@@ -23,7 +26,7 @@ export const pubkeyResolvers = {
             } else {
                 queryObj = { deleted: null, id: args.pubkeyId };
             }
-            const cursor = db.collections!.pubkeys_collection.find<IPubkey>(queryObj, { projection: { _id: 0 } });
+            const cursor = db.collections.pubkeys_collection.find<IPubkey>(queryObj, { projection: { _id: 0 } });
             return cursor.toArray();
         }
     },
@@ -59,6 +62,9 @@ export const pubkeyResolvers = {
         },
 
         issueAccessToken: async (__unused__parent: Record<string, unknown>, { pubkey, signature }: { pubkey: string, signature: string }): Promise<AccessToken> => {
+            if (!db.collections) {
+                throw new GraphQLError(errorCodes.DATABASE_ERROR);
+            }
             // refine the public-key parameter from browser
             pubkey = pubkey.replace(/\\n/g, '\n');
 
@@ -67,7 +73,7 @@ export const pubkeyResolvers = {
                 throw new GraphQLError('Signature vs Public key mismatched.', { extensions: { code: ApolloServerErrorCode.BAD_USER_INPUT } });
             }
 
-            const pubkeyrec = await db.collections!.pubkeys_collection.findOne({ pubkey, deleted: null });
+            const pubkeyrec = await db.collections.pubkeys_collection.findOne({ pubkey, deleted: null });
             if (pubkeyrec === null || pubkeyrec === undefined) {
                 throw new GraphQLError('This public-key has not been registered yet!', { extensions: { code: ApolloServerErrorCode.BAD_USER_INPUT } });
             }
@@ -84,7 +90,7 @@ export const pubkeyResolvers = {
             const fieldsToUpdate = {
                 refreshCounter: (pubkeyrec.refreshCounter + 1)
             };
-            const updateResult = await db.collections!.pubkeys_collection.findOneAndUpdate({ pubkey, deleted: null }, { $set: fieldsToUpdate }, { returnDocument: 'after' });
+            const updateResult = await db.collections.pubkeys_collection.findOneAndUpdate({ pubkey, deleted: null }, { $set: fieldsToUpdate }, { returnDocument: 'after' });
             if (updateResult === null) {
                 throw new GraphQLError('Server error; cannot fulfil the JWT request.');
             }
@@ -97,9 +103,12 @@ export const pubkeyResolvers = {
         },
 
         registerPubkey: async (__unused__parent: Record<string, unknown>, { pubkey, signature, associatedUserId }: { pubkey: string, signature: string, associatedUserId: string }, context: any): Promise<IPubkey> => {
+            if (!db.collections) {
+                throw new GraphQLError(errorCodes.DATABASE_ERROR);
+            }
             // refine the public-key parameter from browser
             pubkey = pubkey.replace(/\\n/g, '\n');
-            const alreadyExist = await db.collections!.pubkeys_collection.findOne({ pubkey, deleted: null });
+            const alreadyExist = await db.collections.pubkeys_collection.findOne({ pubkey, deleted: null });
             if (alreadyExist !== null && alreadyExist !== undefined) {
                 throw new GraphQLError('This public-key has already been registered.', { extensions: { code: ApolloServerErrorCode.BAD_USER_INPUT } });
             }
@@ -125,7 +134,7 @@ export const pubkeyResolvers = {
 
             /* Update the new public key if the user is already associated with another public key*/
             if (associatedUserId) {
-                const alreadyRegistered = await db.collections!.pubkeys_collection.findOne({ associatedUserId, deleted: null });
+                const alreadyRegistered = await db.collections.pubkeys_collection.findOne({ associatedUserId, deleted: null });
                 if (alreadyRegistered !== null && alreadyRegistered !== undefined) {
                     //updating the new public key.
                     const fieldsToUpdate = {
@@ -133,7 +142,7 @@ export const pubkeyResolvers = {
                         jwtPubkey: keypair.publicKey,
                         jwtSeckey: keypair.privateKey
                     };
-                    const updateResult = await db.collections!.pubkeys_collection.findOneAndUpdate({ associatedUserId, deleted: null }, { $set: fieldsToUpdate }, { returnDocument: 'after' });
+                    const updateResult = await db.collections.pubkeys_collection.findOneAndUpdate({ associatedUserId, deleted: null }, { $set: fieldsToUpdate }, { returnDocument: 'after' });
                     if (updateResult) {
                         await mailer.sendMail({
                             from: `${config.appName} <${config.nodemailer.auth.user}>`,

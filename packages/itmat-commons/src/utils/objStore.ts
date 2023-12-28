@@ -17,7 +17,7 @@ export class ObjectStore {
 
     public async isConnected(): Promise<boolean> {
         try {
-            await this.client!.listBuckets();
+            await this.client.listBuckets();
             return true;
         } catch (e) {
             return false;
@@ -45,16 +45,16 @@ export class ObjectStore {
 
     public async uploadFile(fileStream: Readable, studyId: string, uri: string): Promise<string> {
         const lowercasestudyid = studyId.toLowerCase();
-        const bucketExists = await this.client!.bucketExists(lowercasestudyid);
+        const bucketExists = await this.client.bucketExists(lowercasestudyid);
 
         if (!bucketExists) {
-            await this.client!.makeBucket(lowercasestudyid, this.config?.bucketRegion ?? '');
+            await this.client.makeBucket(lowercasestudyid, this.config?.bucketRegion ?? '');
         }
 
         /* check if object already exists because if it does, minio supplant the old file without warning*/
         let fileExists;
         try {
-            await this.client!.statObject(lowercasestudyid, uri);
+            await this.client.statObject(lowercasestudyid, uri);
             fileExists = true;
         } catch (e) {
             fileExists = false;
@@ -64,14 +64,14 @@ export class ObjectStore {
             throw new Error(`File "${uri}" of study "${studyId}" already exists.`);
         }
 
-        const result = await this.client!.putObject(lowercasestudyid, uri, fileStream);
+        const result = await this.client.putObject(lowercasestudyid, uri, fileStream);
         return result.etag;
     }
 
     public async downloadFile(studyId: string, uri: string): Promise<Readable> {
         // PRECONDITION: studyId and file exists (checked by interface resolver)
         const lowercasestudyid = studyId.toLowerCase();
-        const stream = this.client!.getObject(lowercasestudyid, uri);
+        const stream = this.client.getObject(lowercasestudyid, uri);
         return stream as Promise<Readable>;
     }
 }

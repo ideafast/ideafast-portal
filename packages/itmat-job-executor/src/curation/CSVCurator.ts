@@ -46,7 +46,7 @@ export class CSVCurator {
             const csvparseStream = csvparse.parse(this.parseOptions);
             const parseStream = this.incomingWebStream.pipe(csvparseStream); // piping the incoming stream to a parser stream
 
-            csvparseStream.on('skip', (error: any) => {
+            csvparseStream.on('skip', (error) => {
                 lineNum++;
                 this._errored = true;
                 this._errors.push(error.toString());
@@ -187,11 +187,11 @@ export function processDataRow({ subjectIdIndex, visitIdIndex, lineNum, row, par
     /* pure function */
     const error: string[] = [];
     let colIndex = 0;
-    const dataEntry: any = {
+    const dataEntry = {
         m_studyId: job.studyId,
         m_versionId: null,
         deleted: null
-    };
+    } as any;
     if (row.length !== (parsedHeader.filter(el => el !== undefined).length + 1)) {
         error.push(`Line ${lineNum}: Uneven field Number; expected ${parsedHeader.length + 1} fields but got ${row.length}`);
         return ({ error, dataEntry });
@@ -231,7 +231,7 @@ export function processDataRow({ subjectIdIndex, visitIdIndex, lineNum, row, par
             continue;
         }
         /* adding value to dataEntry */
-        let value: any;
+        let value;
         try {
             if (each.toString() === '99999') {
                 value = '99999';

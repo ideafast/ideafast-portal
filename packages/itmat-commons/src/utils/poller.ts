@@ -7,18 +7,18 @@ export interface IJobPollerConfig {
     jobType?: string; // if undefined, matches all jobs
     jobCollection: mongodb.Collection<IJobEntry<any>>; // collection to poll
     pollingInterval: number; // in ms
-    action: (document: any) => void; // gets called every time there is new document
+    action: (document) => void; // gets called every time there is new document
 }
 
 export class JobPoller {
     private intervalObj?: NodeJS.Timeout;
-    private readonly matchObj: any;
+    private readonly matchObj;
 
     private readonly identity: string;
     private readonly jobType?: string;
     private readonly jobCollection: mongodb.Collection<IJobEntry<any>>;
     private readonly pollingInterval: number;
-    private readonly action: (document: any) => void;
+    private readonly action: (document) => void;
 
     constructor(config: IJobPollerConfig) {
         this.identity = config.identity;

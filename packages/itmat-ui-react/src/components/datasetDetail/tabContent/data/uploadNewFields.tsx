@@ -26,13 +26,13 @@ export const UploadNewFields: FunctionComponent<{ studyId: string }> = ({ studyI
             uploadFileTabSelected ?
                 <>
                     <br />
-                    <input title='file' type='file' ref={fileRef as any} />
+                    <input title='file' type='file' ref={fileRef} />
                     <Mutation<any, any> mutation={CREATE_FIELD_CURATION_JOB}>
                         {(createCurationJob, { loading }) => {
                             if (loading) { return <button>Loading...</button>; }
                             return (
                                 <button onClick={() => {
-                                    if ((fileRef.current as any).files.length === 1) {
+                                    if (fileRef.current.files.length === 1) {
                                         setError('');
                                         createCurationJob({
                                             variables: {
@@ -51,7 +51,7 @@ export const UploadNewFields: FunctionComponent<{ studyId: string }> = ({ studyI
                 :
                 <UploadFieldBySelectingFileFormFetch {...{ studyId, cancel: setExpanded }} />
         }
-    </div>;
+    </div >;
 };
 
 

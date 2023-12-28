@@ -9,6 +9,7 @@ import * as Organisation from './organisation';
 import * as Pubkey from './pubkey';
 import * as Data from './data';
 import * as Standardization from './standardization';
+import * as Email from './email';
 
 export * from './field';
 export * from './file';
@@ -21,4 +22,5 @@ export * from './organisation';
 export * from './pubkey';
 export * from './data';
 export * from './standardization';
-export const Types = { File, Job, Log, User, Organisation, Pubkey, Study, Query, Field, Data, Standardization };
+export * from './email';
+export const Types = { File, Job, Log, User, Organisation, Pubkey, Study, Query, Field, Data, Standardization, Email };

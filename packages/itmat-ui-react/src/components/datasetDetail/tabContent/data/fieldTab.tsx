@@ -63,7 +63,7 @@ export const FieldManagementTabContentFetch: FunctionComponent<{ studyId: string
         </p>;
     }
     const availableFormats: string[] = Array.from(new Set(getStandardizationData.getStandardization.map(el => el.type)));
-    const fieldPathOptions: any = [];
+    const fieldPathOptions = [];
     getOntologyTreeData.getOntologyTree.filter(el => el.name === format)[0]?.routes.forEach(el => {
         generateCascader(el, fieldPathOptions, true);
     });
@@ -87,7 +87,7 @@ export const FieldManagementTabContentFetch: FunctionComponent<{ studyId: string
             options={fieldPathOptions}
             placeholder={'Select Field'}
             onChange={(value) => {
-                const searchedRoute: any = getOntologyTreeData.getOntologyTree
+                const searchedRoute = getOntologyTreeData.getOntologyTree
                     .filter(el => el.name === format)[0].routes?.filter(el => JSON.stringify(el.path.concat(el.name)) === JSON.stringify(value))[0];
                 if (searchedRoute === undefined) {
                     return;

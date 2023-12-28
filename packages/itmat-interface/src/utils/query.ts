@@ -1,4 +1,5 @@
-import { IStudy, IFieldEntry, IStandardization } from '@itmat-broker/itmat-types';
+import { IStudy, IFieldEntry, IStandardization, ICohortSelection, INewFieldSelection, IEquationDescription } from '@itmat-broker/itmat-types';
+import { QueryObjInput } from '../graphql/core/queryCore';
 /*
     queryString:
         format: string                  # returned foramt: raw, standardized, grouped, summary
@@ -10,33 +11,33 @@ import { IStudy, IFieldEntry, IStandardization } from '@itmat-broker/itmat-types
 // if has study-level permission, non versioned data will also be returned
 
 
-export function buildPipeline(query: any, studyId: string, permittedVersions: Array<string | null>, permittedFields: IFieldEntry[], metadataFilter: any, isAdmin: boolean, includeUnversioned: boolean) {
+export function buildPipeline(query: QueryObjInput['queryString'] & any, studyId: string, permittedVersions: Array<string | null>, permittedFields: IFieldEntry[], metadataFilter: any, isAdmin: boolean, includeUnversioned: boolean) {
     let fieldIds: string[] = permittedFields.map(el => el.fieldId);
-    const fields = { _id: 0, m_subjectId: 1, m_visitId: 1 };
+    const fields: any = { _id: 0, m_subjectId: 1, m_visitId: 1 };
     // We send back the requested fields, by default send all fields
     if (query['data_requested'] !== undefined && query['data_requested'] !== null) {
         fieldIds = permittedFields.filter(el => query['data_requested'].includes(el.fieldId)).map(el => el.fieldId);
         query.data_requested.forEach((field: string) => {
             if (fieldIds.includes(field)) {
-                (fields as any)[field] = 1;
+                fields[field] = 1;
             }
         });
     } else if (query['table_requested'] !== undefined && query['table_requested'] !== undefined) {
         fieldIds = permittedFields.filter(el => el.tableName === query['table_requested']).map(el => el.fieldId);
         fieldIds.forEach((field: string) => {
-            (fields as any)[field] = 1;
+            fields[field] = 1;
         });
     } else {
         fieldIds.forEach((field: string) => {
-            (fields as any)[field] = 1;
+            fields[field] = 1;
         });
     }
-    let match = {};
+    let match: Record<string, unknown> = {};
     // We send back the filtered fields values
     if (query['cohort'] !== undefined && query['cohort'] !== null) {
         if (query.cohort.length > 1) {
-            const subqueries: any = [];
-            query.cohort.forEach((subcohort: any) => {
+            const subqueries: Record<string, unknown>[] = [];
+            query.cohort.forEach((subcohort: ICohortSelection[]) => {
                 subqueries.push(translateCohort(subcohort));
             });
             match = { $or: subqueries };
@@ -45,7 +46,7 @@ export function buildPipeline(query: any, studyId: string, permittedVersions: Ar
         }
     }
 
-    const groupFilter: any = [{
+    const groupFilter = [{
         $match: { m_fieldId: { $in: fieldIds } }
     }, {
         $sort: { uploadedAt: -1 }
@@ -92,7 +93,7 @@ export function buildPipeline(query: any, studyId: string, permittedVersions: Ar
     }
 }
 
-// function createNewField(expression: any) {
+// function createNewField(expression: Record<string, any>) {
 //     let newField = {};
 //     // if any parameters === '99999', then ignore this calculation
 //     switch (expression.op) {
@@ -191,63 +192,63 @@ export function buildPipeline(query: any, studyId: string, permittedVersions: Ar
 // }
 
 
-// function isEmptyObject(obj: any) {
+// function isEmptyObject(obj: Record<string, unknown>) {
 //     return !Object.keys(obj).length;
 // }
 
 
-function translateCohort(cohort: any) {
-    const match = {};
-    cohort.forEach(function (select: any) {
+function translateCohort(cohort: ICohortSelection[]) {
+    const match: Record<string, unknown> = {};
+    cohort.forEach(function (select: ICohortSelection) {
 
         switch (select.op) {
             case '=':
                 // select.value must be an array
-                (match as any)[select.field] = { $in: [select.value] };
+                match[select.field] = { $in: [select.value] };
                 break;
             case '!=':
                 // select.value must be an array
-                (match as any)[select.field] = { $ne: [select.value] };
+                match[select.field] = { $ne: [select.value] };
                 break;
             case '<':
                 // select.value must be a float
-                (match as any)[select.field] = { $lt: parseFloat(select.value) };
+                match[select.field] = { $lt: parseFloat(select.value) };
                 break;
             case '>':
                 // select.value must be a float
-                (match as any)[select.field] = { $gt: parseFloat(select.value) };
+                match[select.field] = { $gt: parseFloat(select.value) };
                 break;
             case 'derived': {
                 // equation must only have + - * /
                 const derivedOperation = select.value.split(' ');
                 if (derivedOperation[0] === '=') {
-                    (match as any)[select.field] = { $eq: parseFloat(select.value) };
+                    match[select.field] = { $eq: parseFloat(select.value) };
                 }
                 if (derivedOperation[0] === '>') {
-                    (match as any)[select.field] = { $gt: parseFloat(select.value) };
+                    match[select.field] = { $gt: parseFloat(select.value) };
                 }
                 if (derivedOperation[0] === '<') {
-                    (match as any)[select.field] = { $lt: parseFloat(select.value) };
+                    match[select.field] = { $lt: parseFloat(select.value) };
                 }
                 break;
             }
             case 'exists':
                 // We check if the field exists. This is to be used for checking if a patient
                 // has an image
-                (match as any)[select.field] = { $exists: true };
+                match[select.field] = { $exists: true };
                 break;
             case 'count': {
                 // counts can only be positive. NB: > and < are inclusive e.g. < is <=
                 const countOperation = select.value.split(' ');
                 const countfield = select.field + '.count';
                 if (countOperation[0] === '=') {
-                    (match as any)[countfield] = { $eq: parseInt(countOperation[1], 10) };
+                    match[countfield] = { $eq: parseInt(countOperation[1], 10) };
                 }
                 if (countOperation[0] === '>') {
-                    (match as any)[countfield] = { $gt: parseInt(countOperation[1], 10) };
+                    match[countfield] = { $gt: parseInt(countOperation[1], 10) };
                 }
                 if (countOperation[0] === '<') {
-                    (match as any)[countfield] = { $lt: parseInt(countOperation[1], 10) };
+                    match[countfield] = { $lt: parseInt(countOperation[1], 10) };
                 }
                 break;
             }
@@ -260,29 +261,29 @@ function translateCohort(cohort: any) {
 }
 
 export function translateMetadata(metadata: any) {
-    const match = {};
+    const match: any = {};
     metadata.forEach(function (select: any) {
         switch (select.op) {
             case '=':
                 // select.parameter must be an array
-                (match as any)['metadata.'.concat(select.key)] = { $in: [select.parameter] };
+                match['metadata.'.concat(select.key)] = { $in: [select.parameter] };
                 break;
             case '!=':
                 // select.parameter must be an array
-                (match as any)['metadata.'.concat(select.key)] = { $ne: [select.parameter] };
+                match['metadata.'.concat(select.key)] = { $ne: [select.parameter] };
                 break;
             case '<':
                 // select.parameter must be a float
-                (match as any)['metadata.'.concat(select.key)] = { $lt: parseFloat(select.parameter) };
+                match['metadata.'.concat(select.key)] = { $lt: parseFloat(select.parameter) };
                 break;
             case '>':
                 // select.parameter must be a float
-                (match as any)['metadata.'.concat(select.key)] = { $gt: parseFloat(select.parameter) };
+                match['metadata.'.concat(select.key)] = { $gt: parseFloat(select.parameter) };
                 break;
             case 'exists':
                 // We check if the field exists. This is to be used for checking if a patient
                 // has an image
-                (match as any)['metadata.'.concat(select.key)] = { $exists: true };
+                match['metadata.'.concat(select.key)] = { $exists: true };
                 break;
             default:
                 break;
@@ -292,7 +293,7 @@ export function translateMetadata(metadata: any) {
     return match;
 }
 
-export function dataStandardization(study: IStudy, fields: IFieldEntry[], data: any, queryString: any, standardizations: IStandardization[] | null) {
+export function dataStandardization(study: IStudy, fields: IFieldEntry[], data: Record<string, Record<string, Record<string, number | string | boolean | JSON>>>, queryString: QueryObjInput['queryString'], standardizations: IStandardization[] | undefined) {
     if (!queryString['format'] || queryString['format'] === 'raw') {
         return data;
     } else if (queryString['format'] === 'grouped' || queryString['format'] === 'summary') {
@@ -304,9 +305,9 @@ export function dataStandardization(study: IStudy, fields: IFieldEntry[], data: 
 }
 
 // fields are obtained from called functions, providing the valid fields
-export function standardize(study: IStudy, fields: IFieldEntry[], data: any, standardizations: IStandardization[], newFields: any) {
-    const records: any = {};
-    const mergedFields: any[] = [...fields];
+export function standardize(study: IStudy, fields: IFieldEntry[], data: Record<string, Record<string, Record<string, number | string | boolean | JSON>>>, standardizations: IStandardization[], newFields: INewFieldSelection[]) {
+    const records: Record<string, unknown> = {};
+    const mergedFields: Array<IFieldEntry | { fieldId: any }> = [...fields];
     [...newFields].forEach(el => {
         const emptyArr: string[] = [];
         preOrderTraversal(el, emptyArr);
@@ -349,7 +350,7 @@ export function standardize(study: IStudy, fields: IFieldEntry[], data: any, sta
                 if (!standardization.stdRules) {
                     continue;
                 }
-                for (const rule of (standardization.stdRules as any)) {
+                for (const rule of standardization.stdRules as any) {
                     if (!rule.parameter) {
                         continue;
                     }
@@ -368,7 +369,7 @@ export function standardize(study: IStudy, fields: IFieldEntry[], data: any, sta
                             break;
                         }
                         case 'fieldDef': {
-                            dataClip[rule.entry] = fieldDef[rule.parameter[0] as keyof IFieldEntry] as any || '';
+                            dataClip[rule.entry] = fieldDef[rule.parameter[0] as keyof IFieldEntry] || '';
                             break;
                         }
                         case 'value': {
@@ -420,7 +421,7 @@ export function standardize(study: IStudy, fields: IFieldEntry[], data: any, sta
                                     if (options.source === 'value') {
                                         dataClip[rule.entry] = options.parameter;
                                     } else if (options.source === 'data') {
-                                        const tmpData = data[subjectId][visitId][options.parameter];
+                                        const tmpData: any = data[subjectId][visitId][options.parameter];
                                         // the replaced value can be converted again
                                         if (options.filters && Object.keys(options.filters).includes(tmpData)) {
                                             dataClip[rule.entry] = options.filters[tmpData];
@@ -531,8 +532,8 @@ function incHelper(map: Map<string, number>, levels: string[], subjectId: string
 }
 
 // recursively create object structures, return the last pointer
-function insertInObj(obj: any, levels: string[], lastValue: any, join: boolean, subjectId: string, visitId: string) {
-    let pointer: any = obj;
+function insertInObj(obj: Record<string, any>, levels: string[], lastValue: any, join: boolean, subjectId: string, visitId: string) {
+    let pointer = obj;
     for (let i = 0; i < levels.length; i++) {
         let modifiedLevel = levels[i];
         if (levels[i] === 'm_subjectId') {
@@ -564,7 +565,7 @@ function insertInObj(obj: any, levels: string[], lastValue: any, join: boolean, 
 }
 
 // array[0] should be the name of the new field; array[-1] should be 'derived'
-function preOrderTraversal(node: any, array: string[]) {
+function preOrderTraversal(node: string | INewFieldSelection | IEquationDescription | any, array: string[]) {
     if (!node) {
         return false;
     }

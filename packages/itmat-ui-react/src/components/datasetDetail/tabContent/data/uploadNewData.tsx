@@ -47,7 +47,7 @@ const UploadNewDataForm: FunctionComponent<{ studyId: string; files: IFile[]; ca
             mode='multiple'
             onChange={(value) => {
                 const newArr: string[] = [];
-                for (let i = 0; i < (value as any).length; i++) {
+                for (let i = 0; i < value.length; i++) {
                     newArr.push(value[i].toString());
                 }
                 setSelectedFile(newArr);
@@ -67,7 +67,7 @@ const UploadNewDataForm: FunctionComponent<{ studyId: string; files: IFile[]; ca
             onCompleted={() => setSuccessfullySaved(true)}
         // update={(store, { data: { createDataCurationJob } }) => {
         //     // Read the data from our cache for this query.
-        //     const data: any = store.readQuery({ query: GET_STUDY, variables: { studyId } });
+        //     const data = store.readQuery({ query: GET_STUDY, variables: { studyId } });
         //     // Add our comment from the mutation to the end.
         //     const newjobs = data.getStudy.jobs.concat(createDataCurationJob);
         //     data.getStudy.jobs = newjobs;

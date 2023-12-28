@@ -69,13 +69,13 @@ export const DataManagementTabContentFetch: FunctionComponent = () => {
         }
     ];
 
-    const versions: any = [];
+    const versions = [];
     for (const item of getStudyData.getStudy.dataVersions) {
         versions[item['version']] = item['id'];
     }
 
     //construct the cascader
-    const fieldPathOptions: any = [];
+    const fieldPathOptions = [];
     getOntologyTreeData.getOntologyTree.filter(el => el.id === treeId)[0]?.routes.forEach(el => {
         generateCascader(el, fieldPathOptions, false);
     });
@@ -175,7 +175,7 @@ export const DataManagementTabContentFetch: FunctionComponent = () => {
                                 if (error) { return <p>{JSON.stringify(error)}</p>; }
                                 if (!data) { return <p>Not executed.</p>; }
                                 const parsedData = getDataRecordsData.getDataRecords.data;
-                                const groupedData: any = {};
+                                const groupedData = {};
                                 for (const key in parsedData) {
                                     if (!(key in groupedData)) {
                                         groupedData[key] = [];

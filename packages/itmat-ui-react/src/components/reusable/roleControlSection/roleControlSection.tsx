@@ -455,7 +455,7 @@ type UsersControlPanelProps = {
     projectId?: string;
     availableUserList: IUser[];
     originallySelectedUsers: IUser[];
-    permissions: any;
+    permissions;
 }
 
 const UsersControlPanel: FunctionComponent<UsersControlPanelProps> = ({
@@ -494,7 +494,7 @@ const UsersControlPanel: FunctionComponent<UsersControlPanelProps> = ({
         });
     };
 
-    const handleFilter = (value: string, option: any) => {
+    const handleFilter = (value: string, option) => {
         const searchTerm = value?.trim()?.toLocaleLowerCase();
         const user = availableUserList.filter(user => user.id === option.value)?.[0];
         if (!user || !searchTerm || searchTerm === '')

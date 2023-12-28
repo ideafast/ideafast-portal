@@ -27,18 +27,18 @@ const modules = [
 ];
 
 // const loggingDecorator = (reducerFunction: Function) => {
-//     return async (parent: any, args: any, context: any, info: any) => {
+//     return async (parent, args, context, info) => {
 //         return await reducerFunction(parent, args, context, info);
 //     };
 // };
 
-const bounceNotLoggedInDecorator = (reducerFunction: any) => {
-    return async (parent: any, args: any, context: any, info: any) => {
+const bounceNotLoggedInDecorator = (reducerFunction) => {
+    return async (parent, args, context, info) => {
         const uncheckedFunctionWhitelist = ['login', 'rsaSigner', 'keyPairGenwSignature', 'issueAccessToken', 'whoAmI', 'getOrganisations', 'requestUsernameOrResetPassword', 'resetPassword', 'createUser', 'writeLog', 'validateResetPassword'];
         const requester: IUser = context.req.user;
 
         if (!requester) {
-            if (!(uncheckedFunctionWhitelist as any).includes(reducerFunction.name)) {
+            if (!uncheckedFunctionWhitelist.includes(reducerFunction.name)) {
                 throw new GraphQLError(errorCodes.NOT_LOGGED_IN);
             }
         }
@@ -47,18 +47,18 @@ const bounceNotLoggedInDecorator = (reducerFunction: any) => {
 };
 
 
-const reduceInit: any = { JSON: GraphQLJSON };
+const reduceInit = { JSON: GraphQLJSON };
 export const resolvers = modules.reduce((a, e) => {
     const types = Object.keys(e);
     for (const each of types) {  // types can be Subscription | Query | Mutation | {{TYPE}}
         if (a[each] === undefined) {  // if a doesnt have types then create a empty obj
             a[each] = {};
         }
-        for (const funcName of Object.keys((e as any)[each])) {
+        for (const funcName of Object.keys(e[each])) {
             if (each === 'Subscription') {
-                (a as any)[each][funcName] = (e as any)[each][funcName];
+                a[each][funcName] = e[each][funcName];
             } else {
-                (a as any)[each][funcName] = bounceNotLoggedInDecorator((e as any)[each][funcName]);
+                a[each][funcName] = bounceNotLoggedInDecorator(e[each][funcName]);
             }
         }
     }

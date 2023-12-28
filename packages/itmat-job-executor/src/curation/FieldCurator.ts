@@ -41,7 +41,7 @@ export class FieldCurator {
             const csvparseStream = csvparse.parse(this.parseOptions);
             const parseStream = this.incomingWebStream.pipe(csvparseStream); // piping the incoming stream to a parser stream
 
-            csvparseStream.on('skip', (error: any) => {
+            csvparseStream.on('skip', (error) => {
                 lineNum++;
                 this._errored = true;
                 this._errors.push(error.toString());

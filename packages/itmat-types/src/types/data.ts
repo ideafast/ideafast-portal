@@ -5,8 +5,8 @@ export interface IDataEntry {
     m_visitId: string; // visit Id
     m_versionId: string | null; // data version Id
     m_fieldId: string;
-    metadata?: any;
-    value: any;
+    metadata?: JSON;
+    value;
     uploadedBy?: string;
     uploadedAt: number;
 }

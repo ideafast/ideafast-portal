@@ -9,6 +9,9 @@ import { ApolloServerErrorCode } from '@apollo/server/errors';
 import { GraphQLError } from 'graphql';
 
 export const fileDownloadController = async (req: Request, res: Response): Promise<void> => {
+    if (!db.collections) {
+        throw new GraphQLError(errorCodes.DATABASE_ERROR);
+    }
     const requester = req.user as IUser;
     const requestedFile = req.params.fileId;
     const token = req.headers.authorization || '';
@@ -17,9 +20,9 @@ export const fileDownloadController = async (req: Request, res: Response): Promi
         // get the decoded payload ignoring signature, no symmetric secret or asymmetric key needed
         const decodedPayload = jwt.decode(token);
         // obtain the public-key of the robot user in the JWT payload
-        const pubkey = (decodedPayload as any).publicKey;
+        const pubkey = decodedPayload.publicKey;
         // verify the JWT
-        jwt.verify(token, pubkey, function (error: any) {
+        jwt.verify(token, pubkey, function (error) {
             if (error) {
                 throw new GraphQLError('JWT verification failed.', { extensions: { code: ApolloServerErrorCode.BAD_USER_INPUT, error } });
             }
@@ -31,7 +34,7 @@ export const fileDownloadController = async (req: Request, res: Response): Promi
     }
     try {
         /* download file */
-        const file = await db.collections!.files_collection.findOne({ id: requestedFile, deleted: null })!;
+        const file = await db.collections.files_collection.findOne({ id: requestedFile, deleted: null })!;
         if (!file) {
             res.status(404).json({ error: 'File not found or you do not have the necessary permission.' });
             return;

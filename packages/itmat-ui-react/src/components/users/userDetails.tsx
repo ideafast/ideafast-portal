@@ -271,7 +271,7 @@ export const showTimeFunc = {
 
 /* More time control due to different behaviors in chrome and firefox, also correct errors of summer/winter time offset */
 export const changeTimeFunc = {
-    changeDate: function (inputs: any, value: any) {
+    changeDate: function (inputs, value) {
         /* When in summer time, there is non-zero timezoneoffset which should be considered */
         const offsetTime = new Date(inputs.expiredAt - new Date(inputs.expiredAt).getTimezoneOffset() * 60 * 1000);
         let newDate;
@@ -284,7 +284,7 @@ export const changeTimeFunc = {
         }
         return { ...inputs, expiredAt: newDate.valueOf() };
     },
-    changeTime: function (inputs: any, value: any) {
+    changeTime: function (inputs, value) {
         const recordedDate = new Date(inputs.expiredAt).toISOString().substring(0, 10);
         /* When in summer time, there is non-zero timezoneoffset which should be considered */
         return { ...inputs, expiredAt: new Date(recordedDate + 'T' + value).valueOf() - new Date(inputs.expiredAt).getTimezoneOffset() * 60 * 1000 };

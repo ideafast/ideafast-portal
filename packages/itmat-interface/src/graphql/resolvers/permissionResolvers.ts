@@ -12,6 +12,9 @@ export const permissionResolvers = {
             studies: unknown[];
             projects: unknown[];
         }> => {
+            if (!db.collections) {
+                throw new GraphQLError(errorCodes.DATABASE_ERROR);
+            }
             const requester: IUser = context.req.user;
             const matchClause: Record<string, unknown> = { users: requester.id };
             if (studyId)
@@ -25,20 +28,26 @@ export const permissionResolvers = {
             ];
 
             const grantedPermissions = {
-                studies: await db.collections!.roles_collection.aggregate(aggregationPipeline).toArray(),
-                projects: await db.collections!.roles_collection.aggregate(aggregationPipeline).toArray()
+                studies: await db.collections.roles_collection.aggregate(aggregationPipeline).toArray(),
+                projects: await db.collections.roles_collection.aggregate(aggregationPipeline).toArray()
             };
             return grantedPermissions;
         }
     },
     StudyOrProjectUserRole: {
         users: async (role: IRole): Promise<IUser[]> => {
+            if (!db.collections) {
+                throw new GraphQLError(errorCodes.DATABASE_ERROR);
+            }
             const listOfUsers = role.users;
-            return await (db.collections!.users_collection.find({ id: { $in: listOfUsers } }, { projection: { _id: 0, password: 0, email: 0 } }).toArray());
+            return await (db.collections.users_collection.find({ id: { $in: listOfUsers } }, { projection: { _id: 0, password: 0, email: 0 } }).toArray());
         }
     },
     Mutation: {
         addRole: async (__unused__parent: Record<string, unknown>, args: { studyId: string, projectId?: string, roleName: string }, context: any): Promise<IRole> => {
+            if (!db.collections) {
+                throw new GraphQLError(errorCodes.DATABASE_ERROR);
+            }
             const requester: IUser = context.req.user;
             const { studyId, projectId, roleName } = args;
 
@@ -72,11 +81,14 @@ export const permissionResolvers = {
             const result = await permissionCore.addRole({ createdBy: requester.id, studyId: studyId!, projectId, roleName });
             return result;
         },
-        editRole: async (__unused__parent: Record<string, unknown>, args: { roleId: string, name?: string, description?: string, userChanges?: { add: string[], remove: string[] }, permissionChanges?: any }, context: any): Promise<IRole> => {
+        editRole: async (__unused__parent: Record<string, unknown>, args: { roleId: string, name?: string, description?: string, userChanges?: { add: string[], remove: string[] }, permissionChanges?}, context: any): Promise<IRole> => {
+            if (!db.collections) {
+                throw new GraphQLError(errorCodes.DATABASE_ERROR);
+            }
             const requester: IUser = context.req.user;
             const { roleId, name, permissionChanges, userChanges } = args;
 
-            const role = await db.collections!.roles_collection.findOne({ id: roleId, deleted: null })!;
+            const role = await db.collections.roles_collection.findOne({ id: roleId, deleted: null })!;
             if (role === null) {
                 throw new GraphQLError(errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY);
             }
@@ -118,7 +130,7 @@ export const permissionResolvers = {
                 const testedUser: string[] = [];
                 for (const each of allRequestedUserChanges) {
                     if (!testedUser.includes(each)) {
-                        const user = await db.collections!.users_collection.findOne({ id: each, deleted: null });
+                        const user = await db.collections.users_collection.findOne({ id: each, deleted: null });
                         if (user === null) {
                             throw new GraphQLError(errorCodes.CLIENT_MALFORMED_INPUT);
                         } else {
@@ -133,10 +145,13 @@ export const permissionResolvers = {
             return modifiedRole;
         },
         removeRole: async (__unused__parent: Record<string, unknown>, args: { roleId: string }, context: any): Promise<IGenericResponse> => {
+            if (!db.collections) {
+                throw new GraphQLError(errorCodes.DATABASE_ERROR);
+            }
             const requester: IUser = context.req.user;
             const { roleId } = args;
 
-            const role = await db.collections!.roles_collection.findOne({ id: roleId, deleted: null })!;
+            const role = await db.collections.roles_collection.findOne({ id: roleId, deleted: null })!;
             if (role === null) {
                 throw new GraphQLError(errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY);
             }

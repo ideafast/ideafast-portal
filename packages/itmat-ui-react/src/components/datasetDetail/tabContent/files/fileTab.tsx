@@ -52,7 +52,7 @@ export const FileRepositoryTabContent: FunctionComponent<{ studyId: string }> = 
             const cachedata = store.readQuery({
                 query: GET_STUDY,
                 variables: { studyId }
-            }) as any;
+            });
             if (!cachedata)
                 return;
             const newcachedata = {
@@ -148,7 +148,7 @@ export const FileRepositoryTabContent: FunctionComponent<{ studyId: string }> = 
                 tup: file.tup?.trim().toUpperCase()
             };
             const uploadMapHackName = `UP_${description.participantId}_${description.deviceId}_${description.startDate}_${description.endDate}`;
-            if (!(window as any).onUploadProgressHackMap)
+            if (!((window as any).onUploadProgressHackMap))
                 (window as any).onUploadProgressHackMap = {};
             (window as any).onUploadProgressHackMap[uploadMapHackName] = (progressEvent) => {
                 setUploadMovement(Math.random);
@@ -341,12 +341,12 @@ export const FileRepositoryTabContent: FunctionComponent<{ studyId: string }> = 
         return [subjectLevelFiles, studyLevelFiles];
     }
 
-    const sortedFiles = dataSourceFilter(getStudyData.getStudy.files).sort((a, b) => parseInt((b as any).uploadTime) - parseInt((a as any).uploadTime));
+    const sortedFiles = dataSourceFilter(getStudyData.getStudy.files).sort((a: any, b: any) => parseInt(b.uploadTime) - parseInt(a.uploadTime));
     const numberOfFiles = sortedFiles[0].length;
-    const sizeOfFiles = sortedFiles[0].reduce((a, b) => a + (parseInt(b['fileSize'] as any) || 0), 0);
+    const sizeOfFiles = sortedFiles[0].reduce((a, b) => a + parseInt(b['fileSize'] || '0'), 0);
     const participantOfFiles = sortedFiles[0].reduce(function (values, v) {
         if (!values.set[JSON.parse(v['description'])['participantId']]) {
-            (values as any).set[JSON.parse(v['description'])['participantId']] = 1;
+            values.set[JSON.parse(v['description'])['participantId']] = 1;
             values.count++;
         }
         return values;
@@ -390,7 +390,7 @@ export const FileRepositoryTabContent: FunctionComponent<{ studyId: string }> = 
             tmpData.total = sortedFiles[0].filter(el => JSON.parse(el.description).participantId[0] === site).length;
             fileSummary.push(tmpData);
         }
-        const tmpData: any = {
+        const tmpData = {
             site: 'Total',
             total: sortedFiles[0].length
         };
