@@ -94,7 +94,7 @@ describe('LOG API', () => {
                 }
             });
             expect(res.status).toBe(200);
-            const findLogInMongo = await db.collections!.log_collection.find({}).toArray();
+            const findLogInMongo = await db.collections.log_collection.find({}).toArray();
             const lastLog = findLogInMongo.pop();
             expect(lastLog).toBeDefined();
             if (!lastLog)
@@ -135,7 +135,7 @@ describe('LOG API', () => {
                 status: LOG_STATUS.SUCCESS,
                 errors: ''
             }];
-            await db.collections!.log_collection.insertMany(logSample);
+            await db.collections.log_collection.insertMany(logSample);
         });
 
         afterAll(async () => {

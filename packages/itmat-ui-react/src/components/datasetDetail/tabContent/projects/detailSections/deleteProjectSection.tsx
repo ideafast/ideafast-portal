@@ -25,7 +25,7 @@ export const DeleteProjectSection: FunctionComponent<{ studyId: string; projectI
             mutation={DELETE_PROJECT}
             update={(store) => {
                 // Read the data from our cache for this query.
-                const data: any = store.readQuery({ query: GET_STUDY, variables: { studyId, admin: true } });
+                const data = store.readQuery({ query: GET_STUDY, variables: { studyId, admin: true } });
                 // Add our comment from the mutation to the end.
                 const newProjects = data.getStudy.projects.filter((el: IProject) => el.id !== projectId);
                 data.getStudy.projects = newProjects;
@@ -33,7 +33,7 @@ export const DeleteProjectSection: FunctionComponent<{ studyId: string; projectI
                 store.writeQuery({ query: GET_STUDY, variables: { studyId, admin: true }, data });
 
                 // Read the data from our cache for this query.
-                const whoAmI: any = store.readQuery({ query: WHO_AM_I });
+                const whoAmI = store.readQuery({ query: WHO_AM_I });
                 // Add our comment from the mutation to the end.
                 // const newWhoAmIProjects = whoAmI.whoAmI.access.projects.filter((el: IProject) => el.id !== projectId);
                 whoAmI.whoAmI.access.projects = newProjects;

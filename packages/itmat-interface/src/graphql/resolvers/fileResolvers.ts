@@ -221,7 +221,7 @@ export const fileResolvers = {
                                     'uploader:user': requester.id,
                                     'add': [fileEntry.id],
                                     'remove': []
-                                }
+                                } as any
                             });
                         }
                         const insertResult = await db.collections!.files_collection.insertOne(fileEntry as IFile);
@@ -282,7 +282,7 @@ export const fileResolvers = {
                     metadata: {
                         add: [],
                         remove: []
-                    }
+                    } as any
                 });
             }
             const objWithData: Partial<MatchKeysAndValues<IDataEntry>> = {
@@ -292,9 +292,9 @@ export const fileResolvers = {
                 uploadedAt: (new Date()).valueOf(),
                 metadata: {
                     'uploader:user': requester.id,
-                    'add': existing?.metadata?.add ?? [],
+                    'add': (existing?.metadata as any)?.add ?? [],
                     'remove': ((existing?.metadata as any)?.remove || []).concat(args.fileId)
-                }
+                } as any
             };
             const updateResult = await db.collections!.data_collection.updateOne(obj, { $set: objWithData }, { upsert: true });
 

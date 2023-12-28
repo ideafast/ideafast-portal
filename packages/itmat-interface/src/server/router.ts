@@ -91,7 +91,7 @@ export class Router {
             requestTimeout: 0,
             headersTimeout: 0,
             noDelay: true
-        } as any, this.app);
+        }, this.app);
 
         this.server.timeout = 0;
         this.server.headersTimeout = 0;
@@ -101,7 +101,7 @@ export class Router {
             socket.setKeepAlive(true);
             socket.setNoDelay(true);
             socket.setTimeout(0);
-            (socket as any).timeout = 0;
+            socket.timeout = 0;
         });
     }
 
@@ -141,7 +141,7 @@ export class Router {
                             async executionDidStart(requestContext) {
                                 const operation = requestContext.operationName;
                                 const actionData = requestContext.request.variables;
-                                (requestContext as any).request.variables = spaceFixing(operation as any, actionData);
+                                requestContext.request.variables = spaceFixing(operation, actionData);
                             },
                             async willSendResponse(requestContext) {
                                 logPlugin.requestDidStartLogPlugin(requestContext);
@@ -232,10 +232,10 @@ export class Router {
                         // get the decoded payload ignoring signature, no symmetric secret or asymmetric key needed
                         const decodedPayload = jwt.decode(token);
                         // obtain the public-key of the robot user in the JWT payload
-                        const pubkey = (decodedPayload as any).publicKey;
+                        const pubkey = decodedPayload.publicKey;
 
                         // verify the JWT
-                        jwt.verify(token, pubkey, function (error: any) {
+                        jwt.verify(token, pubkey, function (error) {
                             if (error) {
                                 throw new GraphQLError('JWT verification failed. ' + error, { extensions: { code: ApolloServerErrorCode.BAD_USER_INPUT, error } });
                             }

@@ -28,5 +28,5 @@ export interface IStandardizationRule {
     source: StandardizationRuleSource,
     parameter: string[],
     // further processings for a value: delete, convert, etc.
-    filters?: any
+    filters?
 }

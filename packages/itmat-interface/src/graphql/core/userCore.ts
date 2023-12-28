@@ -9,14 +9,17 @@ import { MarkOptional } from 'ts-essentials';
 
 export class UserCore {
     public async getOneUser_throwErrorIfNotExists(username: string): Promise<IUser> {
-        const user = await db.collections!.users_collection.findOne({ deleted: null, username });
+        if (!db.collections) {
+            throw new GraphQLError(errorCodes.DATABASE_ERROR);
+        }
+        const user = await db.collections.users_collection.findOne({ deleted: null, username });
         if (user === undefined || user === null) {
             throw new GraphQLError('User does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
         }
         return user;
     }
 
-    public async createUser(user: { password: string, otpSecret: string, username: string, organisation: string, type: userTypes, description: string, firstname: string, lastname: string, email: string, emailNotificationsActivated: boolean, metadata: any }): Promise<IUserWithoutToken> {
+    public async createUser(user: { password: string, otpSecret: string, username: string, organisation: string, type: userTypes, description: string, firstname: string, lastname: string, email: string, emailNotificationsActivated: boolean, metadata }): Promise<IUserWithoutToken> {
         const { password, otpSecret, organisation, username, type, description, firstname, lastname, email, emailNotificationsActivated, metadata } = user;
         const hashedPassword: string = await bcrypt.hash(password, config.bcrypt.saltround);
         const createdAt = Date.now();
@@ -41,7 +44,7 @@ export class UserCore {
             deleted: null
         };
 
-        const result = await db.collections!.users_collection.insertOne(entry);
+        const result = await db.collections.users_collection.insertOne(entry);
         if (result.acknowledged) {
             const cleared: MarkOptional<IUser, 'password' | 'otpSecret'> = { ...entry };
             delete cleared['password'];
@@ -53,14 +56,17 @@ export class UserCore {
     }
 
     public async deleteUser(userId: string): Promise<void> {
-        const session = db.client!.startSession();
+        if (!db.collections || !db.client) {
+            throw new GraphQLError(errorCodes.DATABASE_ERROR);
+        }
+        const session = db.client.startSession();
         session.startTransaction();
         try {
             /* delete the user */
-            await db.collections!.users_collection.findOneAndUpdate({ id: userId, deleted: null }, { $set: { deleted: new Date().valueOf(), password: 'DeletedUserDummyPassword' } }, { returnDocument: 'after', projection: { deleted: 1 } });
+            await db.collections.users_collection.findOneAndUpdate({ id: userId, deleted: null }, { $set: { deleted: new Date().valueOf(), password: 'DeletedUserDummyPassword' } }, { returnDocument: 'after', projection: { deleted: 1 } });
 
             /* delete all user records in roles related to the study */
-            await db.collections!.roles_collection.updateMany(
+            await db.collections.roles_collection.updateMany(
                 {
                     deleted: null,
                     users: userId
@@ -81,7 +87,10 @@ export class UserCore {
         }
     }
 
-    public async createOrganisation(org: { name: string, shortname: string | null, containOrg: string | null, metadata: any }): Promise<IOrganisation> {
+    public async createOrganisation(org: { name: string, shortname: string | null, containOrg: string | null, metadata }): Promise<IOrganisation> {
+        if (!db.collections) {
+            throw new GraphQLError(errorCodes.DATABASE_ERROR);
+        }
         const { name, shortname, containOrg, metadata } = org;
         const entry: IOrganisation = {
             id: uuid(),
@@ -93,7 +102,7 @@ export class UserCore {
                 siteIDMarker: metadata.siteIDMarker
             } : {}
         };
-        const result = await db.collections!.organisations_collection.findOneAndUpdate({ name: name, deleted: null }, {
+        const result = await db.collections.organisations_collection.findOneAndUpdate({ name: name, deleted: null }, {
             $set: entry
         }, {
             upsert: true
@@ -106,6 +115,9 @@ export class UserCore {
     }
 
     public async registerPubkey(pubkeyobj: { pubkey: string, associatedUserId: string | null, jwtPubkey: string, jwtSeckey: string }): Promise<IPubkey> {
+        if (!db.collections) {
+            throw new GraphQLError(errorCodes.DATABASE_ERROR);
+        }
         const { pubkey, associatedUserId, jwtPubkey, jwtSeckey } = pubkeyobj;
         const entry: IPubkey = {
             id: uuid(),
@@ -117,7 +129,7 @@ export class UserCore {
             deleted: null
         };
 
-        const result = await db.collections!.pubkeys_collection.insertOne(entry);
+        const result = await db.collections.pubkeys_collection.insertOne(entry);
         if (result.acknowledged) {
             return entry;
         } else {

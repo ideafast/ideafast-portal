@@ -56,11 +56,11 @@ beforeAll(async () => { // eslint-disable-line no-undef
 });
 
 describe('JOB API', () => {
-    let adminId: any;
-    let createdStudy: { id: any; name?: string; createdBy?: string; lastModified?: number; deleted?: null; currentDataVersion?: number; dataVersions?: never[]; };
-    let createdProject: { id: any; name?: string; createdBy?: string; lastModified?: number; studyId?: string; deleted?: null; patientMapping?: Record<string, any>; };
-    let createdQuery: { id: any; requester?: string; queryString?: { date_requested: string; }; studyId?: string; projectId?: string; status?: string; error?: null; cancelled?: boolean; data_requested?: never[]; cohort?: never[][]; new_fields?: never[]; queryResult?: never[]; };
-    let createdFile: { id: any; fileName?: string; studyId?: string; fileSize?: string; description?: string; uploadedBy?: any; uri?: string; deleted?: null; };
+    let adminId;
+    let createdStudy: { id; name?: string; createdBy?: string; lastModified?: number; deleted?: null; currentDataVersion?: number; dataVersions?: never[]; };
+    let createdProject: { id; name?: string; createdBy?: string; lastModified?: number; studyId?: string; deleted?: null; patientMapping?: Record<string, any>; };
+    let createdQuery: { id; requester?: string; queryString?: { date_requested: string; }; studyId?: string; projectId?: string; status?: string; error?: null; cancelled?: boolean; data_requested?: never[]; cohort?: never[][]; new_fields?: never[]; queryResult?: never[]; };
+    let createdFile: { id; fileName?: string; studyId?: string; fileSize?: string; description?: string; uploadedBy?; uri?: string; deleted?: null; };
 
     beforeAll(async () => {
         /* setup: first retrieve the generated user id */

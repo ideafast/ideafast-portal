@@ -24,7 +24,7 @@ export interface IDatabase<Conf, Coll> {
 export class Database<configType extends IDatabaseBaseConfig, C = { [name in keyof configType['collections']]: Collection }> implements IDatabase<configType, C> {
 
     get db(): Db {
-        return this.localClient!.db(this.config!.database);
+        return this.localClient.db(this.config.database);
     }
 
     get client(): MongoClient | undefined {
@@ -59,13 +59,13 @@ export class Database<configType extends IDatabaseBaseConfig, C = { [name in key
         try {
             if (this.localClient)
                 await this.localClient.close();
-        } catch (e: any) {
+        } catch (e) {
             Logger.error(new CustomError('Cannot close Mongo connection', e));
         }
     }
 
     private assignCollections(): void {
-        const collections: C = Object.entries(this.config!.collections).reduce((a: any, e: [string, string]) => {
+        const collections: C = Object.entries(this.config.collections).reduce((a, e: [string, string]) => {
             a[e[0]] = this.db.collection(e[1]);
             return a;
         }, {});
@@ -74,7 +74,7 @@ export class Database<configType extends IDatabaseBaseConfig, C = { [name in key
 
     private async checkAllCollectionsArePresent(): Promise<void> {
         const collectionList: string[] = (await this.db.listCollections({}).toArray()).map((el) => el.name);
-        for (const each of Object.values(this.config!.collections)) {
+        for (const each of Object.values(this.config.collections)) {
             if (!collectionList.includes(each)) {
                 throw new CustomError(`Collection ${each} does not exist.`);
             }

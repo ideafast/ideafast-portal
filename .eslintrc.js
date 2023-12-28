@@ -39,7 +39,7 @@ const typescriptRules = {
     'no-unused-vars': 'off',
     '@typescript-eslint/no-unused-vars': ['error', { args: 'after-used', varsIgnorePattern: '^__unused' }],
     '@typescript-eslint/no-this-alias': 'off',
-    '@typescript-eslint/no-explicit-any': 'warn'
+    '@typescript-eslint/no-explicit-any': 'error'
 };
 
 module.exports = {

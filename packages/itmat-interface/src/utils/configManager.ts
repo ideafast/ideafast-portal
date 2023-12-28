@@ -10,7 +10,7 @@ export interface IConfiguration extends IServerConfig {
     appName: string;
     database: IDatabaseBaseConfig;
     objectStore: IObjectStoreConfig;
-    nodemailer: any;
+    nodemailer;
     aesSecret: string;
     sessionsSecret: string;
     adminEmail: string;

@@ -29,7 +29,7 @@ function serverStart() {
                 socket.setKeepAlive(true);
                 socket.setNoDelay(true);
                 socket.setTimeout(0);
-                (socket as any).timeout = 0;
+                socket.timeout = 0;
                 interfaceSockets.push(socket);
             })
             .on('error', (error) => {
@@ -78,7 +78,7 @@ function serverSpinning() {
 
 serverSpinning();
 
-declare const module: any;
+declare const module;
 if (module.hot) {
     module.hot.accept('./index', serverSpinning);
     module.hot.accept('./interfaceRunner', serverSpinning);
@@ -90,10 +90,10 @@ async function emailNotification() {
     const now = Date.now().valueOf();
     const threshold = now + 7 * 24 * 60 * 60 * 1000;
     // update info if not set before
-    await db.collections!.users_collection.updateMany({ deleted: null, emailNotificationsStatus: null }, {
+    await db.collections.users_collection.updateMany({ deleted: null, emailNotificationsStatus: null }, {
         $set: { emailNotificationsStatus: { expiringNotification: false } }
     });
-    const users = await db.collections!.users_collection.find<IUser>({
+    const users = await db.collections.users_collection.find<IUser>({
         'expiredAt': {
             $lte: threshold,
             $gt: now
@@ -123,7 +123,7 @@ async function emailNotification() {
                 </p>
             `
         });
-        await db.collections!.users_collection.findOneAndUpdate({ id: user.id }, {
+        await db.collections.users_collection.findOneAndUpdate({ id: user.id }, {
             $set: { emailNotificationsStatus: { expiringNotification: true } }
         });
     }

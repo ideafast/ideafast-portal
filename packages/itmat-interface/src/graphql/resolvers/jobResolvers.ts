@@ -20,6 +20,9 @@ export const jobResolvers = {
     Query: {},
     Mutation: {
         createDataCurationJob: async (__unused__parent: Record<string, unknown>, args: { file: string[], studyId: string }, context: any): Promise<IJobEntryForDataCuration[]> => {
+            if (!db.collections) {
+                throw new GraphQLError(errorCodes.DATABASE_ERROR);
+            }
             const requester: IUser = context.req.user;
 
             /* check permission */
@@ -40,7 +43,7 @@ export const jobResolvers = {
             const jobList: IJobEntryForDataCuration[] = [];
             for (const oneFile of args.file) {
                 /* check if the file exists */
-                const file = await db.collections!.files_collection.findOne({ deleted: null, id: oneFile });
+                const file = await db.collections.files_collection.findOne({ deleted: null, id: oneFile });
                 if (!file) {
                     throw new GraphQLError(errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY);
                 }
@@ -67,7 +70,7 @@ export const jobResolvers = {
                     cancelled: false
                 };
 
-                const result = await db.collections!.jobs_collection.insertOne(job);
+                const result = await db.collections.jobs_collection.insertOne(job);
                 jobList.push(job);
                 if (!result.acknowledged) {
                     throw new GraphQLError(errorCodes.DATABASE_ERROR);
@@ -76,6 +79,9 @@ export const jobResolvers = {
             return jobList;
         },
         createFieldCurationJob: async (__unused__parent: Record<string, unknown>, args: { file: string, studyId: string, tag: string }, context: any): Promise<IJobEntryForFieldCuration> => {
+            if (!db.collections) {
+                throw new GraphQLError(errorCodes.DATABASE_ERROR);
+            }
             const requester: IUser = context.req.user;
 
             /* check permission */
@@ -88,7 +94,7 @@ export const jobResolvers = {
             if (!hasPermission) { throw new GraphQLError(errorCodes.NO_PERMISSION_ERROR); }
 
             /* check if the file exists */
-            const file = await db.collections!.files_collection.findOne({ deleted: null, id: args.file });
+            const file = await db.collections.files_collection.findOne({ deleted: null, id: args.file });
             if (!file) {
                 throw new GraphQLError(errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY);
             }
@@ -117,13 +123,16 @@ export const jobResolvers = {
                 }
             };
 
-            const result = await db.collections!.jobs_collection.insertOne(job);
+            const result = await db.collections.jobs_collection.insertOne(job);
             if (!result.acknowledged) {
                 throw new GraphQLError(errorCodes.DATABASE_ERROR);
             }
             return job;
         },
         createQueryCurationJob: async (__unused__parent: Record<string, unknown>, args: { queryId: string[], studyId: string, projectId: string }, context: any): Promise<IJobEntryForQueryCuration> => {
+            if (!db.collections) {
+                throw new GraphQLError(errorCodes.DATABASE_ERROR);
+            }
             const requester: IUser = context.req.user;
 
             /* check permission */
@@ -146,7 +155,7 @@ export const jobResolvers = {
             await studyCore.findOneStudy_throwErrorIfNotExist(args.studyId);
 
             /* check if project exists */
-            const projectExist = await db.collections!.projects_collection.findOne({ id: args.projectId });
+            const projectExist = await db.collections.projects_collection.findOne({ id: args.projectId });
             if (!projectExist) {
                 throw new GraphQLError('Project does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
             }
@@ -154,7 +163,7 @@ export const jobResolvers = {
             /* check if the query exists */
             // eslint-disable-next-line @typescript-eslint/ban-ts-comment
             // @ts-ignore
-            const queryExist = await db.collections!.queries_collection.findOne({ id: args.queryId[0] });
+            const queryExist = await db.collections.queries_collection.findOne({ id: args.queryId[0] });
             if (!queryExist) {
                 throw new GraphQLError('Query does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
             }
@@ -175,7 +184,7 @@ export const jobResolvers = {
                     studyId: args.studyId
                 }
             };
-            const result = await db.collections!.jobs_collection.insertOne(job);
+            const result = await db.collections.jobs_collection.insertOne(job);
             if (!result.acknowledged) {
                 throw new GraphQLError(errorCodes.DATABASE_ERROR);
             }

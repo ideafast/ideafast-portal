@@ -1,19 +1,12 @@
 import nodemailer from 'nodemailer';
+import * as SMTPTransport from 'nodemailer/lib/smtp-transport';
 import appConfig from '../utils/configManager';
-import { Attachment } from 'nodemailer/lib/mailer';
-
-export interface IMail {
-    from: string,
-    to: string,
-    subject: string,
-    html: string,
-    attachments?: Attachment[];
-}
+import { IMail } from '@itmat-broker/itmat-types';
 
 class Mailer {
     private readonly _client: nodemailer.Transporter;
 
-    constructor(config: any) {
+    constructor(config: SMTPTransport.Options) {
         this._client = nodemailer.createTransport(config);
     }
 

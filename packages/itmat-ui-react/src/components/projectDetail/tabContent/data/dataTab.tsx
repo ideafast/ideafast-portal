@@ -189,10 +189,10 @@ export const MetaDataBlock: FunctionComponent<{ project: IProject, numOfOntology
 export const DemographicsBlock: FunctionComponent<{ ontologyTree: IOntologyTree, studyId: string, projectId: string, fields: IFieldEntry[] }> = ({ ontologyTree, studyId, projectId, fields }) => {
     const [width, __unused__height__] = useWindowSize();
     // process the data
-    const genderField: any = findDmField(ontologyTree, fields, 'SEX');
-    const raceField: any = findDmField(ontologyTree, fields, 'RACE');
-    const ageField: any = findDmField(ontologyTree, fields, 'AGE');
-    const siteField: any = findDmField(ontologyTree, fields, 'SITE');
+    const genderField = findDmField(ontologyTree, fields, 'SEX');
+    const raceField = findDmField(ontologyTree, fields, 'RACE');
+    const ageField = findDmField(ontologyTree, fields, 'AGE');
+    const siteField = findDmField(ontologyTree, fields, 'SITE');
 
     const { loading: getDataRecordsLoading, error: getDataRecordsError, data: getDataRecordsData } = useQuery(GET_DATA_RECORDS, {
         variables: {
@@ -414,7 +414,7 @@ export const DataDistributionBlock: FunctionComponent<{ ontologyTree: IOntologyT
         return el.fieldId.toString() === routes[0]?.field[0]?.replace('$', '');
     })[0];
     //construct the cascader
-    const fieldPathOptions: any = [];
+    const fieldPathOptions = [];
     ontologyTree.routes?.forEach(el => {
         generateCascader(el, fieldPathOptions, true);
     });
@@ -571,7 +571,7 @@ export const DataDistributionBlock: FunctionComponent<{ ontologyTree: IOntologyT
                                         acc.push({ x: curr, y: el });
                                     });
                                     return acc;
-                                }, ([] as any));
+                                }, [] as any);
                             } else if ([enumValueType.CATEGORICAL, enumValueType.BOOLEAN].includes(fields.filter(el => el.fieldId === fieldIdFromData)[0].dataType)) {
                                 data = Object.keys(data.getDataRecords.data[fieldIdFromData]).reduce((acc, curr) => {
                                     let count = 0;
@@ -590,7 +590,7 @@ export const DataDistributionBlock: FunctionComponent<{ ontologyTree: IOntologyT
                                         acc.push({ visit: curr, value: 'No Record', count: project.summary.subjects.length - count });
                                     }
                                     return acc;
-                                }, ([] as any)).sort((a, b) => { return parseFloat(a.value) - parseFloat(b.value); });
+                                }, [] as any).sort((a, b) => { return parseFloat(a.value) - parseFloat(b.value); });
                             } else {
                                 return null;
                             }
@@ -727,10 +727,10 @@ export const DataCompletenessBlock: FunctionComponent<{ studyId: string, project
             }
         }
     };
-    const tooltipConfig: any = {
+    const tooltipConfig = {
         showTitle: false,
         fields: ['visit', 'field', 'percentage'],
-        formatter: (datum: any) => {
+        formatter: (datum) => {
             const field: IFieldEntry | undefined = fields.filter(el => el.fieldId === datum.field)[0];
             let name;
             if (field) {
@@ -745,7 +745,7 @@ export const DataCompletenessBlock: FunctionComponent<{ studyId: string, project
         }
     };
     //construct the cascader
-    const fieldPathOptions: any = [];
+    const fieldPathOptions = [];
     ontologyTree.routes?.forEach(el => {
         generateCascader(el, fieldPathOptions, false);
     });
@@ -774,7 +774,7 @@ export const DataCompletenessBlock: FunctionComponent<{ studyId: string, project
                         renderer={'svg'}
                         colorField={'percentage'}
                         label={{
-                            formatter: (datum: any) => {
+                            formatter: (datum) => {
                                 return datum.percentage + '%';
                             }
                         }}

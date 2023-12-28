@@ -64,7 +64,7 @@ if (global.hasMinio) {
     }, 10000);
 
     describe('FILE API', () => {
-        let adminId: any;
+        let adminId;
 
         beforeAll(async () => {
             /* setup: first retrieve the generated user id */
@@ -75,11 +75,11 @@ if (global.hasMinio) {
         describe('UPLOAD AND DOWNLOAD FILE', () => {
             describe('UPLOAD FILE', () => {
                 /* note: a new study is created and a special authorised user for study permissions */
-                let createdStudy: { id: any; };
+                let createdStudy: { id; };
                 let createdStudyClinical;
-                let createdStudyAny: { id: any; };
+                let createdStudyAny: { id; };
                 let authorisedUser: request.SuperTest<request.Test>;
-                let authorisedUserProfile: { id: any; otpSecret: any; username?: string; type?: string; firstname?: string; lastname?: string; password?: string; email?: string; description?: string; emailNotificationsActivated?: boolean; organisation?: string; deleted?: null; };
+                let authorisedUserProfile: { id; otpSecret; username?: string; type?: string; firstname?: string; lastname?: string; password?: string; email?: string; description?: string; emailNotificationsActivated?: boolean; organisation?: string; deleted?: null; };
                 beforeEach(async () => {
                     /* setup: create a study to upload file to */
                     const studyname = uuid();
@@ -477,7 +477,7 @@ if (global.hasMinio) {
             describe('DOWNLOAD FILES', () => {
                 /* note: a new study is created and a non-empty text file is uploaded before each test */
                 let createdStudy;
-                let createdFile: { id: any; };
+                let createdFile: { id; };
                 let authorisedUser: request.SuperTest<request.Test>;
                 let authorisedUserProfile;
 
@@ -661,12 +661,12 @@ if (global.hasMinio) {
 
             describe('DELETE FILES', () => {
                 let createdStudy;
-                let createdFile: { id: any; };
+                let createdFile: { id; };
                 let authorisedUser: request.SuperTest<request.Test>;
                 let authorisedUserProfile;
                 beforeEach(async () => {
                     /* Clear old values */
-                    await db.collections!.roles_collection.deleteMany({});
+                    await db.collections.roles_collection.deleteMany({});
                     /* setup: create a study to upload file to */
                     const studyname = uuid();
                     const createStudyRes = await admin.post('/graphql').send({

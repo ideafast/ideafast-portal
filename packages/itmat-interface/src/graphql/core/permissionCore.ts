@@ -14,10 +14,16 @@ interface ICreateRoleInput {
 
 export class PermissionCore {
     public async getAllRolesOfStudyOrProject(studyId: string, projectId?: string): Promise<IRole[]> {
-        return db.collections!.roles_collection.find({ studyId, projectId }).toArray();
+        if (!db.collections) {
+            throw new GraphQLError(errorCodes.DATABASE_ERROR);
+        }
+        return db.collections.roles_collection.find({ studyId, projectId }).toArray();
     }
 
     public async userHasTheNeccessaryManagementPermission(type: string, operation: string, user: IUser, studyId: string, projectId?: string): Promise<boolean> {
+        if (!db.collections) {
+            throw new GraphQLError(errorCodes.DATABASE_ERROR);
+        }
         if (user === undefined) {
             return false;
         }
@@ -27,7 +33,7 @@ export class PermissionCore {
             return true;
         }
         const tag = `permissions.manage.${type}`;
-        const roles = await db.collections!.roles_collection.aggregate([
+        const roles = await db.collections.roles_collection.aggregate([
             { $match: { studyId, projectId: { $in: [projectId, null] }, users: user.id, deleted: null } }, // matches all the role documents where the study and project matches and has the user inside
             { $match: { [tag]: operation } }
         ]).toArray();
@@ -38,6 +44,9 @@ export class PermissionCore {
     }
 
     public async combineUserDataPermissions(operation: string, user: IUser, studyId: string, projectId?: string): Promise<Record<string, string[]> | false> {
+        if (!db.collections) {
+            throw new GraphQLError(errorCodes.DATABASE_ERROR);
+        }
         if (user.type === userTypes.ADMIN) {
             const matchAnyString = '^.*$';
             return {
@@ -46,7 +55,7 @@ export class PermissionCore {
                 fieldIds: [matchAnyString]
             };
         }
-        const roles = await db.collections!.roles_collection.aggregate([
+        const roles = await db.collections.roles_collection.aggregate([
             { $match: { studyId, projectId: { $in: [projectId, null] }, users: user.id, deleted: null } }, // matches all the role documents where the study and project matches and has the user inside
             { $match: { 'permissions.data.operations': operation } }
         ]).toArray();
@@ -82,6 +91,9 @@ export class PermissionCore {
     }
 
     public async userHasTheNeccessaryDataPermission(operation: string, user: IUser, studyId: string, projectId?: string): Promise<Record<string, any> | false> {
+        if (!db.collections) {
+            throw new GraphQLError(errorCodes.DATABASE_ERROR);
+        }
         if (user === undefined) {
             return false;
         }
@@ -101,7 +113,7 @@ export class PermissionCore {
             };
         }
 
-        const roles = await db.collections!.roles_collection.aggregate([
+        const roles = await db.collections.roles_collection.aggregate([
             { $match: { studyId, projectId: { $in: [projectId, null] }, users: user.id, deleted: null } }, // matches all the role documents where the study and project matches and has the user inside
             { $match: { 'permissions.data.operations': operation } }
         ]).toArray();
@@ -143,7 +155,7 @@ export class PermissionCore {
         return { matchObj: roleObj, hasVersioned: hasVersioned, uploaders: uploaders, raw: raw, roleraw: roleraw };
     }
 
-    public combineMultiplePermissions(permissions: any[]): any {
+    public combineMultiplePermissions(permissions: any[]) {
         const res = {
             matchObj: [],
             hasVersioned: false,
@@ -167,7 +179,10 @@ export class PermissionCore {
     }
 
     public async removeRole(roleId: string): Promise<void> {
-        const updateResult = await db.collections!.roles_collection.findOneAndUpdate({ id: roleId, deleted: null }, { $set: { deleted: new Date().valueOf() } });
+        if (!db.collections) {
+            throw new GraphQLError(errorCodes.DATABASE_ERROR);
+        }
+        const updateResult = await db.collections.roles_collection.findOneAndUpdate({ id: roleId, deleted: null }, { $set: { deleted: new Date().valueOf() } });
         if (updateResult) {
             return;
         } else {
@@ -176,6 +191,9 @@ export class PermissionCore {
     }
 
     public async removeRoleFromStudyOrProject({ studyId, projectId }: { studyId: string, projectId?: string } | { studyId?: string, projectId: string }): Promise<void> {
+        if (!db.collections) {
+            throw new GraphQLError(errorCodes.DATABASE_ERROR);
+        }
         if (studyId === undefined && projectId === undefined) {
             throw new GraphQLError('Neither studyId nor projectId is provided');
         }
@@ -187,7 +205,7 @@ export class PermissionCore {
         } else if (projectId !== undefined) {
             queryObj = { projectId, deleted: null };
         }
-        const updateResult = await db.collections!.roles_collection.updateMany(queryObj, { $set: { deleted: new Date().valueOf() } });
+        const updateResult = await db.collections.roles_collection.updateMany(queryObj, { $set: { deleted: new Date().valueOf() } });
         if (updateResult.acknowledged) {
             return;
         } else {
@@ -196,6 +214,9 @@ export class PermissionCore {
     }
 
     public async editRoleFromStudyOrProject(roleId: string, name?: string, description?: string, permissionChanges?: any, userChanges?: { add: string[], remove: string[] }): Promise<IRole> {
+        if (!db.collections) {
+            throw new GraphQLError(errorCodes.DATABASE_ERROR);
+        }
         if (permissionChanges === undefined) {
             permissionChanges = {
                 data: { subjectIds: [], visitIds: [], fieldIds: [], uploaders: ['^.*$'], hasVersioned: false, operations: [] },
@@ -210,7 +231,7 @@ export class PermissionCore {
         }
         if (userChanges === undefined) { userChanges = { add: [], remove: [] }; }
 
-        const bulkop = db.collections!.roles_collection.initializeUnorderedBulkOp();
+        const bulkop = db.collections.roles_collection.initializeUnorderedBulkOp();
         bulkop.find({ id: roleId, deleted: null }).updateOne({ $set: { permissions: permissionChanges }, $addToSet: { users: { $each: userChanges.add } } });
         bulkop.find({ id: roleId, deleted: null }).updateOne({ $set: { permissions: permissionChanges }, $pullAll: { users: userChanges.remove } });
         if (name) {
@@ -220,7 +241,7 @@ export class PermissionCore {
             bulkop.find({ id: roleId, deleted: null }).updateOne({ $set: { description } });
         }
         const result: BulkWriteResult = await bulkop.execute();
-        const resultingRole = await db.collections!.roles_collection.findOne({ id: roleId, deleted: null });
+        const resultingRole = await db.collections.roles_collection.findOne({ id: roleId, deleted: null });
         if (!resultingRole) {
             throw new GraphQLError('Role does not exist', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
         }
@@ -230,8 +251,8 @@ export class PermissionCore {
         let validSubjects: Array<string | RegExp> = [];
         if (permissionChanges.data?.filters) {
             if (permissionChanges.data.filters.length > 0) {
-                const subqueries = translateCohort(permissionChanges.data.filters);
-                validSubjects = (await db.collections!.data_collection.aggregate([{
+                const subqueries: any[] = translateCohort(permissionChanges.data.filters);
+                validSubjects = (await db.collections.data_collection.aggregate([{
                     $match: { $and: subqueries }
                 }]).toArray()).map(el => el.m_subjectId);
             }
@@ -239,7 +260,7 @@ export class PermissionCore {
 
 
         // update the data and field records
-        const dataBulkOp = db.collections!.data_collection.initializeUnorderedBulkOp();
+        const dataBulkOp = db.collections.data_collection.initializeUnorderedBulkOp();
         const filters: Record<string, string[]> = {
             subjectIds: permissionChanges.data?.subjectIds || [],
             visitIds: permissionChanges.data?.visitIds || [],
@@ -274,7 +295,7 @@ export class PermissionCore {
         }).update({
             $set: { [dataTag]: false }
         });
-        const fieldBulkOp = db.collections!.field_dictionary_collection.initializeUnorderedBulkOp();
+        const fieldBulkOp = db.collections.field_dictionary_collection.initializeUnorderedBulkOp();
         const fieldIds = permissionChanges.data?.fieldIds || [];
         const fieldTag = `metadata.${'role:'.concat(roleId)}`;
         fieldBulkOp.find({
@@ -301,6 +322,9 @@ export class PermissionCore {
     }
 
     public async addRole(opt: ICreateRoleInput): Promise<IRole> {
+        if (!db.collections) {
+            throw new GraphQLError(errorCodes.DATABASE_ERROR);
+        }
         /* add user role */
         const role: IRole = {
             id: uuid(),
@@ -330,7 +354,7 @@ export class PermissionCore {
             metadata: {},
             deleted: null
         };
-        const updateResult = await db.collections!.roles_collection.insertOne(role);
+        const updateResult = await db.collections.roles_collection.insertOne(role);
         if (updateResult.acknowledged) {
             return role;
         } else {
@@ -389,13 +413,13 @@ export function translateCohort(cohort: any) {
                 const countOperation = select.value.split(' ');
                 const countfield = select.field + '.count';
                 if (countOperation[0] === '=') {
-                    (match as any)[countfield] = { $eq: parseInt(countOperation[1], 10) };
+                    match[countfield] = { $eq: parseInt(countOperation[1], 10) };
                 }
                 if (countOperation[0] === '>') {
-                    (match as any)[countfield] = { $gt: parseInt(countOperation[1], 10) };
+                    match[countfield] = { $gt: parseInt(countOperation[1], 10) };
                 }
                 if (countOperation[0] === '<') {
-                    (match as any)[countfield] = { $lt: parseInt(countOperation[1], 10) };
+                    match[countfield] = { $lt: parseInt(countOperation[1], 10) };
                 }
                 break;
             }

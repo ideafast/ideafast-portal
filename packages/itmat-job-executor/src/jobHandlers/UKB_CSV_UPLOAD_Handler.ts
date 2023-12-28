@@ -27,11 +27,11 @@ export class UKB_CSV_UPLOAD_Handler extends JobHandler {
             error: string | string[];
         }> = [];
         // get fieldid info from database
-        const fieldsList = await db.collections!.field_dictionary_collection.find({ studyId: job.studyId }).toArray();
+        const fieldsList = await db.collections.field_dictionary_collection.find({ studyId: job.studyId }).toArray();
 
         for (const fileId of job.receivedFiles) {
             try {
-                const file = await db.collections!.files_collection.findOne({ id: fileId, deleted: null })!;
+                const file = await db.collections.files_collection.findOne({ id: fileId, deleted: null })!;
                 if (!file) {
                     errorsList.push({ fileId: fileId, error: 'file does not exist' });
                     continue;
@@ -42,7 +42,7 @@ export class UKB_CSV_UPLOAD_Handler extends JobHandler {
                 const filteredFieldsList = fieldsList.filter(el => el.tableName === tableName);
                 const fileStream: Readable = await objStore.downloadFile(job.studyId, file.uri);
                 const csvcurator = new CSVCurator(
-                    db.collections!.data_collection,
+                    db.collections.data_collection,
                     fileStream,
                     undefined,
                     job,
@@ -51,9 +51,9 @@ export class UKB_CSV_UPLOAD_Handler extends JobHandler {
                 const errors = await csvcurator.processIncomingStreamAndUploadToMongo();
                 if (errors.length !== 0) {
                     errorsList.push({ fileId: file.id, fileName: file.fileName, error: errors });
-                    await db.collections!.jobs_collection.updateOne({ id: job.id }, { $set: { status: 'error', error: errorsList as any } });
+                    await db.collections.jobs_collection.updateOne({ id: job.id }, { $set: { status: 'error', error: errorsList } });
                 } else {
-                    await db.collections!.jobs_collection.updateOne({ id: job.id }, { $set: { status: 'finished' } });
+                    await db.collections.jobs_collection.updateOne({ id: job.id }, { $set: { status: 'finished' } });
                 }
             } catch (e) {
                 throw new Error();

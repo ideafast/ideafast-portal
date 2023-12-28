@@ -174,10 +174,10 @@ export function processEachSubject({ subjectIdIndex, visitIdIndex, objectNum, su
     /* pure function */
     const error: string[] = [];
     let colIndex = 0;
-    const dataEntry: any = {
+    const dataEntry = {
         m_studyId: job.studyId,
         deleted: null
-    };
+    } as any;
     if (subject.length !== (parsedHeader.filter(el => el !== undefined).length + 1)) {
         error.push(`Object ${objectNum}: Uneven field Number; expected ${parsedHeader.length + 1} fields but got ${subject.length}`);
         return ({ error, dataEntry });
@@ -217,7 +217,7 @@ export function processEachSubject({ subjectIdIndex, visitIdIndex, objectNum, su
             continue;
         }
         /* adding value to dataEntry */
-        let value: any;
+        let value;
         try {
             if (each.toString() === '99999') {
                 value = '99999';

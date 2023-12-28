@@ -56,7 +56,7 @@ beforeAll(async () => { // eslint-disable-line no-undef
 });
 
 describe('ROLE API', () => {
-    let adminId: any;
+    let adminId;
 
     beforeAll(async () => {
         /* setup: first retrieve the generated user id */
@@ -65,10 +65,10 @@ describe('ROLE API', () => {
     });
 
     describe('ADDING ROLE', () => {
-        let setupStudy: { id: any; name?: string; createdBy?: any; lastModified?: number; deleted?: null; currentDataVersion?: number; dataVersions?: never[]; };
-        let setupProject: { id: any; studyId?: string; createdBy?: any; patientMapping?: Record<string, any>; name?: string; lastModified?: number; deleted?: null; };
+        let setupStudy: { id; name?: string; createdBy?; lastModified?: number; deleted?: null; currentDataVersion?: number; dataVersions?: never[]; };
+        let setupProject: { id; studyId?: string; createdBy?; patientMapping?: Record<string, any>; name?: string; lastModified?: number; deleted?: null; };
         let authorisedUser: request.SuperTest<request.Test>;
-        let authorisedUserProfile: { otpSecret: any; id: any; username?: string; type?: string; firstname?: string; lastname?: string; password?: string; email?: string; description?: string; emailNotificationsActivated?: boolean; organisation?: string; deleted?: null; };
+        let authorisedUserProfile: { otpSecret; id; username?: string; type?: string; firstname?: string; lastname?: string; password?: string; email?: string; description?: string; emailNotificationsActivated?: boolean; organisation?: string; deleted?: null; };
         beforeEach(async () => {
             const studyName = uuid();
             setupStudy = {
@@ -669,8 +669,8 @@ describe('ROLE API', () => {
 
     describe('EDITING ROLE', () => {
         describe('EDIT STUDY ROLE', () => {
-            let setupStudy: { id: any; name?: string; createdBy?: any; lastModified?: number; deleted?: null; currentDataVersion?: number; dataVersions?: never[]; };
-            let setupRole: { id: any; _id?: any; name: any; studyId: any; projectId?: null; permissions?: never[]; createdBy?: any; users?: never[]; deleted?: null; };
+            let setupStudy: { id; name?: string; createdBy?; lastModified?: number; deleted?: null; currentDataVersion?: number; dataVersions?: never[]; };
+            let setupRole: { id; _id?; name; studyId; projectId?: null; permissions?: never[]; createdBy?; users?: never[]; deleted?: null; };
             let authorisedUser: request.SuperTest<request.Test>;
             let authorisedUserProfile;
             beforeEach(async () => {
@@ -2373,9 +2373,9 @@ describe('ROLE API', () => {
         });
 
         describe('EDIT PROJECT ROLE', () => {
-            let setupStudy: { id: any; name?: string; createdBy?: any; lastModified?: number; deleted?: null; currentDataVersion?: number; dataVersions?: never[]; };
-            let setupProject: { id: any; studyId?: string; createdBy?: any; patientMapping?: Record<string, any>; name?: string; lastModified?: number; deleted?: null; };
-            let setupRole: { id: any; _id?: any; name: any; projectId?: string; studyId?: string; permissions?: never[]; createdBy?: any; users?: never[]; deleted?: null; };
+            let setupStudy: { id; name?: string; createdBy?; lastModified?: number; deleted?: null; currentDataVersion?: number; dataVersions?: never[]; };
+            let setupProject: { id; studyId?: string; createdBy?; patientMapping?: Record<string, any>; name?: string; lastModified?: number; deleted?: null; };
+            let setupRole: { id; _id?; name; projectId?: string; studyId?: string; permissions?: never[]; createdBy?; users?: never[]; deleted?: null; };
             let authorisedUser: request.SuperTest<request.Test>;
             let authorisedUserProfile;
             beforeEach(async () => {
@@ -2959,7 +2959,7 @@ describe('ROLE API', () => {
     describe('DELETING ROLE', () => {
         describe('DELETE STUDY ROLE', () => {
             let setupStudy;
-            let setupRole: { id: any; projectId?: null; studyId?: string; name?: string; permissions?: never[]; createdBy?: any; users?: never[]; deleted?: null; };
+            let setupRole: { id; projectId?: null; studyId?: string; name?: string; permissions?: never[]; createdBy?; users?: never[]; deleted?: null; };
             let authorisedUser: request.SuperTest<request.Test>;
             let authorisedUserProfile;
             beforeEach(async () => {
@@ -3116,7 +3116,7 @@ describe('ROLE API', () => {
         describe('DELETE PROJECT ROLE', () => {
             let setupStudy;
             let setupProject;
-            let setupRole: { id: any; projectId?: string; studyId?: string; name?: string; permissions?: never[]; createdBy?: any; users?: never[]; deleted?: null; };
+            let setupRole: { id; projectId?: string; studyId?: string; name?: string; permissions?: never[]; createdBy?; users?: never[]; deleted?: null; };
             let authorisedUser: request.SuperTest<request.Test>;
             let authorisedUserProfile;
             beforeEach(async () => {

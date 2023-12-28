@@ -60,7 +60,7 @@ function serverSpinning() {
 
 serverSpinning();
 
-declare const module: any;
+declare const module;
 if (module.hot) {
     module.hot.accept('./index', serverSpinning);
     module.hot.accept('./jobExecutorRunner', serverSpinning);

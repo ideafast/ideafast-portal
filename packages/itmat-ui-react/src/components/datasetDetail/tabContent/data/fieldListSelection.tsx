@@ -38,7 +38,7 @@ export const FieldListSelectionSection: FunctionComponent<{ studyId: string; sel
     </>;
 };
 
-const FieldListSelectionState: FunctionComponent<{ studyId: string; fieldTreeIds: string[], studyData: any }> = ({ studyId, fieldTreeIds, studyData }) => {
+const FieldListSelectionState: FunctionComponent<{ studyId: string; fieldTreeIds: string[], studyData }> = ({ studyId, fieldTreeIds, studyData }) => {
     const [selectedTree, setSelectedTree] = useState(fieldTreeIds[0]);
 
     return <>
