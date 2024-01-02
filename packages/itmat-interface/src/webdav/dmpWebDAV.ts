@@ -1,14 +1,13 @@
 import { IUser, v2 as webdav } from 'webdav-server';
-import { Client as MinioClient, BucketItemStat } from 'minio';
-import { Readable } from 'stream';
-import { objStore } from '../objStore/objStore';
+import { Readable, Writable } from 'stream';
 import { initTRPC } from '@trpc/server';
-import { object, z } from 'zod';
 import { routers } from '../tRPC/procedures/index';
 import { HTTPRequestContext } from 'webdav-server/lib/index.v2';
 import jwt from 'jsonwebtoken';
 import { userRetrieval } from '../authentication/pubkeyAuthentication';
-import { enumUserTypes } from '@itmat-broker/itmat-types';
+import nodeFetch from 'node-fetch';
+import { IDriveNode, IStudy, enumUserTypes } from '@itmat-broker/itmat-types';
+
 class DMPFileSystemSerializer implements webdav.FileSystemSerializer {
     uid(): string {
         return 'MinioFileSystem-1.0'; // Unique identifier with versioning
@@ -31,15 +30,60 @@ class DMPFileSystemSerializer implements webdav.FileSystemSerializer {
 }
 
 export class DMPFileSystem extends webdav.FileSystem {
-    caller: any;
+    router: any;
+    isCopying: boolean;
+    getFileResults: any;
+    lastUpdateTime: number;
+
     constructor() {
         super(new DMPFileSystemSerializer());
-        // initialize a trpc caller for server side call
         const t = initTRPC.create();
+        this.router = t.router(routers);
+        this.isCopying = false;
+        // we use a temporaily cache for _readDir, we keep the cache of getFiles
+        this.getFileResults = null;
+        this.lastUpdateTime = Date.now();
+    }
 
-        const router = t.router(routers);
+    override async _fastExistCheck(ctx: webdav.RequestContext, path: webdav.Path, callback: (exists: boolean) => void): Promise<void> {
+        const caller = this.router.createCaller({ user: ctx.user });
+        const pathStr = path.toString();
+        const pathArr = pathToArray(pathStr);
+        if (pathStr === '/') {
+            callback(true);
+        } else {
+            if (pathArr[0] === 'My Drive') {
+                if (this.isCopying) {
+                    callback(true);
+                    return;
+                }
+                const userFileDir: Record<string, IDriveNode[]> = await caller.drive.getDrives({
+                    userId: (ctx.user as any).id
+                });
+                const ownUserFiles = userFileDir[(ctx.user as any).id];
+                const allPaths = ownUserFiles.map((el: { path: any; }) => el.path.map((ek: any) => ownUserFiles.filter(es => es.id === ek)[0].name));
+                callback(isPathIncluded(pathArr, allPaths));
+            } else {
+                if (pathArr.length === 1 && pathArr[0] === 'Study') {
+                    callback(true);
+                } else {
+                    const studies: IStudy[] = await caller.study.getStudies({
+                        studyId: null
+                    });
+                    const study = studies.filter(el => el.name === pathArr[1])[0];
+                    if (!study) {
+                        callback(false);
+                    } else {
+                        callback(true);
+                        return;
+                    }
+                }
+            }
+        }
+    }
 
-        this.caller = router.createCaller({});
+    override _displayName(path: webdav.Path, ctx: webdav.DisplayNameInfo, callback: webdav.ReturnCallback<string>): void {
+        callback(undefined, 'Display name');
     }
 
     override _lockManager(path: webdav.Path, ctx: webdav.LockManagerInfo, callback: webdav.ReturnCallback<webdav.ILockManager>): void {
@@ -52,32 +96,243 @@ export class DMPFileSystem extends webdav.FileSystem {
 
     override _type(path: webdav.Path, ctx: webdav.TypeInfo, callback: webdav.ReturnCallback<webdav.ResourceType>): void {
         // Determine type based on path (directory if ends with '/', file otherwise)
-        const isDirectory = /\/$/.test(path.toString());
-        callback(undefined, isDirectory ? webdav.ResourceType.Directory : webdav.ResourceType.File);
+        const fileExtensionRegex = /\.[^\/]+$/;
+        const isFile = fileExtensionRegex.test(path.toString());
+        callback(undefined, isFile ? webdav.ResourceType.File : webdav.ResourceType.Directory);
+        // callback(undefined, webdav.ResourceType.Directory);
     }
 
-    // override async _
+    override async _delete(path: webdav.Path, ctx: webdav.DeleteInfo, callback: webdav.SimpleCallback): Promise<void> {
+        const caller = this.router.createCaller({ user: ctx.context.user });
+        const pathStr: string = path.toString();
+        const pathArr = pathToArray(pathStr);
+        if (pathArr.length <= 1) {
+            callback(new Error('You can not edit the root node'));
+        } else if (pathArr[1] === 'Study') {
+            callback(new Error('You can not edit study data'));
+        } else {
+            const userFileDir: Record<string, IDriveNode[]> = await caller.drive.getDrives({
+                userId: (ctx.context.user as any).id
+            });
+            const ownUserFiles: IDriveNode[] = userFileDir[(ctx.context.user as any).id];
+            const node: IDriveNode = ownUserFiles.filter(el => el.path.length === pathArr.length && el.path.every((part, index) => ownUserFiles.filter(ek => ek.id === part)[0].name === pathArr[index]))[0];
+            await caller.drive.deleteDrive({
+                driveId: node.id
+            });
+            callback(undefined);
+        }
+    }
+
+    // TODO: upload file
+    override async _create(path: webdav.Path, ctx: webdav.CreateInfo, callback: webdav.SimpleCallback): Promise<void> {
+        const caller = this.router.createCaller({ user: ctx.context.user });
+        const pathStr: string = path.toString();
+        const pathArr = pathToArray(pathStr);
+        const fileExtensionRegex = /\.[^\/]+$/;
+        const isFile = fileExtensionRegex.test(pathStr);
+        if (isFile) {
+            this.isCopying = true;
+            callback(undefined);
+        } else {
+            if (pathArr.length <= 1) {
+                callback(new Error('You can not edit the root node'));
+            } else {
+                const parentPath = pathArr.slice(0, -1);
+                const userFileDir: Record<string, IDriveNode[]> = await caller.drive.getDrives({
+                    userId: (ctx.context.user as any).id
+                });
+                const ownUserFiles: IDriveNode[] = userFileDir[(ctx.context.user as any).id];
+                const parentNode = ownUserFiles.filter(el => el.path.every((part, index) => ownUserFiles.filter(ek => ek.id === part)[0].name === parentPath[index]) && el.path.length === parentPath.length)[0];
+                if (!parentNode) {
+                    callback(new Error('You need to create the parent folder first'));
+                } else {
+                    await caller.drive.createDriveFolder({
+                        folderName: pathArr[pathArr.length - 1],
+                        parentId: parentNode.id,
+                        description: null
+                    });
+                    callback(undefined);
+                }
+            }
+            callback(undefined);
+        }
+    }
+
+    override async _openReadStream(path: webdav.Path, ctx: webdav.OpenReadStreamInfo, callback: webdav.ReturnCallback<Readable>): Promise<void> {
+        const caller = this.router.createCaller({ user: ctx.context.user });
+        const pathStr: string = path.toString();
+        const pathArr = pathToArray(pathStr);
+        if (pathArr.length <= 1) {
+            callback(new Error('You can not edit the root node'));
+        } else if (pathArr[1] === 'Study') {
+            callback(new Error('You can not edit study data'));
+        } else {
+            const userFileDir: Record<string, IDriveNode[]> = await caller.drive.getDrives({
+                userId: (ctx.context.user as any).id
+            });
+            const ownUserFiles: IDriveNode[] = userFileDir[(ctx.context.user as any).id];
+            const node: IDriveNode = ownUserFiles.filter(el => el.path.length === pathArr.length && el.path.every((part, index) => ownUserFiles.filter(ek => ek.id === part)[0].name === pathArr[index]))[0];
+            const fileUri = `${'http://localhost:4200'}/file/${node.fileId}`;
+            try {
+                // todo
+                const response = await nodeFetch(fileUri);
+                if (!response.ok) {
+                    throw new Error('Failed to fetch file');
+                }
+                //@ts-ignore
+                callback(undefined, response.body);
+            } catch (error) {
+                //@ts-ignore
+                callback(error);
+            }
+        }
+    }
+
+    override async _openWriteStream(path: webdav.Path, ctx: webdav.OpenWriteStreamInfo, callback: webdav.ReturnCallback<Writable>): Promise<void> {
+        const caller = this.router.createCaller({ user: ctx.context.user });
+        const pathStr: string = path.toString();
+        const pathArr = pathToArray(pathStr);
+        const fileBuffer: any[] = [];
+        if (pathArr.length <= 1) {
+            callback(new Error('You can not edit the root node'));
+        } else if (pathArr[1] === 'Study') {
+            callback(new Error('You can not edit study data'));
+        } else {
+            const userFileDir: Record<string, IDriveNode[]> = await caller.drive.getDrives({
+                userId: (ctx.context.user as any).id
+            });
+            const ownUserFiles: IDriveNode[] = userFileDir[(ctx.context.user as any).id];
+            pathArr.pop();
+            const parentNode: IDriveNode = ownUserFiles.filter(el => el.path.length === pathArr.length && el.path.every((part, index) => ownUserFiles.filter(ek => ek.id === part)[0].name === pathArr[index]))[0];
+            if (!parentNode) {
+                callback(new Error('Path does not exist.'));
+            }
+
+            let isFinalCalled = false;
+            const writeableStream = new Writable({
+                write(chunk, encoding, callback) {
+                    fileBuffer.push(chunk);
+                    callback();
+                },
+                final(callback) {
+                    if (!isFinalCalled) {
+                        isFinalCalled = true;
+                        const fileData = {
+                            parentId: parentNode.id,
+                            description: null,
+                            file: [{
+                                fileBuffer: Buffer.concat(fileBuffer),
+                                filename: path.fileName(),
+                                size: fileBuffer.reduce((acc, b) => acc + b.length, 0)
+                            }]
+                        };
+                        caller.drive.createDriveFile(fileData)
+                            .then(() => callback(null))
+                            .catch((err: Error | null | undefined) => callback(err));
+                    }
+                }
+            });
+            if (this.isCopying) {
+                this.isCopying = false;
+            }
+            callback(undefined, writeableStream);
+        }
+    }
 
     override async _readDir(path: webdav.Path, ctx: webdav.ReadDirInfo, callback: webdav.ReturnCallback<string[] | webdav.Path[]>): Promise<void> {
-        console.log('Path ', path);
+        const caller = this.router.createCaller({ user: ctx.context.user });
+        const depth = (ctx.context.headers as any)['depth'];
+        const pathStr: string = path.toString();
         try {
-            const results = await this.caller.data.getFiles({
-                studyId: '96f17282-e0a3-43d3-8f38-326949b786ef',
-                versionId: null,
-                useCache: false,
-                forceUpdate: false
-            });
-            const userFile = await this.caller.drive.getDrives({
-                userId: (ctx.context.user as any).id,
-                rootId: null
-            });
-            console.log('user files', Object.keys(userFile).length);
-            console.log('results', results.length);
-        } catch {
-            console.log('error');
+            // if path str is root, return my Drive and all studies
+            if (pathStr === '/') {
+                callback(undefined, ['My Drive', 'Study']);
+            } else {
+                const rootPath = pathToArray(pathStr);
+                if (rootPath[0] === 'My Drive') {
+                    const userFileDir = await caller.drive.getDrives({
+                        userId: (ctx.context.user as any).id
+                    });
+                    const ownUserFiles = userFileDir[(ctx.context.user as any).id];
+                    callback(undefined, convertToWebDAVPaths(ownUserFiles, depth, pathStr));
+                    return;
+                } else {
+                    const studies: IStudy[] = await caller.study.getStudies({
+                        studyId: null
+                    });
+                    if (rootPath.length === 1) {
+                        callback(undefined, studies.map(el => el.name));
+                        return;
+                    } else {
+                        const study = studies.filter(el => el.name === rootPath[1])[0];
+                        if (!study) {
+                            callback(new Error('Path not found.'));
+                            return;
+                        } else {
+                            if (!this.getFileResults || (Date.now() - this.lastUpdateTime) > 1000 * 60 * 60) {
+                                // update cache
+                                this.getFileResults = await caller.data.getFiles({
+                                    studyId: study.id,
+                                    versionId: null,
+                                    useCache: false,
+                                    forceUpdate: false
+                                });
+                            }
+                            // const studyConfig = await caller.config.getConfig({
+                            //     configType: enumConfigType.STUDYCONFIG,
+                            //     key: study.id,
+                            //     useDefault: false
+                            // });
+                            // const allPaths = convertFilesByLabelsToPath(study.name, results, studyConfig.properties.defaultFileDirectoryStructure.pathLabels);
+                            const allPaths = this.getFileResults.map((el: { path: string[]; }) => ['Study'].concat(el.path));
+                            const children = getDirectChildren(allPaths, pathToArray(pathStr));
+                            callback(undefined, children);
+                            return;
+                        }
+                    }
+                }
+            }
         }
-        callback(undefined, ['测试文件.txt']);
+        catch (error) {
+            callback(new Error('Error generating files'));
+            return;
+        }
     }
+
+    override async _copy(pathFrom: webdav.Path, pathTo: webdav.Path, ctx: webdav.CopyInfo, callback: webdav.ReturnCallback<boolean>): Promise<void> {
+        callback(undefined, false);
+    }
+
+    override async _move(pathFrom: webdav.Path, pathTo: webdav.Path, ctx: webdav.MoveInfo, callback: webdav.ReturnCallback<boolean>): Promise<void> {
+        const caller = this.router.createCaller({ user: ctx.context.user });
+        function findNodeIdFromPath(pathArr: string[], allPathIds: string[][]) {
+            const filtered = allPathIds.filter(el => {
+                return el.length === pathArr.length && el.every((part, index) => pathArr[index] === part[0]);
+            })[0];
+            return filtered[filtered.length - 1][1];
+        }
+        const userFileDir: Record<string, IDriveNode[]> = await caller.drive.getDrives({
+            userId: (ctx.context.user as any).id
+        });
+        const ownUserFiles = userFileDir[(ctx.context.user as any).id];
+        const allPathsIds = ownUserFiles.map((el: { path: any; }) => el.path.map((ek: any) => {
+            return [ownUserFiles.filter(es => es.id === ek)[0].name, ownUserFiles.filter(es => es.id === ek)[0].id];
+        }));
+        const sourceNodeId = findNodeIdFromPath(pathToArray(pathFrom.toString()), allPathsIds);
+        const targetNodeId = findNodeIdFromPath(pathToArray(pathTo.toString()).slice(0, -1), allPathsIds);
+        await caller.drive.editDrive({
+            driveId: sourceNodeId,
+            managerId: null,
+            name: null,
+            description: null,
+            parentId: targetNodeId,
+            children: null,
+            sharedUsers: null,
+            sharedGroups: null
+        });
+        callback(undefined, true);
+    }
+
 }
 
 // The customized HTTPAuthentication interface
@@ -88,14 +343,18 @@ interface HTTPAuthentication {
 
 // The DMPWebDAVAuthentication class implementing the above interface
 export class DMPWebDAVAuthentication implements HTTPAuthentication {
+    realm: string;
+    constructor(realm?: string) {
+        this.realm = realm ?? 'realm';
+    }
     askForAuthentication(): { 'WWW-Authenticate': string; } {
         return {
-            'WWW-Authenticate': 'Basic realm="User Visible Realm", charset="UTF-8"'
+            'WWW-Authenticate': 'Basic realm="' + this.realm + '"'
         };
     }
 
     getUser(ctx: webdav.HTTPRequestContext, callback: (error: Error | null, user?: IUser) => void): void {
-        const token = (ctx.headers as any).headers['authorization']; // Directly access the 'authorization' header
+        const token = (ctx.headers as any).headers['authorization'];
         if (!token) {
             callback(new Error('Unauthorized: No token provided.'), undefined);
             return;
@@ -122,7 +381,6 @@ export class DMPWebDAVAuthentication implements HTTPAuthentication {
                     isAdministrator: associatedUser.type === enumUserTypes.ADMIN,
                     isDefaultUser: false
                 };
-                console.log('----Passed crenditials.');
                 callback(null, formattedUser); // Use `null` instead of `undefined` here to indicate no error
             }).catch(err => {
                 callback(new Error('Token Not recognized.'), undefined); // Pass `undefined` for the user if there's an error
@@ -131,6 +389,33 @@ export class DMPWebDAVAuthentication implements HTTPAuthentication {
     }
 }
 
+function pathToArray(path: string) {
+    return path.split('/').filter(Boolean);
+}
 
+function convertToWebDAVPaths(ownUserFiles: any, depth: any, pathStr: string): string[] {
+    const allPaths = ownUserFiles.map((el: { path: any; }) => el.path.map((ek: any) => ownUserFiles.filter((es: { id: any; }) => es.id === ek)[0].name));
+    const basePath = pathToArray(pathStr);
+    return getDirectChildren(allPaths, basePath);
+}
 
+function getDirectChildren(allPaths: any, basePath: string[]): string[] {
+    const basePathLength = basePath.length;
+    const directChildren = new Set<string>();
+
+    for (const path of allPaths) {
+        // Check if the current path is a direct child of the basePath
+        if (path.length > basePathLength && basePath.every((part, index) => part === path[index])) {
+            directChildren.add(path[basePathLength]);
+        }
+    }
+
+    return Array.from(directChildren);
+}
+
+function isPathIncluded(givenPath: string[], paths: string[][]): boolean {
+    return paths.some(path =>
+        givenPath.every((part, index) => part === path[index])
+    );
+}
 

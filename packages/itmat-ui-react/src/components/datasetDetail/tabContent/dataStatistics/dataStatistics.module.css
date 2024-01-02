@@ -1,0 +1,57 @@
+.page_container {
+    max-height: 100vh;
+    overflow-y: auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    padding: 16px;
+    /* Consistent padding around the container */
+}
+
+.gridBlock {
+    margin: 8px;
+    /* Consistent margin */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+    border-radius: 8px;
+    /* Rounded corners for a modern look */
+    padding: 16px;
+    /* Padding inside blocks */
+    background: #fff;
+    /* Light background for the content */
+}
+
+.gridBlockTitle {
+    font-size: 1.25rem;
+    /* Larger font size for titles */
+    margin-bottom: 8px;
+    /* Space between title and chart */
+    text-align: center;
+    /* Center align the title */
+    font-weight: 600;
+    /* Bold font weight for title */
+}
+
+/* Responsive design adjustments */
+@media (max-width: 768px) {
+    .gridBlock {
+        margin: 4px;
+    }
+
+    .gridBlockTitle {
+        font-size: 1rem;
+        /* Smaller font size on smaller screens */
+    }
+}
+
+/* Hover effects */
+.gridBlock:hover {
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+}
+
+.gridContainer {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-around;
+}

@@ -1,41 +1,26 @@
-import React, { FunctionComponent, useState, useEffect, useRef, useContext, Fragment, HTMLAttributes, createContext, ReactNode } from 'react';
-import { Button, Upload, notification, Tag, Table, Form, Input, InputRef, DatePicker, Space, Modal, List, Typography } from 'antd';
-import { RcFile } from 'antd/es/upload';
-import { UploadOutlined, DeleteOutlined, DownloadOutlined, CloudDownloadOutlined } from '@ant-design/icons';
-import { Query } from '@apollo/client/react/components';
-import { useApolloClient, useMutation, useQuery } from '@apollo/client/react/hooks';
-import { useDropzone } from 'react-dropzone';
-import { GET_STUDIES, UPLOAD_FILE, GET_ORGANISATIONS, GET_USERS, EDIT_STUDY, WHO_AM_I } from '@itmat-broker/itmat-models';
-import { IFile, enumUserTypes, deviceTypes, enumConfigType } from '@itmat-broker/itmat-types';
-import { FileList, formatBytes } from '../../../reusable/fileList/fileList';
+/* eslint-disable @nx/enforce-module-boundaries */
+import React, { FunctionComponent, useState } from 'react';
+import { Button, Tag, Table, List, Tooltip, Modal, Upload, Form, Select, Input, notification } from 'antd';
+import { CloudDownloadOutlined, FolderOutlined, FileOutlined, InboxOutlined, SmileOutlined } from '@ant-design/icons';
+import { IFile, enumConfigType, IStudyConfig, IStudy, IField, enumDataTypes } from '@itmat-broker/itmat-types';
+import { formatBytes } from '../../../reusable/fileList/fileList';
 import LoadSpinner from '../../../reusable/loadSpinner';
-import { Subsection, SubsectionWithComment } from '../../../reusable/subsection/subsection';
-import css from './tabContent.module.css';
-import { ApolloError } from '@apollo/client/errors';
-import { validate } from '@ideafast/idgen';
-import dayjs, { Dayjs } from 'dayjs';
-import { v4 as uuid } from 'uuid';
+import css from './fileRepo.module.css';
 import { trpc } from '../../../../utils/trpc';
 import { tableColumnRender } from 'packages/itmat-ui-react/src/utils/ui';
-type StudyFile = RcFile & {
-    uuid: string;
-    participantId?: string;
-    deviceId?: string;
-    startDate?: Dayjs;
-    endDate?: Dayjs;
-}
+import { stringCompareFunc } from 'packages/itmat-ui-react/src/utils/tools';
+import { UploadChangeParam } from 'antd/lib/upload';
+import { RcFile, UploadFile } from 'antd/lib/upload/interface';
 
-const { RangePicker } = DatePicker;
-const progressReports: any[] = [];
-
+const { Option } = Select;
 export const FileRepositoryTabContent: FunctionComponent<{ studyId: string }> = ({ studyId }) => {
     const whoAmI = trpc.user.whoAmI.useQuery();
     const getStudy = trpc.study.getStudies.useQuery({ studyId: studyId });
     const studyConfig = trpc.config.getConfig.useQuery({ configType: enumConfigType.STUDYCONFIG, key: studyId, useDefault: true });
-    const getFiles = trpc.data.getFiles.useQuery({ studyId: studyId, versionId: null, useCache: false, forceUpdate: false, aggregation: {} });
+    const getFiles = trpc.data.getFiles.useQuery({ studyId: studyId, versionId: null, useCache: false, forceUpdate: false, aggregation: {}, readable: true });
+    const getStudyFields = trpc.data.getStudyFields.useQuery({ studyId: studyId });
 
-
-    if (whoAmI.isLoading || getStudy.isLoading || studyConfig.isLoading || getFiles.isLoading) {
+    if (whoAmI.isLoading || getStudy.isLoading || studyConfig.isLoading || getFiles.isLoading || getStudyFields.isLoading) {
         return <>
             <div className='page_ariane'>Loading...</div>
             <div className='page_content'>
@@ -43,46 +28,47 @@ export const FileRepositoryTabContent: FunctionComponent<{ studyId: string }> = 
             </div>
         </>;
     }
-    if (whoAmI.isError || getStudy.isError || studyConfig.isError || getFiles.isError) {
+    if (whoAmI.isError || getStudy.isError || studyConfig.isError || getFiles.isError || getStudyFields.isError) {
         return <>
             An error occured.
         </>;
     }
-
     const columns = generateTableColumns(studyConfig.data.properties);
-    columns.push({
-        title: '',
-        dataIndex: 'download',
-        key: 'download',
-        // width: 200, // Adjust this width as required
-        render: (__unused__value, record) => {
-            return <Button
-                icon={<CloudDownloadOutlined />}
-                download={`${record.fileName}`}
-                href={`/file/${record.id}`}>
-                Download
-            </Button>;
-        }
-    });
     return <>
-        <div>
+        <div className={css['tab_page_wrapper']}>
             <List
-                header={<Typography.Title level={3}>Overview</Typography.Title>}
+                header={
+                    <div className={css['overview-header']} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center' }}>
+                            <div className={css['overview-icon']}></div>
+                            <div>Files</div>
+                        </div>
+                        <div>
+                            <UploadFileComponent study={getStudy.data[0]} fields={getStudyFields.data.filter(el => el.dataType === enumDataTypes.FILE)} />
+                        </div>
+                    </div>
+                }
             >
                 <List.Item>
-                    <Typography.Text mark>[Description]</Typography.Text> {getStudy.data[0].description} <br />
-                    <Typography.Text mark>[Data Version]</Typography.Text> {getStudy.data[0].currentDataVersion !== -1 ? getStudy.data[0].dataVersions[getStudy.data[0].currentDataVersion].version : 'NA'}
+                    <div style={{ fontSize: '20px' }}>
+                        <Table
+                            columns={columns}
+                            expandable={{ showExpandColumn: false }}
+                            dataSource={getFiles.data}
+                        />
+                    </div>
                 </List.Item>
-            </List><br />
+            </List>
             <List
-                header={<Typography.Title level={3}>Files</Typography.Title>}
+                header={
+                    <div className={css['overview-header']}>
+                        <div className={css['overview-icon']}></div>
+                        <div>File Tree</div>
+                    </div>
+                }
             >
                 <List.Item>
-                    <Table
-                        columns={columns}
-                        expandable={{ showExpandColumn: false }}
-                        dataSource={getFiles.data}
-                    />
+                    <FileTree study={getStudy.data[0]} files={getFiles.data} />
                 </List.Item>
             </List>
         </div>
@@ -92,10 +78,206 @@ export const FileRepositoryTabContent: FunctionComponent<{ studyId: string }> = 
     </>;
 };
 
+export const UploadFileComponent: FunctionComponent<{ study: IStudy, fields: IField[] }> = ({ study, fields }) => {
+    const [api, contextHolder] = notification.useNotification();
+    const [isShowPanel, setIsShowPanel] = React.useState(false);
+    const [fileList, setFileList] = useState<Blob[]>([]);
+    const [fileProperties, setFileProperties] = useState({
+        fieldId: ''
+    });
+    const uploadStudyFileData = trpc.data.uploadStudyFileData.useMutation({
+        onSuccess: ((data) => {
+            api.open({
+                message: 'File has been uploaded',
+                description: '',
+                duration: 10,
+                icon: <SmileOutlined style={{ color: '#108ee9' }} />
+            });
+            setIsShowPanel(false);
+        })
+    });
+    const [form] = Form.useForm();
+    const selectedField = fields.filter(el => el.fieldId === fileProperties.fieldId)[0];
+
+    return (<div>
+        {contextHolder}
+        <Button style={{ backgroundColor: 'powderblue' }} onClick={() => setIsShowPanel(true)}>Upload Files</Button>
+        <Modal
+            open={isShowPanel}
+            onCancel={() => setIsShowPanel(false)}
+            onOk={async () => {
+                if (fileList.length > 0) {
+                    const fileData = fileList[0];
+                    const formData = new FormData();
+                    formData.append('file', fileData);
+
+                    const response = await fetch('/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        uploadStudyFileData.mutate({
+                            studyId: study.id,
+                            file: [{
+                                path: data.filePath, // This should be the path returned by the server
+                                filename: fileData.name,
+                                mimetype: fileData.type,
+                                size: fileData.size
+                            }],
+                            properties: form.getFieldsValue(),
+                            fieldId: form.getFieldValue('fieldId')
+                        });
+                    } else {
+                        // Handle upload error
+                        console.error('File upload failed:', data);
+                    }
+                }
+            }}
+        >
+            <Upload.Dragger
+                multiple={false}
+                showUploadList={true}
+                beforeUpload={async (file: RcFile) => {
+                    // const fileSchema = await convertRCFileToSchema(file);
+                    return false;
+                }}
+                onChange={(info: UploadChangeParam<UploadFile>) => {
+                    // Filter out any items that do not have originFileObj
+                    const validFiles: RcFile[] = info.fileList
+                        .map(item => item.originFileObj)
+                        .filter((file): file is RcFile => !!file);
+
+                    setFileList(validFiles);
+                }}
+                onRemove={() => setFileList([])}
+            >
+                <p className="ant-upload-drag-icon">
+                    <InboxOutlined style={{ color: '#009688', fontSize: 48 }} />
+                </p>
+                <p className="ant-upload-text" style={{ fontSize: 16, color: '#444' }}>
+                    Drag files here or click to select files
+                </p>
+            </Upload.Dragger>
+            <Form
+                form={form}
+                layout='horizontal'
+            >
+                <Form.Item
+                    name="fieldId"
+                    label="File Category"
+                    rules={[{ required: true }]}
+                    labelCol={{ span: 8 }} // Label column width
+                    wrapperCol={{ span: 16 }} // Input column width
+                >
+                    <Select
+                        placeholder='Select a file category'
+                        allowClear
+                        onChange={(value) => setFileProperties({ fieldId: value })}
+                        filterOption={(input: string, option?: { label: string; value: string }) =>
+                            (option?.label ?? '').toLowerCase().includes(input.toLowerCase())}
+                        showSearch
+                    >
+                        {fields.map(el => <Option value={el.fieldId} label={el.fieldId}>{el.fieldName}</Option>)}
+                    </Select>
+                </Form.Item>
+                {
+                    (selectedField && selectedField.properties) ? selectedField.properties.map(el =>
+                        <Form.Item
+                            key={el.name}
+                            name={el.name}
+                            label={el.name}
+                            rules={[{ required: el.required }]}
+                            labelCol={{ span: 8 }} // Label column width
+                            wrapperCol={{ span: 16 }} // Input column width
+                        >
+                            <Input />
+                        </Form.Item>
+                    )
+                        : null
+                }
+            </Form>
+        </Modal>
+    </div >);
+};
+
+export const FileTree: FunctionComponent<{ study: IStudy, files: IFile[] }> = ({ study, files }) => {
+    const [currentLocationPath, setCurrentLocationPath] = useState<string[]>([study.name]);
+    const studyConfig = trpc.config.getConfig.useQuery({ configType: enumConfigType.STUDYCONFIG, key: study.id, useDefault: false });
+    if (studyConfig.isLoading) {
+        return <>
+            <div className='page_ariane'>Loading...</div>
+            <div className='page_content'>
+                <LoadSpinner />
+            </div>
+        </>;
+    }
+    if (studyConfig.isError) {
+        return <>
+            An error occured.
+        </>;
+    }
+
+    const maxPathLength = (studyConfig.data.properties as IStudyConfig)?.defaultFileDirectoryStructure?.pathLabels?.length ?? 10000;
+    const fileTableColumns = [
+        {
+            title: 'Folder Name',
+            dataIndex: 'value',
+            key: 'value',
+            width: 200, // Adjust this width as required
+            render: (__unused__value, record) => {
+                const content = currentLocationPath.length === maxPathLength
+                    ? <span><FileOutlined />&nbsp;{record.name}</span>
+                    : <span className={css['custom-text-hover']} onClick={() => {
+                        if (currentLocationPath.length < maxPathLength) {
+                            setCurrentLocationPath([...currentLocationPath, record.name]);
+                        }
+                    }}>
+                        <FolderOutlined />&nbsp;{record.name}
+                    </span>;
+
+                return (
+                    <Tooltip title={record.name}>
+                        <div>
+                            {content}
+                        </div>
+                    </Tooltip >
+                );
+            }
+        }
+    ];
+    return <div>
+        {
+            currentLocationPath.map((el, index) => {
+                const tag = <Tag color='cyan' style={{ marginRight: '5px' }} onClick={() => {
+                    setCurrentLocationPath([...currentLocationPath].slice(0, index + 1));
+                }}>{el}</Tag>;
+                if (index < currentLocationPath.length - 1) {
+                    return [tag, <span style={{ marginRight: '5px' }} key={`${el}-slash`}>/</span>];
+                } else {
+                    return tag;
+                }
+            })
+        }
+        <br />
+        <Table
+            columns={currentLocationPath.length === maxPathLength ? generateTableColumns(studyConfig.data.properties) : fileTableColumns}
+            expandable={{ showExpandColumn: false }}
+            dataSource={currentLocationPath.length !== maxPathLength ? Array.from(new Set(files.filter(el => currentLocationPath.every((part, index) => el.path[index] === part)).map(el => el.path[currentLocationPath.length]))).map(el => {
+                return {
+                    name: el
+                };
+            }) : files.filter(el => currentLocationPath.every((part, index) => el.path[index] === part))}
+        />
+    </div>;
+};
+
 type CustomColumnType = {
     title: React.ReactNode;
     dataIndex: string;
     key: string;
+    sorter?: any;
     render?: (value: any, record: any) => React.ReactNode;
 };
 
@@ -104,7 +286,7 @@ function generateTableColumns(properties) {
         title: 'File Name',
         dataIndex: 'fileName',
         key: 'fileName',
-        // width: 200, // Adjust this width as required
+        sorter: (a, b) => { return stringCompareFunc(a.properties['File Name'], b.properties['File Name']); },
         render: (__unused__value, record) => {
             return record.properties['File Name'];
         }
@@ -112,7 +294,7 @@ function generateTableColumns(properties) {
         title: 'File Size',
         dataIndex: 'fileSize',
         key: 'fileSize',
-        // width: 200, // Adjust this width as required
+        sorter: (a, b) => { return a.properties['File Size'] - b.properties['File Size']; },
         render: (__unused__value, record) => {
             return formatBytes(record.properties['File Size']);
         }
@@ -120,23 +302,14 @@ function generateTableColumns(properties) {
         title: 'File Type',
         dataIndex: 'fileType',
         key: 'fileType',
-        // width: 200, // Adjust this width as required
         render: (__unused__value, record) => {
-            return record.properties['File Type'].toUpperCase();
-        }
-    }, {
-        title: 'File Type',
-        dataIndex: 'fileType',
-        key: 'fileType',
-        // width: 200, // Adjust this width as required
-        render: (__unused__value, record) => {
-            return record.properties['File Type'].toUpperCase();
+            return record.properties['File Type']?.toUpperCase();
         }
     }, {
         title: 'Uploaded Time',
         dataIndex: 'uploadedTime',
         key: 'uploadedTime',
-        // width: 200, // Adjust this width as required
+        sorter: (a, b) => { return (new Date(a.life.createdTime)).valueOf() - (new Date(b.life.createdTime)).valueOf(); },
         render: (__unused__value, record) => {
             return (new Date(record.life.createdTime)).toDateString();
         }
@@ -144,7 +317,6 @@ function generateTableColumns(properties) {
         title: 'Uploaded By',
         dataIndex: 'uploadedBy',
         key: 'uploadedBy',
-        // width: 200, // Adjust this width as required
         render: (__unused__value, record) => {
             return record.life.createdUser;
         }
@@ -154,12 +326,24 @@ function generateTableColumns(properties) {
             title: <span style={{ color: properties.defaultFileColumnsPropertyColor }}>{property.title}</span>,
             dataIndex: property.title,
             key: property.title,
-            // width: 200, // Adjust this width as required
             render: (__unused__value, record) => {
                 return tableColumnRender(record, property);
             }
         });
     }
+    columns.push({
+        title: '',
+        dataIndex: 'download',
+        key: 'download',
+        render: (__unused__value, record) => {
+            return <Button
+                icon={<CloudDownloadOutlined />}
+                download={`${record.fileName}`}
+                href={`/file/${record.id}`}>
+                Download
+            </Button>;
+        }
+    });
 
     return columns;
 }

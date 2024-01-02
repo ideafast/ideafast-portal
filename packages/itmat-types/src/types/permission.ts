@@ -14,6 +14,7 @@ export interface IDocumentLevelPermission {
 
 // study assistant can have full control of user management
 // study manager in addition can manage the study data and study itself, e.g., editing study metadata
+// study user only have access to data filtered by dataPermissions
 export enum enumStudyRoles {
     STUDY_MANAGER = 'STUDY MANAGER',
     STUDY_ASSISTANT = 'STUDY ASSISTANT',
@@ -34,12 +35,13 @@ export interface IRole extends IBase {
     description: string;
 
     // data permissions for studyId
-    dataPermissions: IDataPermission[] | null; // or
+    dataPermissions: IDataPermission[]; // or
     studyRole: enumStudyRoles;
     users: string[];
     groups: string[];
 }
 
+// read - write - delete
 export const permissionString: Record<string, number[]> = {
     read: [4, 5, 6, 7],
     write: [6, 7],

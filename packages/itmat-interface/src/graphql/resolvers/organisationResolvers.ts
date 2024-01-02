@@ -20,7 +20,7 @@ export const organisationResolvers = {
         }
     },
     Mutation: {
-        createOrganisation: async (__unused__parent: Record<string, unknown>, { name, shortname, location, profile }: { name: string, shortname: string, location: number[] | null, profile: any | null }, context: any): Promise<IOrganisation> => {
+        createOrganisation: async (__unused__parent: Record<string, unknown>, { name, shortname, location, profile }: { name: string, shortname: string, location: number[] | undefined, profile: any | undefined }, context: any): Promise<IOrganisation> => {
             /**
              * Create an organisation.
              *
@@ -37,7 +37,7 @@ export const organisationResolvers = {
             if (requester.type !== enumUserTypes.ADMIN) {
                 throw new GraphQLError('Only admins can create organisations.', { extensions: { code: errorCodes.NO_PERMISSION_ERROR } });
             }
-            let profile_ = null;
+            let profile_ = undefined;
             if (profile) {
                 profile_ = await profile;
             }
@@ -65,7 +65,7 @@ export const organisationResolvers = {
 
             return makeGenericReponse(orgId, true, undefined, `Organisation ${orgId} has been deleted.`);
         },
-        editOrganisation: async (__unused__parent: Record<string, unknown>, { orgId, name, shortname, location, profile }: { orgId: string, name: string | null, shortname: string | null, location: number[] | null, profile: any | null }, context: any): Promise<IGenericResponse> => {
+        editOrganisation: async (__unused__parent: Record<string, unknown>, { orgId, name, shortname, location, profile }: { orgId: string, name: string, shortname: string, location: number[], profile: any }, context: any): Promise<IGenericResponse> => {
             /**
              * Edit an organisation. Note, if value is null, it will user the old value.
              *
@@ -85,7 +85,7 @@ export const organisationResolvers = {
                 throw new GraphQLError('Only admins can edit organisations.', { extensions: { code: errorCodes.NO_PERMISSION_ERROR } });
             }
 
-            let profile_ = null;
+            let profile_ = undefined;
             if (profile) {
                 profile_ = await profile;
             }

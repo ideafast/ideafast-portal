@@ -256,7 +256,7 @@ export function findDmField(ontologyTree: IOntologyTree, fields: IField[], key: 
     return null;
 }
 
-export function formatBytes(bytes: number | undefined, decimals: number = 2): string {
+export function formatBytes(bytes: number | undefined, decimals = 2): string {
     if (!bytes) {
         return '';
     }
@@ -269,4 +269,19 @@ export function formatBytes(bytes: number | undefined, decimals: number = 2): st
     const i = Math.floor(Math.log(bytes) / Math.log(k));
 
     return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+}
+
+export function stringCompareFunc(a, b) {
+    // Convert both strings to lowercase for case-insensitive comparison
+    const lowerA = a.toLowerCase();
+    const lowerB = b.toLowerCase();
+
+    // Compare the strings
+    if (lowerA < lowerB) {
+        return -1; // a comes before b
+    }
+    if (lowerA > lowerB) {
+        return 1; // a comes after b
+    }
+    return 0; // a and b are equal
 }

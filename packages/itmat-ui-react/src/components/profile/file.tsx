@@ -1,6 +1,6 @@
 import React, { FunctionComponent, useEffect } from 'react';
 import css from './profile.module.css';
-import { Input, Button, Row, Col, Typography, Table, notification, Modal, Tag, Select, Menu, Upload, Tooltip, message, Form, Checkbox } from 'antd';
+import { Input, Button, Row, Col, Typography, Table, notification, Modal, Tag, Select, Menu, Upload, Tooltip, message, Form, Checkbox, List } from 'antd';
 import LoadSpinner from '../reusable/loadSpinner';
 import { IDriveNode, IUser, enumDriveNodeTypes } from '@itmat-broker/itmat-types';
 import { CloudDownloadOutlined, FileOutlined, FolderOutlined, MailOutlined, PlusOutlined } from '@ant-design/icons';
@@ -12,8 +12,8 @@ const { Title } = Typography;
 
 export const MyFile: FunctionComponent = () => {
     const whoAmI = trpc.user.whoAmI.useQuery();
-    const getUsers = trpc.user.getUsers.useQuery({ userId: null });
-    const getDrives = trpc.drive.getDrives.useQuery({ managerId: whoAmI?.data?.id, rootId: null });
+    const getUsers = trpc.user.getUsers.useQuery({});
+    const getDrives = trpc.drive.getDrives.useQuery({ userId: whoAmI?.data?.id });
     const [fileList, setFileList] = React.useState<Record<string, IDriveNode[]>>(getDrives?.data ?? {});
 
     const [isInitialize, setIsInitialize] = React.useState(true);
@@ -37,7 +37,7 @@ export const MyFile: FunctionComponent = () => {
     const queries = queryClient.getQueriesData({});
     const createDriveFolder = trpc.drive.createDriveFolder.useMutation({
         onSuccess: (data) => {
-            const queryKey = [['drive', 'getDrives'], { input: { managerId: whoAmI?.data?.id, rootId: null }, type: 'query' }];
+            const queryKey = [['drive', 'getDrives'], { input: { managerId: whoAmI?.data?.id }, type: 'query' }];
             // log each query's key and data
             const cache = queryClient.getQueryData<any[]>(queryKey) ?? [];
             const newCache = [...cache[whoAmI.data.id], data];
@@ -60,7 +60,7 @@ export const MyFile: FunctionComponent = () => {
 
     const createDriveFile = trpc.drive.createDriveFile.useMutation({
         onSuccess: (data) => {
-            const queryKey = [['drive', 'getDrives'], { input: { managerId: whoAmI?.data?.id, rootId: null }, type: 'query' }];
+            const queryKey = [['drive', 'getDrives'], { input: { managerId: whoAmI?.data?.id }, type: 'query' }];
             // log each query's key and data
             const cache = queryClient.getQueryData<any[]>(queryKey) ?? [];
             const newCache = [...cache[whoAmI.data.id], data];
@@ -83,7 +83,7 @@ export const MyFile: FunctionComponent = () => {
 
     const deleteDrive = trpc.drive.deleteDrive.useMutation({
         onSuccess: (data) => {
-            const queryKey = [['drive', 'getDrives'], { input: { managerId: whoAmI?.data?.id, rootId: null }, type: 'query' }];
+            const queryKey = [['drive', 'getDrives'], { input: { managerId: whoAmI?.data?.id }, type: 'query' }];
             // log each query's key and data
             const cache = queryClient.getQueryData<any[]>(queryKey) ?? [];
             const newCache = cache[whoAmI.data.id].filter(el => el.id !== data.id);
@@ -110,24 +110,24 @@ export const MyFile: FunctionComponent = () => {
                 message.error('Edit failed');
                 return;
             }
-            const queryKey = [['drive', 'getDrives'], { input: { managerId: whoAmI?.data?.id, rootId: null }, type: 'query' }];
-            // log each query's key and data
-            const cache = queryClient.getQueryData<any[]>(queryKey) ?? [];
-            const newCache = cache[whoAmI.data.id].map(el => {
-                if (data.driveIds.includes(el.id)) {
-                    return {
-                        ...el,
-                        sharedUsers: data.drive?.sharedUsers ?? []
-                    };
-                }
-                return el;
-            });
-            const newQueryCache = {
-                ...cache,
-                [whoAmI.data.id]: newCache
-            };
-            queryClient.setQueryData(queryKey, newQueryCache);
-            setIsUploadFolderModalShown(false);
+            // const queryKey = [['drive', 'getDrives'], { input: { managerId: whoAmI?.data?.id, rootId: null }, type: 'query' }];
+            // // log each query's key and data
+            // const cache = queryClient.getQueryData<any[]>(queryKey) ?? [];
+            // const newCache = cache[whoAmI.data.id].map(el => {
+            //     if (data.driveIds.includes(el.id)) {
+            //         return {
+            //             ...el,
+            //             sharedUsers: data.drive?.sharedUsers ?? []
+            //         };
+            //     }
+            //     return el;
+            // });
+            // const newQueryCache = {
+            //     ...cache,
+            //     [whoAmI.data.id]: newCache
+            // };
+            // queryClient.setQueryData(queryKey, newQueryCache);
+            // setIsUploadFolderModalShown(false);
         },
         onError(error) {
             notification.error({
@@ -145,24 +145,24 @@ export const MyFile: FunctionComponent = () => {
                 message.error('Edit failed');
                 return;
             }
-            const queryKey = [['drive', 'getDrives'], { input: { managerId: whoAmI?.data?.id, rootId: null }, type: 'query' }];
-            // log each query's key and data
-            const cache = queryClient.getQueryData<any[]>(queryKey) ?? [];
-            const newCache = cache[whoAmI.data.id].map(el => {
-                if (data.driveIds.includes(el.id)) {
-                    return {
-                        ...el,
-                        sharedUsers: data.drive?.sharedUsers ?? []
-                    };
-                }
-                return el;
-            });
-            const newQueryCache = {
-                ...cache,
-                [whoAmI.data.id]: newCache
-            };
-            queryClient.setQueryData(queryKey, newQueryCache);
-            setIsUploadFolderModalShown(false);
+            // const queryKey = [['drive', 'getDrives'], { input: { managerId: whoAmI?.data?.id, rootId: null }, type: 'query' }];
+            // // log each query's key and data
+            // const cache = queryClient.getQueryData<any[]>(queryKey) ?? [];
+            // const newCache = cache[whoAmI.data.id].map(el => {
+            //     if (data.driveIds.includes(el.id)) {
+            //         return {
+            //             ...el,
+            //             sharedUsers: data.drive?.sharedUsers ?? []
+            //         };
+            //     }
+            //     return el;
+            // });
+            // const newQueryCache = {
+            //     ...cache,
+            //     [whoAmI.data.id]: newCache
+            // };
+            // queryClient.setQueryData(queryKey, newQueryCache);
+            // setIsUploadFolderModalShown(false);
         },
         onError(error) {
             notification.error({
@@ -275,88 +275,112 @@ export const MyFile: FunctionComponent = () => {
             key: 'download'
         }
     ];
-    return (<>
+    return (
         <div className={css.file_wrapper}>
-            <Row justify={'space-between'}>
-                <Col span={10}>
-                    <Title level={2}>My files</Title>
-                </Col>
-            </Row><br />
-            <Row justify={'start'} gutter={1}>
-                <Col span={1.5}>
-                    <Upload
-                        showUploadList={false}
-                        customRequest={async ({ file, onSuccess, onError }) => {
-                            try {
-                                const fileBuffer: any = await convertRCFileToSchema(file as RcFile);
-                                createDriveFile.mutate({
-                                    parentId: currentLocationPath[currentLocationPath.length - 1],
-                                    description: null,
-                                    file: [fileBuffer]  // wrapped as an array as your backend expects an array
-                                });
-                                onSuccess?.('OK');
-                            } catch (error) {
-                                // Optionally, call onError callback if the upload fails
-                                onError?.(new Error('Upload failed'));
-                            }
-                        }}
-                    >
-                        <Button icon={<PlusOutlined />}>Upload File</Button>
-                    </Upload>
-                </Col>
-                {/* <Col span={1.5}>
-                    <Button onClick={() => uploadUserRepo({variables: {userId: whoAmIData.whoAmI.id, description: null, fileType: fileList[0].file.name.split('.')[1], fileUpload: fileList[0]}})} type='default' shape='default'>Submit</Button>
-                </Col> */}
-                <Col span={1.5}>
-                    <Button icon={<PlusOutlined />} onClick={() => setIsUploadFolderModalShown(true)}>Create Folder</Button>
-                </Col>
-                <Col span={1.5}>
-                    <Button onClick={() => {
-                        const t = [...currentLocationPath];
-                        setCurrentLocationPath(t.length === 0 ? [] : t.slice(0, -1));
-                    }}>Back</Button>
-                </Col>
-                <Col span={1}>
-                    <Button>...</Button>
-                </Col>
-            </Row>
-            <br />
-            <UploadFolderModal
-                isModalShown={isUploadFolderModalShown}
-                setIsModalShown={setIsUploadFolderModalShown}
-                uploadFunc={createDriveFolder}
-                uploadVariables={{ userId: whoAmI.data.id, parentNodeId: currentLocationPath[currentLocationPath.length - 1] }}
-            />
-            {
-                currentLocationPath.map((el, index) => {
-                    const tag = <Tag color='cyan' style={{ marginRight: '5px' }} onClick={(value) => {
-                        setCurrentLocationPath([...currentLocationPath].slice(0, index + 1));
-                    }}>{getDrives?.data[whoAmI.data.id]?.filter(es => es.id === el)[0].name}</Tag>;
-                    if (index < currentLocationPath.length - 1) {
-                        return [tag, <span style={{ marginRight: '5px' }} key={`${el}-slash`}>/</span>];
-                    } else {
-                        return tag;
-                    }
-                })
-            }
-            <br /><br />
-            <Table
-                columns={fileTableColumns}
-                expandable={{ showExpandColumn: false }}
-                dataSource={fileList[whoAmI.data.id]?.filter(el => el.parent === currentLocationPath[currentLocationPath.length - 1])}
-            />
-            <ShareFileModal isModalShown={isShareModalShown} setIsModalShown={setIsShareModalShown} shareFunc={shareDriveViaEmail} shareVariables={{ userId: whoAmI.data.id, nodeId: currentNodeId }} currentDrive={getDrives.data[whoAmI.data.id].filter(el => el.id === currentNodeId)[0]} users={getUsers.data} />
-            {/* <Row justify={'space-between'}>
-                <Col span={10}>
-                    <Title level={2}>Shared files</Title>
-                </Col>
-            </Row><br /> */}
-        </div >
-        <div className={css.shared_container}>
-            <SharedFiles users={getUsers.data} sharedUserFiles={getDrives.data} self={whoAmI.data} />
-        </div >
-    </>);
+            <List
+                header={
+                    <div className={css['overview-header']}>
+                        <div className={css['overview-icon']}></div>
+                        <div>My files</div>
+                    </div>
+                }
+            >
+                <List.Item>
+                    <Row justify={'start'} gutter={1}>
+                        <Col span={1.5}>
+                            <Upload
+                                showUploadList={false}
+                                customRequest={async ({ file, onSuccess, onError }) => {
+                                    if (file) {
+                                        const fileData = file as Blob;
+                                        const formData = new FormData();
+                                        formData.append('file', fileData);
 
+                                        const response = await fetch('/upload', {
+                                            method: 'POST',
+                                            body: formData
+                                        });
+                                        const data = await response.json();
+                                        if (response.ok) {
+                                            createDriveFile.mutate({
+                                                parentId: currentLocationPath[currentLocationPath.length - 1],
+                                                description: null,
+                                                file: [{
+                                                    path: data.filePath, // This should be the path returned by the server
+                                                    filename: fileData.name,
+                                                    mimetype: fileData.type,
+                                                    size: fileData.size
+                                                }]
+                                            });
+                                        } else {
+                                            // Handle upload error
+                                            console.error('File upload failed:', data);
+                                        }
+                                    }
+                                }}
+                            >
+                                <Button icon={<PlusOutlined />}>Upload File</Button>
+                            </Upload>
+                        </Col>
+                        <Col span={1.5}>
+                            <Button icon={<PlusOutlined />} onClick={() => setIsUploadFolderModalShown(true)}>Create Folder</Button>
+                        </Col>
+                        <Col span={1.5}>
+                            <Button onClick={() => {
+                                const t = [...currentLocationPath];
+                                setCurrentLocationPath(t.length === 0 ? [] : t.slice(0, -1));
+                            }}>Back</Button>
+                        </Col>
+                        <Col span={1}>
+                            <Button>...</Button>
+                        </Col>
+                    </Row>
+                </List.Item>
+                <List.Item>
+                    <UploadFolderModal
+                        isModalShown={isUploadFolderModalShown}
+                        setIsModalShown={setIsUploadFolderModalShown}
+                        uploadFunc={createDriveFolder}
+                        uploadVariables={{ userId: whoAmI.data.id, parentNodeId: currentLocationPath[currentLocationPath.length - 1] }}
+                    />
+                    {
+                        currentLocationPath.map((el, index) => {
+                            const tag = <Tag color='cyan' style={{ marginRight: '5px' }} onClick={(value) => {
+                                setCurrentLocationPath([...currentLocationPath].slice(0, index + 1));
+                            }}>{getDrives?.data[whoAmI.data.id]?.filter(es => es.id === el)[0].name}</Tag>;
+                            if (index < currentLocationPath.length - 1) {
+                                return [tag, <span style={{ marginRight: '5px' }} key={`${el}-slash`}>/</span>];
+                            } else {
+                                return tag;
+                            }
+                        })
+                    }
+                </List.Item>
+                <List.Item>
+                    <Table
+                        columns={fileTableColumns}
+                        expandable={{ showExpandColumn: false }}
+                        dataSource={fileList[whoAmI.data.id]?.filter(el => el.parent === currentLocationPath[currentLocationPath.length - 1])}
+                    />
+                    <ShareFileModal isModalShown={isShareModalShown} setIsModalShown={setIsShareModalShown} shareFunc={shareDriveViaEmail} shareVariables={{ userId: whoAmI.data.id, nodeId: currentNodeId }} currentDrive={getDrives.data[whoAmI.data.id].filter(el => el.id === currentNodeId)[0]} users={getUsers.data} />
+                </List.Item>
+            </List>
+            <List
+                header={
+                    <div className={css['overview-header']}>
+                        <div className={css['overview-icon']}></div>
+                        <div>Shared files</div>
+                    </div>
+                }
+            >
+                <List.Item>
+                    <div className={css.shared_container}>
+                        <SharedFiles users={getUsers.data} sharedUserFiles={getDrives.data} self={whoAmI.data} />
+                    </div>
+                </List.Item>
+            </List>
+        </div >
+    );
 };
 
 export const SharedFiles: FunctionComponent<{ users: any, sharedUserFiles: any, self: any }> = ({ users, sharedUserFiles, self }) => {

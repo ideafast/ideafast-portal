@@ -9,11 +9,13 @@ import { DatabaseOutlined, TeamOutlined, PoweroffOutlined, HistoryOutlined, Sett
 import LoadSpinner from '../reusable/loadSpinner';
 import dayjs from 'dayjs';
 import { Tooltip } from 'antd';
+import React from 'react';
 
 type MainMenuBarProps = {
     projects: IProject[];
 }
 export const MainMenuBar: FunctionComponent<MainMenuBarProps> = ({ projects }) => {
+    const [isExpanded, setIsExpanded] = React.useState();
     const { loading: whoAmILoading, error: whoAmIError, data: whoAmIData } = useQuery(WHO_AM_I);
     if (whoAmILoading) {
         return <LoadSpinner />;
@@ -23,7 +25,7 @@ export const MainMenuBar: FunctionComponent<MainMenuBarProps> = ({ projects }) =
             An error occured, please contact your administrator
         </p>;
     }
-    return <div className={css.main_menubar}>
+    return <div className={isExpanded ? css.main_menubar : css.main_menubar}>
 
         <div>
             <NavLink to={projects.length === 1 ? `/projects/${projects[0].id}` : '/projects'} title='Projects' className={({ isActive }) => isActive ? css.clickedButton : undefined}>
@@ -51,27 +53,6 @@ export const MainMenuBar: FunctionComponent<MainMenuBarProps> = ({ projects }) =
                 </NavLink>
             </div> : null
         }
-
-        {/* <div>
-            <NavLink to={'/myfiles'} title='My Files' className={({ isActive }) => isActive ? css.clickedButton : undefined}>
-                <div className={css.button}><ProjectOutlined /> My Files</div>
-            </NavLink>
-        </div> */}
-
-        {/*
-        <div>
-            <NavLink to="/notifications" title="Notifications" className={({isActive}) => isActive ? css.clickedButton : undefined}>
-                <div className={css.button}><BellOutlined /></div>
-            </NavLink>
-        </div>
-
-        <div>
-            <NavLink to="/settings" title="Settings" className={({isActive}) => isActive ? css.clickedButton : undefined}>
-                <div className={css.button}><SettingOutlined /></div>
-            </NavLink>
-        </div>
-        */}
-
         <div>
             <NavLink to='/documents' title='Documents' className={({ isActive }) => isActive ? css.clickedButton : undefined}>
                 <div className={css.button}><FileOutlined /> Documents</div>

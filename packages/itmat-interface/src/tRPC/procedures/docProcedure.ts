@@ -66,22 +66,16 @@ export const docRouter = t.router({
         studyId: z.union([z.string(), z.null()]),
         priority: z.number(),
         attachments: z.union([z.array(z.object({
-            fileBuffer: z.instanceof(Buffer),
+            path: z.any(),
             filename: z.string(),
-            mimetype: z.string(),
+            mimetype: z.optional(z.string()),
             size: z.number()
             // ... other validation ...
         })), z.null()]),
         contents: z.string()
     })).mutation(async (opts: any) => {
         const requester = opts.ctx.req.user;
-        const attachements_: any[] = [];
-        if (opts.input.attachments) {
-            for (const attachment of opts.input.attachments) {
-                attachements_.push(await attachment);
-            }
-        }
-        const doc = await docCore.createDoc(requester.id, opts.input.title, opts.input.studyId, opts.input.description, opts.input.type, opts.input.tag, opts.input.contents, opts.input.priority, opts.input.attachments ? attachements_ : null);
+        const doc = await docCore.createDoc(requester.id, opts.input.title, opts.input.studyId, opts.input.description, opts.input.type, opts.input.tag, opts.input.contents, opts.input.priority, opts.input.attachments);
         return doc;
     }),
     /**
@@ -106,9 +100,9 @@ export const docRouter = t.router({
         description: z.union([z.string(), z.null()]),
         priority: z.union([z.number(), z.null()]),
         addAttachments: z.union([z.array(z.object({
-            fileBuffer: z.instanceof(Buffer),
+            path: z.any(),
             filename: z.string(),
-            mimetype: z.string(),
+            mimetype: z.optional(z.string()),
             size: z.number()
             // ... other validation ...
         })), z.null()]),
@@ -116,13 +110,7 @@ export const docRouter = t.router({
     })).mutation(async (opts: any) => {
         const requester = opts.req.user;
 
-        const attachements_: any[] = [];
-        if (opts.input.addAttachments) {
-            for (const attachment of opts.input.addAttachments) {
-                attachements_.push(await attachment);
-            }
-        }
-        const doc = await docCore.editDoc(requester.id, opts.input.docId, opts.input.contents, opts.input.title, opts.input.tag, opts.input.description, opts.input.priority, opts.input.addAttachments ? attachements_ : null, opts.input.removeAttachments);
+        const doc = await docCore.editDoc(requester.id, opts.input.docId, opts.input.contents, opts.input.title, opts.input.tag, opts.input.description, opts.input.priority, opts.input.addAttachments, opts.input.removeAttachments);
         return doc;
     }),
     /**

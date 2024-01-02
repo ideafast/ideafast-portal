@@ -20,7 +20,7 @@ export interface IUser extends IBase {
     password: string;
     otpSecret: string;
     profile: string | null; // id of the profile image
-    description: string | null;
+    description: string;
     expiredAt: number | null;
 }
 

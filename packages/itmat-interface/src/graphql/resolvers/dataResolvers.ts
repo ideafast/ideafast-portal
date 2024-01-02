@@ -1,36 +1,17 @@
-import { GraphQLError } from 'graphql';
 import {
-    IProject,
     IStudy,
-    IStudyDataVersion,
     IField,
     IUser,
-    IFile,
-    IJob,
-    IDataClip,
-    ISubjectDataRecordSummary,
-    IRole,
-    IOntologyTree,
-    enumUserTypes,
     IData,
-    IValueVerifier,
     ICategoricalOption,
     enumDataTypes,
     IGenericResponse,
-    IFieldPropert
+    IFieldProperty
 } from '@itmat-broker/itmat-types';
-import { v4 as uuid } from 'uuid';
-import { db } from '../../database/database';
-import { permissionCore } from '../core/permissionCore';
-import { validateAndGenerateFieldEntry } from '../core/fieldCore';
 import { studyCore } from '../core/studyCore';
-import { errorCodes } from '../errors';
-import { makeGenericReponse } from '../responses';
-import { buildPipeline, translateMetadata } from '../../utils/query';
-import { dataStandardization } from '../../utils/query';
 import { dataCore, IDataClipInput, ValueVerifierInput } from '../core/dataCore';
 import { FileUpload } from 'graphql-upload-minimal';
-import { version } from 'node:os';
+import { makeGenericReponse } from '../responses';
 
 
 export const dataResolvers = {
@@ -226,13 +207,12 @@ export const dataResolvers = {
                 fieldName: fieldName,
                 fieldId: fieldId,
                 description: description,
-                tableName: tableName,
                 dataType: dataType,
-                categoricalOptions: categoricalOptions,
-                unit: unit,
-                comments: comments,
-                verifier: verifier,
-                properties: properties as IFieldPropert[] | null
+                categoricalOptions: categoricalOptions ?? undefined,
+                unit: unit ?? undefined,
+                comments: comments ?? undefined,
+                verifier: verifier ?? undefined,
+                properties: properties as IFieldProperty[] ?? undefined
             });
             return field;
         },
@@ -265,14 +245,13 @@ export const dataResolvers = {
                 studyId: studyId,
                 fieldName: fieldName,
                 fieldId: fieldId,
-                description: description,
-                tableName: tableName,
+                description: '',
                 dataType: dataType,
-                categoricalOptions: categoricalOptions,
-                unit: unit,
-                comments: comments,
-                verifier: verifier,
-                properties: properties as IFieldPropert[] | null
+                categoricalOptions: categoricalOptions ?? undefined,
+                unit: unit ?? undefined,
+                comments: comments ?? undefined,
+                verifier: verifier ?? undefined,
+                properties: properties as IFieldProperty[] ?? undefined
             });
             return response;
 
@@ -446,11 +425,12 @@ export const dataResolvers = {
              *
              * @return IGenericResponse
              */
-            const requester = context.req.user;
-            const file_ = await file;
+            // const requester = context.req.user;
+            // const file_ = await file;
 
-            const response = await dataCore.uploadFileData(requester.id, studyId, file_, properties, subjectId, fieldId, visitId, timestamps);
-            return response;
+            // const response = await dataCore.uploadFileData(requester.id, studyId, file_, properties, subjectId, fieldId, visitId, timestamps);
+            // return response;
+            return makeGenericReponse('', true);
         }
     },
     Subscription: {}

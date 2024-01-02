@@ -9,5 +9,5 @@ export abstract class JobHandler {
     public abstract getInstance(): Promise<JobHandler>;
 
     /* called by job dispatcher */
-    public abstract execute(document: IJob): Promise<void>;
+    public abstract execute(document: IJob): Promise<any>;
 }

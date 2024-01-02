@@ -568,7 +568,7 @@ export const studyResolvers = {
             if (requester.type !== enumUserTypes.ADMIN) {
                 throw new GraphQLError(errorCodes.NO_PERMISSION_ERROR);
             }
-            let profile_ = null;
+            let profile_ = undefined;
             if (profile) {
                 profile_ = await profile;
             }
@@ -594,7 +594,7 @@ export const studyResolvers = {
 
             return response;
         },
-        createDataVersion: async (__unused__parent: Record<string, unknown>, { studyId, dataVersion, tag }: { studyId: string, dataVersion: string, tag: string }, context: any): Promise<IGenericResponse> => {
+        createDataVersion: async (__unused__parent: Record<string, unknown>, { studyId, dataVersion, tag }: { studyId: string, dataVersion: string, tag: string }, context: any): Promise<IStudyDataVersion> => {
             /**
              * Create a new data version of the study.
              *

@@ -1,27 +1,15 @@
-import { IResetPasswordRequest, IStudy, IUser, enumDocTypes, enumFileCategories, enumFileTypes, enumGroupNodeTypes, enumUserTypes } from '@itmat-broker/itmat-types';
-import { inferAsyncReturnType, initTRPC } from '@trpc/server';
+import { IUser, enumStudyRoles, enumUserTypes } from '@itmat-broker/itmat-types';
+import { TRPCError, inferAsyncReturnType, initTRPC } from '@trpc/server';
 import * as trpcExpress from '@trpc/server/adapters/express';
-import { custom, z } from 'zod';
-import { userCore } from '../../graphql/core/userCore';
+import { z } from 'zod';
 import { GraphQLError } from 'graphql';
 import { errorCodes } from '../../graphql/errors';
-import { makeGenericReponse } from '../../graphql/responses';
-import bcrypt from 'bcrypt';
-import * as mfa from '../../utils/mfa';
-import { mailer } from '../../emailer/emailer';
-import { decryptEmail, encryptEmail, makeAESIv, makeAESKeySalt } from '../../encryption/aes';
-import config from '../../utils/configManager';
-import { Logger } from '@itmat-broker/itmat-commons';
-import { v4 as uuid } from 'uuid';
-import { Readable } from 'stream';
-import QRCode from 'qrcode';
-import tmp from 'tmp';
-import { FileUpload } from 'graphql-upload-minimal';
-import { type } from 'os';
-import { fileCore } from '../../graphql/core/fileCore';
-import { docCore } from '../../graphql/core/docCore';
 import { studyCore } from '../../graphql/core/studyCore';
 import { baseProcedure } from '../../log/trpcLogHelper';
+import { BufferSchema } from './type';
+import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
+import { convertSerializedBufferToBuffer, isSerializedBuffer } from '../../utils/file';
+import { permissionCore } from '../../graphql/core/permissionCore';
 const createContext = ({
     req,
     res
@@ -29,8 +17,6 @@ const createContext = ({
 type Context = inferAsyncReturnType<typeof createContext>;
 
 const t = initTRPC.context<Context>().create();
-
-
 
 export const studyRouter = t.router({
     /**
@@ -41,24 +27,13 @@ export const studyRouter = t.router({
      * @return Partial<IStudy>
      */
     getStudies: baseProcedure.input(z.object({
-        studyId: z.union([z.string(), z.null()])
+        studyId: z.optional(z.string())
     })).query(async (opts: any) => {
-        const requester: IUser = opts.ctx.req.user;
-
-        const studies = await studyCore.getStudies(opts.input.studyId);
-
-        const filteredStudies: any[] = [];
-        for (const study of studies) {
-            filteredStudies.push({
-                id: study.id,
-                name: study.name,
-                description: study.description,
-                currentDataVersion: study.currentDataVersion,
-                dataVersions: study.dataVersions,
-                profile: study.profile
-            });
+        const requester: IUser = opts.ctx.req?.user ?? opts.ctx.user;
+        if (opts.input.studyId) {
+            await permissionCore.checkOperationPermissionByUser(requester.id, opts.input.studyId);
         }
-        return filteredStudies;
+        return await studyCore.getStudiesByUser(requester.id, opts.input.studyId);
     }),
     /**
      * Create a study.
@@ -70,27 +45,25 @@ export const studyRouter = t.router({
      * @return IStudy
      */
     createStudy: baseProcedure.input(z.object({
-        studyId: z.string(),
         name: z.string(),
-        description: z.string(),
-        profile: z.union([z.array(z.object({
-            fileBuffer: z.instanceof(Buffer),
+        description: z.optional(z.string()),
+        profile: z.array(z.object({
+            path: z.any(),
             filename: z.string(),
-            mimetype: z.string(),
+            mimetype: z.optional(z.string()),
             size: z.number()
             // ... other validation ...
-        })), z.null()])
+        }))
     })).mutation(async (opts: any) => {
-        const requester: IUser = opts.req.user;
+        const requester: IUser = opts.ctx.req?.user ?? opts.ctx.user;
         if (requester.type !== enumUserTypes.ADMIN) {
-            throw new GraphQLError(errorCodes.NO_PERMISSION_ERROR);
-        }
-        let profile_ = null;
-        if (opts.input.profile) {
-            profile_ = await opts.input.profile[0];
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: errorCodes.NO_PERMISSION_ERROR
+            });
         }
         /* create study */
-        const study = await studyCore.createStudy(requester.id, opts.input.name, opts.input.description, profile_);
+        const study = await studyCore.createStudy(requester.id, opts.input.name, opts.input.description, opts.input.profile[0]);
         return study;
     }),
     /**
@@ -105,25 +78,24 @@ export const studyRouter = t.router({
      */
     editStudy: baseProcedure.input(z.object({
         studyId: z.string(),
-        name: z.string(),
-        description: z.string(),
-        profile: z.union([z.array(z.object({
-            fileBuffer: z.instanceof(Buffer),
+        name: z.optional(z.string()),
+        description: z.optional(z.string()),
+        profile: z.optional(z.array(z.object({
+            path: z.any(),
             filename: z.string(),
-            mimetype: z.string(),
+            mimetype: z.optional(z.string()),
             size: z.number()
-            // ... other validation ...
-        })), z.null()])
+        })))
     })).mutation(async (opts: any) => {
-        const requester: IUser = opts.req.user;
+        const requester: IUser = opts.ctx.req?.user ?? opts.ctx.user;
         if (requester.type !== enumUserTypes.ADMIN) {
-            throw new GraphQLError(errorCodes.NO_PERMISSION_ERROR);
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: errorCodes.NO_PERMISSION_ERROR
+            });
         }
-        let profile_ = null;
-        if (opts.input.profile) {
-            profile_ = await opts.input.profile[0];
-        }
-        const study = await studyCore.editStudy(requester.id, opts.input.studyId, opts.input.name, opts.input.description, profile_);
+
+        const study = await studyCore.editStudy(requester.id, opts.input.studyId, opts.input.name, opts.input.description, opts.input.profile[0]);
         return study;
     }),
     /**
@@ -136,11 +108,14 @@ export const studyRouter = t.router({
     deleteStudy: baseProcedure.input(z.object({
         studyId: z.string()
     })).mutation(async (opts: any) => {
-        const requester: IUser = opts.req.user;
+        const requester: IUser = opts.ctx.req?.user ?? opts.ctx.user;
 
         /* check privileges */
         if (requester.type !== enumUserTypes.ADMIN) {
-            throw new GraphQLError(errorCodes.NO_PERMISSION_ERROR);
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: errorCodes.NO_PERMISSION_ERROR
+            });
         }
 
         const response = studyCore.deleteStudy(requester.id, opts.input.studyId);
@@ -161,29 +136,26 @@ export const studyRouter = t.router({
         dataVersion: z.string(),
         tag: z.string()
     })).mutation(async (opts: any) => {
-        const requester = opts.req.user;
-
-        const decimalRegex = /^[0-9]+(\.[0-9]+)?$/;
-
-        if (!decimalRegex.test(opts.input.dataVersion)) {
-            throw new GraphQLError('Version must be a float number.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
-        }
-
+        const requester = opts.ctx.req.user;
+        await permissionCore.checkOperationPermissionByUser(requester.id, opts.input.studyId, enumStudyRoles.STUDY_MANAGER);
         const response = await studyCore.createDataVersion(requester, opts.input.studyId, opts.input.tag, opts.input.dataVersion);
         return response;
     }),
+    /**
+     * Set a data version as the current data version of a  study.
+     *
+     * @param studyId - The id of the study.
+     * @param dataVersionId - The id of the data version.
+     *
+     * @return IGenreicResponse
+     */
     setDataversionAsCurrent: baseProcedure.input(z.object({
         studyId: z.string(),
         dataVersionId: z.string()
     })).mutation(async (opts: any) => {
-        const requester: IUser = opts.req.user;
-
-        if (requester.type !== enumUserTypes.ADMIN) {
-            throw new GraphQLError(errorCodes.NO_PERMISSION_ERROR);
-        }
-
+        const requester: IUser = opts.ctx.req?.user ?? opts.ctx.user;
+        await permissionCore.checkOperationPermissionByUser(requester.id, opts.input.studyId, enumStudyRoles.STUDY_MANAGER);
         const response = await studyCore.setDataVersion(opts.input.studyId, opts.input.dataVersionId);
-
         return response;
     })
 });

@@ -8,9 +8,11 @@
         "LEFT RIGHT"
         "FILE FILE"
         "SHARED SHARED"
-        "GROUP GROUP";
+        "GROUP GROUP"
+        "KEY KEY";
     grid-template-columns: 40% 60%;
     grid-template-rows: 750px 1fr;
+    padding: 2rem;
 }
 
 .profile_left {
@@ -115,6 +117,46 @@
 
 .group_wrapper {
     grid-area: GROUP;
+    padding: 20px;
+    background-color: white;
+}
+
+.overview-header {
+    display: flex;
+    align-items: center;
+    /* This will vertically center align the icon and the title */
+    /* If there is still a misalignment, you may adjust by adding 'align-self' to the children */
+    font-size: 20px;
+    font-weight: 500;
+    overflow: auto;
+}
+
+.overview-icon {
+    background-color: #000;
+    /* Or any color you prefer */
+    width: 4px;
+    /* Thickness of the line */
+    height: 24px;
+    /* Height of the line, adjust as needed */
+    margin-right: 16px;
+    /* Space between the line and the text */
+    /* Adjust 'margin-top' if the line is not aligned with the text */
+}
+
+.overview-title {
+    /* Style for your title */
+    font-size: 24px;
+    font-weight: bold;
+}
+
+.overview-content {
+    /* Style for your content */
+    text-indent: 30px;
+    /* Adjust the indent as needed */
+}
+
+.key_wrapper {
+    grid-area: KEY;
     padding: 20px;
     background-color: white;
 }

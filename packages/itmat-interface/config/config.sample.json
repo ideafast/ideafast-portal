@@ -20,7 +20,10 @@
             "standardizations_collection": "STANDARDIZATION_COLLECTION",
             "configs_collection": "CONFIG_COLLECTION",
             "ontologies_collection": "ONTOLOGY_COLLECTION",
-            "docs_collection": "DOC_COLLECTION"
+            "docs_collection": "DOC_COLLECTION",
+            "cache_collection": "CACHE_COLLECTION",
+            "drives_collection": "DRIVE_COLLECTION",
+            "groups_collection": "GROUP_COLLECTION"
         }
     },
     "server": {
@@ -46,5 +49,7 @@
         "auth": {}
     },
     "adminEmail": "admin@example.com",
-    "aeEndpoint": "http://localhost:9090"
+    "aeEndpoint": "http://localhost:9090",
+    "webdavPort": 1900,
+    "useWebdav": false
 }

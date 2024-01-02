@@ -46,7 +46,6 @@ export class ObjectStore {
     public async uploadFile(fileStream: Readable, bucketId: string, uri: string): Promise<string> {
         const lowerCaseBucketId = bucketId.toLowerCase();
         const bucketExists = await this.client!.bucketExists(lowerCaseBucketId);
-
         if (!bucketExists) {
             await this.client!.makeBucket(lowerCaseBucketId, this.config?.bucketRegion ?? '');
         }
@@ -63,7 +62,6 @@ export class ObjectStore {
         if (fileExists) {
             throw new Error(`File "${uri}" of bucket "${bucketId}" already exists.`);
         }
-
         const result = await this.client!.putObject(lowerCaseBucketId, uri, fileStream);
         return result.etag;
     }

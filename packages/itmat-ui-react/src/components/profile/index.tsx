@@ -4,6 +4,7 @@ import { MyFile } from './file';
 import css from './profile.module.css';
 import { Divider } from 'antd';
 import { MyGroup } from './group';
+import { MyKeys } from './keys';
 
 export const ProfilePage: FunctionComponent = () => {
     return (
@@ -13,6 +14,7 @@ export const ProfilePage: FunctionComponent = () => {
             <MyFile />
             <Divider />
             <MyGroup />
+            <MyKeys />
         </div>
     );
 };

@@ -1,16 +1,14 @@
-import { useQuery, useMutation, useApolloClient } from '@apollo/client/react/hooks';
-import { IPubkey, IOrganisation, IUser, enumDocTypes, IDoc } from '@itmat-broker/itmat-types';
-import { WHO_AM_I, REQUEST_USERNAME_OR_RESET_PASSWORD, GET_ORGANISATIONS, REQUEST_EXPIRY_DATE, EDIT_USER, GET_USER_PROFILE, UPLOAD_USER_PROFILE, CREATE_DOC, GET_DOCS, DELETE_DOC, GET_STUDIES } from '@itmat-broker/itmat-models';
 import LoadSpinner from '../reusable/loadSpinner';
 // import { ProjectSection } from '../users/projectSection';
-import { Form, Input, Select, DatePicker, Button, Alert, Checkbox, Image, Typography, Row, Col, Divider, Upload, UploadFile, Modal, message, notification, Card, Popconfirm } from 'antd';
+import { Card, Col, List, Row, Table } from 'antd';
 import css from './dataset.module.css';
 import React from 'react';
 import 'react-quill/dist/quill.snow.css';
 import { Link } from 'react-router-dom';
 import { trpc } from '../../utils/trpc';
+import generic from '../../assets/generic.png';
+import { stringCompareFunc } from '../../utils/tools';
 const { Meta } = Card;
-
 interface StudyProps {
     study: {
         id: string;
@@ -21,8 +19,7 @@ interface StudyProps {
 }
 
 export const DatasetSection: React.FunctionComponent = () => {
-    const getStudies = trpc.study.getStudies.useQuery({ studyId: null });
-    // const { loading: getStudiesLoading, error: getStudiesError, data: getStudiesData } = useQuery(GET_STUDIES, { variables: { studyId: null } });
+    const getStudies = trpc.study.getStudies.useQuery({});
 
     if (getStudies.isLoading) {
         return <>
@@ -36,27 +33,80 @@ export const DatasetSection: React.FunctionComponent = () => {
     if (getStudies.isError) {
         return <>An error occurred.</>;
     }
+    const numberOfStudies = getStudies.data.length;
+    const numberOfStudiesEachRow = 4;
+    const numberOfRows = Math.ceil(numberOfStudies / numberOfStudiesEachRow);
+
+    const columns: any[] = [{
+        title: 'Dataset',
+        dataIndex: 'name',
+        key: 'name',
+        width: '20%',
+        ellipsis: true,
+        sorter: (a, b) => { return stringCompareFunc(a.name, b.name); },
+        render: (__unused__value, record) => {
+            return (
+                <div style={{ display: 'flex', alignItems: 'center', fontSize: '15px' }}>
+                    <img
+                        src={record.profile ? `${window.location.origin}/file/${record.profile}` : generic}
+                        alt={''}
+                        style={{ width: '50px', height: '50px', marginRight: '10px' }} // Adjust the size as needed
+                    />
+                    {record.name}
+                </div>
+            );
+        }
+    }, {
+        title: 'Descrition',
+        dataIndex: 'description',
+        key: 'description',
+        width: '40%',
+        ellipsis: true,
+        render: (__unused__value, record) => {
+            return <div>
+                {record.description ?? ''}
+            </div>;
+        }
+    }, {
+        title: '',
+        dataIndex: 'link',
+        key: 'link',
+        render: (__unused__value, record) => {
+            return <Link to={`/datasets/${record.id}`}>Go to study</Link>;
+        }
+    }];
 
     return (
         <div className={css.page_container}>
-            {getStudies.data.map((study) => (
-                <StudyCard key={study.id} study={study} />
-            ))}
+            <List
+                header={
+                    <div className={css['overview-header']}>
+                        <div className={css['overview-icon']}></div>
+                        <div>List of Datasets</div>
+                    </div>
+                }
+            >
+                <List.Item>
+                    <div>
+                        <Table
+                            columns={columns}
+                            dataSource={getStudies.data}
+                            pagination={
+                                {
+                                    defaultPageSize: 50,
+                                    showSizeChanger: true,
+                                    pageSizeOptions: ['10', '20', '50', '100'],
+                                    defaultCurrent: 1,
+                                    showQuickJumper: true
+                                }
+                            }
+                        />
+                    </div>
+                </List.Item>
+            </List><br />
         </div>
     );
 };
 
-const StudyCard: React.FunctionComponent<StudyProps> = ({ study }) => {
-    return (
-        <Card
-            hoverable
-            style={{ width: 240 }}
-            cover={<img alt={study.name} src={`${window.location.origin}/file/${study.profile}`} />}
-        >
-            <Meta title={study.name} description={study.description} />
-            <Link to={`/datasets/${study.id}`}>Go to study</Link>
-        </Card>
-    );
-};
 
 

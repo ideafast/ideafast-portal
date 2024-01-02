@@ -1,7 +1,7 @@
 import { IResetPasswordRequest, IUser, enumFileCategories, enumFileTypes, enumGroupNodeTypes, enumUserTypes } from '@itmat-broker/itmat-types';
-import { inferAsyncReturnType, initTRPC } from '@trpc/server';
+import { TRPCError, inferAsyncReturnType, initTRPC } from '@trpc/server';
 import * as trpcExpress from '@trpc/server/adapters/express';
-import { custom, z } from 'zod';
+import { z } from 'zod';
 import { userCore } from '../../graphql/core/userCore';
 import { GraphQLError } from 'graphql';
 import { errorCodes } from '../../graphql/errors';
@@ -13,13 +13,13 @@ import { decryptEmail, encryptEmail, makeAESIv, makeAESKeySalt } from '../../enc
 import config from '../../utils/configManager';
 import { Logger } from '@itmat-broker/itmat-commons';
 import { v4 as uuid } from 'uuid';
-import { Readable } from 'stream';
 import QRCode from 'qrcode';
 import tmp from 'tmp';
-import { FileUpload } from 'graphql-upload-minimal';
-import { type } from 'os';
 import { fileCore } from '../../graphql/core/fileCore';
 import { baseProcedure } from '../../log/trpcLogHelper';
+import { BufferSchema } from './type';
+import { convertSerializedBufferToBuffer, isSerializedBuffer } from '../../utils/file';
+import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
 const createContext = ({
     req,
     res
@@ -44,10 +44,12 @@ export const userRouter = t.router({
      * @return Partial<IUser>[] - The list of objects of IUser.
      */
     getUsers: baseProcedure.input(z.object({
-        userId: z.union([z.string(), z.null()])
+        userId: z.optional(z.string()),
+        username: z.optional(z.string()),
+        email: z.optional(z.string())
     })).query(async (opts: any) => {
-        const requester: IUser = opts.ctx.req.user;
-        const users = opts.input.userId ? await userCore.getUser(opts.input.userId, null, null) : await userCore.getAllUsers(false);
+        const requester: IUser = opts.ctx.req?.user ?? opts.ctx.user;
+        const users = (opts.input.userId || opts.input.username || opts.input.email) ? await userCore.getUser(opts.input.userId, opts.input.username, opts.input.email) : await userCore.getAllUsers(requester.id, false);
         /* If user is admin, or user is asking info of own, then return all info. Otherwise, need to remove private info. */
         const priority = requester.type === enumUserTypes.ADMIN || requester.id === opts.input.userId;
         const clearedUsers: Partial<IUser>[] = [];
@@ -104,7 +106,7 @@ export const userRouter = t.router({
     // getUserFileNodes: baseProcedure.input(z.object({
     //     userId: z.string()
     // })).query(async (opts: any) => {
-    //     const requester: IUser = opts.ctx.req.user;
+    //     const requester: IUser = opts.ctx.req?.user ?? opts.ctx.user;
 
     //     if (!(requester.type === enumUserTypes.ADMIN) || !(requester.id === opts.input.userId)) {
     //         throw new GraphQLError('', { extensions: { code: errorCodes.NO_PERMISSION_ERROR } });
@@ -122,7 +124,7 @@ export const userRouter = t.router({
     requestExpiryDate: baseProcedure.input(z.object({
         userId: z.string()
     })).mutation(async (opts: any) => {
-        const user = (await userCore.getUser(opts.input.userId, null, null))[0];
+        const user = (await userCore.getUser(opts.input.userId, undefined, undefined))[0];
         if (!user || !user.email || !user.username) {
             /* even user is null. send successful response: they should know that a user doesn't exist */
             await new Promise(resolve => setTimeout(resolve, Math.random() * 6000));
@@ -170,7 +172,7 @@ export const userRouter = t.router({
         }
 
         /* check user existence */
-        const user = (await userCore.getUser(null, opts.input.username, opts.input.email))[0];
+        const user = (await userCore.getUser(undefined, opts.input.username, opts.input.email))[0];
         if (!user) {
             /* even user is null. send successful response: they should know that a user doesn't exist */
             await new Promise(resolve => setTimeout(resolve, Math.random() * 6000));
@@ -221,7 +223,7 @@ export const userRouter = t.router({
         requestexpirydate: z.union([z.boolean(), z.null()])
     })).mutation(async (opts: any) => {
         const req = opts.ctx.req;
-        const user = (await userCore.getUser(null, opts.input.username, null))[0];
+        const user = (await userCore.getUser(undefined, opts.input.username, undefined))[0];
         if (!user || !user.password || !user.otpSecret || !user.email || !user.username) {
             throw new GraphQLError('User does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
         }
@@ -315,52 +317,57 @@ export const userRouter = t.router({
         lastname: z.string(),
         email: z.string(),
         password: z.string(),
-        description: z.union([z.string(), z.null()]),
+        description: z.optional(z.string()),
         organisation: z.string(),
-        profile: z.union([z.array(z.object({
-            fileBuffer: z.instanceof(Buffer),
+        profile: z.optional(z.array(z.object({
+            path: z.any(),
             filename: z.string(),
-            mimetype: z.string(),
+            mimetype: z.optional(z.string()),
             size: z.number()
             // ... other validation ...
-        })), z.null()])
+        })))
     })).mutation(async (opts: any) => {
         /* check email is valid form */
         if (!/^([a-zA-Z0-9_\-.]+)@([a-zA-Z0-9_\-.]+)\.([a-zA-Z]{2,5})$/.test(opts.input.email)) {
-            throw new GraphQLError('Email is not the right format.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'Email is not the right format.'
+            });
         }
 
         /* check password validity */
         if (opts.input.password && !passwordIsGoodEnough(opts.input.password)) {
-            throw new GraphQLError('Password has to be at least 8 character long.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'Password has to be at least 8 character long.'
+            });
         }
 
         /* check that username and password dont have space */
         if (opts.input.username.indexOf(' ') !== -1 || opts.input.password.indexOf(' ') !== -1) {
-            throw new GraphQLError('Username or password cannot have spaces.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
-        }
-
-        /* Check if username has been used */
-        const userExist = (await userCore.getUser(null, opts.input.username, null))[0];
-        if (userExist) {
-            throw new GraphQLError('This username has been registered. Please sign-in or register with another username!', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
-        }
-
-        /* check if email has been used */
-        const emailExist = (await userCore.getUser(null, null, opts.input.email))[0];
-        if (emailExist) {
-            throw new GraphQLError('This email has been registered. Please sign-in or register with another email!', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'Username or password cannot have spaces.'
+            });
         }
 
         /* randomly generate a secret for Time-based One Time Password*/
         const otpSecret = mfa.generateSecret();
 
-        /* Check file upload */
-        let profile_ = null;
-        if (opts.input.profile) {
-            profile_ = await opts.input.profile[0];
-        }
-        const user = await userCore.createUser(opts.req?.user?.id ?? null, opts.input.username, opts.input.email, opts.input.firstname, opts.input.lastname, opts.input.organisation, enumUserTypes.STANDARD, false, opts.input.password, otpSecret, profile_, opts.input.description);
+        const user = await userCore.createUser(
+            opts.input.username,
+            opts.input.email,
+            opts.input.firstname,
+            opts.input.lastname,
+            opts.input.organisation,
+            enumUserTypes.STANDARD,
+            false,
+            opts.input.password,
+            otpSecret,
+            opts.input.profile[0],
+            opts.input.description,
+            opts.req?.user?.id ?? null
+        );
 
         /* send email to the registered user */
         // get QR Code for the otpSecret.
@@ -368,9 +375,13 @@ export const userRouter = t.router({
         const tmpobj = tmp.fileSync({ mode: 0o644, prefix: 'qrcodeimg-', postfix: '.png' });
 
         QRCode.toFile(tmpobj.name, oauth_uri, {}, function (err) {
-            if (err) throw new GraphQLError(err.message);
+            if (err) {
+                throw new TRPCError({
+                    code: enumTRPCErrorCodes.BAD_REQUEST,
+                    message: err.message
+                });
+            }
         });
-
         const attachments = [{ filename: 'qrcode.png', path: tmpobj.name, cid: 'qrcode_cid' }];
         await mailer.sendMail({
             from: `${config.appName} <${config.nodemailer.auth.user}>`,
@@ -520,66 +531,69 @@ export const userRouter = t.router({
      */
     editUser: baseProcedure.input(z.object({
         userId: z.string(),
-        username: z.union([z.string(), z.null()]),
-        type: z.union([z.nativeEnum(enumUserTypes), z.null()]),
-        firstname: z.union([z.string(), z.null()]),
-        lastname: z.union([z.string(), z.null()]),
-        email: z.union([z.string(), z.null()]),
-        password: z.union([z.string(), z.null()]),
-        description: z.union([z.string(), z.null()]),
-        organisation: z.union([z.string(), z.null()]),
-        profile: z.union([z.array(z.object({
-            fileBuffer: z.instanceof(Buffer),
+        username: z.optional(z.string()),
+        type: z.optional(z.nativeEnum(enumUserTypes)),
+        firstname: z.optional(z.string()),
+        lastname: z.optional(z.string()),
+        email: z.optional(z.string()),
+        password: z.optional(z.string()),
+        description: z.optional(z.string()),
+        organisation: z.optional(z.string()),
+        expiredAt: z.optional(z.number()),
+        profile: z.array(z.object({
+            path: z.any(),
             filename: z.string(),
-            mimetype: z.string(),
+            mimetype: z.optional(z.string()),
             size: z.number()
             // ... other validation ...
-        })), z.null()])
+        }))
     })).mutation(async (opts: any) => {
-        const requester: IUser = opts.req.user;
+        const requester: IUser = opts.ctx.req?.user ?? opts.ctx.user;
         if (requester.type !== enumUserTypes.ADMIN && requester.id !== opts.input.userId) {
-            throw new GraphQLError('User can only edit his/her own information.', { extensions: { code: errorCodes.NO_PERMISSION_ERROR } });
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'User can only edit his/her own account.'
+            });
         }
 
         if (requester.type !== enumUserTypes.ADMIN && (opts.input.type || opts.input.expiredAt || opts.input.rganisation)) {
-            throw new GraphQLError('Standard user can not change their type, expiration time and organisation. Please contact admins for help.', { extensions: { code: errorCodes.NO_PERMISSION_ERROR } });
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'Standard user can not change their type, expiration time and organisation. Please contact admins for help.'
+            });
         }
 
         if (opts.input.password && !passwordIsGoodEnough(opts.input.password)) {
-            throw new GraphQLError('Password has to be at least 8 character long.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'Password has to be at least 8 character long.'
+            });
+        }
+
+        /* check that username and password dont have space */
+        if (opts.input.username && opts.input.username.indexOf(' ') !== -1 || opts.input.password.indexOf(' ') !== -1) {
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'Username or password cannot have spaces.'
+            });
         }
 
         /* check email is valid form */
         if (opts.input.email && !/^([a-zA-Z0-9_\-.]+)@([a-zA-Z0-9_\-.]+)\.([a-zA-Z]{2,5})$/.test(opts.input.email)) {
-            throw new GraphQLError('Email is not the right format.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'Email is not the right format.'
+            });
         }
 
-        /* check password validity */
-        if (opts.input.password && !passwordIsGoodEnough(opts.input.password)) {
-            throw new GraphQLError('Password has to be at least 8 character long.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+        if (opts.input.expiredAt < Date.now()) {
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'Cannot set to a previous time.'
+            });
         }
 
-        /* check if email has been used */
-        const emailExist = (await userCore.getUser(null, null, opts.input.email))[0];
-        if (emailExist) {
-            throw new GraphQLError('This email has been registered. Please sign-in or register with another email!', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
-        }
-        if (requester.type !== enumUserTypes.ADMIN && (
-            opts.input.type || opts.input.firstname || opts.input.lastname || opts.input.username || opts.input.description || opts.input.organisation
-        )) {
-            throw new GraphQLError('User not updated: Non-admin users are only authorised to change their password, email or email notification.');
-        }
-
-        const oldUser = (await userCore.getUser(opts.input.userId, null, null))[0];
-        if (!oldUser || !oldUser.password) {
-            throw new GraphQLError('User does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
-        }
-
-        let profile_ = null;
-        if (opts.input.profile) {
-            profile_ = await opts.input.profile[0];
-        }
-        const newUser = await userCore.editUser(requester.id, opts.input.userId, opts.input.username, opts.input.email, opts.input.firstname, opts.input.lastname, opts.input.organisation, opts.input.type, opts.input.emailNotificationsActivated, opts.input.password, null, profile_, opts.input.description, opts.input.expiredAt);
+        const newUser = await userCore.editUser(requester.id, opts.input.userId, opts.input.username, opts.input.email, opts.input.firstname, opts.input.lastname, opts.input.organisation, opts.input.type, opts.input.emailNotificationsActivated, opts.input.password, undefined, opts.input.profile[0], opts.input.description, opts.input.expiredAt);
         if (newUser) {
             // New expiry date has been updated successfully.
             if (opts.input.expiredAt && newUser.email && newUser.username) {
@@ -589,10 +603,8 @@ export const userRouter = t.router({
                     username: newUser.username
                 }));
             }
-            return newUser;
-        } else {
-            throw new GraphQLError('Database error.', { extensions: { code: errorCodes.DATABASE_ERROR } });
         }
+        return newUser;
     }),
     /**
      * Upload a profile of a user.
@@ -609,32 +621,26 @@ export const userRouter = t.router({
         description: z.union([z.string(), z.null()]),
         fileType: z.nativeEnum(enumFileTypes),
         fileUpload: z.array(z.object({
-            fileBuffer: z.instanceof(Buffer),
+            path: z.any(),
             filename: z.string(),
-            mimetype: z.string(),
+            mimetype: z.optional(z.string()),
             size: z.number()
             // ... other validation ...
         }))
     })).mutation(async (opts: any) => {
-        const requester = opts.req.user;
+        const requester = opts.ctx.req.user;
 
         if (requester.type !== enumUserTypes.ADMIN || requester.id !== opts.input.userId) {
             throw new GraphQLError('User can only upload profile of themself.', { extensions: { code: errorCodes.NO_PERMISSION_ERROR } });
         }
 
-        const file = await opts.input.fileUpload[0];
-
-        const supportedFormats: string[] = [enumFileTypes.JPG, enumFileTypes.JPEG, enumFileTypes.PNG];
-        if (!(supportedFormats.includes(file.filename.split('.')[1].toUpperCase()))) {
-            throw new GraphQLError('Only JPG, JPEG and PNG are supported.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
-        }
         const res = await fileCore.uploadFile(
             requester.id,
             null,
             opts.input.userId,
-            file,
+            opts.input.fileUpload[0],
             opts.input.description,
-            enumFileTypes[file.filename.split('.')[1].toUpperCase() as keyof typeof enumFileTypes],
+            enumFileTypes[opts.input.fileUpload[0].filename.split('.')[1].toUpperCase() as keyof typeof enumFileTypes],
             enumFileCategories.USER_PROFILE_FILE,
             []
         );
@@ -843,6 +849,61 @@ export const userRouter = t.router({
     })).query(async (opts: any) => {
         const groups = await userCore.getUserGroups(opts.input.userId);
         return groups;
+    }),
+    /**
+     * Get keys of a user.
+     *
+     * @param userId - The id of the user.
+     */
+    getUserKeys: baseProcedure.input(z.object({
+        userId: z.string()
+    })).query(async (opts: any) => {
+        const requester: IUser = opts.ctx.req?.user ?? opts.ctx.user;
+        if (requester.type !== enumUserTypes.ADMIN || requester.id !== opts.input.userId) {
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: errorCodes.NO_PERMISSION_ERROR
+            });
+        }
+        return await userCore.getUserKeys(requester.id);
+    }),
+    registerPubkey: baseProcedure.input(z.object({
+        pubkey: z.string(),
+        signature: z.string(),
+        associatedUserId: z.string()
+    })).mutation(async (opts: any) => {
+        const requester: IUser = opts.ctx.req?.user ?? opts.ctx.user;
+        if (requester.type !== enumUserTypes.ADMIN || requester.id !== opts.input.associatedUserId) {
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: errorCodes.NO_PERMISSION_ERROR
+            });
+        }
+        return await userCore.registerPubkey(
+            requester.id,
+            opts.input.pubkey,
+            opts.input.signature,
+            opts.input.associatedUserId
+        );
+    }),
+    issueAccessToken: baseProcedure.input(z.object({
+        pubkey: z.string(),
+        signature: z.string()
+    })).mutation(async (opts: any) => {
+        return await userCore.issueAccessToken(opts.input.pubkey, opts.input.signature);
+    }),
+    deletePubkey: baseProcedure.input(z.object({
+        keyId: z.string(),
+        userId: z.string()
+    })).mutation(async (opts: any) => {
+        const requester: IUser = opts.ctx.req?.user ?? opts.ctx.user;
+        if (requester.type !== enumUserTypes.ADMIN || requester.id !== opts.input.associatedUserId) {
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: errorCodes.NO_PERMISSION_ERROR
+            });
+        }
+        return await userCore.deletePubkey(requester.id, opts.input.userId, opts.input.keyId);
     })
 });
 

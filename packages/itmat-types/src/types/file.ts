@@ -9,6 +9,7 @@ export interface IFile extends IBase {
     description: string | null;
     properties: Record<string, any> | null;
     uri: string;
+    path: string[];
     hash: string;
     fileType: enumFileTypes;
     fileCategory: enumFileCategories;
@@ -30,7 +31,9 @@ export enum enumFileTypes {
     JPG = 'JPG',
     JPEG = 'JPEG',
     PNG = 'PNG',
-    WEBP = 'WEBP'
+    WEBP = 'WEBP',
+    // videos
+    MP4 = 'MP4'
 }
 
 export enum enumFileCategories {
@@ -41,4 +44,12 @@ export enum enumFileCategories {
     DOC_FILE = 'DOC_FILE',
     ORGANISATION_PROFILE_FILE = 'ORGANISATION_PROFILE_FILE',
     CACHE = 'CACHE'
+}
+
+export interface FileUpload {
+    path: string;
+    filename: string;
+    mimetype?: string;  // Optional since you used z.optional
+    size: number;
+    // Include any other properties that you expect to receive
 }

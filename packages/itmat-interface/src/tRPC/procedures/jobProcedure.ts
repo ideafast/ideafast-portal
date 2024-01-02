@@ -17,6 +17,20 @@ const t = initTRPC.context<Context>().create();
 
 
 export const jobRouter = t.router({
+    /**
+     * Create a job.
+     *
+     * @param name - The name of the job.
+     * @param startTime - The time to execute the job. Null for immediate execution.
+     * @param period - The period of the job if it is a repeated job.
+     * @param type - The type of the job.
+     * @param executor - The executor of the job.
+     * @param data - The input data of the job.
+     * @param parameters - The parameters of the job.
+     * @param priority - The priority of the job.
+     *
+     * @return IJob
+     */
     createJob: t.procedure.input(z.object({
         name: z.string(),
         startTime: z.union([z.number(), z.null()]),

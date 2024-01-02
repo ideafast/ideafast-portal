@@ -1,7 +1,102 @@
 .page_container {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    /* Adjust the number of columns here */
-    grid-gap: 1px;
-    padding: 20px;
+    padding: 2rem;
+    height: 100%;
+    overflow: auto;
+}
+
+
+.rowFlexAlign {
+    display: flex;
+    align-items: flex-start;
+    /* Aligns items at the top */
+}
+
+.studyCol {
+    display: flex;
+    flex: 1;
+    /* This ensures that the col takes up the appropriate amount of space */
+    padding: 8px;
+    /* Or whatever spacing you prefer */
+}
+
+.card {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    /* Ensures the header and footer are spaced out */
+    height: 320px;
+    /* Fixed height for all cards */
+}
+
+.cardCover {
+    height: 120px;
+    /* Fixed height for images */
+    overflow: hidden;
+    /* Hide overflow */
+}
+
+.cardCover img {
+    width: 100%;
+    /* Full width of card */
+    height: 100%;
+    /* Full height of cover */
+    object-fit: cover;
+    /* Cover the area without stretching */
+    object-position: center;
+    /* Center the image */
+}
+
+.cardBody {
+    flex: 1;
+    /* Flex grow to use available space */
+    padding: 8px;
+    /* Add padding */
+    overflow: hidden;
+    /* Hide overflow inside the card body */
+}
+
+.cardTitle {
+    margin-bottom: 8px;
+    /* Space below the title */
+    font-weight: bold;
+}
+
+.cardDescription {
+    flex-grow: 1;
+    margin-bottom: 8px;
+    /* Space above the 'Go to study' link */
+    overflow: hidden;
+    /* Hide overflow */
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    /* Limit to 3 lines */
+}
+
+.cardFooter {
+    text-align: center;
+    /* Center the 'Go to study' link */
+}
+
+.overview-header {
+    display: flex;
+    align-items: center;
+    /* This will vertically center align the icon and the title */
+    /* If there is still a misalignment, you may adjust by adding 'align-self' to the children */
+    font-size: 20px;
+    font-weight: 500;
+    overflow: auto;
+}
+
+.overview-icon {
+    background-color: #000;
+    /* Or any color you prefer */
+    width: 4px;
+    /* Thickness of the line */
+    height: 24px;
+    /* Height of the line, adjust as needed */
+    margin-right: 16px;
+    /* Space between the line and the text */
+    /* Adjust 'margin-top' if the line is not aligned with the text */
 }

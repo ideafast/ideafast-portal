@@ -34,13 +34,11 @@
 }
 
 .add_new_fields_section {
-    background: repeating-linear-gradient(
-        -40deg,
-        rgb(37, 37, 37),
-        rgb(37, 37, 37) 10px,
-        rgba(255, 96, 61, 0) 10px,
-        rgba(255, 96, 61, 0) 20px
-    );
+    background: repeating-linear-gradient(-40deg,
+            rgb(37, 37, 37),
+            rgb(37, 37, 37) 10px,
+            rgba(255, 96, 61, 0) 10px,
+            rgba(255, 96, 61, 0) 20px);
     border-radius: 0.6rem;
     padding: 0.8rem;
     width: 100%;
@@ -72,4 +70,43 @@
 
 .editable_row [class*=ant-form-item-explain] {
     display: none;
+}
+
+.custom-text-hover {
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.overview-header {
+    display: flex;
+    align-items: center;
+    /* This will vertically center align the icon and the title */
+    /* If there is still a misalignment, you may adjust by adding 'align-self' to the children */
+    font-size: 20px;
+    font-weight: 500;
+    overflow: auto;
+}
+
+.overview-icon {
+    background-color: #000;
+    /* Or any color you prefer */
+    width: 4px;
+    /* Thickness of the line */
+    height: 24px;
+    /* Height of the line, adjust as needed */
+    margin-right: 16px;
+    /* Space between the line and the text */
+    /* Adjust 'margin-top' if the line is not aligned with the text */
+}
+
+.overview-title {
+    /* Style for your title */
+    font-size: 24px;
+    font-weight: bold;
+}
+
+.overview-content {
+    /* Style for your content */
+    text-indent: 30px;
+    /* Adjust the indent as needed */
 }

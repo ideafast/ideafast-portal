@@ -32,17 +32,16 @@ import qs from 'qs';
 import { IUser } from '@itmat-broker/itmat-types';
 import { v2 as webdav } from 'webdav-server';
 import { DMPFileSystem, DMPWebDAVAuthentication } from '../webdav/dmpWebDAV';
-import { Client as MinioClient, BucketItemStat } from 'minio';
 import { routers } from '../tRPC/procedures/index';
-
+import path from 'path';
 import { inferAsyncReturnType, initTRPC } from '@trpc/server';
 import * as trpcExpress from '@trpc/server/adapters/express';
-import { z } from 'zod';
 import multer from 'multer';
+import bodyParser from 'body-parser';
 
 // created for each request
 
-const createContext = async ({
+export const createContext = async ({
     req,
     res
 }: trpcExpress.CreateExpressContextOptions) => {
@@ -59,7 +58,6 @@ const createContext = async ({
         const associatedUser = await userRetrieval(pubkey);
         req.user = associatedUser;
     }
-    // console.log(req);
     return ({ req, res });
 }; // no context
 type Context = inferAsyncReturnType<typeof createContext>;
@@ -79,7 +77,6 @@ export class Router {
     public readonly proxies: Array<RequestHandler> = [];
 
     constructor(config: IConfiguration) {
-
         this.config = config;
         this.app = express();
 
@@ -288,58 +285,70 @@ export class Router {
         this.app.get('/file/:fileId', fileDownloadController);
 
 
-        // User manager will handle our users
-        const userManager = new webdav.SimpleUserManager();
-        const user = userManager.addUser('user1', 'password1', false); // Add a user with username 'user1' and password 'password1'
+        if (this.config.useWebdav) {
+            const httpAuthentication = new DMPWebDAVAuthentication('realem');
+            const webServer = new webdav.WebDAVServer({
+                port: this.config.webdavPort,
+                // @ts-ignore
+                httpAuthentication: httpAuthentication
+            });
 
-        // Privilege manager will handle our privileges
-        const privilegeManager = new webdav.SimplePathPrivilegeManager();
-        privilegeManager.setRights(user, '/', ['all']); // Give 'user1' all privileges for the root
+            webServer.setFileSystem('/dav', new DMPFileSystem(), (success) => {
+                console.log('MinIO file system attached:', success);
+                webServer.start(() => console.log('READY'));
 
-        // Set up HTTP Basic Authentication with our user manager
-        const httpAuthentication = new DMPWebDAVAuthentication();
+            });
+            console.log('Webdav is starting...');
+            this.app.use('/dav', (req, res, next) => {
+                // webServer.requestListener(req, res, next);
+                next();
+            });
+            // this.app.listen(this.config.webdavPort);
+        }
 
-        const webServer = new webdav.WebDAVServer({
-            port: 1900,
-            //@ts-ignore
-            httpAuthentication: httpAuthentication
+        const uploadDir = 'uploads'; // Make sure this directory exists
+        const storage = multer.diskStorage({
+            destination: function (req, file, cb) {
+                // Define the directory where files will be saved
+                cb(null, uploadDir);
+            },
+            filename: function (req, file, cb) {
+                // Define the filename
+                const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+                cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+            }
         });
-
-        webServer.setFileSystem('/dav', new DMPFileSystem(), (success) => {
-            console.log('MinIO file system attached:', success);
-        });
-        // webServer.setFileSystem('/dav', new webdav.PhysicalFileSystem('/Users/siyao/Documents/DMP'), (success) => {
-        //     webServer.start(() => console.log('READY'));
-        // });
-
-        webServer.afterRequest((arg, next) => {
-            console.log('>>', arg.request.method, arg.fullUri(), '>', arg.response.statusCode, arg.response.statusMessage);
-            next();
-        });
-
-        // Start the WebDAV server
-        webServer.start(() => {
-            console.log('WebDAV server started on port 1900');
-        });
+        const upload = multer({ storage: storage });
+        const fileNames = ['file', 'profile', 'attachments', 'fileUpload'];
+        fileNames.forEach(el => this.app.post('/upload', upload.single(el), (req, res) => {
+            if (req.file) {
+                res.json({ filePath: req.file.path });
+            } else {
+                res.status(400).send('No file uploaded.');
+            }
+        }));
 
 
-
-
-        const upload = multer({ storage: multer.memoryStorage() });
+        // Use multer middleware for handling multipart/form-data
         this.app.use(upload.any());
 
         this.app.use('/trpc', (req, res, next) => {
             if (req.files) {
                 const filesArray = req.files as Express.Multer.File[];
+                // req.body.files = filesArray.map(file => ({
+                //     path: file.path,
+                //     filename: file.originalname,
+                //     mimetype: file.mimetype,
+                //     size: file.size
+                // }));
                 filesArray.forEach(file => {
                     // If the fieldname doesn't exist yet or isn't an array, create an array for it.
                     if (!req.body[file.fieldname] || !Array.isArray(req.body[file.fieldname])) {
                         req.body[file.fieldname] = [];
                     }
-
                     // Push the file data into the field array.
                     req.body[file.fieldname].push({
-                        fileBuffer: file.buffer,
+                        path: file.path,
                         filename: file.originalname,
                         mimetype: file.mimetype,
                         size: file.size
@@ -347,17 +356,8 @@ export class Router {
                     });
                 });
             }
-
-            // If there are other fields in the multipart request that aren't in req.body yet,
-            // you can add them to req.body here as well.
-
-            // Pass on to the next middleware (tRPC in this case)
             next();
         });
-
-        // this.app.get('/', (req, res) => {
-        //     res.send('Server is running!');
-        // });
 
         this.app.use(
             '/trpc',

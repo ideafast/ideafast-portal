@@ -1,33 +1,27 @@
 import { GraphQLError } from 'graphql';
-import { IField, enumDataTypes, ICategoricalOption, IValueVerifier, IGenericResponse, IData, enumConfigType, defaultSettings, IOntologyTree, IOntologyRoute, IAST, enumConditionOps, enumFileTypes, enumFileCategories, IFieldPropert, enumASTNodeTypes, IFile, permissionString } from '@itmat-broker/itmat-types';
+import { IField, enumDataTypes, ICategoricalOption, IValueVerifier, IGenericResponse, enumConfigType, defaultSettings, IOntologyTree, IOntologyRoute, IAST, enumConditionOps, enumFileTypes, enumFileCategories, IFieldProperty, IFile, permissionString, IStudyDataVersion, IData, enumASTNodeTypes, IRole, IStudyConfig, enumUserTypes } from '@itmat-broker/itmat-types';
 import { v4 as uuid } from 'uuid';
 import { db } from '../../database/database';
 import { errorCodes } from '../errors';
 import { permissionCore } from './permissionCore';
-import { validate } from '@ideafast/idgen';
-import type { MatchKeysAndValues } from 'mongodb';
-import { objStore } from '../../objStore/objStore';
 import { FileUpload } from 'graphql-upload-minimal';
-import crypto from 'crypto';
-import { fileSizeLimit } from '../../utils/definition';
 import { makeGenericReponse } from '../responses';
 import { utilsCore } from './utilsCore';
-import { resetCaches } from 'graphql-tag';
 import { fileCore } from './fileCore';
 import { z } from 'zod';
 import { dataTransformationCore } from './transformationCore';
-import { parser } from 'stream-json';
-import { streamArray } from 'stream-json/streamers/StreamArray';
-import stream, { PassThrough } from 'stream';
+import { PassThrough } from 'stream';
 import { enumCacheStatus } from 'packages/itmat-types/src/types/cache';
-import { availableParallelism } from 'os';
+import { TRPCError } from '@trpc/server';
+import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
+import { transcode } from 'buffer';
 
 
 export interface IDataClipInput {
     fieldId: string;
     value: string;
-    timestamps: number | null;
-    properties: Record<string, any>;
+    timestamps?: number;
+    properties?: Record<string, any>;
 }
 
 export interface ValueVerifierInput {
@@ -245,7 +239,7 @@ export class DataCore {
         }
 
         const fields = await db.collections!.field_dictionary_collection.aggregate([{
-            $match: { 'studyId': studyId, 'life.deletedTime': null, 'dataVersion': { $in: dataVersions }, 'fieldId': selectedFields ? { $in: selectedFields } : /^.*$/ }
+            $match: { studyId: studyId, dataVersion: { $in: dataVersions }, fieldId: selectedFields ? { $in: selectedFields } : /^.*$/ }
         }, {
             $sort: {
                 'life.createdTime': -1
@@ -260,39 +254,41 @@ export class DataCore {
                 newRoot: '$doc'
             }
         }]).toArray();
-
-        return fields as IField[];
+        return (fields as IField[]).filter(el => !el.life.deletedTime);
     }
-
-    public async createField(requester: string, fieldInput: { studyId: string, fieldName: string, fieldId: string, description: string | null, tableName: string | null, dataType: enumDataTypes, categoricalOptions: ICategoricalOption[] | null, unit: string | null, comments: string | null, verifier: ValueVerifierInput[][] | null, properties: IFieldPropert[] | null }): Promise<IField> {
-        /**
-         * Create a field of a study.
-         *
-         * @param requester - The id of the requester.
-         * @param studyId - The id of the study.
-         * @param fieldName - The name of the field.
-         * @param fieldId - The value of the id of the field. Should be unique.
-         * @param description - The description of the field.
-         * @param tableName - The table name of the field.
-         * @param dataType - The dataType of the field.
-         * @param categoricalOptions - The options of the field if the field is a categorical field.
-         * @param unit - The unit of the field.
-         * @param comments - The comments of the field.
-         * @param verifier - The verifier of the field.
-         * @param properties - The properties of the field.
-         *
-         * @return IField
-         */
-
+    /**
+     * Create a field of a study. To adjust to data versioning, create an existing field wil not throw an error.
+     *
+     * @param requester - The id of the requester.
+     * @param studyId - The id of the study.
+     * @param fieldName - The name of the field.
+     * @param fieldId - The value of the id of the field. Should be unique.
+     * @param description - The description of the field.
+     * @param dataType - The dataType of the field.
+     * @param categoricalOptions - The options of the field if the field is a categorical field.
+     * @param unit - The unit of the field.
+     * @param comments - The comments of the field.
+     * @param verifier - The verifier of the field.
+     * @param properties - The properties of the field.
+     *
+     * @return IField
+     */
+    public async createField(requester: string, fieldInput: { studyId: string, fieldName: string, fieldId: string, description?: string | null, dataType: enumDataTypes, categoricalOptions?: ICategoricalOption[], unit?: string, comments?: string, verifier?: ValueVerifierInput[][], properties?: IFieldProperty[] }): Promise<IField> {
         const study = await db.collections!.studies_collection.findOne({ 'id': fieldInput.studyId, 'life.deletedTime': null });
         if (!study) {
-            throw new GraphQLError('Study does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'Study does not exist.'
+            });
         }
 
         const errors = this.validateFieldEntry(fieldInput);
 
         if (errors.length > 0) {
-            throw new GraphQLError(`Field input error: ${JSON.stringify(errors)}`, { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: JSON.stringify(errors)
+            });
         }
 
         // add id and life for verifier;
@@ -302,15 +298,7 @@ export class DataCore {
                 verifierWithId.push([]);
                 for (let j = 0; j < fieldInput.verifier[i].length; j++) {
                     verifierWithId[verifierWithId.length - 1].push({
-                        id: uuid(),
-                        ...fieldInput.verifier[i][j],
-                        life: {
-                            createdTime: Date.now(),
-                            createdUser: requester,
-                            deletedTime: null,
-                            deletedUser: null
-                        },
-                        metadata: {}
+                        ...fieldInput.verifier[i][j]
                     });
                 }
             }
@@ -321,15 +309,14 @@ export class DataCore {
             studyId: fieldInput.studyId,
             fieldId: fieldInput.fieldId,
             fieldName: fieldInput.fieldName,
-            description: fieldInput.description,
-            tableName: fieldInput.tableName,
+            description: fieldInput.description ?? null,
             dataType: fieldInput.dataType,
-            categoricalOptions: fieldInput.categoricalOptions,
-            unit: fieldInput.unit,
-            comments: fieldInput.comments,
+            categoricalOptions: fieldInput.categoricalOptions ?? null,
+            unit: fieldInput.unit ?? null,
+            comments: fieldInput.comments ?? null,
             dataVersion: null,
             verifier: verifierWithId,
-            properties: fieldInput.properties,
+            properties: fieldInput.properties ?? null,
             life: {
                 createdTime: Date.now(),
                 createdUser: requester,
@@ -339,35 +326,28 @@ export class DataCore {
             metadata: {}
         };
 
-        await db.collections!.field_dictionary_collection.findOneAndUpdate({ 'studyId': fieldInput.studyId, 'fieldId': fieldEntry.fieldId, 'life.deletedTime': null, 'dataVersion': null }, {
-            $set: fieldEntry
-        }, {
-            upsert: true
-        });
+        await db.collections!.field_dictionary_collection.insertOne(fieldEntry);
 
         return fieldEntry;
     }
-
-    public async editField(requester: string, fieldInput: { studyId: string, fieldName: string, fieldId: string, description: string | null, tableName: string | null, dataType: enumDataTypes, categoricalOptions: ICategoricalOption[] | null, unit: string | null, comments: string | null, verifier: ValueVerifierInput[][] | null, properties: IFieldPropert[] | null }): Promise<IGenericResponse> {
-        /**
-         * Edit a field of a study.
-         *
-         * @param requester - The id of the requester.
-         * @param studyId - The id of the study.
-         * @param fieldName - The name of the field.
-         * @param fieldId - The value of the id of the field. Should be unique.
-         * @param description - The description of the field.
-         * @param tableName - The table name of the field.
-         * @param dataType - The dataType of the field.
-         * @param categoricalOptions - The options of the field if the field is a categorical field.
-         * @param unit - The unit of the field.
-         * @param comments - The comments of the field.
-         * @param verifier - The verifier of the field.
-         * @param properties - The properties of the field.
-         *
-         * @return IField
-         */
-
+    /**
+     * Edit a field of a study.
+     *
+     * @param requester - The id of the requester.
+     * @param studyId - The id of the study.
+     * @param fieldName - The name of the field.
+     * @param fieldId - The value of the id of the field. Should be unique.
+     * @param description - The description of the field.
+     * @param dataType - The dataType of the field.
+     * @param categoricalOptions - The options of the field if the field is a categorical field.
+     * @param unit - The unit of the field.
+     * @param comments - The comments of the field.
+     * @param verifier - The verifier of the field.
+     * @param properties - The properties of the field.
+     *
+     * @return IField
+     */
+    public async editField(requester: string, fieldInput: { studyId: string, fieldName?: string, fieldId: string, description?: string, dataType?: enumDataTypes, categoricalOptions?: ICategoricalOption[], unit?: string, comments?: string, verifier?: ValueVerifierInput[][], properties?: IFieldProperty[] }): Promise<IGenericResponse> {
         const study = await db.collections!.studies_collection.findOne({ 'id': fieldInput.studyId, 'life.deletedTime': null });
         if (!study) {
             throw new GraphQLError('Study does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
@@ -390,15 +370,7 @@ export class DataCore {
                 verifierWithId.push([]);
                 for (let j = 0; j < fieldInput.verifier[i].length; j++) {
                     verifierWithId[verifierWithId.length - 1].push({
-                        id: uuid(),
-                        ...fieldInput.verifier[i][j],
-                        life: {
-                            createdTime: Date.now(),
-                            createdUser: requester,
-                            deletedTime: null,
-                            deletedUser: null
-                        },
-                        metadata: {}
+                        ...fieldInput.verifier[i][j]
                     });
                 }
             }
@@ -407,7 +379,6 @@ export class DataCore {
         const fieldEntry: Partial<IField> = {
             fieldName: fieldInput.fieldName ?? field.fieldName,
             description: fieldInput.description ?? field.description,
-            tableName: fieldInput.tableName ?? field.tableName,
             dataType: fieldInput.dataType ?? field.dataType,
             categoricalOptions: fieldInput.categoricalOptions ?? field.categoricalOptions,
             unit: fieldInput.unit ?? field.unit,
@@ -430,60 +401,65 @@ export class DataCore {
         return makeGenericReponse(fieldInput.fieldId, true, undefined, `Field ${fieldInput.fieldId} has been edited.`);
     }
 
+    /**
+     * Delete a field of a study.
+     *
+     * @param requester - The id of the requester.
+     * @param studyId - The id of the stduy.
+     * @param fieldId - The id of the field.
+     *
+     * @return IGenericResponse
+     */
     public async deleteField(requester: string, studyId: string, fieldId: string): Promise<IGenericResponse> {
-        /**
-         * Delete a field of a study.
-         *
-         * @param requester - The id of the requester.
-         * @param studyId - The id of the stduy.
-         * @param fieldId - The id of the field.
-         *
-         * @return IGenericResponse
-         */
-
         const study = await db.collections!.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null });
         if (!study) {
-            throw new GraphQLError('Study does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'Study does not exist.'
+            });
         }
 
         const field = (await db.collections!.field_dictionary_collection.find({ studyId: studyId, fieldId: fieldId }).sort({ 'life.createdTime': -1 }).limit(1).toArray())[0];
-        if (!field) {
-            throw new GraphQLError('Field does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+        if (!field || field.life.deletedTime) {
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'Field does not exist.'
+            });
         }
 
-        await db.collections!.field_dictionary_collection.findOneAndUpdate({ studyId: studyId, fieldId: fieldId, dataVersion: null }, {
-            $set: {
-                id: uuid(),
-                studyId: studyId,
-                fieldId: fieldId,
-                fieldName: field.fieldName,
-                description: field.description,
-                tableName: field.tableName,
-                dataType: field.dataType,
-                categoricalOptions: field.categoricalOptions,
-                unit: field.unit,
-                comments: field.comments,
-                dataVersion: null,
-                verifier: field.verifier,
-                life: {
-                    createdTime: field.life.createdTime,
-                    createdUser: field.life.createdUser,
-                    deletedTime: Date.now(),
-                    deletedUser: requester
-                },
-                metadata: {}
-            }
+        await db.collections!.field_dictionary_collection.insertOne({
+            id: uuid(),
+            studyId: studyId,
+            fieldId: fieldId,
+            fieldName: field.fieldName,
+            description: field.description,
+            dataType: field.dataType,
+            categoricalOptions: field.categoricalOptions,
+            unit: field.unit,
+            comments: field.comments,
+            dataVersion: null,
+            verifier: field.verifier,
+            properties: field.properties,
+            life: {
+                createdTime: Date.now(),
+                createdUser: requester,
+                deletedTime: Date.now(),
+                deletedUser: requester
+            },
+            metadata: {}
         });
-
         return makeGenericReponse(fieldId, true, undefined, `Field ${fieldId} has been deleted.`);
     }
 
+    /**
+     * Validate field entry. This function only checks the input parameters without interacting with the database.
+     *
+     * @param fieldInput - The field input object.
+     *
+     * @return array[] - The error array, empty for null errors.
+    */
     public validateFieldEntry(fieldInput: any): string[] {
-        /**
-         * Validate field entrt.
-         */
         const errors: string[] = [];
-
         // check missing field
         const complusoryField: Array<keyof IField> = [
             'fieldId',
@@ -517,6 +493,9 @@ export class DataCore {
                 errors.push(`${fieldInput.fieldId}-${fieldInput.fieldName}: possible values can't be empty if data type is categorical.`);
             }
         }
+
+        // TODO: check verifier and properties definition
+
         return errors;
     }
 
@@ -593,20 +572,22 @@ export class DataCore {
         }
     }
 
+    /**
+     * Upload data clips to a study.
+     *
+     * @param requester - The id of the requester.
+     * @param studyId - The id of the study.
+     * @param data - The list of data clips.
+     *
+     * @return IGenericResponse - The list of objects of IGenericResponse
+     */
     public async uploadData(requester: string, studyId: string, data: IDataClipInput[]): Promise<IGenericResponse[]> {
-        /**
-         * Upload data clips to a study.
-         *
-         * @param requester - The id of the requester.
-         * @param studyId - The id of the study.
-         * @param data - The list of data clips.
-         *
-         * @return IGenericResponse - The list of objects of IGenericResponse
-         */
-
         const study = await db.collections!.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null });
         if (!study) {
-            throw new GraphQLError('Study does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'Study does not exist.'
+            });
         }
 
         const availableFieldsMapping: Record<string, IField> = (await this.getStudyFields(
@@ -625,14 +606,18 @@ export class DataCore {
         let counter = -1; // index of the data
         for (const dataClip of data) {
             counter++;
-            if (!(dataClip.fieldId in availableFieldsMapping)) {
-                response.push(makeGenericReponse(counter.toString(), false, errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY, `Field ${dataClip.fieldId}: Field Not found`));
+            try {
+                await permissionCore.checkDataPermissionByUser(requester, dataClip);
+            }
+            catch {
+                response.push(makeGenericReponse(counter.toString(), false, errorCodes.NO_PERMISSION_ERROR, errorCodes.NO_PERMISSION_ERROR));
                 continue;
             }
 
-            // if (!(await permissionCore.chekckDataEntryValidFromUser(requester, studyId, null, dataClip.fieldId, dataClip.subjectId, dataClip.visitId, atomicOperation.WRITE))) {
-            //     response.push(makeGenericReponse(counter.toString(), false, errorCodes.NO_PERMISSION_ERROR, 'You do not have permission to edit this field.'));
-            // }
+            if (!(dataClip.fieldId in availableFieldsMapping)) {
+                response.push(makeGenericReponse(counter.toString(), false, errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY, `Field ${dataClip.fieldId}: Field not found`));
+                continue;
+            }
 
             /* Check value is value */
             let error: any = null;
@@ -689,12 +674,12 @@ export class DataCore {
                     }
                     case enumDataTypes.DATETIME: {
                         if (typeof (dataClip.value) !== 'string') {
-                            error = makeGenericReponse(counter.toString(), false, errorCodes.CLIENT_MALFORMED_INPUT, `Field ${dataClip.fieldId}: Cannot parse as data. Value for date type must be in ISO format.`);
+                            error = makeGenericReponse(counter.toString(), false, errorCodes.CLIENT_MALFORMED_INPUT, `Field ${dataClip.fieldId}: Cannot parse as date. Value for date type must be in ISO format.`);
                             break;
                         }
                         const matcher = /^(-?(?:[1-9][0-9]*)?[0-9]{4})-(1[0-2]|0[1-9])-(3[01]|0[1-9]|[12][0-9])T(2[0-3]|[01][0-9]):([0-5][0-9]):([0-5][0-9])(.[0-9]+)?(Z)?/;
                         if (!dataClip.value.match(matcher)) {
-                            error = makeGenericReponse(counter.toString(), false, errorCodes.CLIENT_MALFORMED_INPUT, `Field ${dataClip.fieldId}: Cannot parse as data. Value for date type must be in ISO format.`);
+                            error = makeGenericReponse(counter.toString(), false, errorCodes.CLIENT_MALFORMED_INPUT, `Field ${dataClip.fieldId}: Cannot parse as date. Value for date type must be in ISO format.`);
                             break;
                         }
                         parsedValue = dataClip.value.toString();
@@ -727,7 +712,7 @@ export class DataCore {
                     }
                 }
                 const verifier = availableFieldsMapping[dataClip.fieldId].verifier;
-                if (verifier) {
+                if (verifier && verifier.length) {
                     const resEach: boolean[] = [];
                     for (let i = 0; i < verifier.length; i++) {
                         resEach.push(true);
@@ -744,11 +729,11 @@ export class DataCore {
                 }
                 if (field.properties) {
                     for (const property of field.properties) {
-                        if (property.required && !dataClip.properties[property.name]) {
+                        if (property.required && (!dataClip.properties || !dataClip.properties[property.name])) {
                             error = makeGenericReponse(counter.toString(), false, errorCodes.CLIENT_MALFORMED_INPUT, `Field ${dataClip.fieldId}: Property ${property.name} is required.`);
                             break;
                         }
-                        if (property.verifier) {
+                        if (property.verifier && dataClip.properties) {
                             const resEach: boolean[] = [];
                             for (let i = 0; i < property.verifier.length; i++) {
                                 resEach.push(true);
@@ -780,7 +765,6 @@ export class DataCore {
                 dataVersion: null,
                 value: parsedValue,
                 properties: dataClip.properties,
-                timestamps: dataClip.timestamps,
                 life: {
                     createdTime: Date.now(),
                     createdUser: requester,
@@ -794,37 +778,38 @@ export class DataCore {
                 await bulk.execute();
                 bulk = db.collections!.data_collection.initializeUnorderedBulkOp();
             }
-            bulk.batches.length !== 0 && await bulk.execute();
         }
+        bulk.batches.length !== 0 && await bulk.execute();
         return response;
     }
 
+    /**
+     * Get the data of a study.
+     *
+     * @param requester - The id of the requester.
+     * @param studyId - The id of the study.
+     * @param fieldIds - The list of regular expressions of fields to return.
+     * @param dataVersions - The list of data versions to return.
+     * @param aggregation - The pipeline of the data aggregation.
+     * @param useCache - Whether to use the cached data.
+     * @param forceUpdate - Whether to force update the cache.
+     *
+     * @return Partial<IData>[] - The list of objects of Partial<IData>
+     */
     public async getData(requester: string, studyId: string, fieldIds: string[], dataVersions: Array<string | null>, aggregation: any, useCache: boolean, forceUpdate: boolean): Promise<any> {
-        /**
-         * Get the data of a study.
-         *
-         * @param requester - The id of the requester.
-         * @param studyId - The id of the study.
-         * @param fieldIds - The list of regular expressions of fields to return.
-         * @param dataVersions - The list of data versions to return.
-         * @param aggregation - The pipeline of the data aggregation.
-         * @param useCache - Whether to use the cached data.
-         * @param forceUpdate - Whether to force update the cache.
-         *
-         * @return Partial<IData>[] - The list of objects of Partial<IData>
-         */
+        const user = await db.collections!.users_collection.findOne({ id: requester });
         const study = await db.collections!.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null });
         if (!study) {
             throw new GraphQLError('Study does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
         }
-        const userRoles = (await permissionCore.getUserRoles(requester));
-        const permissionFilters: any[] = [];
-        for (const role of userRoles) {
-            const filter: any = {};
-            filter[`metadata.role:${role.id}`] = { $in: permissionString.read };
-            permissionFilters.push(filter);
+        const userRoles = (await permissionCore.getUserRoles(requester, studyId));
+        const config = await db.collections!.configs_collection.findOne({ type: enumConfigType.STUDYCONFIG, key: studyId });
+        if (!config) {
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'Study config not found.'
+            });
         }
-
         /** Check hash first */
         let hash: string;
         if (useCache) {
@@ -840,17 +825,12 @@ export class DataCore {
             if (hashedInfo && !forceUpdate) {
                 return hashedInfo;
             } else {
-                const data = await db.collections!.data_collection.aggregate([{
-                    $match: {
-                        studyId: studyId,
-                        fieldId: { $in: fieldIds.map((el: string) => new RegExp(el)) },
-                        dataVersion: { $in: dataVersions }
-                    }
-                }]).toArray();
-                const transformed = await dataTransformationCore.transformationAggregate(data, aggregation);
+                const data = await this.getDataByRoles(user?.type === enumUserTypes.ADMIN, userRoles, studyId, dataVersions, fieldIds);
+                const filteredData = dataTransformationCore.transformationAggregate(data, { version: this.genVersioningAggregation((config.properties as IStudyConfig).defaultVersioningKeys, dataVersions.includes(null)) });
+                const transformed = dataTransformationCore.transformationAggregate(filteredData.version, aggregation);
                 // write to minio and cache collection
                 const info = await this.convertToBufferAndUpload(transformed, fileCore.uploadFile, uuid() + '.json', requester);
-                await db.collections!.cache_collection.insertOne({
+                const newHashInfo = {
                     id: uuid(),
                     keyHash: hash,
                     uri: info.uri,
@@ -870,139 +850,221 @@ export class DataCore {
                         aggregation: aggregation
                     },
                     metadata: {}
-                });
-                return info;
+                };
+                await db.collections!.cache_collection.insertOne(newHashInfo);
+                return newHashInfo;
             }
         } else {
-            const data = await db.collections!.data_collection.aggregate([{
-                $match: {
-                    studyId: studyId,
-                    fieldId: { $in: fieldIds },
-                    dataVersion: { $in: dataVersions }
-                    // $or: permissionFilters
-                }
-            }]).toArray();
-            const transformed = await dataTransformationCore.transformationAggregate(data, aggregation);
+            const data = await this.getDataByRoles(user?.type === enumUserTypes.ADMIN, userRoles, studyId, dataVersions, fieldIds);
+            const filteredData = dataTransformationCore.transformationAggregate(data, { version: this.genVersioningAggregation((config.properties as IStudyConfig).defaultVersioningKeys, dataVersions.includes(null)) });
+            const transformed = dataTransformationCore.transformationAggregate(filteredData.version, aggregation);
             return transformed;
         }
     }
 
-    public async deleteData(requester: string, studyId: string, subjectIds: string[], visitIds: string[], fieldIds: string[]): Promise<IGenericResponse> {
-        /**
-         * Delete data of a study.
-         *
-         * @param requester - The id of the requester.
-         * @param studyId - The id of the study.
-         * @param subjectIds - The list of ids of subjects.
-         * @param visitIds - The list of ids of visits.
-         * @param fieldIds - The list of ids of fields.
-         *
-         * @return IGenreicResponse - The object of IGenericResponse.
-         */
-
-        const study = await db.collections!.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null });
-        if (!study) {
-            throw new GraphQLError('Study does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+    public async getDataByRoles(isAdmin: boolean, roles: IRole[], studyId: string, dataVersions: Array<string | null>, fieldIds?: string[]) {
+        const matchFilter: any = {
+            studyId: studyId,
+            dataVersion: { $in: dataVersions }
+        };
+        if (fieldIds) {
+            // we assume that for regular expressions, ^ and $ must be used
+            if (fieldIds[0][0] === '^' && fieldIds[0][fieldIds[0].length - 1] === '$') {
+                matchFilter.fieldId = { $in: fieldIds.map(el => new RegExp(el)) };
+            } else {
+                matchFilter.fieldId = { $in: fieldIds };
+            }
         }
 
-        const availableFieldIds: string[] = await (await this.getStudyFields(studyId, (study.dataVersions.map(el => el.id) as Array<string | null>).concat([null]), null)).map(el => el.id);
-
-        const bulk = db.collections!.data_collection.initializeUnorderedBulkOp();
-        for (const fieldId of fieldIds) {
-            if (!(availableFieldIds.includes(fieldId))) {
-                continue;
+        const roleArr: any[] = [];
+        for (const role of roles) {
+            const permissionArr: any[] = [];
+            for (let i = 0; i < role.dataPermissions.length; i++) {
+                if (role.dataPermissions[i].fields.length === 0) {
+                    continue;
+                }
+                const obj: any = {
+                    fieldId: { $in: role.dataPermissions[i].fields.map(el => new RegExp(el)) }
+                };
+                if (role.dataPermissions[i].dataProperties) {
+                    for (const key of Object.keys(role.dataPermissions[i].dataProperties)) {
+                        obj[`properties.${key}`] = { $in: role.dataPermissions[i].dataProperties[key].map(el => new RegExp(el)) };
+                    }
+                }
+                permissionArr.push(obj);
             }
-            for (const subjectId of subjectIds) {
-                for (const visitId of visitIds) {
-                    bulk.find({ studyId: studyId, subjectId: subjectId, visitId: visitId, fieldId: fieldId, dataVersion: null }).upsert().updateOne({
-                        $set: {
-                            id: uuid(),
-                            value: null,
-                            timestamps: null,
-                            life: {
-                                createdTime: Date.now(),
-                                createdUser: requester,
-                                deletedTime: null,
-                                deletedUser: null
-                            }
-                        }
-                    });
+            if (permissionArr.length === 0) {
+                return [];
+            }
+            roleArr.push({ $or: permissionArr });
+        }
+        const res = isAdmin ? await db.collections!.data_collection.find({ ...matchFilter }, { allowDiskUse: true }).toArray()
+            : await db.collections!.data_collection.aggregate([{
+                $match: { ...matchFilter }
+            }, {
+                $match: { $or: roleArr }
+            }], { allowDiskUse: true }).toArray();
+        return res;
+    }
+
+    public genVersioningAggregation(keys: string[], hasVersioning: boolean) {
+        const aggregation: any[] = [];
+        if (!hasVersioning) {
+            aggregation.push({
+                operationName: 'Filter', params: {
+                    filters: {
+                        deleted: [{
+                            formula: {
+                                type: enumASTNodeTypes.VARIABLE,
+                                operation: null,
+                                value: 'dataVersion',
+                                parameter: {},
+                                children: null
+                            },
+                            condition: enumConditionOps.GENERALISNOTNULL,
+                            value: '',
+                            parameters: {}
+                        }]
+                    }
+                }
+            });
+        }
+        aggregation.push({ operationName: 'Group', params: { keys: keys, skipUnmatch: false } });
+        aggregation.push({ operationName: 'LeaveOne', params: { scoreFormula: { type: enumASTNodeTypes.VARIABLE, operator: null, value: 'life.createdTime', parameters: {}, children: null }, isDescend: true } });
+        aggregation.push({
+            operationName: 'Filter', params: {
+                filters: {
+                    deleted: [{
+                        formula: {
+                            type: enumASTNodeTypes.VARIABLE,
+                            operation: null,
+                            value: 'life.deletedTime',
+                            parameter: {},
+                            children: null
+                        },
+                        condition: enumConditionOps.GENERALISNULL,
+                        value: '',
+                        parameters: {}
+                    }]
                 }
             }
+        });
+        return aggregation;
+    }
+
+    /**
+     * Delete data of a study. We add a deleted document in the database.
+     *
+     * @param requester - The id of the requester.
+     * @param studyId - The id of the study.
+     * @param documentId - The id of the mongo document.
+     *
+     * @return IGenreicResponse - The object of IGenericResponse.
+     */
+    public async deleteData(requester: string, studyId: string, documentId: string): Promise<IGenericResponse> {
+        const study = await db.collections!.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null });
+        if (!study) {
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'Study does not exist.'
+            });
         }
+
+        const data: any = await db.collections!.data_collection.findOne({ 'id': documentId, 'life.deletedTime': null });
+        if (!data) {
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'Document does not exist or has been deleted.'
+            });
+        }
+        if (!permissionCore.checkDataPermissionByUser(requester, data)) {
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: errorCodes.NO_PERMISSION_ERROR
+            });
+        }
+
+        delete data._id;
+        await db.collections!.data_collection.insertOne({
+            ...data,
+            id: uuid(),
+            life: {
+                createdTime: Date.now(),
+                createdUser: requester,
+                deletedTime: Date.now(),
+                deletedUser: requester
+            }
+        });
         return makeGenericReponse(undefined, true, undefined, 'Successfuly.');
     }
 
-    public async uploadFileData(requester: string, studyId: string, file: FileUpload, properties: Record<string, any>, subjectId: string, fieldId: string, visitId: string | null, timestamps: number | null): Promise<IGenericResponse> {
-        /**
-         * Upload a data file.
-         *
-         * @param requester - The id of the requester.
-         * @param studyId - The id of the study.
-         * @param file - The file to upload.
-         * @param properties - The properties of the file. Need to match field properties if defined.
-         * @param subjectId - The id of the subject.
-         * @param fieldId - The id of the field.
-         * @param visitId - The id of the visit.
-         * @param timestamps - The timestamps of the data.
-         *
-         * @return IGenericResponse
-         */
-
+    /**
+     * Upload a data file.
+     *
+     * @param requester - The id of the requester.
+     * @param studyId - The id of the study.
+     * @param file - The file to upload.
+     * @param properties - The properties of the file. Need to match field properties if defined.
+     * @param fieldId - The id of the field.
+     *
+     * @return IData
+     */
+    public async uploadFileData(requester: string, studyId: string, file: FileUpload, fieldId: string, properties: Record<string, any>): Promise<IData> {
         const study = await db.collections!.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null });
         if (!study) {
-            throw new GraphQLError('Study does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'Study does not exist.'
+            });
         }
 
         const availableDataVersions: (string | null)[] = (study.currentDataVersion === -1 ? [] : study.dataVersions.filter((__unused__el, index) => index <= study.currentDataVersion)).map(el => el.id);
         availableDataVersions.push(null);
         const field = (await this.getStudyFields(studyId, availableDataVersions, [fieldId]))[0];
         if (!field) {
-            throw new GraphQLError('Field does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'Field does not exist.'
+            });
         }
 
         if (field.properties) {
-            for (let i = 0; i < field.properties.length; i++) {
-                const property = field.properties[i];
-                if (property.required && !properties[property.name]) {
-                    throw new GraphQLError(`Property ${property.name} is required.`, { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+            for (const property of field.properties) {
+                if (property.required && (!properties || !properties[property.name])) {
+                    throw new TRPCError({
+                        code: enumTRPCErrorCodes.BAD_REQUEST,
+                        message: `Property ${property.name} is required.`
+                    });
                 }
-                const resEach: boolean[] = [];
-                for (let i = 0; i < properties.verifier.length; i++) {
-                    resEach.push(true);
-                    for (let j = 0; j < properties.verifier[i].length; j++) {
-                        if (!utilsCore.validValueWithVerifier(properties[property.name], properties.verifier[i][j])) {
-                            resEach[resEach.length - 1] = false;
-                            break;
+                if (property.verifier && properties) {
+                    const resEach: boolean[] = [];
+                    for (let i = 0; i < property.verifier.length; i++) {
+                        resEach.push(true);
+                        for (let j = 0; j < property.verifier[i].length; j++) {
+                            if (!utilsCore.validValueWithVerifier(properties[property.name], property.verifier[i][j])) {
+                                resEach[resEach.length - 1] = false;
+                                break;
+                            }
                         }
                     }
+                    if (resEach.every(el => !el)) {
+                        throw new TRPCError({
+                            code: enumTRPCErrorCodes.BAD_REQUEST,
+                            message: `Property ${property.name} check failed. Failed value ${JSON.stringify(properties[property.name])}.`
+                        });
+                    }
                 }
-                if (resEach.every(el => !el)) {
-                    throw new GraphQLError(`Property ${property.name} check failed. Failed value ${JSON.stringify(properties[property.name])}`, { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
-                }
-
             }
         }
+        const fileEntry = await fileCore.uploadFile(
+            requester, studyId, null, file, null, enumFileTypes[(file.filename.split('.').pop() as string).toUpperCase() as keyof typeof enumFileTypes], enumFileCategories.STUDY_DATA_FILE, properties);
 
-        // uploadfile
-        const file_ = file;
-        if (file_) {
-            const supportedFormats: string[] = Object.keys(enumFileTypes);
-            if (!(supportedFormats.includes((file_.filename.split('.').pop() as string).toUpperCase()))) {
-                throw new GraphQLError('File type not supported.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
-            }
-        }
-        const fileEntry = await fileCore.uploadFile(requester, studyId, null, file_, null, enumFileTypes[(file_.filename.split('.').pop() as string).toUpperCase() as keyof typeof enumFileTypes], enumFileCategories.STUDY_DATA_FILE, properties);
-
-        const dataEntry = {
+        const dataEntry: IData = {
             id: uuid(),
             studyId: study.id,
-            subjectId: subjectId,
-            visitId: visitId,
             fieldId: fieldId,
             dataVersion: null,
             value: fileEntry.id,
-            timestamps: timestamps,
             properties: properties,
             life: {
                 createdTime: Date.now(),
@@ -1014,7 +1076,7 @@ export class DataCore {
         };
 
         await db.collections!.data_collection.insertOne(dataEntry);
-        return makeGenericReponse(fileEntry.id, true, undefined, 'File has been uploaded.');
+        return dataEntry;
     }
 
     public async getStudySummary(studyId: string): Promise<Record<string, any>> {
@@ -1067,6 +1129,72 @@ export class DataCore {
     // public async dataTransform(fields: IField[], data: IData[], rules: any) {
 
     // }
+
+    /**
+     * Create a data version of a study.
+     *
+     * @param requester - The id of the requester.
+     * @param studyId - The id of the study.
+     * @param version - The name of the new data version. Recommend for x.y.z
+     * @param tag - The tag of the new data version.
+     *
+     * @return IStudyDataVersion
+     */
+    public async createDataVersion(requester: string, studyId: string, version: string, tag?: string): Promise<IStudyDataVersion> {
+        const study = await db.collections!.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null });
+        if (!study) {
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'Study does not exist.'
+            });
+        }
+
+        const studyDataVersion: IStudyDataVersion = {
+            id: uuid(),
+            contentId: uuid(),
+            version: version,
+            tag: tag,
+            life: {
+                createdTime: Date.now(),
+                createdUser: requester,
+                deletedTime: null,
+                deletedUser: null
+            },
+            metadata: {}
+        };
+
+        // update unversioned fields
+        await db.collections!.field_dictionary_collection.updateMany({
+            studyId: studyId,
+            dataVersion: null
+        }, {
+            $set: {
+                dataVersion: studyDataVersion.id
+            }
+        });
+
+        // update unversioned data
+        await db.collections!.data_collection.updateMany({
+            studyId: studyId,
+            dataVersion: null
+        }, {
+            $set: {
+                dataVersion: studyDataVersion.id
+            }
+        });
+
+
+        // push new verison to study
+        await db.collections!.studies_collection.findOneAndUpdate({ id: studyId }, {
+            $set: {
+                currentDataVersion: study.currentDataVersion + 1
+            },
+            $push: {
+                dataVersions: studyDataVersion
+            }
+        });
+        return studyDataVersion;
+    }
 
 
 
@@ -1131,6 +1259,8 @@ export class DataCore {
             gatherStream.end();
         });
     }
+
+
 
 
 }

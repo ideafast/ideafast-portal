@@ -10,11 +10,16 @@ import { IConfig, ISystemConfig, enumConfigType, enumDocTypes } from '@itmat-bro
 import 'react-quill/dist/quill.snow.css'; // for Snow theme
 import { GithubOutlined } from '@ant-design/icons';
 import { trpc } from '../../utils/trpc';
-
+import logo from '../../assets/logo.png';
+import dsi from '../../assets/datascienceinstitute.png';
 export const LoginBox: FunctionComponent = () => {
     const getSystemConfig = trpc.config.getConfig.useQuery({ configType: enumConfigType.SYSTEMCONFIG, key: null, useDefault: true });
     const getDocs = trpc.doc.getDocs.useQuery({ docId: null, studyId: null, docTypes: [enumDocTypes.HOMEPAGE], verbose: true });
-    const login = trpc.user.login.useMutation();
+    const login = trpc.user.login.useMutation({
+        onSuccess: () => {
+            window.location.reload();
+        }
+    });
 
     if (getSystemConfig.isLoading || getDocs.isLoading) {
         return <LoadSpinner />;
@@ -30,6 +35,7 @@ export const LoginBox: FunctionComponent = () => {
             An error occured, please contact your administrator
         </p>;
     }
+
     const systemConfig = (getSystemConfig.data as IConfig).properties as ISystemConfig;
     return (<div className={css.login_wrapper}>
         <div className={css.login_left}>
@@ -49,10 +55,29 @@ export const LoginBox: FunctionComponent = () => {
         </div>
         <div className={css.login_right}>
             <div className={css.login_logo}>
-                <Image height={systemConfig.logoSize[1]} width={systemConfig.logoSize[0]} src={systemConfig.logoLink ?? ''} />
+                <a href={systemConfig.logoLink ?? '/'}>
+                    <img
+                        src={dsi}
+                        alt="Main Logo"
+                        height={systemConfig.logoSize[1]}
+                        width={'45px'}
+                    />
+                </a>
             </div>
-            <div className={css.login_logo} style={{ top: '10px', right: (parseInt(systemConfig.logoSize[1].replace(/\D/g, '')) * 1 + 10) + 'px' }}>
-                <Button type="text" href={systemConfig.archiveAddress} icon={<GithubOutlined style={{ fontSize: systemConfig.logoSize[1] }} />} />
+            <div className={css.login_logo} style={{ right: (parseInt(systemConfig.logoSize[1].replace(/\D/g, '')) * 1 + 10) + 'px' }}>
+                <a href={systemConfig.logoLink ?? '/'}>
+                    <img
+                        src={logo}
+                        alt="Main Logo"
+                        height={systemConfig.logoSize[1]}
+                        width={systemConfig.logoSize[0]}
+                    />
+                </a>
+            </div>
+            <div className={css.login_logo} style={{ right: (parseInt(systemConfig.logoSize[1].replace(/\D/g, '')) * 2 + 20) + 'px' }}>
+                <a href={systemConfig.archiveAddress} target="_blank" rel="noopener noreferrer"> {/* Replace with your second logo link, e.g., GitHub link */}
+                    <GithubOutlined style={{ fontSize: systemConfig.logoSize[1] }} />
+                </a>
             </div>
             <div className={css.login_author}>
                 Designed by Data Science Institute

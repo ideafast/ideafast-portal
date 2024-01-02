@@ -7,6 +7,7 @@ import css from './projectPage.module.css';
 import { enumUserTypes } from '@itmat-broker/itmat-types';
 import { FileRepositoryTabContent } from './tabContent';
 import { DashboardTabContent } from './tabContent/dashboard/dashboardTab';
+import { StatisticsTabContent } from './tabContent/dataStatistics/dataStatistics';
 
 export const DatasetDetailPage: FunctionComponent = () => {
     const { studyId } = useParams();
@@ -34,11 +35,12 @@ export const DatasetDetailPage: FunctionComponent = () => {
                                         return (
                                             <>
                                                 <NavLink to='dashboard' className={({ isActive }) => isActive ? css.active : undefined}>DASHBOARD</NavLink>
-                                                <NavLink to='field_management' className={({ isActive }) => isActive ? css.active : undefined}>DATA STANDARDIZATION</NavLink>
+                                                {/* <NavLink to='field_management' className={({ isActive }) => isActive ? css.active : undefined}>DATA STANDARDIZATION</NavLink> */}
                                                 <NavLink to='data_management' className={({ isActive }) => isActive ? css.active : undefined}>DATA MANAGEMENT</NavLink>
+                                                <NavLink to='data_statistics' className={({ isActive }) => isActive ? css.active : undefined}>DATA STATISTICS</NavLink>
                                                 <NavLink to='files' className={({ isActive }) => isActive ? css.active : undefined}>FILES REPOSITORY</NavLink>
                                                 <NavLink to='admin' className={({ isActive }) => isActive ? css.active : undefined}>ADMINISTRATION</NavLink>
-                                                <NavLink to='projects' className={({ isActive }) => isActive ? css.active : undefined}>PROJECTS</NavLink>
+                                                {/* <NavLink to='projects' className={({ isActive }) => isActive ? css.active : undefined}>PROJECTS</NavLink> */}
                                             </>
                                         );
                                     } else {
@@ -59,6 +61,7 @@ export const DatasetDetailPage: FunctionComponent = () => {
                             <Route path='dashboard' element={<DashboardTabContent studyId={studyId} />} />
                             {/* <Route path='field_management' element={<FieldManagementTabContentFetch studyId={studyId} />} /> */}
                             {/* <Route path='data_management' element={<DataManagementTabContentFetch />} /> */}
+                            <Route path='data_STATISTICS' element={<StatisticsTabContent studyId={studyId} />} />
                             <Route path='files' element={<FileRepositoryTabContent studyId={studyId} />} />
                             {/* <Route path='projects/*' element={<ProjectsTabContent projectList={data.getStudy.projects} />} /> */}
                             {/* <Route path='admin' element={<AdminTabContent />} /> */}

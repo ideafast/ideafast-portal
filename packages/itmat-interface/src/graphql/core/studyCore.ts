@@ -1,5 +1,5 @@
 import { GraphQLError } from 'graphql';
-import { IFile, IUser, IProject, IStudy, IStudyDataVersion, IDataClip, IRole, deviceTypes, IOrganisation, IGenericResponse, enumGroupNodeTypes, IField, IGroupNode, enumFileTypes, enumFileCategories } from '@itmat-broker/itmat-types';
+import { IFile, IUser, IProject, IStudy, IStudyDataVersion, IDataClip, IRole, deviceTypes, IOrganisation, IGenericResponse, enumGroupNodeTypes, IField, IGroupNode, enumFileTypes, enumFileCategories, enumConfigType, enumUserTypes } from '@itmat-broker/itmat-types';
 import { v4 as uuid } from 'uuid';
 import { db } from '../../database/database';
 import { errorCodes } from '../errors';
@@ -12,128 +12,197 @@ import crypto from 'crypto';
 import { fileSizeLimit } from '../../utils/definition';
 import { makeGenericReponse } from '../responses';
 import { fileCore } from './fileCore';
+import { TRPCError } from '@trpc/server';
+import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
+import { enumCacheStatus } from 'packages/itmat-types/src/types/cache';
 
 export class StudyCore {
     // constructor(private readonly localPermissionCore: PermissionCore) { }
-
+    /**
+     * Get the info of a study.
+     *
+     * @param studyId - The id of the study.
+     *
+     * @return IStudy - The object of IStudy.
+     */
     public async getStudies(studyId: string | null): Promise<IStudy[]> {
-        /**
-         * Get the info of a study.
-         *
-         * @param studyId - The id of the study.
-         *
-         * @return IStudy - The object of IStudy.
-         */
-
-
         const query: any = { 'life.deletedTime': null };
-
         if (studyId) {
             query.id = studyId;
         }
         const studies = await db.collections!.studies_collection.find(query).toArray();
-
-
         if (studies.length === 0) {
-            throw new GraphQLError('Study does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'Study does not exist.'
+            });
         }
 
         return studies;
     }
 
-    public async createStudy(requester: string, studyName: string, description: string | null, profile: FileUpload | null): Promise<Partial<IStudy>> {
-        /**
-         * Create a study.
-         *
-         * @param requester - The id of the requester.
-         * @param studyName - The name of the study.
-         * @param description - The description of the study.
-         *
-         * @return IStudy - The object of the IStudy.
-         */
-        const study = await db.collections!.studies_collection.findOne({ 'name': studyName.toLowerCase(), 'life.deletedTime': null });
-        if (study) {
-            throw new GraphQLError('Study already exists (duplicates are case-insensitive).', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+    /**
+     * Get the info of a study.
+     *
+     * @param requester - The id of the requester.
+     * @param studyId - The id of the study.
+     *
+     * @return IStudy - The object of IStudy.
+     */
+    public async getStudiesByUser(requester: string, studyId?: string): Promise<IStudy[]> {
+        const user = await db.collections!.users_collection.findOne({ 'id': requester, 'life.deletedTime': null });
+        if (!user) {
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'User does not exist.'
+            });
         }
-
-
-        const studyId = uuid();
-        let fileEntry: IFile | null = null;
-        if (profile) {
-            if (!Object.keys(enumFileTypes).includes(profile?.filename?.split('.')[1].toUpperCase())) {
-                throw new GraphQLError('Profile file does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+        const query: any = { 'life.deletedTime': null };
+        if (studyId) {
+            query.id = studyId;
+        } else {
+            if (user.type !== enumUserTypes.ADMIN) {
+                const studyIds: string[] = (await db.collections!.roles_collection.find({ 'users': requester, 'life.deletedTime': null }).toArray()).map(el => el.studyId);
+                query.id = { $in: studyIds };
             }
-            fileEntry = await fileCore.uploadFile(requester, studyId, null, profile, null, enumFileTypes[profile.filename.split('.')[1].toUpperCase() as keyof typeof enumFileTypes], enumFileCategories.STUDY_PROFILE_FILE, []);
         }
+        const studies = await db.collections!.studies_collection.find(query).toArray();
+        if (studyId && studies.length === 0) {
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'Study does not exist.'
+            });
+        }
+
+        return studies;
+    }
+
+    /**
+     * Create a study.
+     *
+     * @param requester - The id of the requester.
+     * @param studyName - The name of the study.
+     * @param description - The description of the study.
+     *
+     * @return IStudy - The object of the IStudy.
+     */
+    public async createStudy(requester: string, studyName: string, description?: string, profile?: FileUpload): Promise<Partial<IStudy>> {
+        const studyId = uuid();
+
         const studyEntry: IStudy = {
             id: studyId,
             name: studyName,
             currentDataVersion: -1,
             dataVersions: [],
-            description: description,
-            profile: fileEntry ? fileEntry.id : null,
+            description: description ?? '',
+            profile: null,
             life: {
                 createdTime: Date.now(),
                 createdUser: requester,
                 deletedTime: null,
                 deletedUser: null
             },
-            metadata: {}
+            metadata: {},
+            webLayout: []
         };
-        const res = await db.collections!.studies_collection.insertOne(studyEntry);
-        if (res.acknowledged) {
-            return studyEntry;
-        } else {
-            throw new GraphQLError('Database error.', { extensions: { code: errorCodes.DATABASE_ERROR } });
+        await db.collections!.studies_collection.insertOne(studyEntry);
+        try {
+            let fileEntry: IFile | null = null;
+            if (profile) {
+                if (!Object.keys(enumFileTypes).includes(profile?.filename?.split('.')[1].toUpperCase())) {
+                    throw new TRPCError({
+                        code: enumTRPCErrorCodes.BAD_REQUEST,
+                        message: 'File type not supported.'
+                    });
+                }
+                fileEntry = await fileCore.uploadFile(requester, studyId, null, profile, null, enumFileTypes[profile.filename.split('.')[1].toUpperCase() as keyof typeof enumFileTypes], enumFileCategories.STUDY_PROFILE_FILE, []);
+                await db.collections!.studies_collection.findOneAndUpdate({ id: studyId }, {
+                    $set: {
+                        profile: fileEntry.id
+                    }
+                }, {
+                    returnDocument: 'after'
+                });
+                return {
+                    ...studyEntry,
+                    profile: fileEntry.id
+                };
+            }
+        } catch (error) {
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'Profile is broken, but study has been created.'
+            });
         }
+        return studyEntry;
     }
 
-    public async editStudy(requester: string, studyId: string, name: string, description: string, profile: FileUpload | null): Promise<Partial<IStudy>> {
-        /**
-         * Edit the description of the study.
-         *
-         * @param requester - The id of the requester.
-         * @param studyId - The id of the study.
-         * @param name - The name of the study.
-         * @param description - The description of the study.
-         * @param profile - The profile of the study.
-         *
-         * @return IStudy - The object of IStudy
-         */
-
+    /**
+     * Edit the description of the study.
+     *
+     * @param requester - The id of the requester.
+     * @param studyId - The id of the study.
+     * @param name - The name of the study.
+     * @param description - The description of the study.
+     * @param profile - The profile of the study.
+     *
+     * @return IStudy - The object of IStudy
+     */
+    public async editStudy(requester: string, studyId: string, name?: string, description?: string, profile?: FileUpload): Promise<Partial<IStudy>> {
         const study = await db.collections!.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null });
         if (!study) {
-            throw new GraphQLError('Study does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'Study does not exist.'
+            });
         }
 
+        const setObj: any = {};
         let fileEntry;
         if (profile) {
-            if (!Object.keys(enumFileTypes).includes(profile?.filename?.split('.')[1].toUpperCase())) {
-                throw new GraphQLError('Profile file does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+            try {
+                if (!Object.keys(enumFileTypes).includes(profile?.filename?.split('.')[1].toUpperCase())) {
+                    throw new TRPCError({
+                        code: enumTRPCErrorCodes.BAD_REQUEST,
+                        message: 'File format not supported'
+                    });
+                }
+                fileEntry = await fileCore.uploadFile(requester, studyId, null, profile, null, enumFileTypes[profile.filename.split('.')[1].toUpperCase() as keyof typeof enumFileTypes], enumFileCategories.STUDY_PROFILE_FILE, []);
+                setObj.profile = fileEntry.id;
+            } catch (error) {
+                setObj.profile = study.profile;
             }
-            fileEntry = await fileCore.uploadFile(requester, studyId, null, profile, null, enumFileTypes[profile.filename.split('.')[1].toUpperCase() as keyof typeof enumFileTypes], enumFileCategories.STUDY_PROFILE_FILE, []);
         }
-        const res = await db.collections!.studies_collection.findOneAndUpdate({ id: studyId }, { $set: { name: name, description: description, profile: fileEntry?.id } }, { returnDocument: 'after' });
-        if (res.ok === 1 && res.value) {
-            return res.value;
-        } else {
-            throw new GraphQLError('Database error.', { extensions: { code: errorCodes.DATABASE_ERROR } });
+
+        if (name) {
+            setObj.name = name;
         }
+        if (description) {
+            setObj.description = description;
+        }
+        const response = await db.collections!.studies_collection.findOneAndUpdate({ id: studyId }, {
+            $set: setObj
+        }, {
+            returnDocument: 'after'
+        });
+        return response.value as Partial<IStudy>;
+
     }
-
+    /**
+     * Delete a study.
+     *
+     * @param requester - The id of the requester.
+     * @param studyId - The id of the study.
+     *
+     * @return IGenericResponse - The obejct of IGenericResponse.
+     */
     public async deleteStudy(requester: string, studyId: string): Promise<IGenericResponse> {
-        /**
-         * Delete a study.
-         *
-         * @param requester - The id of the requester.
-         * @param studyId - The id of the study.
-         *
-         * @return IGenericResponse - The obejct of IGenericResponse.
-         */
-
         const study = await db.collections!.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null });
         if (!study) {
-            throw new GraphQLError('Study does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'Study does not exist.'
+            });
         }
 
         const session = db.client!.startSession();
@@ -151,7 +220,16 @@ export class StudyCore {
             // await this.localPermissionCore.removeRoleFromStudyOrProject({ studyId });
 
             /* delete all files belong to the study*/
-            await db.collections!.files_collection.updateMany({ studyId, deleted: null }, { $set: { deleted: timestamp } });
+            await db.collections!.files_collection.updateMany({ 'studyId': studyId, 'life.deletedTime': null }, { $set: { 'life.deletedTime': timestamp, 'life.deletedUser': requester } });
+
+            /* delete all fields belong to the study*/
+            await db.collections!.field_dictionary_collection.updateMany({ 'studyId': studyId, 'life.deletedTime': null }, { $set: { 'life.deletedTime': timestamp, 'life.deletedUser': requester } });
+
+            /* delete all data belong to the study*/
+            await db.collections!.data_collection.updateMany({ 'studyId': studyId, 'life.deletedTime': null }, { $set: { 'life.deletedTime': timestamp, 'life.deletedUser': requester } });
+
+            /* delete all config belong to the study*/
+            await db.collections!.configs_collection.updateMany({ 'type': enumConfigType.STUDYCONFIG, 'key': studyId, 'life.deletedTime': null }, { $set: { 'life.deletedTime': timestamp, 'life.deletedUser': requester } });
 
             await session.commitTransaction();
             session.endSession();
@@ -164,152 +242,173 @@ export class StudyCore {
             throw error; // Rethrow so calling function sees error
         }
     }
-
-    public async createDataVersion(requester: string, studyId: string, tag: string, dataVersion: string): Promise<IGenericResponse> {
-        /**
-         * Create a new data version of the study.
-         *
-         * @param requester - The id of the requester.
-         * @param studyId - The id of the study.
-         * @param tag - The tag of the study.
-         * @param dataVersion - The new version of the study. Use float number.
-         *
-         * @return IGenericResponse - The object of IGenericResponse.
-         */
-
+    /**
+     * Create a new data version of the study.
+     *
+     * @param requester - The id of the requester.
+     * @param studyId - The id of the study.
+     * @param tag - The tag of the study.
+     * @param dataVersion - The new version of the study. Use float number.
+     *
+     * @return IGenericResponse - The object of IGenericResponse.
+     */
+    public async createDataVersion(requester: string, studyId: string, tag: string, dataVersion: string): Promise<IStudyDataVersion> {
         const study = await db.collections!.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null });
         if (!study) {
-            throw new GraphQLError('Study does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'Study does not exist.'
+            });
+        }
+
+        const decimalRegex = /^[0-9]+(\.[0-9]+)?$/;
+        if (!decimalRegex.test(dataVersion)) {
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'Version must be a float number.'
+            });
         }
 
         if (study.dataVersions.map(el => el.version).includes(dataVersion)) {
-            throw new GraphQLError('This version has been used.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'Version has been used.'
+            });
         }
 
         const newDataVersionId = uuid();
         const newContentId = uuid();
 
-        const session = db.client!.startSession();
-        session.startTransaction();
-        try {
-            // update data
-            const resData = await db.collections!.data_collection.updateMany({
-                m_studyId: studyId,
-                m_versionId: null
-            }, {
-                $set: {
-                    m_versionId: newDataVersionId
-                }
-            });
-            // update field
-            const resField = await db.collections!.field_dictionary_collection.updateMany({
-                studyId: studyId,
-                dataVersion: null
-            }, {
-                $set: {
-                    dataVersion: newDataVersionId
-                }
-            });
 
-            if (resData.modifiedCount === 0 && resField.modifiedCount === 0) {
-                return makeGenericReponse(undefined, false, undefined, 'Nothing to update.');
+        // update data
+        const resData = await db.collections!.data_collection.updateMany({
+            studyId: studyId,
+            dataVersion: null
+        }, {
+            $set: {
+                dataVersion: newDataVersionId
             }
+        });
+        // update field
+        const resField = await db.collections!.field_dictionary_collection.updateMany({
+            studyId: studyId,
+            dataVersion: null
+        }, {
+            $set: {
+                dataVersion: newDataVersionId
+            }
+        });
+        // invalidate hash
+        await db.collections!.cache_collection.updateMany({
+            'keys.studyId': studyId
+        }, {
+            $set: {
+                status: enumCacheStatus.OUTDATED
+            }
+        });
 
-            // update permissions based on roles
-            // const roles = await db.collections!.roles_collection.find<IRole>({ 'studyId': studyId, 'life.deletedTime': null }).toArray();
-            // for (const role of roles) {
-            //     const filters: Record<string, string[]> = {
-            //         subjectIds: role.permissions.data?.subjectIds || [],
-            //         visitIds: role.permissions.data?.visitIds || [],
-            //         fieldIds: role.permissions.data?.fieldIds || []
-            //     };
-            //     const tag = `metadata.${'role:'.concat(role.id)}`;
-            //     // no need to add role to old data, which should be updated on role changes
-            //     await db.collections!.data_collection.updateMany({
-            //         m_studyId: studyId,
-            //         m_versionId: newDataVersionId,
-            //         m_subjectId: { $in: filters.subjectIds.map((el: string) => new RegExp(el)) },
-            //         m_visitId: { $in: filters.visitIds.map((el: string) => new RegExp(el)) },
-            //         m_fieldId: { $in: filters.fieldIds.map((el: string) => new RegExp(el)) }
-            //     }, {
-            //         $set: { [tag]: true }
-            //     });
-            //     await db.collections!.data_collection.updateMany({
-            //         m_studyId: studyId,
-            //         m_versionId: newDataVersionId,
-            //         $or: [
-            //             { m_subjectId: { $nin: filters.subjectIds.map((el: string) => new RegExp(el)) } },
-            //             { m_visitId: { $nin: filters.visitIds.map((el: string) => new RegExp(el)) } },
-            //             { m_fieldId: { $nin: filters.fieldIds.map((el: string) => new RegExp(el)) } }
-            //         ]
-            //     }, {
-            //         $set: { [tag]: false }
-            //     });
-            //     await db.collections!.field_dictionary_collection.updateMany({
-            //         studyId: studyId,
-            //         dataVersion: newDataVersionId,
-            //         fieldId: { $in: filters.fieldIds.map((el: string) => new RegExp(el)) }
-            //     }, {
-            //         $set: { [tag as any]: true }
-            //     });
-            //     await db.collections!.field_dictionary_collection.updateMany({
-            //         studyId: studyId,
-            //         dataVersion: newDataVersionId,
-            //         fieldId: { $nin: filters.fieldIds.map((el: string) => new RegExp(el)) }
-            //     }, {
-            //         $set: { [tag as any]: false }
-            //     });
-            // }
+        // TODO: ontologies
 
-            // insert a new version into study
-            const newDataVersion: IStudyDataVersion = {
-                id: newDataVersionId,
-                contentId: newContentId, // same content = same id - used in reverting data, version control
-                version: dataVersion,
-                tag: tag,
-                life: {
-                    createdTime: Date.now(),
-                    createdUser: requester,
-                    deletedTime: null,
-                    deletedUser: null
-                },
-                metadata: {}
-            };
-            await db.collections!.studies_collection.updateOne({ id: studyId }, {
-                $push: { dataVersions: newDataVersion },
-                $inc: {
-                    currentDataVersion: 1
-                }
+        if (resData.modifiedCount === 0 && resField.modifiedCount === 0) {
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'Nothing to update.'
             });
-            await session.commitTransaction();
-            session.endSession();
-            return makeGenericReponse(newDataVersionId, true, undefined, `Data version ${dataVersion} has been deleted.`);
-        } catch (error) {
-            // If an error occurred, abort the whole transaction and
-            // undo any changes that might have happened
-            await session.abortTransaction();
-            session.endSession();
-            throw new GraphQLError(`${JSON.stringify(error)}`, { extensions: { code: errorCodes.DATABASE_ERROR } });
         }
+
+        // update permissions based on roles
+        // const roles = await db.collections!.roles_collection.find<IRole>({ 'studyId': studyId, 'life.deletedTime': null }).toArray();
+        // for (const role of roles) {
+        //     const tag = `metadata.${'role:'.concat(role.id)}`;
+        //     const filters: any = {};
+
+        //     const filters: Record<string, string[]> = {
+        //         subjectIds: role.permissions.data?.subjectIds || [],
+        //         visitIds: role.permissions.data?.visitIds || [],
+        //         fieldIds: role.permissions.data?.fieldIds || []
+        //     };
+        //     // no need to add role to old data, which should be updated on role changes
+        //     await db.collections!.data_collection.updateMany({
+        //         m_studyId: studyId,
+        //         m_versionId: newDataVersionId,
+        //         m_subjectId: { $in: filters.subjectIds.map((el: string) => new RegExp(el)) },
+        //         m_visitId: { $in: filters.visitIds.map((el: string) => new RegExp(el)) },
+        //         m_fieldId: { $in: filters.fieldIds.map((el: string) => new RegExp(el)) }
+        //     }, {
+        //         $set: { [tag]: true }
+        //     });
+        //     await db.collections!.data_collection.updateMany({
+        //         m_studyId: studyId,
+        //         m_versionId: newDataVersionId,
+        //         $or: [
+        //             { m_subjectId: { $nin: filters.subjectIds.map((el: string) => new RegExp(el)) } },
+        //             { m_visitId: { $nin: filters.visitIds.map((el: string) => new RegExp(el)) } },
+        //             { m_fieldId: { $nin: filters.fieldIds.map((el: string) => new RegExp(el)) } }
+        //         ]
+        //     }, {
+        //         $set: { [tag]: false }
+        //     });
+        //     await db.collections!.field_dictionary_collection.updateMany({
+        //         studyId: studyId,
+        //         dataVersion: newDataVersionId,
+        //         fieldId: { $in: filters.fieldIds.map((el: string) => new RegExp(el)) }
+        //     }, {
+        //         $set: { [tag as any]: true }
+        //     });
+        //     await db.collections!.field_dictionary_collection.updateMany({
+        //         studyId: studyId,
+        //         dataVersion: newDataVersionId,
+        //         fieldId: { $nin: filters.fieldIds.map((el: string) => new RegExp(el)) }
+        //     }, {
+        //         $set: { [tag as any]: false }
+        //     });
+        // }
+
+        // insert a new version into study
+        const newDataVersion: IStudyDataVersion = {
+            id: newDataVersionId,
+            contentId: newContentId, // same content = same id - used in reverting data, version control
+            version: dataVersion,
+            tag: tag,
+            life: {
+                createdTime: Date.now(),
+                createdUser: requester,
+                deletedTime: null,
+                deletedUser: null
+            },
+            metadata: {}
+        };
+        await db.collections!.studies_collection.updateOne({ id: studyId }, {
+            $push: { dataVersions: newDataVersion },
+            $inc: {
+                currentDataVersion: 1
+            }
+        });
+        return newDataVersion;
     }
 
+    /**
+     * Set a data version as the current data version of a  study.
+     *
+     * @param studyId - The id of the study.
+     * @param dataVersionId - The id of the data version.
+     *
+     * @return IGenreicResponse
+     */
     public async setDataVersion(studyId: string, dataVersionId: string): Promise<IGenericResponse> {
-        /**
-         * Set a data version as the current data version of a  study.
-         *
-         * @param studyId - The id of the study.
-         * @param dataVersionId - The id of the data version.
-         *
-         * @return IGenreicResponse
-         */
-
         const study = await db.collections!.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null });
         if (!study) {
-            throw new GraphQLError('Study does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'Study does not exist.'
+            });
         }
 
         if (!study.dataVersions.map(el => el.id).includes(dataVersionId)) {
-            throw new GraphQLError('Version does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'Data version does not exist.'
+            });
         }
 
         await db.collections!.studies_collection.findOneAndUpdate({ 'id': studyId, 'life.deletedTime': null }, {

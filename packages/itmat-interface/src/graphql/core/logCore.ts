@@ -17,7 +17,6 @@ export class LogCore {
          *
          * @return ILog[]
          */
-        console.log('----db----', db);
         const filters: any = {};
         if (caller) {
             filters.requester = caller;
@@ -45,7 +44,6 @@ export class LogCore {
                 }
             }).toArray();
         } else {
-            console.log('--------', db.collections?.log_collection);
             logs = await db.collections!.log_collection.find(filters).toArray();
         }
         return logs;

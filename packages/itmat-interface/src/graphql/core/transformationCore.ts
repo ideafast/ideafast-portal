@@ -1,6 +1,7 @@
 import { IAST, IValueVerifier } from '@itmat-broker/itmat-types';
 import { utilsCore } from './utilsCore';
 import { it } from 'node:test';
+import { group } from 'console';
 
 type IDataTransformationClip = {
     [key: string]: any;
@@ -95,12 +96,12 @@ class tGrouping extends DataTransformation {
  *
  * @param removedKeys - Keys to remove.
  * @param addedKeyRules - Keys to add.
- * @param rules - Rules to conver the values.
+ * @param rules - Rules to convert the values.
  */
 class tAffine extends DataTransformation {
-    protected removedKeys: string[];
-    protected addedKeyRules: Array<{ key: IAST, value: IAST }>;
-    protected rules: Record<string, IAST>;
+    protected removedKeys?: string[];
+    protected addedKeyRules?: Array<{ key: IAST, value: IAST }>;
+    protected rules?: Record<string, IAST>;
 
     constructor(params: { removedKeys: string[], rules: Record<string, IAST>, addedKeyRules: Array<{ key: IAST, value: IAST }> }) {
         super();
@@ -117,19 +118,25 @@ class tAffine extends DataTransformation {
         const affinedData: any[] = [];
         for (const item of data) {
             // add keys
-            for (const pair of this.addedKeyRules) {
-                item[utilsCore.IASTHelper(pair.key, item)] = utilsCore.IASTHelper(pair.value, item);
-            }
-            for (const key of Object.keys(item)) {
-                // affine
-                if (this.rules[key]) {
-                    item[key] = utilsCore.IASTHelper(this.rules[key], item[key]);
+            if (this.addedKeyRules) {
+                for (const pair of this.addedKeyRules) {
+                    item[utilsCore.IASTHelper(pair.key, item)] = utilsCore.IASTHelper(pair.value, item);
                 }
             }
-            for (const key of Object.keys(item)) {
-                // remove keys
-                if (this.removedKeys.includes(key)) {
-                    delete item[key];
+            if (this.rules) {
+                for (const key of Object.keys(item)) {
+                    // affine
+                    if (this.rules[key]) {
+                        item[key] = utilsCore.IASTHelper(this.rules[key], item[key]);
+                    }
+                }
+            }
+            if (this.removedKeys) {
+                for (const key of Object.keys(item)) {
+                    // remove keys
+                    if (this.removedKeys.includes(key)) {
+                        delete item[key];
+                    }
                 }
             }
             Object.keys(item).length > 0 && affinedData.push(item);
@@ -336,9 +343,9 @@ class tDeconcat extends DataTransformation {
  * @output A[] | A[][]
  */
 class tFilter extends DataTransformation {
-    protected filters: Record<string, IValueVerifier>;
+    protected filters: Record<string, IValueVerifier[]>;
 
-    constructor(params: { filters: Record<string, IValueVerifier> }) {
+    constructor(params: { filters: Record<string, IValueVerifier[]> }) {
         super();
         this.filters = params.filters;
     }
@@ -356,9 +363,43 @@ class tFilter extends DataTransformation {
     }
 
     private isValidItem(data: IDataTransformationType): boolean {
-        return Object.keys(this.filters).every(key => {
-            return utilsCore.validValueWithVerifier(data, this.filters[key]);
+        return Object.keys(this.filters).some(key => {
+            return this.filters[key].every(el => {
+                return utilsCore.validValueWithVerifier(data, el);
+            });
         });
+    }
+}
+
+/**
+ * Count the data. This should be used after grouping.
+ *
+ * @input A[][]
+ * @output { count: ..., ...}[]
+ */
+class tCount extends DataTransformation {
+    protected addedKeyRules?: Array<{ key: IAST, value: IAST }>;
+
+    constructor(params: { addedKeyRules: Array<{ key: IAST, value: IAST }> }) {
+        super();
+        this.addedKeyRules = params.addedKeyRules;
+    }
+
+    transform(data: IDataTransformationType): IDataTransformationType {
+        if (!Array.isArray(data) || (data.length > 0 && !Array.isArray(data[0]))) {
+            throw new Error('Input data must be of type A[][] (array of arrays) and not A[]');
+        }
+        const mergerArrays: any[] = [];
+        for (const group of data) {
+            const item: any = { count: group.length };
+            if (this.addedKeyRules) {
+                for (const pair of this.addedKeyRules) {
+                    item[utilsCore.IASTHelper(pair.key, group[0])] = utilsCore.IASTHelper(pair.value, group[0]);
+                }
+            }
+            mergerArrays.push(item);
+        }
+        return mergerArrays;
     }
 }
 
@@ -474,7 +515,8 @@ export class DataTransformationCore {
         Join: tJoin,
         Degroup: tDegroup,
         Filter: tFilter,
-        Flatten: tFlatten
+        Flatten: tFlatten,
+        Count: tCount
     };
 
     public transformationCompose(data: IDataTransformationClip, transformations: Array<{ operationName: string, params: any }>): IDataTransformationType {

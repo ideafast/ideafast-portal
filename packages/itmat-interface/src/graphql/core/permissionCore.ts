@@ -1,9 +1,11 @@
 import { GraphQLError } from 'graphql';
-import { IRole, IGenericResponse, enumStudyRoles, IDataPermission, IGroupNode } from '@itmat-broker/itmat-types';
+import { IRole, IGenericResponse, enumStudyRoles, IDataPermission, IGroupNode, enumUserTypes } from '@itmat-broker/itmat-types';
 import { v4 as uuid } from 'uuid';
 import { db } from '../../database/database';
 import { errorCodes } from '../errors';
 import { makeGenericReponse } from '../responses';
+import { TRPCError } from '@trpc/server';
+import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
 
 export class PermissionCore {
     // public async getAllRolesOfStudyOrProject(studyId: string, projectId?: string): Promise<IRole[]> {
@@ -640,7 +642,7 @@ export class PermissionCore {
             });
         }
     }
-    public async createRole(requester: string, studyId: string, name: string, description: string, dataPermisisons: IDataPermission[] | null, studyRole: enumStudyRoles): Promise<IRole> {
+    public async createRole(requester: string, studyId: string, name: string, description: string, dataPermisisons: IDataPermission[], studyRole: enumStudyRoles): Promise<IRole> {
         /**
          * Create a Role.
          *
@@ -757,11 +759,17 @@ export class PermissionCore {
 
     }
 
-    public checkPermission(dataPermissions: IDataPermission[], dataclip: any): boolean {
-        for (const dataPermission of dataPermissions) {
+    /**
+     * Check whether a dataclip is allowed by a group of permissions. Used for multiple permissions in one role.
+     *
+     * @param dataPermissions - The list of data permissions.
+     * @param dataclip - The data clip.
+     * @return boolean
+     */
+    public checkDataPermissionByRole(role: IRole, dataclip: any): boolean {
+        for (const dataPermission of role.dataPermissions ?? []) {
             let fieldCheck = false;
             let propertyCheck = true;  // assume true initially
-
             // Check if at least one regex matches the fieldId
             for (const regex of dataPermission.fields) {
                 const regExp = new RegExp(regex);
@@ -775,25 +783,26 @@ export class PermissionCore {
             if (!fieldCheck) continue;
 
             // Check properties
-            for (const property in dataPermission.dataProperties) {
-                // Updated line to address ESLint error
-                if (Object.prototype.hasOwnProperty.call(dataclip.properties, property)) {
-                    let propertyRegexCheck = false;
-                    for (const regex of dataPermission.dataProperties[property]) {
-                        const regExp = new RegExp(regex);
-                        if (regExp.test(dataclip.properties[property])) {
-                            propertyRegexCheck = true;
+            if (dataclip.properties) {
+                for (const property in dataPermission.dataProperties) {
+                    // Updated line to address ESLint error
+                    if (Object.prototype.hasOwnProperty.call(dataclip.properties, property)) {
+                        let propertyRegexCheck = false;
+                        for (const regex of dataPermission.dataProperties[property]) {
+                            const regExp = new RegExp(regex);
+                            if (regExp.test(dataclip.properties[property])) {
+                                propertyRegexCheck = true;
+                                break;
+                            }
+                        }
+                        // If any property fails to match the regex, set propertyCheck to false
+                        if (!propertyRegexCheck) {
+                            propertyCheck = false;
                             break;
                         }
                     }
-                    // If any property fails to match the regex, set propertyCheck to false
-                    if (!propertyRegexCheck) {
-                        propertyCheck = false;
-                        break;
-                    }
                 }
             }
-
             // If both field and properties check are true, return true
             if (fieldCheck && propertyCheck) return true;
         }
@@ -801,15 +810,89 @@ export class PermissionCore {
         return false;  // If none of the dataPermissions validate the dataclip, return false
     }
 
-    public async getUserRoles(userId: string): Promise<IRole[]> {
+    /**
+     * Check whether a dataclip is allowed by a group of roles. Used for multiple roles for a user.
+     * When check a list of dataclips, use getUserRoles to fetch the list of roles, then call this function.
+     *
+     * @param dataPermissions - The list of data permissions.
+     * @param dataclip - The data clip.
+     * @return boolean
+     */
+    public async checkDataPermissionByUser(userId: string, dataClip: any) {
+        const user = await db.collections!.users_collection.findOne({ 'id': userId, 'life.deletedTime': null });
+        if (!user) {
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: errorCodes.NO_PERMISSION_ERROR
+            });
+        }
+        if (user.type === enumUserTypes.ADMIN) {
+            return true;
+        }
+        const roles = await this.getUserRoles(userId);
+        for (const role of roles) {
+            if (role.studyRole === enumStudyRoles.STUDY_MANAGER) {
+                return true;
+            }
+            if (this.checkDataPermissionByRole(role, dataClip)) {
+                return true;
+            }
+        }
+        throw new TRPCError({
+            code: enumTRPCErrorCodes.BAD_REQUEST,
+            message: errorCodes.NO_PERMISSION_ERROR
+        });
+    }
+
+    /**
+     * Check user has permission based on roles.
+     *
+     * @param userId - The id of the user.
+     * @param requiredRoles - The list of roles required.
+     * @returns boolean
+     */
+    public async checkOperationPermissionByUser(userId: string, studyId: string, requiredRole?: enumStudyRoles) {
+        const user = await db.collections!.users_collection.findOne({ 'id': userId, 'life.deletedTime': null });
+        if (!user) {
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: errorCodes.NO_PERMISSION_ERROR
+            });
+        }
+        if (user.type === enumUserTypes.ADMIN) {
+            return true;
+        }
+        const roles = await this.getUserRoles(userId, studyId);
+        if (roles.length === 0) {
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'No roles found.'
+            });
+        }
+        if (!requiredRole) {
+            return true;
+        }
+        if (requiredRole === roles[0].studyRole) {
+            return true;
+        } else {
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: errorCodes.NO_PERMISSION_ERROR
+            });
+        }
+    }
+
+    public async getUserRoles(userId: string, studyId?: string): Promise<IRole[]> {
         /**
          * Get the roles of a user.
          *
          * @param userId - The id of the user.
+         * @param studyId - The id of the study.
          */
         const userGroups = await this.getUserGroups(userId);
         const groupIds = userGroups.map(el => el.id);
-        return await db.collections!.roles_collection.find({ $or: [{ users: userId }, { groups: groupIds }] }).toArray();
+        return studyId ? await db.collections!.roles_collection.find({ 'studyId': studyId, '$or': [{ users: userId }, { groups: groupIds }], 'life.deletedTime': null }).toArray() :
+            await db.collections!.roles_collection.find({ '$or': [{ users: userId }, { groups: groupIds }], 'life.deletedTime': null }).toArray();
     }
 
     public async getUserGroups(userId: string): Promise<IGroupNode[]> {

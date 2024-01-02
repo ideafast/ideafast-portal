@@ -16,7 +16,7 @@ export function connectAgent(agent: SuperTest<Test>, user: string, pw: string, s
     return new Promise((resolve, reject) => agent.post('/trpc/user.login')
         .set('Content-type', 'application/json')
         .send({
-            input: { username: user, password: pw, totp: otp, requestexpirydate: null }
+            username: user, password: pw, totp: otp, requestexpirydate: null
         })
         .then(res => {
             if (res.status === 200)

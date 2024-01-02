@@ -2,6 +2,7 @@ import { IBase, ILifeCircle } from './base';
 import { v4 as uuid } from 'uuid';
 import { enumReservedDefs } from './reserved';
 import { IFile } from './file';
+import { IJobSchedulerConfig, enumJobSchedulerStrategy } from './job';
 
 export interface IConfig extends IBase {
     type: enumConfigType;
@@ -27,6 +28,7 @@ export interface ISystemConfig extends IBase {
     logoSize: string[]; // width * height
     archiveAddress: string;
     defaultEventTimeConsumptionBar: number[];
+    jobSchedulerConfig: IJobSchedulerConfig;
 }
 
 export interface IStudyConfig extends IBase {
@@ -39,7 +41,8 @@ export interface IStudyConfig extends IBase {
     defaultFileDirectoryStructure: {
         pathLabels: string[],
         description: string | null
-    }
+    },
+    defaultVersioningKeys: string[]; // data clips with same values of such keys will be considered as the same values with different versions
 }
 
 export interface IUserConfig extends IBase {
@@ -98,7 +101,15 @@ export class DefaultSettings implements IDefaultSettings {
         logoLink: null,
         logoSize: ['224px', '224px'],
         archiveAddress: '',
-        defaultEventTimeConsumptionBar: [50, 100]
+        defaultEventTimeConsumptionBar: [50, 100],
+        jobSchedulerConfig: {
+            strategy: enumJobSchedulerStrategy.FIFO,
+            usePriority: true,
+            // for errored jobs
+            reExecuteFailedJobs: false,
+            failedJobDelayTime: 30 * 60 * 1000, // unit timestamps
+            maxAttempts: 10 // the number of attempts should be stored in history
+        }
     };
 
     public readonly studyConfig: IStudyConfig = {
@@ -119,7 +130,8 @@ export class DefaultSettings implements IDefaultSettings {
         defaultFileDirectoryStructure: {
             pathLabels: [],
             description: null
-        }
+        },
+        defaultVersioningKeys: []
     };
 
     public readonly userConfig: IUserConfig = {

@@ -79,7 +79,7 @@ export const baseProcedure = t.procedure.use(async (opts: any) => {
                 metadata: {}
             });
         }
-        await db.collections!.log_collection.insertMany(logs);
+        logs.length && await db.collections!.log_collection.insertMany(logs);
         return result;
     }
     else {
@@ -115,7 +115,9 @@ function parseBatchedUrl(url: string, executionTime: number): any[] {
 
     const queryParams = new URLSearchParams(queryString);
     const inputParam = queryParams.get('input');
-
+    if (!inputParam) {
+        return [];
+    }
     if (!inputParam) {
         throw new Error('Missing \'input\' key in query parameters');
     }

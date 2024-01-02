@@ -11,10 +11,7 @@ export class UtilsCore {
      * @returns If the value pass the verifier.
      */
     public validValueWithVerifier(value: any, verifier: IValueVerifier): boolean {
-        // console.log('---validation---');
-        // console.log(value, verifier);
         const calculatedValue = this.IASTHelper(verifier.formula, value);
-        // console.log(calculatedValue);
         if (verifier.condition === enumConditionOps.NUMERICALEQUAL) {
             return calculatedValue === this.parseInputToNumber(verifier.value);
         } else if (verifier.condition === enumConditionOps.NUMERICALNOTEQUAL) {

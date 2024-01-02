@@ -1,59 +1,19 @@
-import { FunctionComponent, useState, useEffect, useRef, useContext, Fragment, HTMLAttributes, createContext, ReactNode } from 'react';
-import { Button, Upload, notification, Tag, Table, Form, Input, InputRef, DatePicker, Space, Modal, Image, message, Row, Col, Divider, Typography } from 'antd';
+import { FunctionComponent } from 'react';
+import { Button, Upload, Image, Row, Col, Divider, Typography } from 'antd';
 import { RcFile } from 'antd/es/upload';
-import { UploadOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
-import { Query } from '@apollo/client/react/components';
-import { useApolloClient, useMutation, useQuery } from '@apollo/client/react/hooks';
-import { useDropzone } from 'react-dropzone';
-import { GET_STUDIES, UPLOAD_FILE, GET_ORGANISATIONS, GET_USERS, EDIT_STUDY, WHO_AM_I } from '@itmat-broker/itmat-models';
-import { IFile, enumUserTypes, deviceTypes } from '@itmat-broker/itmat-types';
-import { FileList, formatBytes } from '../../../reusable/fileList/fileList';
+import { UploadOutlined } from '@ant-design/icons';
+import { useApolloClient, useQuery } from '@apollo/client/react/hooks';
+import { GET_STUDIES } from '@itmat-broker/itmat-models';
 import LoadSpinner from '../../../reusable/loadSpinner';
-import { Subsection, SubsectionWithComment } from '../../../reusable/subsection/subsection';
 import css from './dashboard.module.css';
-import { ApolloError } from '@apollo/client/errors';
-import { validate } from '@ideafast/idgen';
-import dayjs, { Dayjs } from 'dayjs';
-import { v4 as uuid } from 'uuid';
+import { convertRCFileToSchema, trpc } from 'packages/itmat-ui-react/src/utils/trpc';
+import { UploadFile } from 'antd/lib/upload/interface';
 const { Title } = Typography;
-
 export const DashboardTabContent: FunctionComponent<{ studyId: string }> = ({ studyId }) => {
     const { loading: getStudiesLoading, error: getStudiesError, data: getStudiesData } = useQuery(GET_STUDIES, { variables: { studyId: studyId } });
 
     const store = useApolloClient();
-    const [editStudy, { loading: editStudyLoading, error: editStudyError }] = useMutation(EDIT_STUDY, {
-        onCompleted: ({ editStudy }) => {
-            console.log('yes');
-            message.success(`Study ${editStudy.name} has been edited.`);
-            const cacheData = store.readQuery({
-                query: GET_STUDIES,
-                variables: { studyId: studyId }
-            }) as any;
-            if (!cacheData) {
-                return;
-            }
-            const newCacheData = [
-                {
-                    ...cacheData[0],
-                    profile: editStudy.profile
-                }
-            ];
-            store.writeQuery({
-                query: GET_STUDIES,
-                variables: { studyId: studyId },
-                data: { getStudies: newCacheData }
-            });
-        },
-        onError: (error: ApolloError) => {
-            notification.error({
-                message: 'Upload error!',
-                description: error.message ?? 'Unknown Error Occurred!',
-                placement: 'topRight',
-                duration: 0
-            });
-        }
-    });
-
+    const editStudy = trpc.study.editStudy.useMutation();
     if (getStudiesLoading) {
         return <>
             <div className='page_ariane'>Loading...</div>
@@ -84,23 +44,45 @@ export const DashboardTabContent: FunctionComponent<{ studyId: string }> = ({ st
                         <Upload
                             multiple={false}
                             showUploadList={false}
-                            beforeUpload={async (file: RcFile) => {
-                                try {
-                                    await editStudy({
-                                        variables: {
-                                            studyId: study.id,
-                                            name: study.name,
-                                            description: study.description,
-                                            profile: file
+                            beforeUpload={async (file: Blob) => {
+                                if (file) {
+                                    const formData = new FormData();
+                                    formData.append('file', file);
+                                    try {
+                                        const response = await fetch('/upload', {
+                                            method: 'POST',
+                                            body: formData
+                                        });
+
+                                        if (response.ok) {
+                                            const data = await response.json();
+                                            editStudy.mutate({
+                                                studyId: study.id,
+                                                name: study.name,
+                                                description: study.description ?? '',
+                                                profile: [{
+                                                    path: data.filePath, // This should be the path returned by the server
+                                                    filename: file.name,
+                                                    mimetype: file.type,
+                                                    size: file.size
+                                                }]
+                                            });
+                                        } else {
+                                            // Handle upload error
+                                            const errorData = await response.text();
+                                            console.error('File upload failed:', errorData);
                                         }
-                                    });
-                                    return false;
-                                } catch (error) {
-                                    return false;
+                                    } catch (error) {
+                                        console.error('Network or other error', error);
+                                    }
+                                } else {
+                                    // Handle the case where the file object is not available
+                                    console.error('File object was not available.');
                                 }
                             }}
+
                         >
-                            <Button type='primary' icon={<UploadOutlined />} loading={editStudyLoading} shape='default'>Upload</Button>
+                            <Button type='primary' icon={<UploadOutlined />} loading={editStudy.isLoading} shape='default'>Upload</Button>
                         </Upload>
                         <Title level={2}>{study.name}</Title>
                     </div>

@@ -2,26 +2,30 @@ import bcrypt from 'bcrypt';
 import { db } from '../../database/database';
 import config from '../../utils/configManager';
 import { GraphQLError } from 'graphql';
-import { IUser, enumUserTypes, IOrganisation, IPubkey, defaultSettings, IGenericResponse, enumFileTypes, enumFileCategories, IResetPasswordRequest, enumGroupNodeTypes, IGroupNode, IDriveNode, IFile, enumDriveNodeTypes } from '@itmat-broker/itmat-types';
+import { IUser, enumUserTypes, IOrganisation, IPubkey, defaultSettings, IGenericResponse, enumFileTypes, enumFileCategories, IResetPasswordRequest, enumGroupNodeTypes, IGroupNode, IDriveNode, IFile, enumDriveNodeTypes, AccessToken } from '@itmat-broker/itmat-types';
 import { makeGenericReponse } from '../responses';
 import { v4 as uuid } from 'uuid';
 import { errorCodes } from '../errors';
 import { FileUpload } from 'graphql-upload-minimal';
 import { fileCore } from './fileCore';
 import * as mfa from '../../utils/mfa';
+import { TRPCError } from '@trpc/server';
+import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
+import { rsakeygen, rsaverifier, tokengen } from '../../utils/pubkeycrypto';
+import { mailer } from '../../emailer/emailer';
 
 export class UserCore {
-    public async getUser(userId: string | null, username: string | null, email: string | null): Promise<IUser[]> {
-        /**
-         * Get a user. One of the parameters should not be null, we will find users by the following order: usreId, username, email.
-         *
-         * @param userId - The id of the user.
-         * @param username - The username of the user.
-         * @param email - The email of the user.
-         *
-         * @return Partial<IUser> - The object of IUser. Remove private information.
-         */
-
+    /**
+     * Get a user. One of the parameters should not be null, we will find users by the following order: usreId, username, email.
+     *
+     * @param userId - The id of the user.
+     * @param username - The username of the user.
+     * @param email - The email of the user.
+     *
+     * @return Partial<IUser> - The object of IUser. Remove private information.
+     */
+    public async getUser(userId?: string, username?: string, email?: string): Promise<IUser[]> {
+        // TODO: add permission to user metadata that can be accessed
         let user: any;
         if (userId) {
             user = await db.collections!.users_collection.findOne({ 'id': userId, 'life.deletedTime': null });
@@ -31,11 +35,13 @@ export class UserCore {
             user = await db.collections!.users_collection.findOne({ 'email': email, 'life.deletedTime': null });
         } else {
             return [];
-            // throw new GraphQLError('At lease one of the userId, username, email shoule be provided.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
         }
 
         if (!user) {
-            return [];
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'User does not exist.'
+            });
         }
 
         return [user];
@@ -62,52 +68,70 @@ export class UserCore {
         return profile.id;
     }
 
-    public async getAllUsers(includeDeleted: boolean): Promise<IUser[]> {
-        /**
-         * Get all users.
-         * @param includeDeleted - Whether to include users that have been deleted.
-         *
-         * @return Partial<IUser> - The object of IUser. Remove private information.
-         */
+    /**
+     * Get all users.
+     *
+     * @param requester - The id of the requester.
+     * @param includeDeleted - Whether to include users that have been deleted.
+     *
+     * @return Partial<IUser> - The object of IUser. Remove private information.
+     */
+    public async getAllUsers(requester: string, includeDeleted: boolean): Promise<IUser[]> {
+        const user = await db.collections!.users_collection.findOne({ 'id': requester, 'life.deletedTime': null });
+        if (!user || user.type !== enumUserTypes.ADMIN) {
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: errorCodes.NO_PERMISSION_ERROR
+            });
+        }
         const users = await db.collections!.users_collection.find({}).toArray();
         const clearedUsers: IUser[] = [];
         for (const user of users) {
             if (!includeDeleted && user.life.deletedTime !== null) {
                 continue;
             }
-
             clearedUsers.push(user);
         }
         return clearedUsers;
     }
 
-    public async createUser(requester: string | null, username: string, email: string, firstname: string, lastname: string, organisation: string, type: enumUserTypes, emailNotificationsActivated: boolean, password: string, otpSecret: string, profile: any | null, description: string | null): Promise<Partial<IUser>> {
-        /**
-         * Create a user.
-         *
-         * @param requester - The id of the requester.
-         * @param username - The username of the user, should be unique.
-         * @param email - The emailAddress of the user.
-         * @param firstname - The first name of the user.
-         * @param lastname - The last name of the user.
-         * @param organisation - The id of the user's organisation. Should be one of the organisaiton in the database.
-         * @param type - The user type of the user.
-         * @param emailNotificationsActivated - Whether email notification service is activared.
-         * @param password - The password of the user, should be hashed.
-         * @param otpSecret - The otp secret of the user.
-         * @param profile - The profile of the user.
-         * @param description - The description of the user.
-         *
-         * @return Partial<IUser> - The object of IUser. Remove private information.
-         */
-
-        const user = await db.collections!.users_collection.findOne({ 'username': username, 'life.deletedTime': null });
+    /**
+     * Create a user.
+     *
+     * @param username - The username of the user, should be unique.
+     * @param email - The emailAddress of the user.
+     * @param firstname - The first name of the user.
+     * @param lastname - The last name of the user.
+     * @param organisation - The id of the user's organisation. Should be one of the organisaiton in the database.
+     * @param type - The user type of the user.
+     * @param emailNotificationsActivated - Whether email notification service is activared.
+     * @param password - The password of the user, should be hashed.
+     * @param otpSecret - The otp secret of the user.
+     * @param profile - The profile of the user.
+     * @param description - The description of the user.
+     * @param requester - The id of the requester.
+     *
+     * @return Partial<IUser> - The object of IUser. Remove private information.
+     */
+    public async createUser(username: string, email: string, firstname: string, lastname: string, organisation: string, type: enumUserTypes, emailNotificationsActivated: boolean, password: string, otpSecret: string, profile?: FileUpload, description?: string, requester?: string): Promise<Partial<IUser>> {
+        const user = await db.collections!.users_collection.findOne({
+            $or: [
+                { username: username },
+                { email: email }
+            ]
+        });
         if (user) {
-            throw new GraphQLError('User already exists.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'Username or email already exists.'
+            });
         }
         const org = await db.collections!.organisations_collection.findOne({ 'id': organisation, 'life.deletedTime': null });
         if (!org) {
-            throw new GraphQLError('Organisation does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'Organisation does not exist.'
+            });
         }
 
         // fetch the config file
@@ -119,7 +143,10 @@ export class UserCore {
         let fileEntry;
         if (profile) {
             if (!Object.keys(enumFileTypes).includes(profile?.filename?.split('.')[1].toUpperCase())) {
-                throw new GraphQLError('Profile file type does not support.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+                throw new TRPCError({
+                    code: enumTRPCErrorCodes.BAD_REQUEST,
+                    message: 'File type not supported.'
+                });
             }
             fileEntry = await fileCore.uploadFile(userId, null, userId, profile, null, enumFileTypes[profile.filename.split('.')[1].toUpperCase() as keyof typeof enumFileTypes], enumFileCategories.USER_PROFILE_FILE, []);
         }
@@ -136,24 +163,8 @@ export class UserCore {
             password: hashedPassword,
             otpSecret: otpSecret,
             profile: (profile && fileEntry) ? fileEntry.id : null,
-            description: description,
+            description: description ?? '',
             expiredAt: expiredAt,
-            // fileRepo: [{
-            //     id: uuid(),
-            //     name: 'My Files',
-            //     fileId: null,
-            //     type: enumDriveNodeTypes.FOLDER,
-            //     children: [],
-            //     parent: null,
-            //     sharedUsers: [],
-            //     life: {
-            //         createdTime: Date.now(),
-            //         createdUser: requester ?? userId,
-            //         deletedTime: null,
-            //         deletedUser: null
-            //     },
-            //     metadata: {}
-            // }],
             life: {
                 createdTime: Date.now(),
                 createdUser: requester ?? userId,
@@ -162,107 +173,109 @@ export class UserCore {
             },
             metadata: {}
         };
-
-        const result = await db.collections!.users_collection.insertOne(entry);
-        if (result.acknowledged) {
-            const cleared: Partial<IUser> = {
-                id: entry.id,
-                username: entry.username,
-                email: entry.email,
-                firstname: entry.firstname,
-                lastname: entry.lastname,
-                organisation: entry.organisation,
-                type: entry.type,
-                emailNotificationsActivated: entry.emailNotificationsActivated,
-                profile: entry.profile,
-                description: entry.description,
-                expiredAt: entry.expiredAt
-            };
-            return cleared;
-        } else {
-            throw new GraphQLError('Database error', { extensions: { code: errorCodes.DATABASE_ERROR } });
-        }
+        await db.collections!.users_collection.insertOne(entry);
+        return entry;
     }
 
-    public async editUser(requester: string, userId: string, username: string | null, email: string | null, firstname: string | null, lastname: string | null, organisation: string | null, type: enumUserTypes | null, emailNotificationsActivated: boolean | null, password: string | null, otpSecret: string | null, profile: FileUpload | null, description: string | null, expiredAt: number | null): Promise<Partial<IUser>> {
-        /**
-         * Edit an existing user. Note, this function will use all default values, so if you want to keep some fields the same, you need to first fetch the original values as the inputs.
-         *
-         * @param requester - The id of the requester.
-         * @param userId - The id of the user.
-         * @param username - The username of the user, should be unique.
-         * @param email - Optional. The emailAddress of the user.
-         * @param firstname - Optional. The first name of the user.
-         * @param lastname - Optional. The last name of the user.
-         * @param organisation - Optional. The id of the user's organisation. Should be one of the organisaiton in the database.
-         * @param type - Optional. The user type of the user.
-         * @param emailNotificationsActivated - Optional. Whether email notification service is activared.
-         * @param password - Optional. The password of the user, should be hashed.
-         * @param otpSecret - Optional. The otp secret of the user.
-         * @param profile - Optional. The image of the profile of the user. Could be null.
-         * @param description - Optional. The description of the user.
-         * @param expiredAt - Optional. The expired timestamps of the user.
-         *
-         * @return Partial<IUser> - The object of IUser. Remove private information.
-         */
-
+    /**
+     * Edit an existing user. Note, this function will use all default values, so if you want to keep some fields the same, you need to first fetch the original values as the inputs.
+     *
+     * @param requester - The id of the requester.
+     * @param userId - The id of the user.
+     * @param username - The username of the user, should be unique.
+     * @param email - Optional. The emailAddress of the user.
+     * @param firstname - Optional. The first name of the user.
+     * @param lastname - Optional. The last name of the user.
+     * @param organisation - Optional. The id of the user's organisation. Should be one of the organisaiton in the database.
+     * @param type - Optional. The user type of the user.
+     * @param emailNotificationsActivated - Optional. Whether email notification service is activared.
+     * @param password - Optional. The password of the user, should be hashed.
+     * @param otpSecret - Optional. The otp secret of the user.
+     * @param profile - Optional. The image of the profile of the user. Could be null.
+     * @param description - Optional. The description of the user.
+     * @param expiredAt - Optional. The expired timestamps of the user.
+     *
+     * @return Partial<IUser> - The object of IUser. Remove private information.
+     */
+    public async editUser(requester: string, userId: string, username?: string, email?: string, firstname?: string, lastname?: string, organisation?: string, type?: enumUserTypes, emailNotificationsActivated?: boolean, password?: string, otpSecret?: string, profile?: FileUpload, description?: string, expiredAt?: number): Promise<Partial<IUser>> {
         const user = await db.collections!.users_collection.findOne({ 'id': userId, 'life.deletedTime': null });
         if (!user) {
-            throw new GraphQLError('User does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'User does not exist.'
+            });
         }
+        const setObj: any = {};
         if (username && username !== user.username) {
             const existUsername = await db.collections!.users_collection.findOne({ 'username': username, 'life.deletedTime': null });
             if (existUsername) {
-                throw new GraphQLError('User already exists.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+                throw new TRPCError({
+                    code: enumTRPCErrorCodes.BAD_REQUEST,
+                    message: 'Username already used.'
+                });
             }
+            setObj.username = username;
         }
+
+        if (email && email !== user.email) {
+            const existEmail = await db.collections!.users_collection.findOne({ 'email': email, 'life.deletedTime': null });
+            if (existEmail) {
+                throw new TRPCError({
+                    code: enumTRPCErrorCodes.BAD_REQUEST,
+                    message: 'Email already used.'
+                });
+            }
+            setObj.email = email;
+        }
+
         if (organisation) {
             const org = await db.collections!.organisations_collection.findOne({ 'id': organisation, 'life.deletedTime': null });
             if (!org) {
-                throw new GraphQLError('Organisation does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+                throw new TRPCError({
+                    code: enumTRPCErrorCodes.BAD_REQUEST,
+                    message: 'Organisation does not exist.'
+                });
             }
         }
+
+        if (password) {
+            const hashedPassword: string = await bcrypt.hash(password, config.bcrypt.saltround);
+            if (await bcrypt.compare(password, user.password)) {
+                throw new TRPCError({
+                    code: enumTRPCErrorCodes.BAD_REQUEST,
+                    message: 'You need to select a new password.'
+                });
+            }
+            setObj.password = hashedPassword;
+        }
+
+        if (otpSecret) {
+            setObj.otpSecret = otpSecret;
+        }
+
         let fileEntry;
         if (profile) {
             if (!Object.keys(enumFileTypes).includes(profile?.filename?.split('.')[1].toUpperCase())) {
-                throw new GraphQLError('Profile file does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+                throw new TRPCError({
+                    code: enumTRPCErrorCodes.BAD_REQUEST,
+                    message: 'File type not supported.'
+                });
             }
             fileEntry = await fileCore.uploadFile(requester, null, user.id, profile, null, enumFileTypes[profile.filename.split('.')[1].toUpperCase() as keyof typeof enumFileTypes], enumFileCategories.USER_PROFILE_FILE, []);
+            setObj.profile = fileEntry.id;
         }
-        const hashedPassword: string | null = password ? await bcrypt.hash(password, config.bcrypt.saltround) : null;
+
+        if (expiredAt) {
+            setObj.expiredAt = expiredAt;
+        }
 
         const result = await db.collections!.users_collection.findOneAndUpdate({ id: user.id }, {
-            $set: {
-                username: username ?? user.username,
-                email: email ?? user.email,
-                firstname: firstname ?? user.firstname,
-                lastname: lastname ?? user.lastname,
-                organisation: organisation ?? user.organisation,
-                type: type ?? user.type,
-                emailNotificationsActivated: emailNotificationsActivated ?? user.emailNotificationsActivated,
-                password: hashedPassword ?? user.password,
-                otpSecret: otpSecret ?? user.otpSecret,
-                profile: (profile && fileEntry) ? fileEntry.id : null,
-                description: description,
-                expiredAt: expiredAt ?? user.expiredAt
-            }
+            $set: setObj
         }, {
             returnDocument: 'after'
         }) as any;
-        const cleared: Partial<IUser> = {
-            id: result.value.id,
-            username: result.value.username,
-            email: result.value.email,
-            firstname: result.value.firstname,
-            lastname: result.value.lastname,
-            organisation: result.value.organisation,
-            type: result.value.type,
-            emailNotificationsActivated: result.value.emailNotificationsActivated,
-            profile: result.value.profile,
-            description: result.value.description,
-            expiredAt: result.value.expiredAt
-        };
-        return cleared;
+
+        return result.value;
     }
 
     public async deleteUser(requester: string, userId: string): Promise<IGenericResponse> {
@@ -314,58 +327,69 @@ export class UserCore {
         }
     }
 
-    public async getOrganisations(organisationId: string | null): Promise<IOrganisation[]> {
-        /**
-         * Get the list of organisations. If input is null, return all organisaitons.
-         *
-         * @param organisationId - The id of the organisation.
-         *
-         * @return IOrganisation[] - The list of objects of IOrganisation.
-         */
-
-        if (!organisationId) {
-            return await db.collections!.organisations_collection.find({ 'life.deletedTime': null }).toArray();
-        } else {
-            const organisation = await db.collections!.organisations_collection.findOne({ 'id': organisationId, 'life.deletedTime': null });
-            if (!organisation) {
-                throw new GraphQLError('Organisation does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
-            } else {
-                return [organisation];
-            }
-        }
+    /**
+     * Get keys of a user.
+     *
+     * @param requester - The id of the user.
+     */
+    public async getUserKeys(requester: string): Promise<Partial<IPubkey>[]> {
+        return await db.collections!.pubkeys_collection.find({ associatedUserId: requester }).toArray();
     }
-
-    public async createOrganisation(requester: string, name: string, shortname: string | null, profile: string | null, location: number[] | null): Promise<IOrganisation> {
-        /**
-         * Create an organisation.
-         *
-         * @param requester - The id of the requester.
-         * @param name - The name of the organisation.
-         * @param shortname - The shortname of the organisation. Could be null.
-         * @param type - The type of the organistaion. Either organistaion or group.
-         * @param profile - The id of the image of the profile of the organisation. Could be null.
-         * @param location - The location of the organisation.
-         *
-         * @return IOrganisation - The object of the organisation.
-         */
-
-        const org = await db.collections!.organisations_collection.findOne({ 'name': name, 'life.deletedTime': null });
-        if (org) {
-            throw new GraphQLError('Organisation already exists.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+    /**
+     * Register a pubkey to a user.
+     *
+     * @param requester - The id of the requester.
+     * @param pubkey - The public key.
+     * @param signature - The signature of the key.
+     * @param associatedUserId - The user whom to attach the publick key to.
+     *
+     * @return IPubkey - The object of ther registered key.
+     */
+    public async registerPubkey(requester: string, pubkey: string, signature: string, associatedUserId: string): Promise<IPubkey> {
+        // refine the public-key parameter from browser
+        pubkey = pubkey.replace(/\\n/g, '\n');
+        const alreadyExist = await db.collections!.pubkeys_collection.findOne({ pubkey, 'life.deletedTime': null });
+        if (alreadyExist) {
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'This public-key has already been registered.'
+            });
         }
-        if (profile) {
-            const profileFile = await db.collections!.files_collection.findOne({ 'id': profile, 'life.deletedTime': null });
-            if (!profileFile) {
-                throw new GraphQLError('Profile file does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+
+        const user = await db.collections!.users_collection.findOne({ 'id': requester, 'life.deletedTime': null });
+        if (!user) {
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'User does not exist.'
+            });
+        }
+
+        /* Validate the signature with the public key */
+        try {
+            const signature_verifier = await rsaverifier(pubkey, signature);
+            if (!signature_verifier) {
+                throw new TRPCError({
+                    code: enumTRPCErrorCodes.BAD_REQUEST,
+                    message: 'Signature vs Public-key mismatched.'
+                });
             }
+        } catch (error) {
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'Error: Signature or Public-key is incorrect.'
+            });
         }
 
-        const entry: IOrganisation = {
+        /* Generate a public key-pair for generating and authenticating JWT access token later */
+        const keypair = rsakeygen();
+
+        const entry: IPubkey = {
             id: uuid(),
-            name: name,
-            shortname: shortname,
-            profile: profile,
-            location: location,
+            pubkey: pubkey,
+            associatedUserId: associatedUserId,
+            jwtPubkey: keypair.publicKey,
+            jwtSeckey: keypair.privateKey,
+            refreshCounter: 0,
             life: {
                 createdTime: Date.now(),
                 createdUser: requester,
@@ -374,106 +398,53 @@ export class UserCore {
             },
             metadata: {}
         };
-        const result = await db.collections!.organisations_collection.insertOne(entry);
-        if (result.acknowledged) {
-            return entry;
-        } else {
-            throw new GraphQLError('Database error', { extensions: { code: errorCodes.DATABASE_ERROR } });
-        }
+
+        await db.collections!.pubkeys_collection.insertOne(entry);
+
+        await mailer.sendMail({
+            from: `${config.appName} <${config.nodemailer.auth.user}>`,
+            to: user.email,
+            subject: `[${config.appName}] Public-key Registration!`,
+            html: `
+                <p>
+                    Dear ${user.firstname},
+                <p>
+                <p>
+                    You have successfully registered your public-key "${pubkey}" on ${config.appName}!<br/>
+                    You will need to keep your private key secretly. <br/>
+                    You will also need to sign a message (using your public-key) to authenticate the owner of the public key. <br/>
+                </p>
+                
+                <br/>
+                <p>
+                    The ${config.appName} Team.
+                </p>
+            `
+        });
+
+        return entry;
     }
 
-    public async deleteOrganisation(requester: string, organisationId: string): Promise<IGenericResponse> {
-        /**
-         * Delete an organisation.
-         *
-         * @param requester - The id of the requester.
-         * @param organisationId - The id of the organisation.
-         *
-         * @return IOrganisation - The object of the organisation.
-         */
-
-        const org = await db.collections!.organisations_collection.findOne({ 'id': organisationId, 'life.deletedTime': null });
-        if (!org) {
-            throw new GraphQLError('Organisation does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+    public async deletePubkey(requester: string, userId: string, keyId: string): Promise<IGenericResponse> {
+        const key = await db.collections!.pubkeys_collection.findOne({
+            'id': keyId,
+            'associatedUserId': userId,
+            'life.deletedTime': null
+        });
+        if (!key) {
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'Key does not exist.'
+            });
         }
-
-        await db.collections!.organisations_collection.findOneAndUpdate({ id: organisationId }, {
+        await db.collections!.pubkeys_collection.findOneAndUpdate({ id: keyId }, {
             $set: {
                 'life.deletedTime': Date.now(),
                 'life.deletedUser': requester
             }
         });
 
-        return makeGenericReponse(organisationId, true, undefined, `Organisation ${org.name} has been deleted.`);
-    }
-
-    public async editOrganisation(organisationId: string, name: string | null, shortname: string | null, profile: string | null): Promise<IGenericResponse> {
-        /**
-         * Delete an organisation.
-         *
-         * @param organisationId - The id of the organisation.
-         * @param name - The name of the organisation.
-         * @param shortname - The shortname of the organisation.
-         * @param profile - The profile of the organisation.
-         *
-         * @return IOrganisation - The object of the organisation.
-         */
-
-        const org = await db.collections!.organisations_collection.findOne({ 'id': organisationId, 'life.deletedTime': null });
-        if (!org) {
-            throw new GraphQLError('Organisation does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
-        }
-        if (profile) {
-            const profileFile = await db.collections!.files_collection.findOne({ 'id': profile, 'life.deletedTime': null });
-            if (!profileFile) {
-                throw new GraphQLError('Profile file does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
-            }
-        }
-
-        await db.collections!.organisations_collection.findOneAndUpdate({ id: organisationId }, {
-            $set: {
-                name: name ?? org.name,
-                shortname: shortname ?? org.shortname,
-                profile: profile ?? org.profile
-            }
-        });
-
-        return makeGenericReponse(organisationId, true, undefined, `Organisation ${name ?? org.name} has been edited.`);
-    }
-
-    public async registerPubkey(pubkey: string, associatedUserId: string, jwtPubkey: string, jwtSeckey: string): Promise<IPubkey> {
-        /**
-         * Register a pubkey to a user.
-         *
-         * @param pubkey - The public key.
-         * @param associatedUserId - The user whom to attach the publick key to.
-         * @param jwtPubkey - The jwt public key.
-         * @param jwtSeckey - The jwt secret key.
-         *
-         * @return IPubkey - The object of ther registered key.
-         */
-        const entry: IPubkey = {
-            id: uuid(),
-            pubkey: pubkey,
-            associatedUserId: associatedUserId,
-            jwtPubkey: jwtPubkey,
-            jwtSeckey: jwtSeckey,
-            refreshCounter: 0,
-            life: {
-                createdTime: Date.now(),
-                createdUser: associatedUserId,
-                deletedTime: null,
-                deletedUser: null
-            },
-            metadata: {}
-        };
-
-        const result = await db.collections!.pubkeys_collection.insertOne(entry);
-        if (result.acknowledged) {
-            return entry;
-        } else {
-            throw new GraphQLError('Database error', { extensions: { code: errorCodes.DATABASE_ERROR } });
-        }
+        return makeGenericReponse(keyId, true, undefined, undefined);
     }
 
     public async addResetPasswordRequest(userId: string, resetPasswordRequest: IResetPasswordRequest): Promise<IGenericResponse> {
@@ -485,7 +456,7 @@ export class UserCore {
          * @return IGenericResponse - The object of IGenericResponse.
          */
 
-        const user = await this.getUser(userId, null, null);
+        const user = await this.getUser(userId, undefined, undefined);
         if (!user) {
             throw new GraphQLError('User does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
         }
@@ -789,6 +760,49 @@ export class UserCore {
             throw new GraphQLError('Study or group does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
         }
         return group;
+    }
+    public async issueAccessToken(pubkey: string, signature: string): Promise<AccessToken> {
+        // refine the public-key parameter from browser
+        pubkey = pubkey.replace(/\\n/g, '\n');
+
+        /* Validate the signature with the public key */
+        if (!await rsaverifier(pubkey, signature)) {
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'Signature vs Public key mismatched.'
+            });
+        }
+
+        const pubkeyrec = await db.collections!.pubkeys_collection.findOne({ pubkey, deleted: null });
+        if (pubkeyrec === null || pubkeyrec === undefined) {
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'This public-key has not been registered yet.'
+            });
+        }
+
+        // payload of the JWT for storing user information
+        const payload = {
+            publicKey: pubkeyrec.jwtPubkey,
+            associatedUserId: pubkeyrec.associatedUserId,
+            refreshCounter: pubkeyrec.refreshCounter,
+            Issuer: 'IDEA-FAST DMP'
+        };
+
+        // update the counter
+        const fieldsToUpdate = {
+            refreshCounter: (pubkeyrec.refreshCounter + 1)
+        };
+        const updateResult = await db.collections!.pubkeys_collection.findOneAndUpdate({ pubkey, deleted: null }, { $set: fieldsToUpdate }, { returnDocument: 'after' });
+        if (updateResult === null) {
+            throw new GraphQLError('Server error; cannot fulfil the JWT request.');
+        }
+        // return the acccess token
+        const accessToken = {
+            accessToken: tokengen(payload, pubkeyrec.jwtSeckey)
+        };
+
+        return accessToken;
     }
 }
 

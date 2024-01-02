@@ -15,6 +15,8 @@ export interface IConfiguration extends IServerConfig {
     sessionsSecret: string;
     adminEmail: string;
     aeEndpoint: string;
+    webdavPort: number;
+    useWebdav: boolean;
 }
 
 class ConfigurationManager {

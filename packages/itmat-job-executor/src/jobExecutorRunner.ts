@@ -1,6 +1,7 @@
 // External node module imports
 import { v4 as uuid } from 'uuid';
-import { db } from './database/database';
+// eslint-disable-next-line @nx/enforce-module-boundaries
+import { db } from '../../itmat-interface/src/database/database';
 import { objStore } from './objStore/objStore';
 import { Router } from './server/router';
 import { Runner } from './server/server';
@@ -8,6 +9,7 @@ import { JobPoller } from '@itmat-broker/itmat-commons';
 import { JobDispatcher } from './jobDispatch/dispatcher';
 import { MongoClient } from 'mongodb';
 import { APIHandler } from './jobHandlers/apiJobHandler';
+import { defaultSettings } from '@itmat-broker/itmat-types';
 
 class ITMATJobExecutorRunner extends Runner {
 
@@ -39,7 +41,8 @@ class ITMATJobExecutorRunner extends Runner {
                         identity: uuid(),
                         jobCollection: db.collections!.jobs_collection,
                         pollingInterval: this.config.pollingInterval,
-                        action: jobDispatcher.dispatch
+                        action: jobDispatcher.dispatch,
+                        jobSchedulerConfig: defaultSettings.systemConfig.jobSchedulerConfig
                     });
                     poller.setInterval();
 

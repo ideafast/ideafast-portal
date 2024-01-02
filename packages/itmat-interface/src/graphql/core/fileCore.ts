@@ -1,13 +1,20 @@
 import { db } from '../../database/database';
 import { GraphQLError } from 'graphql';
-import { enumConfigType, IFile, defaultSettings, enumFileTypes, enumFileCategories, IGenericResponse } from '@itmat-broker/itmat-types';
+import { enumConfigType, IFile, defaultSettings, enumFileTypes, enumFileCategories, IGenericResponse, IStudyConfig } from '@itmat-broker/itmat-types';
 import { v4 as uuid } from 'uuid';
 import { errorCodes } from '../errors';
 import { FileUpload } from 'graphql-upload-minimal';
-import crypto from 'crypto';
+import crypto, { BinaryLike } from 'crypto';
 import { objStore } from '../../objStore/objStore';
 import { makeGenericReponse } from '../responses';
 import { use } from 'passport';
+import { config } from 'process';
+import { configCore } from './configCore';
+import { studyCore } from './studyCore';
+import { TRPCError } from '@trpc/server';
+import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
+import { IUser } from 'webdav-server';
+import fs from 'fs';
 
 export class FileCore {
     public async uploadFile(requester: string, studyId: string | null, userId: string | null, fileUpload: any, description: string | null, fileType: enumFileTypes, fileCategory: enumFileCategories, properties: Record<string, any> | null): Promise<IFile> {
@@ -26,13 +33,17 @@ export class FileCore {
          * @return IFile - The object of IFile.
          */
 
-        // if (studyId) {
-        //     const study = await db.collections!.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null });
-        //     if (!study) {
-        //         throw new GraphQLError('Study does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
-        //     }
-        // }
-        const file = fileUpload;
+
+        let study: any;
+        if (studyId) {
+            study = (await studyCore.getStudies(studyId))[0];
+            if (!study) {
+                throw new TRPCError({
+                    code: enumTRPCErrorCodes.BAD_REQUEST,
+                    message: 'Study does not exist.'
+                });
+            }
+        }
         // fetch the config file. study file or user file or system file
         let fileConfig: any;
         let userRepoRemainingSpace = 0;
@@ -83,34 +94,61 @@ export class FileCore {
         } else {
             throw new GraphQLError('Config file missing.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
         }
+        if (fileConfig.properties) {
+            fileConfig = fileConfig.properties;
+        }
+
+        const fileUri = uuid();
+        const hash = crypto.createHash('sha256');
+        const filePath = fileUpload.path;
+
+        // Create a read stream for the file
+        const fileStream = fs.createReadStream(filePath);
+
         return new Promise<IFile>((resolve, reject) => {
-            (async () => {
+            let fileSize = 0;
+
+            fileStream.on('data', (chunk: BinaryLike) => {
+                hash.update(chunk);
+                fileSize += (chunk as Buffer).length; // Asserting the chunk as Buffer for length property
+            });
+
+            fileStream.on('end', async () => {
                 try {
-                    const buffer = fileUpload.fileBuffer; // Directly access the buffer from your fileUpload object.
-                    const fileUri = uuid();
-                    const hash = crypto.createHash('sha256');
-
-                    // Validate against the file size limit
-                    if (buffer.length > fileSizeLimit) {
-                        reject(new GraphQLError('File should not be larger than 8GB', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } }));
-                        return;
+                    // Check file size limit
+                    if (fileSize > fileSizeLimit) {
+                        throw new Error('File size exceeds the limit.');
                     }
-
-                    hash.update(buffer); // Update the hash directly using the buffer.
-
-                    // Assuming objStore.uploadFile can accept a buffer.
-                    await objStore.uploadFile(buffer, studyId ? studyId : fileConfig.defaultFileBucketId, fileUri);
 
                     const hashString = hash.digest('hex');
 
+                    // Create a new read stream for the file upload
+                    const uploadStream = fs.createReadStream(filePath);
+
+                    // Upload the file to the storage
+                    await objStore.uploadFile(uploadStream, studyId ? studyId : fileConfig.defaultFileBucketId, fileUri);
+
+                    const path: any[] = [];
+                    if (studyId) {
+                        const pathLabels = fileConfig.defaultFileDirectoryStructure.pathLabels;
+                        path.push(study.name);
+                        if (properties) {
+                            for (let i = 0; i < pathLabels.length; i++) {
+                                if (properties[pathLabels[i]]) {
+                                    path.push(properties[pathLabels[i]]);
+                                }
+                            }
+                        }
+                    }
                     const fileEntry: IFile = {
                         id: uuid(),
                         studyId: studyId,
                         userId: userId,
                         fileName: fileUpload.filename, // Access filename directly from the fileUpload object.
-                        fileSize: buffer.length, // Use buffer's length for file size.
+                        fileSize: fileSize, // Use buffer's length for file size.
                         description: description,
                         uri: fileUri,
+                        path: path,
                         hash: hashString,
                         fileType: fileType,
                         fileCategory: fileCategory,
@@ -128,14 +166,111 @@ export class FileCore {
                     if (insertResult.acknowledged) {
                         resolve(fileEntry as IFile);
                     } else {
-                        throw new GraphQLError(errorCodes.DATABASE_ERROR);
+                        throw new TRPCError({
+                            code: enumTRPCErrorCodes.BAD_REQUEST,
+                            message: errorCodes.DATABASE_ERROR
+                        });
                     }
 
                 } catch (error) {
-                    reject(new GraphQLError('General upload error', { extensions: { code: errorCodes.UNQUALIFIED_ERROR, error } }));
+                    console.error('Error during file processing:', error);
+                    reject(new TRPCError({
+                        code: enumTRPCErrorCodes.BAD_REQUEST,
+                        message: 'Error during file upload.'
+                    }));
+                } finally {
+                    // Cleanup: Delete the temporary file from the disk
+                    fs.unlink(filePath, (err) => {
+                        if (err) {
+                            console.error('Error deleting temporary file:', filePath, err);
+                        } else {
+                            console.log('Temporary file deleted:', filePath);
+                        }
+                    });
                 }
-            })();
+            });
+
+            fileStream.on('error', (err) => {
+                console.error('Error reading file stream:', err);
+                reject(new TRPCError({
+                    code: enumTRPCErrorCodes.BAD_REQUEST,
+                    message: 'Error reading file stream.'
+                }));
+            });
         });
+
+        // return new Promise<IFile>((resolve, reject) => {
+        //     (async () => {
+        //         try {
+        //             const buffer = fileUpload.fileBuffer; // Directly access the buffer from your fileUpload object.
+        //             const fileUri = uuid();
+        //             const hash = crypto.createHash('sha256');
+
+        //             // Validate against the file size limit
+        //             if (buffer.length > fileSizeLimit) {
+        //                 reject(new GraphQLError('File should not be larger than 8GB', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } }));
+        //                 return;
+        //             }
+
+        //             hash.update(buffer); // Update the hash directly using the buffer.
+
+        //             // Assuming objStore.uploadFile can accept a buffer.
+        //             await objStore.uploadFile(buffer, studyId ? studyId : fileConfig.defaultFileBucketId, fileUri);
+
+        //             const hashString = hash.digest('hex');
+        //             const path: any[] = [];
+        //             if (studyId) {
+        //                 const pathLabels = fileConfig.defaultFileDirectoryStructure.pathLabels;
+        //                 path.push(study.name);
+        //                 if (properties) {
+        //                     for (let i = 0; i < pathLabels.length; i++) {
+        //                         if (properties[pathLabels[i]]) {
+        //                             path.push(properties[pathLabels[i]]);
+        //                         }
+        //                     }
+        //                 }
+        //             }
+        //             const fileEntry: IFile = {
+        //                 id: uuid(),
+        //                 studyId: studyId,
+        //                 userId: userId,
+        //                 fileName: fileUpload.filename, // Access filename directly from the fileUpload object.
+        //                 fileSize: buffer.length, // Use buffer's length for file size.
+        //                 description: description,
+        //                 uri: fileUri,
+        //                 path: path,
+        //                 hash: hashString,
+        //                 fileType: fileType,
+        //                 fileCategory: fileCategory,
+        //                 properties: properties,
+        //                 sharedUsers: [],
+        //                 life: {
+        //                     createdTime: Date.now(),
+        //                     createdUser: requester,
+        //                     deletedTime: null,
+        //                     deletedUser: null
+        //                 },
+        //                 metadata: {}
+        //             };
+        //             const insertResult = await db.collections!.files_collection.insertOne(fileEntry as IFile);
+        //             if (insertResult.acknowledged) {
+        //                 resolve(fileEntry as IFile);
+        //             } else {
+        //                 throw new TRPCError({
+        //                     code: enumTRPCErrorCodes.BAD_REQUEST,
+        //                     message: errorCodes.DATABASE_ERROR
+        //                 });
+        //             }
+
+        //         } catch (error) {
+        //             console.log(error);
+        //             reject(new TRPCError({
+        //                 code: enumTRPCErrorCodes.BAD_REQUEST,
+        //                 message: errorCodes.UNQUALIFIED_ERROR
+        //             }));
+        //         }
+        //     })();
+        // });
     }
 
     public async deleteFile(requester: string, fileId: string): Promise<IGenericResponse> {
@@ -157,6 +292,22 @@ export class FileCore {
         } catch {
             throw new GraphQLError('Database error.', { extensions: { code: errorCodes.DATABASE_ERROR } });
         }
+    }
+
+    public async findFiles(fileIds: string[], readable?: boolean): Promise<IFile[]> {
+        const result = await db.collections!.files_collection.find({ id: { $in: fileIds } }).toArray();
+        if (readable) {
+            const users: any[] = await db.collections!.users_collection.find({ 'life.deletedTime': null }).toArray();
+            result.forEach(el => {
+                const user = users.filter(ek => ek.id === el.life.createdUser)[0];
+                if (!user) {
+                    el.life.createdUser = 'UNKNOWN';
+                } else {
+                    el.life.createdUser = `${user.firstname} ${user.lastname}`;
+                }
+            });
+        }
+        return result;
     }
 }
 

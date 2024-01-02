@@ -48,4 +48,4 @@ export interface IDatabaseCollectionConfig {
     groups_collection: Collection<IGroupNode>
 }
 
-export const db = new DatabaseBase<IDatabaseBaseConfig, IDatabaseCollectionConfig>();
+// export const db = new DatabaseBase<IDatabaseBaseConfig, IDatabaseCollectionConfig>();

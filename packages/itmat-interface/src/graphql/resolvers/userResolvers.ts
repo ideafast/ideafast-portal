@@ -38,7 +38,7 @@ export const userResolvers = {
 
             const requester: IUser = context.req.user;
 
-            const users = userId ? await userCore.getUser(userId, null, null) : await userCore.getAllUsers(false);
+            const users = userId ? await userCore.getUser(userId, undefined, undefined) : await userCore.getAllUsers(requester.id, false);
             /* If user is admin, or user is asking info of own, then return all info. Otherwise, need to remove private info. */
             const priority = requester.type === enumUserTypes.ADMIN || requester.id === userId;
             const clearedUsers: Partial<IUser>[] = [];
@@ -115,7 +115,7 @@ export const userResolvers = {
              * @return IGenericResponse - The object of IGenericResponse
              */
 
-            const user = (await userCore.getUser(userId, null, null))[0];
+            const user = (await userCore.getUser(userId, undefined, undefined))[0];
             if (!user || !user.email || !user.username) {
                 /* even user is null. send successful response: they should know that a user doesn't exist */
                 await new Promise(resolve => setTimeout(resolve, Math.random() * 6000));
@@ -135,7 +135,7 @@ export const userResolvers = {
 
             return makeGenericReponse(userId, true, undefined, 'Request successfully sent.');
         },
-        requestUsernameOrResetPassword: async (__unused__parent: Record<string, unknown>, { forgotUsername, forgotPassword, email, username }: { forgotUsername: boolean, forgotPassword: boolean, email: string | null, username: string | null }, context: any): Promise<IGenericResponse> => {
+        requestUsernameOrResetPassword: async (__unused__parent: Record<string, unknown>, { forgotUsername, forgotPassword, email, username }: { forgotUsername: boolean, forgotPassword: boolean, email?: string, username?: string }, context: any): Promise<IGenericResponse> => {
             /**
              * Request for resetting password.
              *
@@ -159,7 +159,7 @@ export const userResolvers = {
             }
 
             /* check user existence */
-            const user = (await userCore.getUser(null, username, email))[0];
+            const user = (await userCore.getUser(undefined, username, email))[0];
             if (!user) {
                 /* even user is null. send successful response: they should know that a user doesn't exist */
                 await new Promise(resolve => setTimeout(resolve, Math.random() * 6000));
@@ -206,7 +206,7 @@ export const userResolvers = {
              */
 
             const { req }: { req: Express.Request } = context;
-            const user = (await userCore.getUser(null, username, null))[0];
+            const user = (await userCore.getUser(undefined, username, undefined))[0];
 
             if (!user || !user.password || !user.otpSecret || !user.expiredAt || !user.email || !user.username) {
                 throw new GraphQLError('User does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
@@ -316,13 +316,13 @@ export const userResolvers = {
             }
 
             /* Check if username has been used */
-            const userExist = (await userCore.getUser(null, username, null))[0];
+            const userExist = (await userCore.getUser(undefined, username, undefined))[0];
             if (userExist) {
                 throw new GraphQLError('This username has been registered. Please sign-in or register with another username!', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
             }
 
             /* check if email has been used */
-            const emailExist = (await userCore.getUser(null, null, email))[0];
+            const emailExist = (await userCore.getUser(undefined, undefined, email))[0];
             if (emailExist) {
                 throw new GraphQLError('This email has been registered. Please sign-in or register with another email!', { extensions: { code: ApolloServerErrorCode.BAD_USER_INPUT } });
             }
@@ -331,11 +331,11 @@ export const userResolvers = {
             const otpSecret = mfa.generateSecret();
 
             /* Check file upload */
-            let profile_ = null;
+            let profile_ = undefined;
             if (profile) {
                 profile_ = await profile;
             }
-            const user = await userCore.createUser(context?.req?.user?.id ?? null, username, email, firstname, lastname, organisation, enumUserTypes.STANDARD, false, password, otpSecret, profile_, description);
+            const user = await userCore.createUser(username, email, firstname, lastname, organisation, enumUserTypes.STANDARD, false, password, otpSecret, profile_, description ?? '');
 
             /* send email to the registered user */
             // get QR Code for the otpSecret.
@@ -472,7 +472,7 @@ export const userResolvers = {
             return makeGenericReponse();
         },
         editUser: async (__unused__parent: Record<string, unknown>, { userId, username, type, firstname, lastname, email, emailNotificationsActivated, password, description, organisation, expiredAt, profile }: {
-            userId: string, username: string | null, type: enumUserTypes | null, firstname: string | null, lastname: string | null, email: string | null, emailNotificationsActivated: boolean | null, password: string | null, description: string | null, organisation: string | null, expiredAt: number | null, profile: any | null
+            userId: string, username?: string, type?: enumUserTypes, firstname?: string, lastname?: string, email?: string, emailNotificationsActivated?: boolean, password?: string, description?: string, organisation?: string, expiredAt?: number, profile?: any
         }, context: any): Promise<Partial<IUser>> => {
             /**
              * Edit a user. Besides description, other fields whose values is null will not be updated.
@@ -517,7 +517,7 @@ export const userResolvers = {
             }
 
             /* check if email has been used */
-            const emailExist = (await userCore.getUser(null, null, email))[0];
+            const emailExist = (await userCore.getUser(undefined, undefined, email ?? undefined))[0];
             if (emailExist) {
                 throw new GraphQLError('This email has been registered. Please sign-in or register with another email!', { extensions: { code: ApolloServerErrorCode.BAD_USER_INPUT } });
             }
@@ -527,16 +527,16 @@ export const userResolvers = {
                 throw new GraphQLError('User not updated: Non-admin users are only authorised to change their password, email or email notification.');
             }
 
-            const oldUser = (await userCore.getUser(userId, null, null))[0];
+            const oldUser = (await userCore.getUser(userId, undefined, undefined))[0];
             if (!oldUser || !oldUser.password) {
                 throw new GraphQLError('User does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
             }
 
-            let profile_ = null;
+            let profile_ = undefined;
             if (profile) {
                 profile_ = await profile;
             }
-            const newUser = await userCore.editUser(requester.id, userId, username, email, firstname, lastname, organisation, type, emailNotificationsActivated, password, null, profile_, description, expiredAt);
+            const newUser = await userCore.editUser(requester.id, userId, username, email, firstname, lastname, organisation, type, emailNotificationsActivated, password, null ?? undefined, profile_, description, expiredAt);
             if (newUser) {
                 // New expiry date has been updated successfully.
                 if (expiredAt && newUser.email && newUser.username) {

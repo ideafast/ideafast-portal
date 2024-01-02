@@ -1,19 +1,14 @@
 import { ChangeEvent, FunctionComponent, useEffect, useState } from 'react';
-import { Mutation } from '@apollo/client/react/components';
-import { useQuery, useMutation } from '@apollo/client/react/hooks';
-import { IPubkey, IOrganisation, IUser, enumFileTypes } from '@itmat-broker/itmat-types';
-import { UPLOAD_USER_PROFILE } from '@itmat-broker/itmat-models';
-import { Subsection } from '../reusable';
+import { IUser, enumFileTypes } from '@itmat-broker/itmat-types';
 import LoadSpinner from '../reusable/loadSpinner';
 // import { ProjectSection } from '../users/projectSection';
-import { Form, Input, Select, DatePicker, Button, Alert, Checkbox, Image, Typography, Row, Col, Divider, Upload, UploadFile, Modal, message } from 'antd';
-import dayjs from 'dayjs';
-import { WarningOutlined, PlusOutlined } from '@ant-design/icons';
+import { Form, Input, Button, Image, Typography, Row, Col, Divider, Upload, UploadFile, Modal, message } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 import { Key } from '../../utils/dmpCrypto/dmp.key';
 import css from './profile.module.css';
-import React from 'react';
 import { RcFile } from 'antd/es/upload';
-import { convertRCFileToSchema, trpc } from '../../utils/trpc';
+import { trpc } from '../../utils/trpc';
+import ImgCrop from 'antd-img-crop';
 const { Title } = Typography;
 const { TextArea } = Input;
 
@@ -50,33 +45,63 @@ export const ProfileManagementSection: FunctionComponent = () => {
                         getUserProfile.data ? <Image width={200} height={200} src={`${window.location.origin}/file/${getUserProfile.data}`} />
                             : <Image width={200} height={200} src="error" fallback="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMIAAADDCAYAAADQvc6UAAABRWlDQ1BJQ0MgUHJvZmlsZQAAKJFjYGASSSwoyGFhYGDIzSspCnJ3UoiIjFJgf8LAwSDCIMogwMCcmFxc4BgQ4ANUwgCjUcG3awyMIPqyLsis7PPOq3QdDFcvjV3jOD1boQVTPQrgSkktTgbSf4A4LbmgqISBgTEFyFYuLykAsTuAbJEioKOA7DkgdjqEvQHEToKwj4DVhAQ5A9k3gGyB5IxEoBmML4BsnSQk8XQkNtReEOBxcfXxUQg1Mjc0dyHgXNJBSWpFCYh2zi+oLMpMzyhRcASGUqqCZ16yno6CkYGRAQMDKMwhqj/fAIcloxgHQqxAjIHBEugw5sUIsSQpBobtQPdLciLEVJYzMPBHMDBsayhILEqEO4DxG0txmrERhM29nYGBddr//5/DGRjYNRkY/l7////39v///y4Dmn+LgeHANwDrkl1AuO+pmgAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAwqADAAQAAAABAAAAwwAAAAD9b/HnAAAHlklEQVR4Ae3dP3PTWBSGcbGzM6GCKqlIBRV0dHRJFarQ0eUT8LH4BnRU0NHR0UEFVdIlFRV7TzRksomPY8uykTk/zewQfKw/9znv4yvJynLv4uLiV2dBoDiBf4qP3/ARuCRABEFAoBEgghggQAQZQKAnYEaQBAQaASKIAQJEkAEEegJmBElAoBEgghggQAQZQKAnYEaQBAQaASKIAQJEkAEEegJmBElAoBEgghggQAQZQKAnYEaQBAQaASKIAQJEkAEEegJmBElAoBEgghggQAQZQKAnYEaQBAQaASKIAQJEkAEEegJmBElAoBEgghggQAQZQKAnYEaQBAQaASKIAQJEkAEEegJmBElAoBEgghggQAQZQKAnYEaQBAQaASKIAQJEkAEEegJmBElAoBEgghggQAQZQKAnYEaQBAQaASKIAQJEkAEEegJmBElAoBEgghggQAQZQKAnYEaQBAQaASKIAQJEkAEEegJmBElAoBEgghggQAQZQKAnYEaQBAQaASKIAQJEkAEEegJmBElAoBEgghggQAQZQKAnYEaQBAQaASKIAQJEkAEEegJmBElAoBEgghggQAQZQKAnYEaQBAQaASKIAQJEkAEEegJmBElAoBEgghggQAQZQKAnYEaQBAQaASKIAQJEkAEEegJmBElAoBEgghgg0Aj8i0JO4OzsrPv69Wv+hi2qPHr0qNvf39+iI97soRIh4f3z58/u7du3SXX7Xt7Z2enevHmzfQe+oSN2apSAPj09TSrb+XKI/f379+08+A0cNRE2ANkupk+ACNPvkSPcAAEibACyXUyfABGm3yNHuAECRNgAZLuYPgEirKlHu7u7XdyytGwHAd8jjNyng4OD7vnz51dbPT8/7z58+NB9+/bt6jU/TI+AGWHEnrx48eJ/EsSmHzx40L18+fLyzxF3ZVMjEyDCiEDjMYZZS5wiPXnyZFbJaxMhQIQRGzHvWR7XCyOCXsOmiDAi1HmPMMQjDpbpEiDCiL358eNHurW/5SnWdIBbXiDCiA38/Pnzrce2YyZ4//59F3ePLNMl4PbpiL2J0L979+7yDtHDhw8vtzzvdGnEXdvUigSIsCLAWavHp/+qM0BcXMd/q25n1vF57TYBp0a3mUzilePj4+7k5KSLb6gt6ydAhPUzXnoPR0dHl79WGTNCfBnn1uvSCJdegQhLI1vvCk+fPu2ePXt2tZOYEV6/fn31dz+shwAR1sP1cqvLntbEN9MxA9xcYjsxS1jWR4AIa2Ibzx0tc44fYX/16lV6NDFLXH+YL32jwiACRBiEbf5KcXoTIsQSpzXx4N28Ja4BQoK7rgXiydbHjx/P25TaQAJEGAguWy0+2Q8PD6/Ki4R8EVl+bzBOnZY95fq9rj9zAkTI2SxdidBHqG9+skdw43borCXO/ZcJdraPWdv22uIEiLA4q7nvvCug8WTqzQveOH26fodo7g6uFe/a17W3+nFBAkRYENRdb1vkkz1CH9cPsVy/jrhr27PqMYvENYNlHAIesRiBYwRy0V+8iXP8+/fvX11Mr7L7ECueb/r48eMqm7FuI2BGWDEG8cm+7G3NEOfmdcTQw4h9/55lhm7DekRYKQPZF2ArbXTAyu4kDYB2YxUzwg0gi/41ztHnfQG26HbGel/crVrm7tNY+/1btkOEAZ2M05r4FB7r9GbAIdxaZYrHdOsgJ/wCEQY0J74TmOKnbxxT9n3FgGGWWsVdowHtjt9Nnvf7yQM2aZU/TIAIAxrw6dOnAWtZZcoEnBpNuTuObWMEiLAx1HY0ZQJEmHJ3HNvGCBBhY6jtaMoEiJB0Z29vL6ls58vxPcO8/zfrdo5qvKO+d3Fx8Wu8zf1dW4p/cPzLly/dtv9Ts/EbcvGAHhHyfBIhZ6NSiIBTo0LNNtScABFyNiqFCBChULMNNSdAhJyNSiECRCjUbEPNCRAhZ6NSiAARCjXbUHMCRMjZqBQiQIRCzTbUnAARcjYqhQgQoVCzDTUnQIScjUohAkQo1GxDzQkQIWejUogAEQo121BzAkTI2agUIkCEQs021JwAEXI2KoUIEKFQsw01J0CEnI1KIQJEKNRsQ80JECFno1KIABEKNdtQcwJEyNmoFCJAhELNNtScABFyNiqFCBChULMNNSdAhJyNSiECRCjUbEPNCRAhZ6NSiAARCjXbUHMCRMjZqBQiQIRCzTbUnAARcjYqhQgQoVCzDTUnQIScjUohAkQo1GxDzQkQIWejUogAEQo121BzAkTI2agUIkCEQs021JwAEXI2KoUIEKFQsw01J0CEnI1KIQJEKNRsQ80JECFno1KIABEKNdtQcwJEyNmoFCJAhELNNtScABFyNiqFCBChULMNNSdAhJyNSiECRCjUbEPNCRAhZ6NSiAARCjXbUHMCRMjZqBQiQIRCzTbUnAARcjYqhQgQoVCzDTUnQIScjUohAkQo1GxDzQkQIWejUogAEQo121BzAkTI2agUIkCEQs021JwAEXI2KoUIEKFQsw01J0CEnI1KIQJEKNRsQ80JECFno1KIABEKNdtQcwJEyNmoFCJAhELNNtScABFyNiqFCBChULMNNSdAhJyNSiEC/wGgKKC4YMA4TAAAAABJRU5ErkJggg==" />
                     }
-                    <Upload
-                        name='avatar'
-                        listType='picture-card'
-                        beforeUpload={(file: RcFile) => {
-                            const isJpgOrPng = file.type === 'image/jpeg' || file.type === 'image/png';
-                            if (!isJpgOrPng) {
-                                message.error('You can only upload JPG/PNG file!');
-                            }
-                            setFileList([file]);
-                            return isJpgOrPng;// && isLt2M;
-                        }}
-                        onPreview={async (file: UploadFile) => {
-                            if (!file.url && !file.preview) {
-                                file.preview = await getBase64(file.originFileObj as RcFile);
-                            }
-                            setPreviewImage(file.url || (file.preview as string));
-                            setPreviewOpen(true);
-                            setPreviewTitle(file.name || file.url!.substring(file.url!.lastIndexOf('/') + 1));
-                        }}
-                        fileList={fileList}
-                    >
-                        {fileList.length >= 1 ? null : <div><PlusOutlined /><div style={{ marginTop: 8 }}>Upload</div></div>}
-                    </Upload>
+                    <ImgCrop rotationSlider>
+                        <Upload
+                            name='avatar'
+                            listType='picture-card'
+                            beforeUpload={(file: RcFile) => {
+                                const isJpgOrPng = file.type === 'image/jpeg' || file.type === 'image/png';
+                                if (!isJpgOrPng) {
+                                    message.error('You can only upload JPG/PNG file!');
+                                }
+                                setFileList([file]);
+                                return isJpgOrPng;// && isLt2M;
+                            }}
+                            onPreview={async (file: UploadFile) => {
+                                if (!file.url && !file.preview) {
+                                    file.preview = await getBase64(file.originFileObj as RcFile);
+                                }
+                                setPreviewImage(file.url || (file.preview as string));
+                                setPreviewOpen(true);
+                                setPreviewTitle(file.name || file.url!.substring(file.url!.lastIndexOf('/') + 1));
+                            }}
+                            fileList={fileList}
+                        >
+                            {fileList.length >= 1 ? null : <div><PlusOutlined /><div style={{ marginTop: 8 }}>Upload</div></div>}
+                        </Upload>
+                    </ImgCrop>
                     {
                         fileList.length >= 1 ? <Button onClick={async () => {
                             setIsUploading(true);
-                            // uploadUserProfile.mutate({ userId: whoAmI.data.id, description: null, fileType: fileList[0].name.split('.')[1].toUpperCase() as enumFileTypes, fileUpload: [convertRCFileToSchema(fileList[0])] });
+                            if (fileList.length > 0) {
+                                const fileData = fileList[0];
+                                const formData = new FormData();
+                                formData.append('file', fileData);
+
+                                const response = await fetch('/upload', {
+                                    method: 'POST',
+                                    body: formData
+                                });
+                                const data = await response.json();
+
+                                if (response.ok) {
+                                    uploadUserProfile.mutate({
+                                        userId: whoAmI.data.id,
+                                        description: null,
+                                        fileType: fileList[0].name.split('.')[1].toUpperCase() as enumFileTypes,
+                                        fileUpload: [{
+                                            path: data.filePath, // This should be the path returned by the server
+                                            filename: fileData.name,
+                                            mimetype: fileData.type,
+                                            size: fileData.size
+                                        }]
+                                    });
+
+                                } else {
+                                    // Handle upload error
+                                    console.error('File upload failed:', data);
+                                }
+                            }
                         }}>Submit</Button> : null
                     }
                     <Modal open={previewOpen} title={previewTitle} footer={null} onCancel={() => setPreviewOpen(false)}>

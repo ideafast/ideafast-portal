@@ -7,17 +7,16 @@ export interface IField extends IBase {
     fieldName: string;
     fieldId: string;
     description: string | null;
-    tableName: string | null; // used for recognition for uploaders
     dataType: enumDataTypes;
     categoricalOptions: ICategoricalOption[] | null;
     unit: string | null;
     comments: string | null;
     dataVersion: string | null;
     verifier: IValueVerifier[][] | null;
-    properties: IFieldPropert[] | null; // mostly used for file ddata
+    properties: IFieldProperty[] | null; // mostly used for file ddata
 }
 
-export interface IFieldPropert extends IBase {
+export interface IFieldProperty {
     name: string;
     verifier: IValueVerifier[][] | null;
     description: string | null;
@@ -43,7 +42,7 @@ export interface ICategoricalOption extends IBase {
 export const ZCategoricalOption = z.object({
     code: z.string(),
     description: z.string()
-}).merge(ZBase);
+});
 
 export interface IData extends IBase {
     studyId: string;

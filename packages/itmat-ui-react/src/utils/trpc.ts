@@ -17,7 +17,10 @@ export const trpc = createTRPCReact<AppRouter>();
 //     };
 // }
 interface FileSchema {
-    fileBuffer: Buffer;
+    fileBuffer: {
+        data: number[];
+        type: 'Buffer';
+    };
     filename: string;
     mimetype: string;
     size: number;
@@ -27,13 +30,23 @@ export const convertRCFileToSchema = async (rcFile: RcFile): Promise<FileSchema>
     const arrayBuffer: ArrayBuffer = await rcFile.arrayBuffer();
     const bufferArray = new Uint8Array(arrayBuffer);
     const fileBuffer = Buffer.from(bufferArray);
+
+    // Convert the Buffer to the expected format
+    const fileBufferObject = {
+        data: Array.from(fileBuffer),
+        type: 'Buffer' as const // Ensure 'type' is exactly "Buffer"
+    };
+
     return {
-        fileBuffer,
+        fileBuffer: fileBufferObject,
         filename: rcFile.name,
         mimetype: rcFile.type,
-        size: rcFile.size,
+        size: rcFile.size
     };
 };
+
+// Rest of your code...
+
 
 
 // export async function convertRCFileToSchema(rcFile): Promise<FileSchema> {

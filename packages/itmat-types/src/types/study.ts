@@ -8,6 +8,7 @@ export interface IStudy extends IBase {
     dataVersions: IStudyDataVersion[];
     description: string | null;
     profile: string | null;
+    webLayout?: any;
 }
 
 export interface IStudyDataVersion extends IBase {

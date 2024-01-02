@@ -2,10 +2,10 @@ import { ZodTypeAny, z } from 'zod';
 import { IBase, ZBase } from './base';
 
 // Value verifier
-export interface IValueVerifier extends IBase {
+export interface IValueVerifier {
     formula: IAST;
     condition: enumConditionOps;
-    value: string;
+    value: string | number;
     parameters: Record<string, any>;
 }
 

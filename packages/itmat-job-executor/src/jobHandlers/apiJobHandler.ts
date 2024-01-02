@@ -56,10 +56,14 @@ export class APIHandler extends JobHandler {
         return new APIHandler();
     }
 
-    public async execute(document: IJob): Promise<void> {
-        const [routerName, procedureName] = document.executor.path.split('.');
-        const result = await this.caller[routerName as keyof TRPCCaller][procedureName as keyof ProcedureCaller](document.parameters);
-        console.log(result);
+    public async execute(document: IJob): Promise<any> {
+        try {
+            const [routerName, procedureName] = document.executor.path.split('.');
+            const result = await this.caller[routerName as keyof TRPCCaller][procedureName as keyof ProcedureCaller](document.parameters);
+            return result;
+        } catch (e) {
+            return 'error';
+        }
     }
 }
 
