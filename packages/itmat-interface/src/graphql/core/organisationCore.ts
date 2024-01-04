@@ -11,7 +11,7 @@ import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
 
 export class OrganisationCore {
 
-    public async getOrganisations(organisationId: string | null): Promise<IOrganisation[]> {
+    public async getOrganisations(organisationId?: string): Promise<IOrganisation[]> {
         /**
          * Get the list of organisations. If input is null, return all organisaitons.
          *
@@ -52,14 +52,15 @@ export class OrganisationCore {
             });
         }
         let fileEntry;
+
         if (profile) {
-            if (!Object.keys(enumFileTypes).includes(profile?.filename?.split('.')[1].toUpperCase())) {
+            if (!Object.keys(enumFileTypes).includes((profile?.filename?.split('.').pop() || '').toUpperCase())) {
                 throw new TRPCError({
                     code: enumTRPCErrorCodes.BAD_REQUEST,
                     message: 'File type not supported.'
                 });
             }
-            fileEntry = await fileCore.uploadFile(requester, null, null, profile, null, enumFileTypes[profile.filename.split('.')[1].toUpperCase() as keyof typeof enumFileTypes], enumFileCategories.ORGANISATION_PROFILE_FILE, []);
+            fileEntry = await fileCore.uploadFile(requester, null, null, profile, null, enumFileTypes[(profile.filename.split('.').pop() || '').toUpperCase() as keyof typeof enumFileTypes], enumFileCategories.ORGANISATION_PROFILE_FILE, []);
         }
         const entry: IOrganisation = {
             id: uuid(),
@@ -128,13 +129,13 @@ export class OrganisationCore {
         }
         let fileEntry;
         if (profile) {
-            if (!Object.keys(enumFileTypes).includes(profile?.filename?.split('.')[1].toUpperCase())) {
+            if (!Object.keys(enumFileTypes).includes((profile?.filename?.split('.').pop() || '').toUpperCase())) {
                 throw new TRPCError({
                     code: enumTRPCErrorCodes.BAD_REQUEST,
                     message: 'File type not supported.'
                 });
             }
-            fileEntry = await fileCore.uploadFile(requester, null, null, profile, null, enumFileTypes[profile.filename.split('.')[1].toUpperCase() as keyof typeof enumFileTypes], enumFileCategories.ORGANISATION_PROFILE_FILE, []);
+            fileEntry = await fileCore.uploadFile(requester, null, null, profile, null, enumFileTypes[(profile.filename.split('.').pop() || '').toUpperCase() as keyof typeof enumFileTypes], enumFileCategories.ORGANISATION_PROFILE_FILE, []);
         }
 
         await db.collections!.organisations_collection.findOneAndUpdate({ id: organisationId }, {

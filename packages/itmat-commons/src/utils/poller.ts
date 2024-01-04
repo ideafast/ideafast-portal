@@ -1,5 +1,5 @@
 import type * as mongodb from 'mongodb';
-import { enumJobHistoryStatus, enumJobStatus, IJob, IJobPollerConfig, IJobSchedulerConfig } from '@itmat-broker/itmat-types';
+import { enumJobHistoryStatus, enumJobStatus, enumJobType, IJob, IJobPollerConfig, IJobSchedulerConfig } from '@itmat-broker/itmat-types';
 import { Logger } from './logger';
 
 export class JobPoller {
@@ -47,11 +47,39 @@ export class JobPoller {
             Logger.error(`${this.identity} Errored picking up a job: ${err}`);
             return;
         }
-
         if (job) {
             Logger.log('Find job');
             const result = await this.action(job);
-            console.log('Execution finished: ', !(result === 'error'));
+            console.log('Execution finished: ', new Date((Date.now())).toISOString(), result === 'error');
+            // update log status
+            const setObj: any = {};
+            if (job.period) {
+                setObj.status = enumJobStatus.PENDING;
+                setObj.nextExecutionTime = Date.now() + job.period;
+            } else {
+                if (job.type === enumJobType.LXD) {
+                    setObj.status = enumJobStatus.INUSE;
+                } else {
+                    setObj.status = enumJobStatus.FINISHED;
+                }
+            }
+            if (result.error) {
+                setObj.history = [{
+                    time: Date.now(),
+                    status: enumJobHistoryStatus.FAILED,
+                    errors: [result.response]
+                }];
+            } else {
+                setObj.history = [{
+                    time: Date.now(),
+                    status: enumJobHistoryStatus.SUCCESS,
+                    errors: []
+                }];
+            }
+
+            await this.jobCollection.findOneAndUpdate({ id: job.id }, {
+                $set: setObj
+            });
             // this.setInterval();
         }
         // this.setInterval();
@@ -68,12 +96,15 @@ export class JobScheduler {
     }
 
     public async findNextJob() {
-        const availableJobs = await this.config.jobCollection.find({
+        let availableJobs = await this.config.jobCollection.find({
             status: enumJobStatus.PENDING
         }).toArray();
         // we sort jobs based on the config
-        availableJobs.filter(el => {
+        availableJobs = availableJobs.filter(el => {
             if (this.config.reExecuteFailedJobs && el.history.filter(ek => ek.status === enumJobHistoryStatus.FAILED).length > this.config.maxAttempts) {
+                return false;
+            }
+            if (Date.now() < el.nextExecutionTime) {
                 return false;
             }
             return true;
@@ -90,6 +121,10 @@ export class JobScheduler {
                 return a.nextExecutionTime - b.nextExecutionTime;
             }
         });
-        return availableJobs[0];
+        const job = availableJobs[0];
+        if (!job) {
+            return null;
+        }
+        return job;
     }
 }

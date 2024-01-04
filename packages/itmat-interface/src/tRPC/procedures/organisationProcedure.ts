@@ -26,7 +26,7 @@ export const organisationRouter = t.router({
      * @return IOrganisation[] - The list of objects of IOrganisation.
      */
     getOrganisations: baseProcedure.input(z.object({
-        orgId: z.union([z.string(), z.null()])
+        orgId: z.optional(z.string())
     })).query(async (opts: any) => {
         return organisationCore.getOrganisations(opts.input.orgId);
     }),
@@ -64,7 +64,7 @@ export const organisationRouter = t.router({
             opts.input.name,
             opts.input.shortname,
             opts.input.location,
-            opts.input.profile
+            opts.input.profile[0]
         );
     }),
     /**

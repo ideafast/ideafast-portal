@@ -13,7 +13,14 @@ export const MyKeys: FunctionComponent = () => {
     const whoAmI = trpc.user.whoAmI.useQuery();
     const getUserKeys = trpc.user.getUserKeys.useQuery({ userId: whoAmI.data.id });
     const issueAccessToken = trpc.user.issueAccessToken.useMutation();
-
+    const deletePubkey = trpc.user.deletePubkey.useMutation({
+        onSuccess: () => {
+            message.success('Key deleted.');
+        },
+        onError: () => {
+            message.error('Failed to delete this key.');
+        }
+    });
     if (whoAmI.isLoading || getUserKeys.isLoading) {
         return <>
             <div className='page_ariane'>Loading...</div>
@@ -72,6 +79,16 @@ export const MyKeys: FunctionComponent = () => {
         key: 'value',
         render: (_, record) => {
             return <TokenGenerationForm pubkey={record.pubkey} issueAccessToken={issueAccessToken} />;
+        }
+    }, {
+        title: '',
+        dataIndex: 'delete',
+        key: 'delete',
+        render: (_, record) => {
+            return <Button onClick={() => deletePubkey.mutate({
+                associatedUserId: whoAmI.data.id,
+                keyId: record.id
+            })}>Delete</Button>;
         }
     }];
     return (<div className={css.key_wrapper}>

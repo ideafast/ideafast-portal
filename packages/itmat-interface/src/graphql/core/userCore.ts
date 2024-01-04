@@ -142,13 +142,13 @@ export class UserCore {
         const expiredAt = Date.now() + 86400 * 1000 /* millisec per day */ * (userConfig.defaultUserExpiredDays);
         let fileEntry;
         if (profile) {
-            if (!Object.keys(enumFileTypes).includes(profile?.filename?.split('.')[1].toUpperCase())) {
+            if (!Object.keys(enumFileTypes).includes((profile?.filename?.split('.').pop() || '').toUpperCase())) {
                 throw new TRPCError({
                     code: enumTRPCErrorCodes.BAD_REQUEST,
                     message: 'File type not supported.'
                 });
             }
-            fileEntry = await fileCore.uploadFile(userId, null, userId, profile, null, enumFileTypes[profile.filename.split('.')[1].toUpperCase() as keyof typeof enumFileTypes], enumFileCategories.USER_PROFILE_FILE, []);
+            fileEntry = await fileCore.uploadFile(userId, null, userId, profile, null, enumFileTypes[(profile.filename.split('.').pop() || '').toUpperCase() as keyof typeof enumFileTypes], enumFileCategories.USER_PROFILE_FILE, []);
         }
         const entry: IUser = {
             id: userId,
@@ -255,13 +255,13 @@ export class UserCore {
 
         let fileEntry;
         if (profile) {
-            if (!Object.keys(enumFileTypes).includes(profile?.filename?.split('.')[1].toUpperCase())) {
+            if (!Object.keys(enumFileTypes).includes((profile?.filename?.split('.').pop() || '').toUpperCase())) {
                 throw new TRPCError({
                     code: enumTRPCErrorCodes.BAD_REQUEST,
                     message: 'File type not supported.'
                 });
             }
-            fileEntry = await fileCore.uploadFile(requester, null, user.id, profile, null, enumFileTypes[profile.filename.split('.')[1].toUpperCase() as keyof typeof enumFileTypes], enumFileCategories.USER_PROFILE_FILE, []);
+            fileEntry = await fileCore.uploadFile(requester, null, user.id, profile, null, enumFileTypes[(profile.filename.split('.').pop() || '').toUpperCase() as keyof typeof enumFileTypes], enumFileCategories.USER_PROFILE_FILE, []);
             setObj.profile = fileEntry.id;
         }
 
@@ -333,7 +333,7 @@ export class UserCore {
      * @param requester - The id of the user.
      */
     public async getUserKeys(requester: string): Promise<Partial<IPubkey>[]> {
-        return await db.collections!.pubkeys_collection.find({ associatedUserId: requester }).toArray();
+        return await db.collections!.pubkeys_collection.find({ 'associatedUserId': requester, 'life.deletedTime': null }).toArray();
     }
     /**
      * Register a pubkey to a user.

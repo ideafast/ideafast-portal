@@ -5,7 +5,7 @@ import { NavLink } from 'react-router-dom';
 import { LOGOUT, WHO_AM_I } from '@itmat-broker/itmat-models';
 import { IProject, enumUserTypes } from '@itmat-broker/itmat-types';
 import css from './scaffold.module.css';
-import { DatabaseOutlined, TeamOutlined, PoweroffOutlined, HistoryOutlined, SettingOutlined, ProjectOutlined, DesktopOutlined, WarningTwoTone, FileOutlined, GlobalOutlined } from '@ant-design/icons';
+import { DatabaseOutlined, TeamOutlined, PoweroffOutlined, HistoryOutlined, SettingOutlined, ProjectOutlined, DesktopOutlined, WarningTwoTone, FileOutlined, GlobalOutlined, CodeSandboxOutlined } from '@ant-design/icons';
 import LoadSpinner from '../reusable/loadSpinner';
 import dayjs from 'dayjs';
 import { Tooltip } from 'antd';
@@ -76,6 +76,13 @@ export const MainMenuBar: FunctionComponent<MainMenuBarProps> = ({ projects }) =
                 </div>
             </NavLink >
         </div >
+        {(whoAmIData.whoAmI.type === enumUserTypes.ADMIN || whoAmIData.whoAmI.metadata?.logPermission) ?
+            <div>
+                <NavLink to='/jobs' title='Jobs' className={({ isActive }) => isActive ? css.clickedButton : undefined}>
+                    <div className={css.button}><CodeSandboxOutlined /> Jobs</div>
+                </NavLink>
+            </div> : null
+        }
         {(whoAmIData.whoAmI.type === enumUserTypes.ADMIN || whoAmIData.whoAmI.metadata?.aePermission === true)
             ? <div>
                 <NavLink to='/pun/sys/dashboard' target='_blank' title='Analytical Environment' className={({ isActive }) => isActive ? css.clickedButton : undefined}>

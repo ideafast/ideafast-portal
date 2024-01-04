@@ -285,3 +285,41 @@ export function stringCompareFunc(a, b) {
     }
     return 0; // a and b are equal
 }
+
+export function formatInterval(unixTimestamp) {
+    if (unixTimestamp === null) {
+        return '';
+    }
+
+    unixTimestamp = unixTimestamp / 1000;
+    const secondsPerMinute = 60;
+    const secondsPerHour = 3600;
+    const secondsPerDay = 86400;
+
+    const days = Math.floor(unixTimestamp / secondsPerDay);
+    unixTimestamp %= secondsPerDay;
+    const hours = Math.floor(unixTimestamp / secondsPerHour);
+    unixTimestamp %= secondsPerHour;
+    const minutes = Math.floor(unixTimestamp / secondsPerMinute);
+    const seconds = unixTimestamp % secondsPerMinute;
+
+    return `${days} days ${hours} hours ${minutes} minutes ${seconds} seconds`;
+}
+
+export function tableColumnRender(data, property) {
+    if (property.type === 'string') {
+        return data.properties[property.title] ?? 'NA';
+    } else if (property.type === 'UNIX timestamps') {
+        return (new Date(data.properties[property.title])).toUTCString();
+    }
+}
+
+export function convertMillisecondsToPeriod(ms) {
+    const seconds = ms / 1000;
+    const days = Math.floor(seconds / (24 * 3600));
+    const hours = Math.floor((seconds % (24 * 3600)) / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+
+    return { days, hours, minutes, seconds: secs };
+}

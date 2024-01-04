@@ -59,7 +59,7 @@ export const driveRouter = t.router({
         console.log(opts.input.file);
         const requester = opts.ctx.req?.user ?? opts.ctx.user;
         const file_ = await opts.input.file[0];
-        return await driveCore.createDriveFileNode(requester.id, opts.input.parentId, opts.input.description, file_.filename.split('.')[1].toUpperCase(), opts.input.file[0]);
+        return await driveCore.createDriveFileNode(requester.id, opts.input.parentId, opts.input.description, (file_.filename.split('.').pop() || '').toUpperCase(), opts.input.file[0]);
     }),
     /**
      * Get the drive nodes of a user, including own drives and shared drives.

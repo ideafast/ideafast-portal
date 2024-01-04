@@ -91,3 +91,6 @@ itmat-client-old/
 .idea/
 
 target
+
+# temporary files
+uploads/*

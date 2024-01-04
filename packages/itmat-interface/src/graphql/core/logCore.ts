@@ -2,7 +2,7 @@ import { db } from '../../database/database';
 import { ILog, enumEventType, enumAPIResolver, enumEventStatus } from '@itmat-broker/itmat-types';
 
 export class LogCore {
-    public async getLogs(caller: string | null, type: enumEventType[] | null, apiResolver: enumAPIResolver[] | null, event: string[] | null, status: enumEventStatus[] | null, indexRange: number[] | null, timeRange: number[] | null): Promise<ILog[]> {
+    public async getLogs(caller?: string, type?: enumEventType[], apiResolver?: enumAPIResolver[], event?: string[], status?: enumEventStatus[], indexRange?: number[], timeRange?: number[]): Promise<ILog[]> {
         /**
          * Get logs.
          *

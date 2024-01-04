@@ -88,7 +88,7 @@ export const ProfileManagementSection: FunctionComponent = () => {
                                     uploadUserProfile.mutate({
                                         userId: whoAmI.data.id,
                                         description: null,
-                                        fileType: fileList[0].name.split('.')[1].toUpperCase() as enumFileTypes,
+                                        fileType: (fileList[0].name.split('.').pop() || '').toUpperCase() as enumFileTypes,
                                         fileUpload: [{
                                             path: data.filePath, // This should be the path returned by the server
                                             filename: fileData.name,

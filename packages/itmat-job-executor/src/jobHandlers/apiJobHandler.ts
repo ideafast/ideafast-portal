@@ -60,9 +60,9 @@ export class APIHandler extends JobHandler {
         try {
             const [routerName, procedureName] = document.executor.path.split('.');
             const result = await this.caller[routerName as keyof TRPCCaller][procedureName as keyof ProcedureCaller](document.parameters);
-            return result;
+            return { error: null, response: result };
         } catch (e) {
-            return 'error';
+            return { error: true, response: JSON.stringify(e) };
         }
     }
 }

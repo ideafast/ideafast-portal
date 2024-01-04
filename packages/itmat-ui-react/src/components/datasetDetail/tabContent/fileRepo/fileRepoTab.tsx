@@ -7,8 +7,7 @@ import { formatBytes } from '../../../reusable/fileList/fileList';
 import LoadSpinner from '../../../reusable/loadSpinner';
 import css from './fileRepo.module.css';
 import { trpc } from '../../../../utils/trpc';
-import { tableColumnRender } from 'packages/itmat-ui-react/src/utils/ui';
-import { stringCompareFunc } from 'packages/itmat-ui-react/src/utils/tools';
+import { stringCompareFunc, tableColumnRender } from 'packages/itmat-ui-react/src/utils/tools';
 import { UploadChangeParam } from 'antd/lib/upload';
 import { RcFile, UploadFile } from 'antd/lib/upload/interface';
 

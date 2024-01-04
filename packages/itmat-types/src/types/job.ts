@@ -10,6 +10,7 @@ export interface IJob extends IBase {
     parameters: JSON;
     priority: number;
     history: IJobHistory[]; // by default we will only keep the latest history
+    counter: number;
     status: enumJobStatus;
 }
 
@@ -17,17 +18,21 @@ export interface IJobHistory {
     time: number;
     status: enumJobHistoryStatus;
     errors: string[];
+    info?: any;
 }
 
 export enum enumJobType {
     DMPAPI = 'DMPAPI',
-    AE = 'AE'
+    AE = 'AE',
+    SYSTEMPROCESS = 'SYSTEMPROCESS',
+    LXD = 'LXD'
 }
 
 export enum enumJobStatus {
     PENDING = 'PENDING', // oneoff jobs will always be PENDING
     CANCELLED = 'CANCELLED',
-    FINISHED = 'FINISHED', // period should be null
+    FINISHED = 'FINISHED', // period should be null,
+    INUSE = 'INUSE', // for lxd containers
 }
 
 export enum enumJobHistoryStatus {

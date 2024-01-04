@@ -1,37 +1,52 @@
-import { ChangeEvent, FunctionComponent, useEffect, useState } from 'react';
-import { Mutation } from '@apollo/client/react/components';
-import { useQuery, useMutation, useApolloClient } from '@apollo/client/react/hooks';
-import { IPubkey, IOrganisation, IUser, enumDocTypes, IDoc } from '@itmat-broker/itmat-types';
-import { WHO_AM_I, REQUEST_USERNAME_OR_RESET_PASSWORD, GET_ORGANISATIONS, REQUEST_EXPIRY_DATE, EDIT_USER, GET_USER_PROFILE, UPLOAD_USER_PROFILE, CREATE_DOC, GET_DOCS, DELETE_DOC } from '@itmat-broker/itmat-models';
-import { Subsection } from '../reusable';
+import { FunctionComponent, useState } from 'react';
+import { useQuery } from '@apollo/client/react/hooks';
+import { IOrganisation } from '@itmat-broker/itmat-types';
+import { WHO_AM_I, GET_ORGANISATIONS } from '@itmat-broker/itmat-models';
 import LoadSpinner from '../reusable/loadSpinner';
 // import { ProjectSection } from '../users/projectSection';
-import { Form, Input, Select, DatePicker, Button, Alert, Checkbox, Image, Typography, Row, Col, Divider, Upload, UploadFile, Modal, message, notification, Card, Popconfirm, Tooltip } from 'antd';
-import dayjs from 'dayjs';
-import { WarningOutlined, PlusOutlined, UploadOutlined, LinkOutlined } from '@ant-design/icons';
-import { Key } from '../../utils/dmpCrypto/dmp.key';
+import { Form, Input, Select, Typography, Row, Col, Upload, Card, Tooltip, List, Table, Button, Modal, message } from 'antd';
 import css from './organisations.module.css';
 import React from 'react';
-import { RcFile } from 'antd/es/upload';
-import ReactQuill from 'react-quill';
-const { Title } = Typography;
-const { TextArea } = Input;
 import 'react-quill/dist/quill.snow.css';
-import { ApolloClient, ApolloError } from '@apollo/client';
-import { useForm } from 'antd/es/form/Form';
-import Meta from 'antd/es/card/Meta';
-const { Paragraph, Text, Link } = Typography;
+import { stringCompareFunc } from '../../utils/tools';
+import { trpc } from '../../utils/trpc';
+import { RcFile, UploadChangeParam, UploadFile } from 'antd/es/upload';
+import { InboxOutlined } from '@ant-design/icons';
+const { Title } = Typography;
 
 const { Option } = Select;
- 
-  
 
 export const OrganisationSection: FunctionComponent = () => {
-    const { loading: whoAmILoading, error: whoAmIError, data: whoAmIData } = useQuery(WHO_AM_I);
-    const {loading: getOrganisaitonsLoading, error: getOrganisationsError, data: getOrganisationsData} = useQuery(GET_ORGANISATIONS, {variables: {orgId: null}});
-    const [selectedOrg, setSelectedOrg] = React.useState<Partial<IOrganisation> | null>(null);
+    const whoAmI = trpc.user.whoAmI.useQuery();
+    const getOrganisations = trpc.org.getOrganisations.useQuery({});
+    const getUsers = trpc.user.getUsers.useQuery({});
+    const [mode, setMode] = useState<string | null>(null);
+    const createOrganisation = trpc.org.createOrganisation.useMutation({
+        onSuccess: () => {
+            message.success('Organisation created.');
+        },
+        onError: () => {
+            message.error('Failed to create this organisation.');
+        }
+    });
+    const editOrganisation = trpc.org.editOrganisation.useMutation({
+        onSuccess: () => {
+            message.success('Organisation edited.');
+        },
+        onError: () => {
+            message.error('Failed to edit this organisation.');
+        }
+    });
+    const deleteOrganisation = trpc.org.deleteOrganisation.useMutation({
+        onSuccess: () => {
+            message.success('Organisation deleted.');
+        },
+        onError: () => {
+            message.error('Failed to delete this organisation.');
+        }
+    });
     const [form] = Form.useForm();
-    if (whoAmILoading || getOrganisaitonsLoading) {
+    if (whoAmI.isLoading || getOrganisations.isLoading || getUsers.isLoading) {
         return <>
             <div className='page_ariane'>Loading...</div>
             <div className='page_content'>
@@ -39,87 +54,263 @@ export const OrganisationSection: FunctionComponent = () => {
             </div>
         </>;
     }
-    if (whoAmIError || getOrganisationsError) {
+    if (whoAmI.isError || getOrganisations.isError || getUsers.isError) {
         return <>
             An error occured.
         </>;
     }
-    const orgs: Partial<IOrganisation>[] = getOrganisationsData.getOrganisations;
-    const n = 5;
 
-    
+    const columns: any[] = [{
+        title: 'Organisation',
+        dataIndex: 'name',
+        key: 'name',
+        ellipsis: true,
+        sorter: (a, b) => { return stringCompareFunc(a.name, b.name); },
+        render: (__unused__value, record) => {
+            return (
+                <div style={{ display: 'flex', alignItems: 'center', fontSize: '15px' }}>
+                    <img
+                        src={record.profile ? `${window.location.origin}/file/${record.profile}` : undefined}
+                        alt={''}
+                        style={{ width: '50px', height: '50px', marginRight: '10px' }} // Adjust the size as needed
+                    />
+                    {record.name}
+                </div>
+            );
+        }
+    }, {
+        title: 'Users',
+        dataIndex: 'numOfUsers',
+        key: 'numOfUsers',
+        ellipsis: true,
+        sorter: (a, b) => { return getUsers.data.filter(el => el.organisation === a.id).length - getUsers.data.filter(el => el.organisation === b.id).length; },
+        render: (__unused__value, record) => {
+            return getUsers.data.filter(el => el.organisation === record.id).length;
+        }
+    }, {
+        title: '',
+        dataIndex: 'delete',
+        key: 'delete',
+        ellipsis: true,
+        render: (__unused__value, record) => {
+            return <Button onClick={() => {
+                deleteOrganisation.mutate({
+                    organisationId: record.id
+                });
+            }}>Delete</Button>;
+        }
+    }];
+
     return (
         <div className={css.page_container}>
-            <div className={css.org_map}>
-                <Title level={2}>Create or Edit organisation</Title>
-                <Form
-                    form={form}
-                >
-                    <Form.Item name='selectedExisted'>
-                        <Select 
-                            placeholder='Select an organisation'
-                            showSearch={true}
-                            filterOption={(input, option) =>
-                                (option?.label?.toString() ?? '').toLowerCase().includes(input.toLowerCase())
-                            }
-                            onChange={(value) => {
-                                const org = orgs.filter(el => el.id === value)[0];
+            <List
+                header={
+                    <div className={css['overview-header']} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div className={css['overview-header']} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center' }}>
+                                <div className={css['overview-icon']}></div>
+                                <div>List of Organisations</div>
+                            </div>
+                        </div>
+                        <div>
+                            <Button onClick={() => {
+                                setMode('create');
                                 form.setFieldsValue({
-                                    name: org.name,
-                                    shortname: org.shortname,
-                                    latitude: org.location ? org.location[0] : null,
-                                    longitude: org.location ? org.location[1] : null,
-                                })
-                            }}
+                                    name: undefined,
+                                    shortname: undefined,
+                                    latitude: undefined,
+                                    longitude: undefined,
+                                    profile: undefined
+                                });
+                            }}>Create</Button>
+                            <Button onClick={() => {
+                                setMode('edit');
+                                form.setFieldsValue({
+                                    name: undefined,
+                                    shortname: undefined,
+                                    latitude: undefined,
+                                    longitude: undefined,
+                                    profile: undefined
+                                });
+                            }}>Edit</Button>
+                        </div>
+                    </div>
+                }
+            >
+                <Modal
+                    open={mode !== null}
+                    onCancel={() => {
+                        setMode(null);
+                        form.setFieldsValue({
+                        });
+                    }}
+                    onOk={async () => {
+                        console.log(form.getFieldsValue());
+                        const values = form.getFieldsValue();
+                        let profile: any = undefined;
+                        if (values.profile) {
+                            const fileData = values.profile;
+                            const formData = new FormData();
+                            formData.append('file', fileData);
+
+                            const response = await fetch('/upload', {
+                                method: 'POST',
+                                body: formData
+                            });
+                            const data = await response.json();
+                            profile = response.ok ? [{
+                                path: data.filePath,
+                                filename: fileData.name,
+                                mimetype: fileData.type,
+                                size: fileData.size
+                            }] : undefined;
+                        }
+                        if (values.id) {
+                            editOrganisation.mutate({
+                                organisationId: values.id,
+                                name: values.name ?? undefined,
+                                location: (values.latitude && values.longitude) ? [parseFloat(values.latitude), parseFloat(values.longitude)] : undefined,
+                                shortname: values.shortname ?? undefined,
+                                profile: profile
+                            });
+                        } else {
+                            createOrganisation.mutate({
+                                name: values.name ?? undefined,
+                                location: (values.latitude && values.longitude) ? [parseFloat(values.latitude), parseFloat(values.longitude)] : undefined,
+                                shortname: values.shortname ?? undefined,
+                                profile: profile
+                            });
+                        }
+                    }}
+                >
+                    <div className={css.org_map}>
+                        <Form
+                            form={form}
                         >
                             {
-                                orgs.map(el => <Option value={el.id} label={el?.name}>{el?.name?.toString()}</Option>)
+                                mode === 'edit' ?
+                                    <Form.Item
+                                        name='id'
+                                        label='Select Organisation'
+                                    >
+                                        <Select
+                                            placeholder='Select an organisation'
+                                            showSearch={true}
+                                            filterOption={(input, option) =>
+                                                (option?.label?.toString() ?? '').toLowerCase().includes(input.toLowerCase())
+                                            }
+                                            onChange={(value) => {
+                                                const org = getOrganisations.data.filter(el => el.id === value)[0];
+                                                form.setFieldsValue({
+                                                    id: org.id,
+                                                    name: org.name,
+                                                    shortname: org.shortname,
+                                                    latitude: org.location ? org.location[0] : null,
+                                                    longitude: org.location ? org.location[1] : null,
+                                                    profile: undefined
+                                                });
+                                            }}
+                                        >
+                                            {
+                                                getOrganisations.data.map(el => <Option value={el.id} label={el?.name}>{el?.name?.toString()}</Option>)
+                                            }
+                                        </Select>
+                                    </Form.Item> : null
                             }
-                        </Select>
-                    </Form.Item>
-                    <Form.Item name='name'>
-                            <Input placeholder='Input new name'/>
-                    </Form.Item>
-                    <Form.Item name='shortname'>
-                            <Input placeholder='Input new shortname'/>
-                    </Form.Item>
-                    <Form.Item name='latitude'>
-                            <Input placeholder='Input latitude'/>
-                    </Form.Item>
-                    <Form.Item name='longitude'>
-                            <Input placeholder='Input longitude'/>
-                    </Form.Item>
-                    <Form.Item name='profile'>                            
-                        <Upload
-                            // onChange={(event) => {
-                            //     form.setFieldValue('attachments', event.fileList.map(el => el.originFileObj));
-                            // }}
-                        >
-                        </Upload>
-                    </Form.Item>
-                </Form>
-            </div>
-            <div className={css.org_list}>
-                <Row gutter={{ xs: 8, sm: 16, md: 24, lg: 32 }}>
-                    {orgs.map((item, index) => (
-                        <Col className={css['col-item']} span={Math.floor(24 / n)} key={index}>
-                            <Card bordered={false} className={css['card-container']}>
-                                <img 
-                                    alt='example' 
-                                    src={`${window.location.origin}/file/${item.profile}`}
-                                    className={css['card-image']}
-                                />
-                                <Tooltip title={item.name}>
-                                    <div className={css['card-meta']}>
-                                        {item.name}
-                                    </div>
-                                </Tooltip>
-                            </Card>
-                        </Col>
-                    ))}
-                </Row>
-            </div>
-        </div>
+
+                            <Form.Item
+                                name='name'
+                                label='Name'
+                                rules={[
+                                    {
+                                        required: true
+                                    }
+                                ]}
+                            >
+                                <Input placeholder='Input new name' />
+                            </Form.Item>
+                            <Form.Item
+                                name='shortname'
+                                label='Short Name'
+                            >
+                                <Input placeholder='Input new shortname' />
+                            </Form.Item>
+                            <Form.Item
+                                name='latitude'
+                                label='Latitude'
+                                rules={[
+                                    {
+                                        required: false,
+                                        message: 'Please input the latitude as a number',
+                                        pattern: new RegExp(/^[+-]?([0-9]*[.])?[0-9]+$/)
+                                    }
+                                ]}
+                            >
+                                <Input placeholder='Input latitude' />
+                            </Form.Item>
+                            <Form.Item
+                                name='longitude'
+                                label='Longtitude'
+                                rules={[
+                                    {
+                                        required: false,
+                                        message: 'Please input the longitude as a number',
+                                        pattern: new RegExp(/^[+-]?([0-9]*[.])?[0-9]+$/)
+                                    }
+                                ]}
+                            >
+                                <Input placeholder='Input longitude' />
+                            </Form.Item>
+                            <Form.Item
+                                name='profile'
+                                label='Profile'
+                            >
+                                <Upload.Dragger
+                                    multiple={false}
+                                    showUploadList={true}
+                                    beforeUpload={async (file: RcFile) => {
+                                        return false;
+                                    }}
+                                    onChange={(info: UploadChangeParam<UploadFile>) => {
+                                        // Filter out any items that do not have originFileObj
+                                        const validFiles: RcFile[] = info.fileList
+                                            .map(item => item.originFileObj)
+                                            .filter((file): file is RcFile => !!file);
+                                        form.setFieldValue('profile', validFiles[0]);
+                                    }}
+                                    onRemove={() => form.setFieldValue('profile', [])}
+                                >
+                                    <p className="ant-upload-drag-icon">
+                                        <InboxOutlined style={{ color: '#009688', fontSize: 48 }} />
+                                    </p>
+                                    <p className="ant-upload-text" style={{ fontSize: 16, color: '#444' }}>
+                                        Drag files here or click to select files
+                                    </p>
+                                </Upload.Dragger>
+                            </Form.Item>
+                        </Form>
+                    </div>
+                </Modal>
+                <List.Item>
+                    <div className={css.org_list}>
+                        <Table
+                            columns={columns}
+                            dataSource={getOrganisations.data}
+                            pagination={
+                                {
+                                    defaultPageSize: 50,
+                                    showSizeChanger: true,
+                                    pageSizeOptions: ['10', '20', '50', '100'],
+                                    defaultCurrent: 1,
+                                    showQuickJumper: true
+                                }
+                            }
+                        />
+                    </div>
+                </List.Item>
+            </List >
+        </div >
+
     );
-}
+};
 

@@ -12,6 +12,7 @@ import { OrganisationPage } from '../organisations';
 import css from './scaffold.module.css';
 import { LogPage } from '../logs';
 import { DocumentPage } from '../documents';
+import { JobPage } from '../job';
 
 
 export const MainPanel: FunctionComponent = () => {
@@ -28,6 +29,7 @@ export const MainPanel: FunctionComponent = () => {
                 <Route path='/profile' element={<ProfilePage />} />
                 <Route path='/documents' element={<DocumentPage />} />
                 <Route path='/organisations' element={<OrganisationPage />} />
+                <Route path='/jobs' element={<JobPage />} />
                 {/* <Route path='/myfiles' element={<MyFilePage />} /> */}
                 {/* <Route path='/pun/sys/dashboard' /> */}
                 {/* <Route path='*' element={<Navigate to='/datasets' />} /> */}

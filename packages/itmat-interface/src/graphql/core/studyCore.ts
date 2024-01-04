@@ -109,13 +109,13 @@ export class StudyCore {
         try {
             let fileEntry: IFile | null = null;
             if (profile) {
-                if (!Object.keys(enumFileTypes).includes(profile?.filename?.split('.')[1].toUpperCase())) {
+                if (!Object.keys(enumFileTypes).includes((profile?.filename?.split('.').pop() || '').toUpperCase())) {
                     throw new TRPCError({
                         code: enumTRPCErrorCodes.BAD_REQUEST,
                         message: 'File type not supported.'
                     });
                 }
-                fileEntry = await fileCore.uploadFile(requester, studyId, null, profile, null, enumFileTypes[profile.filename.split('.')[1].toUpperCase() as keyof typeof enumFileTypes], enumFileCategories.STUDY_PROFILE_FILE, []);
+                fileEntry = await fileCore.uploadFile(requester, studyId, null, profile, null, enumFileTypes[(profile.filename.split('.').pop() || '').toUpperCase() as keyof typeof enumFileTypes], enumFileCategories.STUDY_PROFILE_FILE, []);
                 await db.collections!.studies_collection.findOneAndUpdate({ id: studyId }, {
                     $set: {
                         profile: fileEntry.id
@@ -161,13 +161,13 @@ export class StudyCore {
         let fileEntry;
         if (profile) {
             try {
-                if (!Object.keys(enumFileTypes).includes(profile?.filename?.split('.')[1].toUpperCase())) {
+                if (!Object.keys(enumFileTypes).includes((profile?.filename?.split('.').pop() || '').toUpperCase())) {
                     throw new TRPCError({
                         code: enumTRPCErrorCodes.BAD_REQUEST,
                         message: 'File format not supported'
                     });
                 }
-                fileEntry = await fileCore.uploadFile(requester, studyId, null, profile, null, enumFileTypes[profile.filename.split('.')[1].toUpperCase() as keyof typeof enumFileTypes], enumFileCategories.STUDY_PROFILE_FILE, []);
+                fileEntry = await fileCore.uploadFile(requester, studyId, null, profile, null, enumFileTypes[(profile.filename.split('.').pop() || '').toUpperCase() as keyof typeof enumFileTypes], enumFileCategories.STUDY_PROFILE_FILE, []);
                 setObj.profile = fileEntry.id;
             } catch (error) {
                 setObj.profile = study.profile;

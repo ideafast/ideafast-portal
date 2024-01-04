@@ -640,7 +640,7 @@ export const userRouter = t.router({
             opts.input.userId,
             opts.input.fileUpload[0],
             opts.input.description,
-            enumFileTypes[opts.input.fileUpload[0].filename.split('.')[1].toUpperCase() as keyof typeof enumFileTypes],
+            enumFileTypes[(opts.input.fileUpload[0].filename.split('.').pop() || '').toUpperCase() as keyof typeof enumFileTypes],
             enumFileCategories.USER_PROFILE_FILE,
             []
         );
@@ -894,7 +894,7 @@ export const userRouter = t.router({
     }),
     deletePubkey: baseProcedure.input(z.object({
         keyId: z.string(),
-        userId: z.string()
+        associatedUserId: z.string()
     })).mutation(async (opts: any) => {
         const requester: IUser = opts.ctx.req?.user ?? opts.ctx.user;
         if (requester.type !== enumUserTypes.ADMIN || requester.id !== opts.input.associatedUserId) {
@@ -903,7 +903,7 @@ export const userRouter = t.router({
                 message: errorCodes.NO_PERMISSION_ERROR
             });
         }
-        return await userCore.deletePubkey(requester.id, opts.input.userId, opts.input.keyId);
+        return await userCore.deletePubkey(requester.id, opts.input.associatedUserId, opts.input.keyId);
     })
 });
 

@@ -571,7 +571,7 @@ export const userResolvers = {
             const file = await fileUpload;
 
             const supportedFormats: string[] = [enumFileTypes.JPG, enumFileTypes.JPEG, enumFileTypes.PNG];
-            if (!(supportedFormats.includes(file.filename.split('.')[1].toUpperCase()))) {
+            if (!(supportedFormats.includes((file.filename.split('.').pop() || '').toUpperCase()))) {
                 throw new GraphQLError('Only JPG, JPEG and PNG are supported.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
             }
             const res = await fileCore.uploadFile(
@@ -580,7 +580,7 @@ export const userResolvers = {
                 userId,
                 file,
                 description,
-                enumFileTypes[file.filename.split('.')[1].toUpperCase() as keyof typeof enumFileTypes],
+                enumFileTypes[(file.filename.split('.').pop() || '').toUpperCase() as keyof typeof enumFileTypes],
                 enumFileCategories.USER_PROFILE_FILE,
                 []
             );

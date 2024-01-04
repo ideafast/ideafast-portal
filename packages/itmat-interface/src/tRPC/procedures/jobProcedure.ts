@@ -1,11 +1,13 @@
-import { inferAsyncReturnType, initTRPC } from '@trpc/server';
+import { TRPCError, inferAsyncReturnType, initTRPC } from '@trpc/server';
 import * as trpcExpress from '@trpc/server/adapters/express';
 import { z } from 'zod';
 import { driveCore } from '../../graphql/core/driveCore';
 import { userCore } from '../../graphql/core/userCore';
-import { IDrivePermission, enumJobType } from '@itmat-broker/itmat-types';
+import { IDrivePermission, IUser, enumJobType, enumUserTypes } from '@itmat-broker/itmat-types';
 import { baseProcedure } from '../../log/trpcLogHelper';
 import { jobCore } from '../../graphql/core/jobCore';
+import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
+import { errorCodes } from '../../graphql/errors';
 
 const createContext = ({
     req,
@@ -31,7 +33,7 @@ export const jobRouter = t.router({
      *
      * @return IJob
      */
-    createJob: t.procedure.input(z.object({
+    createJob: baseProcedure.input(z.object({
         name: z.string(),
         startTime: z.union([z.number(), z.null()]),
         period: z.union([z.number(), z.null()]),
@@ -45,6 +47,33 @@ export const jobRouter = t.router({
     })).mutation((async (opts: any) => {
         return await jobCore.createJob(opts.ctx.req.user.id, opts.input.name, opts.input.startTime, opts.input.period, opts.input.type,
             opts.input.executor, opts.input.data, opts.input.parameters, opts.input.priority);
-    }))
+    })),
+    getJobs: baseProcedure.input(z.object({
+
+    })).query(async (opts: any) => {
+        const requester: IUser = opts.ctx.req?.user ?? opts.ctx.user;
+        if (requester.type !== enumUserTypes.ADMIN) {
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: errorCodes.NO_PERMISSION_ERROR
+            });
+        }
+        return await jobCore.getJobs();
+    }),
+    editJob: baseProcedure.input(z.object({
+        jobId: z.string(),
+        priority: z.optional(z.number()),
+        nextExecutionTime: z.union([z.number(), z.null()]),
+        period: z.union([z.number(), z.null()])
+    })).mutation(async (opts: any) => {
+        const requester: IUser = opts.ctx.req?.user ?? opts.ctx.user;
+        return await jobCore.editJob(
+            requester.id,
+            opts.input.jobId,
+            opts.input.priority,
+            opts.input.nextExecutionTime,
+            opts.input.period
+        );
+    })
 });
 

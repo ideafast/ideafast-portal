@@ -8,7 +8,7 @@ import { FileUpload } from 'graphql-upload-minimal';
 
 export const organisationResolvers = {
     Query: {
-        getOrganisations: async (__unused__parent: Record<string, unknown>, { orgId }: { orgId: string | null }): Promise<IOrganisation[]> => {
+        getOrganisations: async (__unused__parent: Record<string, unknown>, { orgId }: { orgId?: string }): Promise<IOrganisation[]> => {
             /**
              * Get the info of organisations.
              *
