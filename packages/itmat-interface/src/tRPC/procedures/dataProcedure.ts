@@ -9,6 +9,8 @@ import { baseProcedure } from '../../log/trpcLogHelper';
 import { permissionCore } from '../../graphql/core/permissionCore';
 import { convertSerializedBufferToBuffer, isSerializedBuffer, parseJsonOrString } from '../../utils/file';
 import { file } from 'tmp';
+import fs from 'fs';
+import path from 'path';
 
 const createContext = ({
     req,
@@ -408,13 +410,25 @@ export const dataRouter = t.router({
         properties: z.optional(z.any()),
         fieldId: z.string()
     })).mutation(async (opts: any) => {
-        return await dataCore.uploadFileData(
-            opts.ctx.req.user.id,
-            opts.input.studyId,
-            opts.input.file[0],
-            opts.input.fieldId,
-            parseJsonOrString(opts.input.properties)
-        );
+        try {
+            return await dataCore.uploadFileData(
+                opts.ctx.req.user.id,
+                opts.input.studyId,
+                opts.input.file[0],
+                opts.input.fieldId,
+                parseJsonOrString(opts.input.properties)
+            );
+        } finally {
+            // Cleanup: Delete the temporary file from the disk
+            const filePath = opts.input.file[0].path;
+            if (fs.existsSync(filePath)) {
+                fs.unlink(filePath, (err) => {
+                    if (err) {
+                        console.error('Error deleting temporary file:', filePath, err);
+                    }
+                });
+            }
+        }
     })
 });
 

@@ -4,7 +4,8 @@ import * as trpcExpress from '@trpc/server/adapters/express';
 import { z } from 'zod';
 import { docCore } from '../../graphql/core/docCore';
 import { baseProcedure } from '../../log/trpcLogHelper';
-
+import fs from 'fs';
+import path from 'path';
 const createContext = ({
     req,
     res
@@ -36,12 +37,17 @@ export const docRouter = t.router({
      * @return Partial<IDoc>[]
      */
     getDocs: baseProcedure.input(z.object({
-        docId: z.union([z.string(), z.null()]),
+        docId: z.optional(z.string()),
         studyId: z.union([z.string(), z.null()]),
-        docTypes: z.union([z.array(z.nativeEnum(enumDocTypes)), z.null()]),
+        docTypes: z.optional(z.array(z.nativeEnum(enumDocTypes))),
         verbose: z.boolean()
-    })).output(z.array(ZDoc)).query(async (opts: any) => {
-        return await docCore.getDocs(opts.input.docId, opts.input.studyId, opts.input.docTypes, opts.input.verbose);
+    })).query(async (opts: any) => {
+        return await docCore.getDocs(
+            opts.input.studyId,
+            opts.input.verbose,
+            opts.input.docId,
+            opts.input.docTypes
+        );
     }),
     /**
      * Create a doc.
@@ -61,37 +67,62 @@ export const docRouter = t.router({
     createDoc: baseProcedure.input(z.object({
         title: z.string(),
         type: z.nativeEnum(enumDocTypes),
-        description: z.union([z.string(), z.null()]),
-        tag: z.union([z.string(), z.null()]),
+        description: z.optional(z.string()),
+        tag: z.optional(z.string()),
         studyId: z.union([z.string(), z.null()]),
         priority: z.number(),
-        attachments: z.union([z.array(z.object({
+        attachments: z.optional(z.array(z.object({
             path: z.any(),
             filename: z.string(),
             mimetype: z.optional(z.string()),
             size: z.number()
             // ... other validation ...
-        })), z.null()]),
-        contents: z.string()
+        }))),
+        contents: z.optional(z.string())
     })).mutation(async (opts: any) => {
         const requester = opts.ctx.req.user;
-        const doc = await docCore.createDoc(requester.id, opts.input.title, opts.input.studyId, opts.input.description, opts.input.type, opts.input.tag, opts.input.contents, opts.input.priority, opts.input.attachments);
-        return doc;
+        try {
+            const doc = await docCore.createDoc(
+                requester.id,
+                opts.input.title,
+                opts.input.studyId,
+                opts.input.type,
+                opts.input.description,
+                opts.input.tag,
+                opts.input.contents,
+                opts.input.priority,
+                opts.input.attachments);
+            return doc;
+        } finally {
+            // Cleanup: Delete the temporary file from the disk
+            if (opts.input.attachments) {
+                for (let i = 0; i < opts.input.attachments.length; i++) {
+                    const filePath = opts.input.attachments[i].path;
+                    if (fs.existsSync(filePath)) {
+                        fs.unlink(filePath, (err) => {
+                            if (err) {
+                                console.error('Error deleting temporary file:', filePath, err);
+                            }
+                        });
+                    }
+                }
+            }
+        }
     }),
     /**
-     * Edit a doc.
-     *
-     * @param docId - The id of the doc.
-     * @param contents - The contents of the doc.
-     * @param title - The title of the doc.
-     * @param tag - The tag of the doc.
-     * @param description - The description of the doc.
-     * @param priority - The priority of the doc.
-     * @param addAttachments - Attachments to add to the doc.
-     * @param removeAttachments - Attachments to remove from the doc.
-     *
-     * @return IDoc
-     */
+         * Edit a doc.
+         *
+         * @param docId - The id of the doc.
+         * @param contents - The contents of the doc.
+         * @param title - The title of the doc.
+         * @param tag - The tag of the doc.
+         * @param description - The description of the doc.
+         * @param priority - The priority of the doc.
+         * @param addAttachments - Attachments to add to the doc.
+         * @param removeAttachments - Attachments to remove from the doc.
+         *
+         * @return IDoc
+         */
     editDoc: baseProcedure.input(z.object({
         docId: z.string(),
         contents: z.union([z.string(), z.null()]),
@@ -109,17 +140,32 @@ export const docRouter = t.router({
         removeAttachments: z.union([z.array(z.string()), z.null()])
     })).mutation(async (opts: any) => {
         const requester = opts.req.user;
-
-        const doc = await docCore.editDoc(requester.id, opts.input.docId, opts.input.contents, opts.input.title, opts.input.tag, opts.input.description, opts.input.priority, opts.input.addAttachments, opts.input.removeAttachments);
-        return doc;
+        try {
+            const doc = await docCore.editDoc(requester.id, opts.input.docId, opts.input.contents, opts.input.title, opts.input.tag, opts.input.description, opts.input.priority, opts.input.addAttachments, opts.input.removeAttachments);
+            return doc;
+        } finally {
+            // Cleanup: Delete the temporary file from the disk
+            if (opts.input.attachments) {
+                for (let i = 0; i < opts.input.attachments.length; i++) {
+                    const filePath = opts.input.attachments[i].path;
+                    if (fs.existsSync(filePath)) {
+                        fs.unlink(filePath, (err) => {
+                            if (err) {
+                                console.error('Error deleting temporary file:', filePath, err);
+                            }
+                        });
+                    }
+                }
+            }
+        }
     }),
     /**
-     * Delete a doc.
-     *
-     * @param docId - The id of the doc.
-     *
-     * @return IGenericResponse
-     */
+             * Delete a doc.
+             *
+             * @param docId - The id of the doc.
+             *
+             * @return IGenericResponse
+             */
     deleteDoc: baseProcedure.input(z.object({
         docId: z.string()
     })).mutation(async (opts: any) => {

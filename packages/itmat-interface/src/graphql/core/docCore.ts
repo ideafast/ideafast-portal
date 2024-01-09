@@ -8,7 +8,7 @@ import { GraphQLError } from 'graphql';
 import { errorCodes } from '../errors';
 
 export class DocCore {
-    public async getDocs(docId: string | null, studyId: string | null, type: enumDocTypes[] | null, verbose: boolean): Promise<IDoc[]> {
+    public async getDocs(studyId: string | null, verbose: boolean, docId?: string, type?: enumDocTypes[]): Promise<IDoc[]> {
         /**
          * Get the docs.
          *
@@ -35,10 +35,17 @@ export class DocCore {
             }
         }
 
+        // retrive the attachemnts if possible
+        for (const doc of docs) {
+            if (doc.attachmentFileIds) {
+                doc.metadata = { docs: await db.collections!.files_collection.find({ id: { $in: doc.attachmentFileIds } }).toArray() };
+            }
+        }
+
         return docs as IDoc[];
     }
 
-    public async createDoc(requester: string, title: string, studyId: string | null, description: string | null, type: enumDocTypes, tag: string | null, contents: string, priority: number | null, attachments: any | null): Promise<IDoc> {
+    public async createDoc(requester: string, title: string, studyId: string | null, type: enumDocTypes, description?: string, tag?: string, contents?: string, priority?: number, attachments?: any): Promise<IDoc> {
         /**
          * Create a doc.
          *
@@ -102,7 +109,7 @@ export class DocCore {
         }
     }
 
-    public async editDoc(requester: string, docId: string, contents: string | null, title: string, tag: string | null, description: string | null, priority: number | null, addAttachments: any | null, removeAttachments: string[] | null): Promise<Partial<IDoc>> {
+    public async editDoc(requester: string, docId: string, contents?: string, title?: string, tag?: string, description?: string, priority?: number, addAttachments?: any, removeAttachments?: string[]): Promise<Partial<IDoc>> {
         /**
          * Edit a doc.
          *
@@ -127,7 +134,7 @@ export class DocCore {
         const session = db.client!.startSession();
         session.startTransaction();
         try {
-            let attachmentsFileIds: string[] = [...doc.attachmentFileIds];
+            let attachmentsFileIds: string[] = doc.attachmentFileIds ? [...doc.attachmentFileIds] : [];
             if (addAttachments) {
                 for (const attachment of addAttachments) {
                     if (!Object.keys(enumFileTypes).includes((attachment.filename?.split('.').pop() as string).toUpperCase())) {

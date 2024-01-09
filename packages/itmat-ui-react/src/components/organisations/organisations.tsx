@@ -1,12 +1,8 @@
 import { FunctionComponent, useState } from 'react';
-import { useQuery } from '@apollo/client/react/hooks';
-import { IOrganisation } from '@itmat-broker/itmat-types';
-import { WHO_AM_I, GET_ORGANISATIONS } from '@itmat-broker/itmat-models';
 import LoadSpinner from '../reusable/loadSpinner';
 // import { ProjectSection } from '../users/projectSection';
-import { Form, Input, Select, Typography, Row, Col, Upload, Card, Tooltip, List, Table, Button, Modal, message } from 'antd';
+import { Form, Input, Select, Typography, Upload, List, Table, Button, Modal, message } from 'antd';
 import css from './organisations.module.css';
-import React from 'react';
 import 'react-quill/dist/quill.snow.css';
 import { stringCompareFunc } from '../../utils/tools';
 import { trpc } from '../../utils/trpc';

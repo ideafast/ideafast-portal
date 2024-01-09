@@ -38,14 +38,14 @@ export const jobRouter = t.router({
         startTime: z.union([z.number(), z.null()]),
         period: z.union([z.number(), z.null()]),
         type: z.nativeEnum(enumJobType),
-        executor: z.object({
+        executor: z.optional(z.object({
             path: z.string()
-        }),
+        })),
         data: z.any(),
         parameters: z.any(),
         priority: z.number()
     })).mutation((async (opts: any) => {
-        return await jobCore.createJob(opts.ctx.req.user.id, opts.input.name, opts.input.startTime, opts.input.period, opts.input.type,
+        return await jobCore.createJob(opts.ctx.req.user.id, opts.input.name, opts.input.type, opts.input.startTime, opts.input.period,
             opts.input.executor, opts.input.data, opts.input.parameters, opts.input.priority);
     })),
     getJobs: baseProcedure.input(z.object({

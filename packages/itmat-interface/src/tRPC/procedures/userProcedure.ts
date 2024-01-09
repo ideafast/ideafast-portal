@@ -17,8 +17,8 @@ import QRCode from 'qrcode';
 import tmp from 'tmp';
 import { fileCore } from '../../graphql/core/fileCore';
 import { baseProcedure } from '../../log/trpcLogHelper';
-import { BufferSchema } from './type';
-import { convertSerializedBufferToBuffer, isSerializedBuffer } from '../../utils/file';
+import fs from 'fs';
+import path from 'path';
 import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
 const createContext = ({
     req,
@@ -353,41 +353,40 @@ export const userRouter = t.router({
 
         /* randomly generate a secret for Time-based One Time Password*/
         const otpSecret = mfa.generateSecret();
+        try {
+            const user = await userCore.createUser(
+                opts.input.username,
+                opts.input.email,
+                opts.input.firstname,
+                opts.input.lastname,
+                opts.input.organisation,
+                enumUserTypes.STANDARD,
+                false,
+                opts.input.password,
+                otpSecret,
+                opts.input.profile ? opts.input.profile[0] : undefined,
+                opts.input.description,
+                opts.req?.user?.id ?? null
+            );
+            /* send email to the registered user */
+            // get QR Code for the otpSecret.
+            const oauth_uri = `otpauth://totp/${config.appName}:${opts.input.username}?secret=${otpSecret}&issuer=Data%20Science%20Institute`;
+            const tmpobj = tmp.fileSync({ mode: 0o644, prefix: 'qrcodeimg-', postfix: '.png' });
 
-        const user = await userCore.createUser(
-            opts.input.username,
-            opts.input.email,
-            opts.input.firstname,
-            opts.input.lastname,
-            opts.input.organisation,
-            enumUserTypes.STANDARD,
-            false,
-            opts.input.password,
-            otpSecret,
-            opts.input.profile[0],
-            opts.input.description,
-            opts.req?.user?.id ?? null
-        );
-
-        /* send email to the registered user */
-        // get QR Code for the otpSecret.
-        const oauth_uri = `otpauth://totp/${config.appName}:${opts.input.username}?secret=${otpSecret}&issuer=Data%20Science%20Institute`;
-        const tmpobj = tmp.fileSync({ mode: 0o644, prefix: 'qrcodeimg-', postfix: '.png' });
-
-        QRCode.toFile(tmpobj.name, oauth_uri, {}, function (err) {
-            if (err) {
-                throw new TRPCError({
-                    code: enumTRPCErrorCodes.BAD_REQUEST,
-                    message: err.message
-                });
-            }
-        });
-        const attachments = [{ filename: 'qrcode.png', path: tmpobj.name, cid: 'qrcode_cid' }];
-        await mailer.sendMail({
-            from: `${config.appName} <${config.nodemailer.auth.user}>`,
-            to: opts.input.email,
-            subject: `[${config.appName}] Registration Successful`,
-            html: `
+            QRCode.toFile(tmpobj.name, oauth_uri, {}, function (err) {
+                if (err) {
+                    throw new TRPCError({
+                        code: enumTRPCErrorCodes.BAD_REQUEST,
+                        message: err.message
+                    });
+                }
+            });
+            const attachments = [{ filename: 'qrcode.png', path: tmpobj.name, cid: 'qrcode_cid' }];
+            await mailer.sendMail({
+                from: `${config.appName} <${config.nodemailer.auth.user}>`,
+                to: opts.input.email,
+                subject: `[${config.appName}] Registration Successful`,
+                html: `
                     <p>
                         Dear ${opts.input.firstname},
                     <p>
@@ -406,10 +405,23 @@ export const userRouter = t.router({
                         The ${config.appName} Team.
                     </p>
                 `,
-            attachments: attachments
-        });
-        tmpobj.removeCallback();
-        return user;
+                attachments: attachments
+            });
+            tmpobj.removeCallback();
+            return user;
+        } finally {
+            // Cleanup: Delete the temporary file from the disk
+            if (opts.input.profile) {
+                const filePath = opts.input.profile[0].path;
+                if (fs.existsSync(filePath)) {
+                    fs.unlink(filePath, (err) => {
+                        if (err) {
+                            console.error('Error deleting temporary file:', filePath, err);
+                        }
+                    });
+                }
+            }
+        }
     }),
     /**
      * Delete a user.
@@ -540,13 +552,13 @@ export const userRouter = t.router({
         description: z.optional(z.string()),
         organisation: z.optional(z.string()),
         expiredAt: z.optional(z.number()),
-        profile: z.array(z.object({
+        profile: z.optional(z.array(z.object({
             path: z.any(),
             filename: z.string(),
             mimetype: z.optional(z.string()),
             size: z.number()
             // ... other validation ...
-        }))
+        })))
     })).mutation(async (opts: any) => {
         const requester: IUser = opts.ctx.req?.user ?? opts.ctx.user;
         if (requester.type !== enumUserTypes.ADMIN && requester.id !== opts.input.userId) {
@@ -571,7 +583,7 @@ export const userRouter = t.router({
         }
 
         /* check that username and password dont have space */
-        if (opts.input.username && opts.input.username.indexOf(' ') !== -1 || opts.input.password.indexOf(' ') !== -1) {
+        if ((opts.input.username && opts.input.username.indexOf(' ') !== -1) || (opts.password && opts.input.password.indexOf(' ') !== -1)) {
             throw new TRPCError({
                 code: enumTRPCErrorCodes.BAD_REQUEST,
                 message: 'Username or password cannot have spaces.'
@@ -592,19 +604,32 @@ export const userRouter = t.router({
                 message: 'Cannot set to a previous time.'
             });
         }
-
-        const newUser = await userCore.editUser(requester.id, opts.input.userId, opts.input.username, opts.input.email, opts.input.firstname, opts.input.lastname, opts.input.organisation, opts.input.type, opts.input.emailNotificationsActivated, opts.input.password, undefined, opts.input.profile[0], opts.input.description, opts.input.expiredAt);
-        if (newUser) {
-            // New expiry date has been updated successfully.
-            if (opts.input.expiredAt && newUser.email && newUser.username) {
-                /* send email to client */
-                await mailer.sendMail(formatEmailRequestExpiryDateNotification({
-                    to: newUser.email,
-                    username: newUser.username
-                }));
+        try {
+            const newUser = await userCore.editUser(requester.id, opts.input.userId, opts.input.username, opts.input.email, opts.input.firstname, opts.input.lastname, opts.input.organisation, opts.input.type, opts.input.emailNotificationsActivated, opts.input.password, undefined, opts.input.profile ? opts.input.profile[0] : undefined, opts.input.description, opts.input.expiredAt);
+            if (newUser) {
+                // New expiry date has been updated successfully.
+                if (opts.input.expiredAt && newUser.email && newUser.username) {
+                    /* send email to client */
+                    await mailer.sendMail(formatEmailRequestExpiryDateNotification({
+                        to: newUser.email,
+                        username: newUser.username
+                    }));
+                }
+            }
+            return newUser;
+        } finally {
+            // Cleanup: Delete the temporary file from the disk
+            if (opts.input.profile) {
+                const filePath = opts.input.profile[0].path;
+                if (fs.existsSync(filePath)) {
+                    fs.unlink(filePath, (err) => {
+                        if (err) {
+                            console.error('Error deleting temporary file:', filePath, err);
+                        }
+                    });
+                }
             }
         }
-        return newUser;
     }),
     /**
      * Upload a profile of a user.
@@ -633,21 +658,34 @@ export const userRouter = t.router({
         if (requester.type !== enumUserTypes.ADMIN || requester.id !== opts.input.userId) {
             throw new GraphQLError('User can only upload profile of themself.', { extensions: { code: errorCodes.NO_PERMISSION_ERROR } });
         }
-
-        const res = await fileCore.uploadFile(
-            requester.id,
-            null,
-            opts.input.userId,
-            opts.input.fileUpload[0],
-            opts.input.description,
-            enumFileTypes[(opts.input.fileUpload[0].filename.split('.').pop() || '').toUpperCase() as keyof typeof enumFileTypes],
-            enumFileCategories.USER_PROFILE_FILE,
-            []
-        );
-        if (res) {
-            return makeGenericReponse(res.id, true, '', 'Profile has been uploaded successfully');
-        } else {
-            throw new GraphQLError(errorCodes.DATABASE_ERROR);
+        try {
+            const res = await fileCore.uploadFile(
+                requester.id,
+                null,
+                opts.input.userId,
+                opts.input.fileUpload[0],
+                opts.input.description,
+                enumFileTypes[(opts.input.fileUpload[0].filename.split('.').pop() || '').toUpperCase() as keyof typeof enumFileTypes],
+                enumFileCategories.USER_PROFILE_FILE,
+                []
+            );
+            if (res) {
+                return makeGenericReponse(res.id, true, '', 'Profile has been uploaded successfully');
+            } else {
+                throw new GraphQLError(errorCodes.DATABASE_ERROR);
+            }
+        } finally {
+            // Cleanup: Delete the temporary file from the disk
+            if (opts.input.profile) {
+                const filePath = opts.input.profile[0].path;
+                if (fs.existsSync(filePath)) {
+                    fs.unlink(filePath, (err) => {
+                        if (err) {
+                            console.error('Error deleting temporary file:', filePath, err);
+                        }
+                    });
+                }
+            }
         }
     }),
     /**
@@ -859,7 +897,7 @@ export const userRouter = t.router({
         userId: z.string()
     })).query(async (opts: any) => {
         const requester: IUser = opts.ctx.req?.user ?? opts.ctx.user;
-        if (requester.type !== enumUserTypes.ADMIN || requester.id !== opts.input.userId) {
+        if (requester.type !== enumUserTypes.ADMIN && requester.id !== opts.input.userId) {
             throw new TRPCError({
                 code: enumTRPCErrorCodes.BAD_REQUEST,
                 message: errorCodes.NO_PERMISSION_ERROR
@@ -873,7 +911,7 @@ export const userRouter = t.router({
         associatedUserId: z.string()
     })).mutation(async (opts: any) => {
         const requester: IUser = opts.ctx.req?.user ?? opts.ctx.user;
-        if (requester.type !== enumUserTypes.ADMIN || requester.id !== opts.input.associatedUserId) {
+        if (requester.type !== enumUserTypes.ADMIN && requester.id !== opts.input.associatedUserId) {
             throw new TRPCError({
                 code: enumTRPCErrorCodes.BAD_REQUEST,
                 message: errorCodes.NO_PERMISSION_ERROR

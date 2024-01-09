@@ -4,22 +4,20 @@ import { QueryClient, useQueryClient } from '@tanstack/react-query';
 import { enumDocTypes, IDoc } from '@itmat-broker/itmat-types';
 import LoadSpinner from '../reusable/loadSpinner';
 // import { ProjectSection } from '../users/projectSection';
-import { Form, Input, Select, Button, Typography, Row, Col, Upload, message, notification, Card, Popconfirm } from 'antd';
-import { UploadOutlined, LinkOutlined } from '@ant-design/icons';
+import { Form, Input, Select, Button, Typography, Row, Col, Upload, message, notification, Card, Popconfirm, List } from 'antd';
+import { UploadOutlined, LinkOutlined, CloudDownloadOutlined } from '@ant-design/icons';
 import css from './document.module.css';
 import React from 'react';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 
 import { trpc } from '../../utils/trpc';
-const { Title } = Typography;
-const { TextArea } = Input;
-const { Paragraph, Text, Link } = Typography;
+const { Paragraph } = Typography;
 const { Option } = Select;
 
 export const DocumentSection: FunctionComponent = () => {
     const whoAmI = trpc.user.whoAmI.useQuery();
-    const getDocs = trpc.doc.getDocs.useQuery({ docId: null, studyId: null, docTypes: null, verbose: false });
+    const getDocs = trpc.doc.getDocs.useQuery({ studyId: null, verbose: false });
     const [mode, setMode] = React.useState('VIEW'); // VIEW, EDIT, CREATE
     const [docValue, setDocValue] = React.useState<Partial<IDoc> | null>(null);
     const queryClient = useQueryClient();
@@ -53,26 +51,41 @@ export const DocumentSection: FunctionComponent = () => {
     return (
         <div className={css.page_container}>
             <div className={css.document_top}>
-                <Button onClick={() => {
-                    setDocValue(null);
-                    setMode('CREATE');
-                }}>New Document</Button>
-                <Popconfirm
-                    title={`Delete file ${docValue?.title ?? 'NA'}`}
-                    description={`Are you sure to delete file ${docValue?.title ?? 'NA'}?`}
-                    onConfirm={() => deleteDoc.mutate({ docId: docValue?.id ?? '' })}
-                    okText="Yes"
-                    cancelText="No"
+                <List
+                    header={
+                        <div className={css['overview-header']} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div className={css['overview-header']} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div style={{ display: 'flex', alignItems: 'center' }}>
+                                    <div className={css['overview-icon']}></div>
+                                    <div>Documents</div>
+                                </div>
+                            </div>
+                            <div>
+                                <Button onClick={() => {
+                                    setDocValue(null);
+                                    setMode('CREATE');
+                                }}>New Document</Button>
+                                <Popconfirm
+                                    title={`Delete file ${docValue?.title ?? 'NA'}`}
+                                    description={`Are you sure to delete file ${docValue?.title ?? 'NA'}?`}
+                                    onConfirm={() => deleteDoc.mutate({ docId: docValue?.id ?? '' })}
+                                    okText="Yes"
+                                    cancelText="No"
+                                >
+                                    <Button danger>Delete</Button>
+                                </Popconfirm>
+                                <Button onClick={() => {
+                                    setMode('VIEW');
+                                    setDocValue(null);
+                                }}>Cancel</Button>
+                                <Button onClick={() => {
+                                    setMode('EDIT');
+                                }}>Edit</Button>
+                            </div>
+                        </div>
+                    }
                 >
-                    <Button danger>Delete</Button>
-                </Popconfirm>
-                <Button onClick={() => {
-                    setMode('VIEW');
-                    setDocValue(null);
-                }}>Cancel</Button>
-                <Button onClick={() => {
-                    setMode('EDIT');
-                }}>Edit</Button>
+                </List>
             </div>
             <div className={css.document_left}>
                 <DocumentList docList={getDocs.data as any} setValue={setDocValue} />
@@ -106,13 +119,13 @@ export const DocumentList: FunctionComponent<{ docList: Partial<IDoc>[], setValu
     );
 };
 
-export const EditDocument: FunctionComponent<{ value: any, setValue: any, mode: string, client: QueryClient }> = ({ value, setValue, mode, client }) => {
+export const EditDocument: FunctionComponent<{ value: any, setValue: any, mode: string, client: QueryClient }> = ({ value, client }) => {
     const [form] = Form.useForm();
     const createDoc = trpc.doc.createDoc.useMutation({
         onSuccess: () => {
             message.success('success');
             form.resetFields();
-            client.invalidateQueries({ queryKey: ['getDocs', { docId: null, studyId: null, docTypes: null, verbose: false }] });
+            client.invalidateQueries(['getDocs', { docId: null, studyId: null, docTypes: null, verbose: false }]);
         },
         onError: (error) => {
             notification.error({
@@ -123,12 +136,11 @@ export const EditDocument: FunctionComponent<{ value: any, setValue: any, mode: 
             });
         }
     });
+
+    // useEffect to handle value changes
     useEffect(() => {
-        if (value) {
-            form.setFieldsValue(value);
-        }
-    });
-    console.log(form.getFieldsValue());
+        form.setFieldsValue({ contents: value });
+    }, [value, form]);
     return (<>
         <Form form={form}>
             <Form.Item name='title'>
@@ -158,10 +170,9 @@ export const EditDocument: FunctionComponent<{ value: any, setValue: any, mode: 
                 <ReactQuill
                     className={css.qleditor}
                     theme="snow"
-                    value={value}
-                    onChange={(content, delta) => {
-                        setValue(content);
-                        form.setFieldValue('contents', content);
+                    value={form.getFieldValue('contents') || ''}
+                    onChange={(content, delta, source, editor) => {
+                        form.setFieldsValue({ contents: editor.getHTML() });
                     }}
                     modules={{
                         toolbar: [
@@ -199,22 +210,42 @@ export const EditDocument: FunctionComponent<{ value: any, setValue: any, mode: 
             </Form.Item>
         </Form>
         <Button onClick={async () => {
-            await createDoc.mutate({
+            const attachments = form.getFieldValue('attachments');
+            const paths: any[] = [];
+            for (const attachment of attachments) {
+                const fileData = attachment;
+                const formData = new FormData();
+                formData.append('file', fileData);
+
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                paths.push({
+                    path: data.filePath, // This should be the path returned by the server
+                    filename: fileData.name,
+                    mimetype: fileData.type,
+                    size: fileData.size
+                });
+            }
+            createDoc.mutate({
                 title: form.getFieldValue('title'),
                 type: form.getFieldValue('type'),
                 description: form.getFieldValue('description') ?? null,
                 tag: form.getFieldValue('tag') ?? null,
                 studyId: null,
                 priority: form.getFieldValue('priority') ?? 0,
-                attachments: form.getFieldValue('attachments'),
+                attachments: paths,
                 contents: form.getFieldValue('contents')
             });
-        }}>Create</Button >
+        }
+        }>Create</Button >
     </>);
 };
 
 export const DocumentViewer: FunctionComponent<{ doc: Partial<IDoc> | null, setValue: any }> = ({ doc, setValue }) => {
-    const getDocs = trpc.doc.getDocs.useQuery({ docId: doc?.id ?? '', studyId: null, docTypes: null, verbose: true });
+    const getDocs = trpc.doc.getDocs.useQuery({ docId: doc?.id ?? '', studyId: null, verbose: true });
     useEffect(() => {
         getDocs.data && setValue(getDocs.data[0]);
     }, [doc]);
@@ -235,10 +266,7 @@ export const DocumentViewer: FunctionComponent<{ doc: Partial<IDoc> | null, setV
     if (!getDocs.data) {
         return null;
     }
-    // if (!doc) {
-    //     return null;
-    // }
-    const doc_ = getDocs.data[0];
+    const doc_: any = getDocs.data[0];
     if (doc_) {
         return (
             <>
@@ -261,6 +289,24 @@ export const DocumentViewer: FunctionComponent<{ doc: Partial<IDoc> | null, setV
                 </Row>
                 <Paragraph style={{ textAlign: 'center' }}>{doc_.description}</Paragraph>
                 <div dangerouslySetInnerHTML={{ __html: doc_.contents ?? '' }}></div>
+                <span>Attachments:</span>
+                {
+                    doc_.attachmentFileIds ? doc_.attachmentFileIds.map(el => {
+                        if (!doc_.metadata || !doc_.metadata.docs) {
+                            return <Button>File Not Found.</Button>;
+                        }
+                        const thisDoc: any = doc_.metadata.docs.filter(es => es.id === el)[0];
+                        if (!thisDoc) {
+                            return <Button>File Not Found.</Button>;
+                        }
+                        return <Button
+                            icon={<CloudDownloadOutlined />}
+                            download={`${thisDoc.fileName ?? ''}`}
+                            href={`/file/${thisDoc.id}`}>
+                            {`Download ${thisDoc.fileName}`}
+                        </Button>;
+                    }) : null
+                }
             </>
         );
     } else {

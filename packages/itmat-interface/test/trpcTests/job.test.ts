@@ -14,7 +14,7 @@ import { Db, MongoClient } from 'mongodb';
 import { setupDatabase } from '@itmat-broker/itmat-setup';
 import config from '../../config/config.sample.json';
 import { v4 as uuid } from 'uuid';
-import { enumUserTypes } from '@itmat-broker/itmat-types';
+import { enumJobType, enumUserTypes } from '@itmat-broker/itmat-types';
 import path from 'path';
 import { errorCodes } from 'packages/itmat-interface/src/graphql/errors';
 if (global.hasMinio) {
@@ -78,8 +78,21 @@ if (global.hasMinio) {
     });
 
     describe('tRPC job APIs', () => {
-        test('', async () => {
-            expect(true).toBe(true);
+        test('Create a job', async () => {
+            const response = await user.post('/trpc/job.createJob')
+                .send({
+                    name: 'Test Job',
+                    startTime: 10000,
+                    period: 10000,
+                    type: enumJobType.SYSTEMPROCESS,
+                    data: null,
+                    parameters: {},
+                    priority: 100
+                });
+            expect(response.status).toBe(200);
+            expect(response.body.result.data.name).toBe('Test Job');
+            const job = await db.collections!.jobs_collection.findOne({});
+            expect(job.id).toBe(response.body.result.data.id);
         });
     });
 } else {

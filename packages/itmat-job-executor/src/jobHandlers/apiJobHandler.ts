@@ -58,6 +58,9 @@ export class APIHandler extends JobHandler {
 
     public async execute(document: IJob): Promise<any> {
         try {
+            if (!document.executor) {
+                return { error: true, response: 'No path found.' };
+            }
             const [routerName, procedureName] = document.executor.path.split('.');
             const result = await this.caller[routerName as keyof TRPCCaller][procedureName as keyof ProcedureCaller](document.parameters);
             return { error: null, response: result };

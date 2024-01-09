@@ -4,7 +4,7 @@ import { DatasetDetailPage } from '../datasetDetail';
 import { DatasetPage } from '../dataset';
 // import { ProjectDetailPage } from '../projectDetail';
 // import { ProjectListPage } from '../projectList';
-// import { UserPage } from '../users';
+import { UserPage } from '../users';
 // import { LogPage } from '../log';
 // import { MyFilePage } from '../files';
 import { ProfilePage } from '../profile';
@@ -23,7 +23,7 @@ export const MainPanel: FunctionComponent = () => {
                 {/* <Route path='/projects' element={<ProjectListPage />} /> */}
                 <Route path='/datasets/:studyId/*' element={<DatasetDetailPage />} />
                 <Route path='/datasets' element={<DatasetPage />} />
-                {/* <Route path='/users' element={<UserPage />} /> */}
+                <Route path='/users' element={<UserPage />} />
                 {/* <Route path='/users/:userId' element={<UserPage />} /> */}
                 <Route path='/logs' element={<LogPage />} />
                 <Route path='/profile' element={<ProfilePage />} />

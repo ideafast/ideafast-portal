@@ -22,17 +22,17 @@ export class JobCore {
      *
      * @return IJob
      */
-    public async createJob(requester: string, name: string, nextExecutionTime: number | null, period: number | null, type: enumJobType, executor: any, data: any, parameters: any, priority: number): Promise<IJob> {
+    public async createJob(requester: string, name: string, type: enumJobType, nextExecutionTime?: number, period?: number, executor?: any, data?: any, parameters?: any, priority?: number): Promise<IJob> {
         const jobEntry: IJob = {
             id: uuid(),
             name: name,
             nextExecutionTime: nextExecutionTime ?? Date.now(),
-            period: period,
+            period: period ?? null,
             type: type,
-            executor: executor,
-            data: data,
-            parameters: parameters,
-            priority: priority,
+            executor: executor ?? null,
+            data: data ?? null,
+            parameters: parameters ?? null,
+            priority: priority ?? 0,
             history: [],
             life: {
                 createdTime: Date.now(),

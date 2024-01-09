@@ -140,7 +140,7 @@ export class UserCore {
         const userId: string = uuid();
         const hashedPassword: string = await bcrypt.hash(password, config.bcrypt.saltround);
         const expiredAt = Date.now() + 86400 * 1000 /* millisec per day */ * (userConfig.defaultUserExpiredDays);
-        let fileEntry;
+        let fileEntry: any = undefined;
         if (profile) {
             if (!Object.keys(enumFileTypes).includes((profile?.filename?.split('.').pop() || '').toUpperCase())) {
                 throw new TRPCError({
@@ -162,7 +162,7 @@ export class UserCore {
             resetPasswordRequests: [],
             password: hashedPassword,
             otpSecret: otpSecret,
-            profile: (profile && fileEntry) ? fileEntry.id : null,
+            profile: (profile && fileEntry) ? fileEntry?.id : null,
             description: description ?? '',
             expiredAt: expiredAt,
             life: {

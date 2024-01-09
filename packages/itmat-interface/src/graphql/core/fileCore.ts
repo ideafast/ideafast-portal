@@ -32,8 +32,6 @@ export class FileCore {
          *
          * @return IFile - The object of IFile.
          */
-
-
         let study: any;
         if (studyId) {
             study = (await studyCore.getStudies(studyId))[0];
@@ -180,13 +178,13 @@ export class FileCore {
                     }));
                 } finally {
                     // Cleanup: Delete the temporary file from the disk
-                    fs.unlink(filePath, (err) => {
-                        if (err) {
-                            console.error('Error deleting temporary file:', filePath, err);
-                        } else {
-                            console.log('Temporary file deleted:', filePath);
-                        }
-                    });
+                    if (fs.existsSync(filePath)) {
+                        fs.unlink(filePath, (err) => {
+                            if (err) {
+                                console.error('Error deleting temporary file:', filePath, err);
+                            }
+                        });
+                    }
                 }
             });
 

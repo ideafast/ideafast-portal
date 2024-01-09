@@ -1,33 +1,22 @@
 .login_wrapper {
     display: flex;
-    /* flex-direction: column; */
     height: 100vh;
 }
 
-
 .login_left {
     flex: 6;
-    /* width: 60%; */
-    min-width: 0;
-    background-color: aqua;
     display: flex;
-    justify-content: center;
     align-items: center;
+    justify-content: center;
 }
 
-.carousel_wrapper {
-    height: 100%;
+.login_left img {
     width: 100%;
-    /* This ensures it takes the full width of its parent */
-    /* display: flex; */
-}
-
-.ant-carousel {
-    display: flex;
-    justify-content: center;
-    /* Center items horizontally */
-    align-items: center;
-    /* Center items vertically */
+    /* This will make the image take up 100% of the width of its parent */
+    height: 100%;
+    /* This will make the image take up 100% of the height of its parent */
+    object-fit: contain;
+    /* Change to 'cover' if you want the image to cover the entire container */
 }
 
 .login_right {

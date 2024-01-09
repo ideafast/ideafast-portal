@@ -19,7 +19,7 @@ import { docCore } from '../core/docCore';
 
 export const docResolvers = {
     Query: {
-        getDocs: async (__unused__parent: Record<string, unknown>, { docId, studyId, docTypes, verbose }: { docId: string | null, studyId: string | null, docTypes: enumDocTypes[] | null, verbose: boolean }): Promise<Partial<IDoc>[]> => {
+        getDocs: async (__unused__parent: Record<string, unknown>, { docId, studyId, docTypes, verbose }: { docId: string | null, studyId?: string, docTypes?: enumDocTypes[], verbose: boolean }): Promise<Partial<IDoc>[]> => {
             /**
              * Get the docs.
              *
@@ -31,11 +31,11 @@ export const docResolvers = {
              * @return Partial<IDoc>[]
              */
 
-            return await docCore.getDocs(docId, studyId, docTypes, verbose);
+            return await docCore.getDocs(docId, verbose, studyId, docTypes);
         }
     },
     Mutation: {
-        createDoc: async (__unused__parent: Record<string, unknown>, { title, type, description, tag, studyId, priority, attachments, contents }: { title: string, type: enumDocTypes, description: string | null, tag: string | null, studyId: string | null, priority: number, attachments: any | null, contents: string }, context: any): Promise<Partial<IDoc>> => {
+        createDoc: async (__unused__parent: Record<string, unknown>, { title, type, description, tag, studyId, priority, attachments, contents }: { title: string, type: enumDocTypes, description?: string, tag?: string, studyId: string | null, priority?: number, attachments?: any, contents?: string }, context: any): Promise<Partial<IDoc>> => {
             /**
              * Create a doc.
              *
@@ -59,10 +59,10 @@ export const docResolvers = {
                     attachements_.push(await attachment);
                 }
             }
-            const doc = await docCore.createDoc(requester.id, title, studyId, description, type, tag, contents, priority, attachments ? attachements_ : null);
+            const doc = await docCore.createDoc(requester.id, title, studyId, type, description, tag, contents, priority, attachments ? attachements_ : null);
             return doc;
         },
-        editDoc: async (__unused__parent: Record<string, unknown>, { docId, contents, title, tag, description, priority, addAttachments, removeAttachments }: { docId: string, contents: string | null, title: string, tag: string | null, description: string | null, priority: number | null, addAttachments: any | null, removeAttachments: string[] | null }, context: any): Promise<Partial<IDoc>> => {
+        editDoc: async (__unused__parent: Record<string, unknown>, { docId, contents, title, tag, description, priority, addAttachments, removeAttachments }: { docId: string, contents?: string, title?: string, tag?: string, description?: string, priority?: number, addAttachments?: any, removeAttachments?: string[] }, context: any): Promise<Partial<IDoc>> => {
             /**
              * Edit a doc.
              *

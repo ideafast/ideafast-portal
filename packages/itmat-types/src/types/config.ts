@@ -29,6 +29,7 @@ export interface ISystemConfig extends IBase {
     archiveAddress: string;
     defaultEventTimeConsumptionBar: number[];
     jobSchedulerConfig: IJobSchedulerConfig;
+    defaultUserExpireDays: number;
 }
 
 export interface IStudyConfig extends IBase {
@@ -99,7 +100,7 @@ export class DefaultSettings implements IDefaultSettings {
         defaultMaximumFileSize: 1 * 1024 * 1024 * 1024, // 1 GB
         defaultFileBucketId: 'system',
         logoLink: null,
-        logoSize: ['224px', '224px'],
+        logoSize: ['24px', '24px'],
         archiveAddress: '',
         defaultEventTimeConsumptionBar: [50, 100],
         jobSchedulerConfig: {
@@ -109,7 +110,8 @@ export class DefaultSettings implements IDefaultSettings {
             reExecuteFailedJobs: false,
             failedJobDelayTime: 30 * 60 * 1000, // unit timestamps
             maxAttempts: 10 // the number of attempts should be stored in history
-        }
+        },
+        defaultUserExpireDays: 90
     };
 
     public readonly studyConfig: IStudyConfig = {

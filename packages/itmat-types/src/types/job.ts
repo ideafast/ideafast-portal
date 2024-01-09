@@ -5,9 +5,9 @@ export interface IJob extends IBase {
     nextExecutionTime: number; // when creating jobs, set it to now for immediate executed jobs or a further time; do not be confused if this time is older than the current time.
     period: number | null; // null for oneoff jobs
     type: enumJobType;
-    executor: IExecutor;
-    data: JSON;
-    parameters: JSON;
+    executor: IExecutor | null;
+    data: JSON | null;
+    parameters: JSON | null;
     priority: number;
     history: IJobHistory[]; // by default we will only keep the latest history
     counter: number;

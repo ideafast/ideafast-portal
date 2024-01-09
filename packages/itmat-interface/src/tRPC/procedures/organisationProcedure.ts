@@ -8,7 +8,8 @@ import { baseProcedure } from '../../log/trpcLogHelper';
 import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
 import { errorCodes } from '../../graphql/errors';
 import { convertSerializedBufferToBuffer, isSerializedBuffer } from '../../utils/file';
-
+import fs from 'fs';
+import path from 'path';
 const createContext = ({
     req,
     res
@@ -59,13 +60,27 @@ export const organisationRouter = t.router({
                 message: errorCodes.NO_PERMISSION_ERROR
             });
         }
-        return await organisationCore.createOrganisation(
-            requester.id,
-            opts.input.name,
-            opts.input.shortname,
-            opts.input.location,
-            opts.input.profile[0]
-        );
+        try {
+            return await organisationCore.createOrganisation(
+                requester.id,
+                opts.input.name,
+                opts.input.shortname,
+                opts.input.location,
+                opts.input.profile[0]
+            );
+        } finally {
+            // Cleanup: Delete the temporary file from the disk
+            if (opts.input.profile) {
+                const filePath = opts.input.profile[0].path;
+                if (fs.existsSync(filePath)) {
+                    fs.unlink(filePath, (err) => {
+                        if (err) {
+                            console.error('Error deleting temporary file:', filePath, err);
+                        }
+                    });
+                }
+            }
+        }
     }),
     /**
      * Delete an organisation.
@@ -98,14 +113,28 @@ export const organisationRouter = t.router({
                 message: errorCodes.NO_PERMISSION_ERROR
             });
         }
-        return await organisationCore.editOrganisation(
-            requester.id,
-            opts.input.organisationId,
-            opts.input.name,
-            opts.input.shortname,
-            opts.input.location,
-            opts.input.profile[0]
-        );
+        try {
+            return await organisationCore.editOrganisation(
+                requester.id,
+                opts.input.organisationId,
+                opts.input.name,
+                opts.input.shortname,
+                opts.input.location,
+                opts.input.profile[0]
+            );
+        } finally {
+            // Cleanup: Delete the temporary file from the disk
+            if (opts.input.profile) {
+                const filePath = opts.input.profile[0].path;
+                if (fs.existsSync(filePath)) {
+                    fs.unlink(filePath, (err) => {
+                        if (err) {
+                            console.error('Error deleting temporary file:', filePath, err);
+                        }
+                    });
+                }
+            }
+        }
     }),
     /**
      * Delete an organisation.

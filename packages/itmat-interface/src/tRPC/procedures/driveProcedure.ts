@@ -5,7 +5,8 @@ import { driveCore } from '../../graphql/core/driveCore';
 import { userCore } from '../../graphql/core/userCore';
 import { IDrivePermission } from '@itmat-broker/itmat-types';
 import { baseProcedure } from '../../log/trpcLogHelper';
-import { convertSerializedBufferToBuffer, isSerializedBuffer } from '../../utils/file';
+import fs from 'fs';
+import path from 'path';
 
 const createContext = ({
     req,
@@ -56,10 +57,23 @@ export const driveRouter = t.router({
             // ... other validation ...
         }))
     })).mutation(async (opts: any) => {
-        console.log(opts.input.file);
         const requester = opts.ctx.req?.user ?? opts.ctx.user;
-        const file_ = await opts.input.file[0];
-        return await driveCore.createDriveFileNode(requester.id, opts.input.parentId, opts.input.description, (file_.filename.split('.').pop() || '').toUpperCase(), opts.input.file[0]);
+        try {
+            const file_ = await opts.input.file[0];
+            return await driveCore.createDriveFileNode(requester.id, opts.input.parentId, opts.input.description, (file_.filename.split('.').pop() || '').toUpperCase(), opts.input.file[0]);
+        } finally {
+            // Cleanup: Delete the temporary file from the disk
+            if (opts.input.file) {
+                const filePath = opts.input.file[0].path;
+                if (fs.existsSync(filePath)) {
+                    fs.unlink(filePath, (err) => {
+                        if (err) {
+                            console.error('Error deleting temporary file:', filePath, err);
+                        }
+                    });
+                }
+            }
+        }
     }),
     /**
      * Get the drive nodes of a user, including own drives and shared drives.

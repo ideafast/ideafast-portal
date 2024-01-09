@@ -234,8 +234,7 @@ if (global.hasMinio) {
             request.field('parentId', 'random');
             request.field('description', '');
             const response = await request;
-
-            expect(response.status).toBe(500);
+            expect(response.status).toBe(400);
             expect(response.body.error.message).toBe('Parent node does not exist.');
             const drives = await db.collections!.drives_collection.find({ managerId: userProfile.id }).toArray();
             expect(drives).toHaveLength(1);
@@ -364,7 +363,7 @@ if (global.hasMinio) {
                     }
                 });
             expect(response2.status).toBe(400);
-            expect(response2.body.error.message).toBe('User does not exist');
+            expect(response2.body.error.message).toBe('User does not exist.');
         });
         test('Share folders/files to another user group', async () => {
             const group: IGroupNode = {

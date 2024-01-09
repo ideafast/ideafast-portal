@@ -12,19 +12,19 @@ import { GithubOutlined } from '@ant-design/icons';
 import { trpc } from '../../utils/trpc';
 import logo from '../../assets/logo.png';
 import dsi from '../../assets/datascienceinstitute.png';
+import mainPageImage from '../../assets/mainPageImage.png';
 export const LoginBox: FunctionComponent = () => {
     const getSystemConfig = trpc.config.getConfig.useQuery({ configType: enumConfigType.SYSTEMCONFIG, key: null, useDefault: true });
-    const getDocs = trpc.doc.getDocs.useQuery({ docId: null, studyId: null, docTypes: [enumDocTypes.HOMEPAGE], verbose: true });
     const login = trpc.user.login.useMutation({
         onSuccess: () => {
             window.location.reload();
         }
     });
 
-    if (getSystemConfig.isLoading || getDocs.isLoading) {
+    if (getSystemConfig.isLoading) {
         return <LoadSpinner />;
     }
-    if (getSystemConfig.isError || getDocs.isError) {
+    if (getSystemConfig.isError) {
         return <p>
             An error occured, please contact your administrator
         </p>;
@@ -39,19 +39,10 @@ export const LoginBox: FunctionComponent = () => {
     const systemConfig = (getSystemConfig.data as IConfig).properties as ISystemConfig;
     return (<div className={css.login_wrapper}>
         <div className={css.login_left}>
-            <div className={css.carousel_wrapper}>
-                <Carousel autoplay>
-                    {
-                        getDocs.data.map(el => {
-                            if (el.attachmentFileIds && el.attachmentFileIds.length === 1) {
-                                return <Image src={`${window.location.origin}/file/${el.attachmentFileIds[0]}`} />;
-                            } else {
-                                return null;
-                            }
-                        })
-                    }
-                </Carousel>
-            </div>
+            <img
+                src={mainPageImage}
+                alt=''
+            />
         </div>
         <div className={css.login_right}>
             <div className={css.login_logo}>

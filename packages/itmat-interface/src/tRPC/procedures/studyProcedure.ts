@@ -9,6 +9,8 @@ import { baseProcedure } from '../../log/trpcLogHelper';
 import { BufferSchema } from './type';
 import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
 import { convertSerializedBufferToBuffer, isSerializedBuffer } from '../../utils/file';
+import fs from 'fs';
+import path from 'path';
 import { permissionCore } from '../../graphql/core/permissionCore';
 const createContext = ({
     req,
@@ -63,8 +65,22 @@ export const studyRouter = t.router({
             });
         }
         /* create study */
-        const study = await studyCore.createStudy(requester.id, opts.input.name, opts.input.description, opts.input.profile[0]);
-        return study;
+        try {
+            const study = await studyCore.createStudy(requester.id, opts.input.name, opts.input.description, opts.input.profile[0]);
+            return study;
+        } finally {
+            // Cleanup: Delete the temporary file from the disk
+            if (opts.input.profile) {
+                const filePath = opts.input.profile[0].path;
+                if (fs.existsSync(filePath)) {
+                    fs.unlink(filePath, (err) => {
+                        if (err) {
+                            console.error('Error deleting temporary file:', filePath, err);
+                        }
+                    });
+                }
+            }
+        }
     }),
     /**
      * Edit a study.
@@ -94,9 +110,22 @@ export const studyRouter = t.router({
                 message: errorCodes.NO_PERMISSION_ERROR
             });
         }
-
-        const study = await studyCore.editStudy(requester.id, opts.input.studyId, opts.input.name, opts.input.description, opts.input.profile[0]);
-        return study;
+        try {
+            const study = await studyCore.editStudy(requester.id, opts.input.studyId, opts.input.name, opts.input.description, opts.input.profile[0]);
+            return study;
+        } finally {
+            // Cleanup: Delete the temporary file from the disk
+            if (opts.input.profile) {
+                const filePath = opts.input.profile[0].path;
+                if (fs.existsSync(filePath)) {
+                    fs.unlink(filePath, (err) => {
+                        if (err) {
+                            console.error('Error deleting temporary file:', filePath, err);
+                        }
+                    });
+                }
+            }
+        }
     }),
     /**
      * Delete a study.

@@ -15,7 +15,8 @@ import { enumCacheStatus } from 'packages/itmat-types/src/types/cache';
 import { TRPCError } from '@trpc/server';
 import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
 import { transcode } from 'buffer';
-
+import fs from 'fs';
+import path from 'path';
 
 export interface IDataClipInput {
     fieldId: string;
@@ -1028,6 +1029,13 @@ export class DataCore {
             });
         }
 
+        if (!Object.keys(enumFileTypes).includes((file?.filename?.split('.').pop() || '').toUpperCase())) {
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'File type not supported.'
+            });
+        }
+
         if (field.properties) {
             for (const property of field.properties) {
                 if (property.required && (!properties || !properties[property.name])) {
@@ -1204,59 +1212,52 @@ export class DataCore {
         fileName: string,
         requester: string
     ): Promise<any> {
-        // Convert the JSON object into a JSON string, chunk by chunk
-        function* chunkedStringify(jsonObject: any, chunkSize = 1024): Generator<string> {
-            const jsonString = JSON.stringify(jsonObject);
-            let index = 0;
-            while (index < jsonString.length) {
-                yield jsonString.slice(index, index + chunkSize);
-                index += chunkSize;
-            }
+        const uploadsDir = 'uploads'; // Define the uploads directory
+
+        // Ensure the uploads directory exists
+        if (!fs.existsSync(uploadsDir)) {
+            fs.mkdirSync(uploadsDir);
         }
 
-        // Your promise should wrap the core logic
+        // Define the full path for the new file
+        const filePath = path.join(uploadsDir, fileName);
+
         return new Promise((resolve, reject) => {
-            // Create a passthrough stream to gather data
-            const gatherStream = new PassThrough();
+            // Write the JSON object to a file
+            fs.writeFile(filePath, JSON.stringify(jsonObject), (writeErr) => {
+                if (writeErr) {
+                    return reject(writeErr);
+                }
 
-            // This array will collect chunks of data
-            const chunks: Buffer[] = [];
-
-            // Collect chunks in the array
-            gatherStream.on('data', (chunk: Buffer) => {
-                chunks.push(chunk);
-            });
-
-            // Once the stream ends, concatenate all chunks to produce the final buffer
-            gatherStream.on('end', () => {
-                const fileBuffer = Buffer.concat(chunks);
-
+                // Prepare the file data for upload
                 const result = {
-                    fileBuffer: fileBuffer,
+                    path: filePath, // Use the file path
                     filename: fileName,
                     mimetype: 'application/json',
-                    size: fileBuffer.length
+                    size: fs.statSync(filePath).size
                 };
 
-                // Upload to MinIO or any other target using the provided upload function
+                // Upload the file using the provided upload function
                 fileCore.uploadFile(
                     requester,
-                    null,
-                    null,
-                    result, // fileupload
+                    null, // studyId
+                    null, // userId
+                    result, // fileUpload
                     null, // description
                     enumFileTypes.JSON,
                     enumFileCategories.CACHE,
-                    null
-                ).then(resolve).catch(reject);
+                    null // properties
+                ).then(resolve).catch(reject).finally(() => {
+                    // Cleanup: Delete the temporary file from the disk
+                    if (fs.existsSync(filePath)) {
+                        fs.unlink(filePath, (err) => {
+                            if (err) {
+                                console.error('Error deleting temporary file:', filePath, err);
+                            }
+                        });
+                    }
+                });
             });
-
-            // Send the JSON chunks to our gathering stream
-            for (const chunk of chunkedStringify(jsonObject)) {
-                gatherStream.write(chunk);
-            }
-
-            gatherStream.end();
         });
     }
 
