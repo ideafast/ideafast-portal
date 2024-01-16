@@ -82,13 +82,13 @@ export class MerkleTree {
     // Build the merkle tree with a non-null list of nodes
     buildTree(nodes: MerkleNode[], hash: string[][], level: number): MerkleNode {
         if (level === 0) {
-            this.allNodes.pop(); 
+            this.allNodes.pop();
         }
 
         this.allNodes.push(nodes);
         for (let nodeIndex = 0; nodeIndex < nodes.length; nodeIndex++) {
             if (nodes[nodeIndex].hash !== hash[level][nodeIndex]) {
-                throw Error("Incorrect hashes!");
+                throw Error('Incorrect hashes!');
             }
         }
         if (nodes.length === 1) {
@@ -114,11 +114,11 @@ export class MerkleTree {
         if (newNode === null) {
             thisLevelLastNode.hash = thisLevelLastNode.calculateHash();
             if (nextLevelExisted === true) {
-                const nextLevelNodes = this.allNodes[treeLevel + 1]
+                const nextLevelNodes = this.allNodes[treeLevel + 1];
                 if (nextLevelNodes[nextLevelNodes.length - 1].right === null) {
-                    nextLevelNodes[nextLevelNodes.length - 1].left = thisLevelLastNode; 
+                    nextLevelNodes[nextLevelNodes.length - 1].left = thisLevelLastNode;
                 } else {
-                    nextLevelNodes[nextLevelNodes.length - 1].right = thisLevelLastNode; 
+                    nextLevelNodes[nextLevelNodes.length - 1].right = thisLevelLastNode;
                 }
                 this.updateTree(null, treeLevel + 1);
             }
@@ -156,7 +156,7 @@ export class MerkleTree {
         if (leafNodes[leafNodes.length - 1].isNodeFull()) {
             const newNode = new MerkleNode(null, null, [newData]);
             this.updateTree(newNode, 0);
-            console.log("Node full!")
+            console.log('Node full!');
         } else {
             leafNodes[leafNodes.length - 1].appendData(newData);
             this.updateTree(null, 0);
@@ -348,10 +348,10 @@ export class MerkleTreeLog {
             const tmpLog = await db.collections!.hashnode_collection.findOne({
                 treeIndex: index
             });
-            
+
             if (tmpLog !== null) {
                 const tmpTree = new MerkleTree(null);
-                const tmpNodes = tmpLog.dataBlocks.map(dataBlock => new MerkleNode(null, null, dataBlock))
+                const tmpNodes = tmpLog.dataBlocks.map(dataBlock => new MerkleNode(null, null, dataBlock));
                 const tmpHashes = tmpLog.hashNodes;
                 tmpTree.buildTree(tmpNodes, tmpHashes, 0);
                 if (tmpTree.verifyData(data)) {
@@ -360,7 +360,7 @@ export class MerkleTreeLog {
                 }
             }
             else {
-                throw Error("Logs not found!")
+                throw Error('Logs not found!');
             }
         }
         return null;
