@@ -19,8 +19,6 @@ export const MainPanel: FunctionComponent = () => {
     return (
         <div className={css.main_panel}>
             <Routes>
-                {/* <Route path='/projects/:projectId/*' element={<ProjectDetailPage />} /> */}
-                {/* <Route path='/projects' element={<ProjectListPage />} /> */}
                 <Route path='/datasets/:studyId/*' element={<DatasetDetailPage />} />
                 <Route path='/datasets' element={<DatasetPage />} />
                 <Route path='/users' element={<UserPage />} />

@@ -125,7 +125,7 @@ export const EditDocument: FunctionComponent<{ value: any, setValue: any, mode: 
         onSuccess: () => {
             message.success('success');
             form.resetFields();
-            client.invalidateQueries(['getDocs', { docId: null, studyId: null, docTypes: null, verbose: false }]);
+            client.invalidateQueries(['getDocs', { docId: null, studyId: undefined, docTypes: null, verbose: false }]);
         },
         onError: (error) => {
             notification.error({
@@ -234,7 +234,7 @@ export const EditDocument: FunctionComponent<{ value: any, setValue: any, mode: 
                 type: form.getFieldValue('type'),
                 description: form.getFieldValue('description') ?? null,
                 tag: form.getFieldValue('tag') ?? null,
-                studyId: null,
+                studyId: undefined,
                 priority: form.getFieldValue('priority') ?? 0,
                 attachments: paths,
                 contents: form.getFieldValue('contents')

@@ -19,15 +19,15 @@ import {
 } from '@itmat-broker/itmat-types';
 import { v4 as uuid } from 'uuid';
 import { db } from '../../database/database';
-import { permissionCore } from '../core/permissionCore';
-import { validateAndGenerateFieldEntry } from '../core/fieldCore';
-import { studyCore } from '../core/studyCore';
+import { permissionCore } from '../../core/permissionCore';
+import { validateAndGenerateFieldEntry } from '../../core/fieldCore';
+import { studyCore } from '../../core/studyCore';
 import { errorCodes } from '../errors';
 import { makeGenericReponse } from '../responses';
 import { buildPipeline, translateMetadata } from '../../utils/query';
 import { dataStandardization } from '../../utils/query';
 import { FileUpload } from 'graphql-upload-minimal';
-import { userCore } from '../core/userCore';
+import { userCore } from '../../core/userCore';
 
 export const studyResolvers = {
     Query: {

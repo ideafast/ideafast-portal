@@ -6,16 +6,16 @@ import { IUser, IGenericResponse, IResetPasswordRequest, enumUserTypes, IOrganis
 import { Logger } from '@itmat-broker/itmat-commons';
 import { v4 as uuid } from 'uuid';
 import config from '../../utils/configManager';
-import { userCore } from '../core/userCore';
+import { userCore } from '../../core/userCore';
 import { errorCodes } from '../errors';
 import { makeGenericReponse } from '../responses';
 import QRCode from 'qrcode';
 import tmp from 'tmp';
 import { decryptEmail, encryptEmail, makeAESIv, makeAESKeySalt } from '../../encryption/aes';
 import * as mfa from '../../utils/mfa';
-import { configCore } from '../core/configCore';
+import { configCore } from '../../core/configCore';
 import { FileUpload } from 'graphql-upload-minimal';
-import { docCore } from '../core/docCore';
+import { docCore } from '../../core/docCore';
 
 export const docResolvers = {
     Query: {
@@ -35,7 +35,7 @@ export const docResolvers = {
         }
     },
     Mutation: {
-        createDoc: async (__unused__parent: Record<string, unknown>, { title, type, description, tag, studyId, priority, attachments, contents }: { title: string, type: enumDocTypes, description?: string, tag?: string, studyId: string | null, priority?: number, attachments?: any, contents?: string }, context: any): Promise<Partial<IDoc>> => {
+        createDoc: async (__unused__parent: Record<string, unknown>, { title, type, description, tag, studyId, priority, attachments, contents }: { title: string, type: enumDocTypes, description?: string, tag?: string, studyId?: string, priority?: number, attachments?: any, contents?: string }, context: any): Promise<Partial<IDoc>> => {
             /**
              * Create a doc.
              *
@@ -59,7 +59,7 @@ export const docResolvers = {
                     attachements_.push(await attachment);
                 }
             }
-            const doc = await docCore.createDoc(requester.id, title, studyId, type, description, tag, contents, priority, attachments ? attachements_ : null);
+            const doc = await docCore.createDoc(requester.id, title, type, studyId, description, tag, contents, priority, attachments ? attachements_ : null);
             return doc;
         },
         editDoc: async (__unused__parent: Record<string, unknown>, { docId, contents, title, tag, description, priority, addAttachments, removeAttachments }: { docId: string, contents?: string, title?: string, tag?: string, description?: string, priority?: number, addAttachments?: any, removeAttachments?: string[] }, context: any): Promise<Partial<IDoc>> => {

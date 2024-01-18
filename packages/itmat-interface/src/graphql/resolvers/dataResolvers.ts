@@ -8,8 +8,8 @@ import {
     IGenericResponse,
     IFieldProperty
 } from '@itmat-broker/itmat-types';
-import { studyCore } from '../core/studyCore';
-import { dataCore, IDataClipInput, ValueVerifierInput } from '../core/dataCore';
+import { studyCore } from '../../core/studyCore';
+import { dataCore, IDataClipInput, ValueVerifierInput } from '../../core/dataCore';
 import { FileUpload } from 'graphql-upload-minimal';
 import { makeGenericReponse } from '../responses';
 

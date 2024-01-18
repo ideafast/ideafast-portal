@@ -6,7 +6,7 @@ import { IUser, IPubkey, AccessToken, KeyPairwSignature, Signature } from '@itma
 import mongodb from 'mongodb';
 import { db } from '../../database/database';
 import config from '../../utils/configManager';
-import { userCore } from '../core/userCore';
+import { userCore } from '../../core/userCore';
 import { errorCodes } from '../errors';
 //import { makeGenericReponse, IGenericResponse } from '../responses';
 import * as pubkeycrypto from '../../utils/pubkeycrypto';

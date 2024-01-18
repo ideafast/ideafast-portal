@@ -8,10 +8,9 @@ import css from './components/scaffold/scaffold.module.css';
 // import { ResetPasswordPage } from './components/login/resetPasswordPage';
 // import { RequestResetPassword } from './components/login/requestResetPasswordPage';
 import { RegisterNewUser } from './components/login/register';
-import { WHO_AM_I } from '@itmat-broker/itmat-models';
 import LoadSpinner from './components/reusable/loadSpinner';
 import { StatusBar } from './components/scaffold/statusBar';
-import { convertRCFileToSchema, trpc } from './utils/trpc';
+import { trpc } from './utils/trpc';
 
 export const Fence: FunctionComponent = () => {
     const whoAmI = trpc.user.whoAmI.useQuery();

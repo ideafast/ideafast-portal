@@ -2,8 +2,8 @@ import { IOrganisation, IUser, enumConfigType, enumUserTypes } from '@itmat-brok
 import { TRPCError, inferAsyncReturnType, initTRPC } from '@trpc/server';
 import * as trpcExpress from '@trpc/server/adapters/express';
 import { custom, z } from 'zod';
-import { configCore } from '../../graphql/core/configCore';
-import { organisationCore } from '../../graphql/core/organisationCore';
+import { configCore } from '../../core/configCore';
+import { organisationCore } from '../../core/organisationCore';
 import { baseProcedure } from '../../log/trpcLogHelper';
 import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
 import { errorCodes } from '../../graphql/errors';

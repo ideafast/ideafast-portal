@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { db } from '../database/database';
 import { objStore } from '../objStore/objStore';
-import { permissionCore } from '../graphql/core/permissionCore';
+import { permissionCore } from '../core/permissionCore';
 import { enumDocTypes, enumFileCategories, IUser } from '@itmat-broker/itmat-types';
 import jwt from 'jsonwebtoken';
 import { userRetrieval } from '../authentication/pubkeyAuthentication';

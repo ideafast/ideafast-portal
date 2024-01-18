@@ -1,9 +1,9 @@
 import { GraphQLError } from 'graphql';
 import { IRole, IGenericResponse, enumStudyRoles, IDataPermission, IGroupNode, enumUserTypes } from '@itmat-broker/itmat-types';
 import { v4 as uuid } from 'uuid';
-import { db } from '../../database/database';
-import { errorCodes } from '../errors';
-import { makeGenericReponse } from '../responses';
+import { db } from '../database/database';
+import { errorCodes } from '../graphql/errors';
+import { makeGenericReponse } from '../graphql/responses';
 import { TRPCError } from '@trpc/server';
 import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
 

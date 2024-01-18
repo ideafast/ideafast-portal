@@ -1,4 +1,4 @@
-import { db } from '../../database/database';
+import { db } from '../database/database';
 import { ILog, enumEventType, enumAPIResolver, enumEventStatus } from '@itmat-broker/itmat-types';
 
 export class LogCore {

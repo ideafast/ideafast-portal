@@ -9,9 +9,9 @@ const { Title } = Typography;
 
 export const MyGroup: FunctionComponent = () => {
     const whoAmI = trpc.user.whoAmI.useQuery();
-    const getUserGroups = trpc.user.getUserGroups.useQuery({ userId: whoAmI.data.id });
+    const getUserGroups = trpc.user.getUserGroups.useQuery({ userId: whoAmI.data?.id });
     const getUsers = trpc.user.getUsers.useQuery({});
-    const [selectedGroup, setSelectedGroup] = React.useState<string | null>(getUserGroups?.data ? getUserGroups?.data[0].id ?? null : null);
+    const [selectedGroup, setSelectedGroup] = React.useState<string | null>(getUserGroups?.data ? getUserGroups?.data[0]?.id ?? null : null);
     if (whoAmI.isLoading || getUserGroups.isLoading || getUsers.isLoading) {
         return <>
             <div className='page_ariane'>Loading...</div>

@@ -1,17 +1,17 @@
 import bcrypt from 'bcrypt';
-import { db } from '../../database/database';
-import config from '../../utils/configManager';
+import { db } from '../database/database';
+import config from '../utils/configManager';
 import { GraphQLError } from 'graphql';
 import { IUser, enumUserTypes, IOrganisation, IPubkey, defaultSettings, IGenericResponse, enumFileTypes, enumFileCategories, IResetPasswordRequest, IDriveNode, enumDriveNodeTypes, IFile, IDrivePermission, FileUpload } from '@itmat-broker/itmat-types';
-import { makeGenericReponse } from '../responses';
+import { makeGenericReponse } from '../graphql/responses';
 import { v4 as uuid } from 'uuid';
-import { errorCodes } from '../errors';
+import { errorCodes } from '../graphql/errors';
 import { fileCore } from './fileCore';
-import * as mfa from '../../utils/mfa';
+import * as mfa from '../utils/mfa';
 import { TRPCError } from '@trpc/server';
 import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
 import { set } from 'zod';
-import { objStore } from '../../objStore/objStore';
+import { objStore } from '../objStore/objStore';
 import { error } from 'console';
 
 export class DriveCore {
@@ -250,24 +250,34 @@ export class DriveCore {
         for (const drives of drivesByUser) {
             resultObject[drives.managerId] = [];
             for (const drive of drives.drives) {
+                // filtered the permission objects
+                if (user.type !== enumUserTypes.ADMIN && drive.managerId !== user.id) {
+                    drive.sharedUsers = drive.sharedUsers.filter((el: { iid: string; }) => el.iid === requester);
+                    drive.sharedGroups = drive.sharedGroups.filter((el: any) => groupIds.includes(el));
+                }
                 resultObject[drives.managerId].push(drive);
             }
             if (drives.drives.filter((el: any) => el.parent === null).length === 0) {
-                const rootDrive = {
+                const rootDrive: any = {
                     id: uuid(),
-                    managerId: requester,
+                    managerId: drives.managerId,
                     restricted: false,
-                    name: drives.managerId,
+                    name: 'Shared',
                     description: null,
                     fileId: null,
                     type: enumDriveNodeTypes.FOLDER,
                     parent: null,
                     children: [],
-                    sharedUsers: [requester],
-                    sharedGroups: [requester],
+                    sharedUsers: [{
+                        iid: requester,
+                        read: true,
+                        write: false,
+                        delete: false
+                    }],
+                    sharedGroups: [],
                     life: {
                         createdTime: Date.now(),
-                        createdUser: requester,
+                        createdUser: drives.$managerId,
                         deletedTime: null,
                         deletedUser: null
                     },
@@ -276,8 +286,9 @@ export class DriveCore {
                 };
                 const existingIds = drives.drives.map((el: { id: any; }) => el.id);
                 for (const drive of resultObject[drives.managerId]) {
-                    if (!existingIds.includes(drive.id)) {
+                    if (!existingIds.includes(drive.parent)) {
                         drive.parent = rootDrive.id;
+                        rootDrive.children.push(drive.id);
                     }
                 }
                 resultObject[drives.managerId].push(rootDrive);

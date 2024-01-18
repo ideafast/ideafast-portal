@@ -4,7 +4,7 @@ import { v4 as uuid } from 'uuid';
 import { FileUpload } from 'graphql-upload-minimal';
 import { db } from '../../database/database';
 import { objStore } from '../../objStore/objStore';
-import { permissionCore } from '../core/permissionCore';
+import { permissionCore } from '../../core/permissionCore';
 import { errorCodes } from '../errors';
 import { makeGenericReponse } from '../responses';
 import crypto from 'crypto';
@@ -12,7 +12,7 @@ import { validate } from '@ideafast/idgen';
 import { deviceTypes } from '@itmat-broker/itmat-types';
 import { fileSizeLimit } from '../../utils/definition';
 import type { MatchKeysAndValues } from 'mongodb';
-import { studyCore } from '../core/studyCore';
+import { studyCore } from '../../core/studyCore';
 
 // default visitId for file data
 const targetVisitId = '0';

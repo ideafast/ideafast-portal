@@ -26,6 +26,7 @@ export interface IDataPermission {
     dataProperties: {
         [property: string]: string[] // regular expression
     },
+    includeUnVersioned: boolean,
     permission: number
 }
 

@@ -1,9 +1,9 @@
-import { db } from '../../database/database';
+import { db } from '../database/database';
 import { GraphQLError } from 'graphql';
 import { IOrganisation, IGenericResponse, enumFileTypes, enumFileCategories } from '@itmat-broker/itmat-types';
-import { makeGenericReponse } from '../responses';
+import { makeGenericReponse } from '../graphql/responses';
 import { v4 as uuid } from 'uuid';
-import { errorCodes } from '../errors';
+import { errorCodes } from '../graphql/errors';
 import { FileUpload } from 'graphql-upload-minimal';
 import { fileCore } from './fileCore';
 import { TRPCError } from '@trpc/server';

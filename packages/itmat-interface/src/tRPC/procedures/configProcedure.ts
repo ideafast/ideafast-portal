@@ -2,7 +2,7 @@ import { enumConfigType } from '@itmat-broker/itmat-types';
 import { inferAsyncReturnType, initTRPC } from '@trpc/server';
 import * as trpcExpress from '@trpc/server/adapters/express';
 import { custom, z } from 'zod';
-import { configCore } from '../../graphql/core/configCore';
+import { configCore } from '../../core/configCore';
 import { baseProcedure } from '../../log/trpcLogHelper';
 
 const createContext = ({

@@ -1,7 +1,7 @@
 import { enumUserTypes, IGenericResponse, IOrganisation, IUser } from '@itmat-broker/itmat-types';
 import { GraphQLError } from 'graphql';
 import { db } from '../../database/database';
-import { organisationCore } from '../core/organisationCore';
+import { organisationCore } from '../../core/organisationCore';
 import { errorCodes } from '../errors';
 import { makeGenericReponse } from '../responses';
 import { FileUpload } from 'graphql-upload-minimal';

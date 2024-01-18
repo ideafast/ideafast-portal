@@ -1,21 +1,15 @@
 import { ZCategoricalOption, enumASTNodeTypes, enumConditionOps, enumDataTypes, enumMathOps, enumStudyRoles } from '@itmat-broker/itmat-types';
 import { inferAsyncReturnType, initTRPC } from '@trpc/server';
-import * as trpcExpress from '@trpc/server/adapters/express';
 import { z } from 'zod';
-import { fileCore } from '../../graphql/core/fileCore';
-import { dataCore } from '../../graphql/core/dataCore';
-import { studyCore } from '../../graphql/core/studyCore';
+import { fileCore } from '../../core/fileCore';
+import { dataCore } from '../../core/dataCore';
+import { studyCore } from '../../core/studyCore';
 import { baseProcedure } from '../../log/trpcLogHelper';
-import { permissionCore } from '../../graphql/core/permissionCore';
-import { convertSerializedBufferToBuffer, isSerializedBuffer, parseJsonOrString } from '../../utils/file';
-import { file } from 'tmp';
+import { permissionCore } from '../../core/permissionCore';
+import { parseJsonOrString } from '../../utils/file';
 import fs from 'fs';
-import path from 'path';
 
-const createContext = ({
-    req,
-    res
-}: trpcExpress.CreateExpressContextOptions) => ({}); // no context
+const createContext = () => ({}); // no context
 type Context = inferAsyncReturnType<typeof createContext>;
 
 const t = initTRPC.context<Context>().create();
@@ -420,13 +414,15 @@ export const dataRouter = t.router({
             );
         } finally {
             // Cleanup: Delete the temporary file from the disk
-            const filePath = opts.input.file[0].path;
-            if (fs.existsSync(filePath)) {
-                fs.unlink(filePath, (err) => {
-                    if (err) {
-                        console.error('Error deleting temporary file:', filePath, err);
-                    }
-                });
+            if (opts.input.file) {
+                const filePath = opts.input.file[0].path;
+                if (fs.existsSync(filePath)) {
+                    fs.unlink(filePath, (err) => {
+                        if (err) {
+                            console.error('Error deleting temporary file:', filePath, err);
+                        }
+                    });
+                }
             }
         }
     })

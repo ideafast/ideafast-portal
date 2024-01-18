@@ -30,6 +30,7 @@ export interface ISystemConfig extends IBase {
     defaultEventTimeConsumptionBar: number[];
     jobSchedulerConfig: IJobSchedulerConfig;
     defaultUserExpireDays: number;
+    domainMeta: IDomainMeta[];
 }
 
 export interface IStudyConfig extends IBase {
@@ -76,6 +77,10 @@ export interface IDefaultSettings extends IBase {
     docConfig: IDocConfig;
 }
 
+export interface IDomainMeta {
+    profile?: string;
+}
+
 // default settings
 export class DefaultSettings implements IDefaultSettings {
     public readonly id: string = uuid();
@@ -111,7 +116,8 @@ export class DefaultSettings implements IDefaultSettings {
             failedJobDelayTime: 30 * 60 * 1000, // unit timestamps
             maxAttempts: 10 // the number of attempts should be stored in history
         },
-        defaultUserExpireDays: 90
+        defaultUserExpireDays: 90,
+        domainMeta: []
     };
 
     public readonly studyConfig: IStudyConfig = {

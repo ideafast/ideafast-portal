@@ -1,7 +1,7 @@
 import { ILog, IUser, enumUserTypes } from '@itmat-broker/itmat-types';
 import { GraphQLError } from 'graphql';
 import { errorCodes } from '../errors';
-import { logCore } from '../core/logCore';
+import { logCore } from '../../core/logCore';
 
 export const logResolvers = {
     Query: {

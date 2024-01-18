@@ -1,6 +1,6 @@
 import { IQueryEntry } from '@itmat-broker/itmat-types';
 import { v4 as uuid } from 'uuid';
-import { db } from '../../database/database';
+import { db } from '../database/database';
 
 export class QueryCore {
     public async createQuery(args: any): Promise<IQueryEntry> {

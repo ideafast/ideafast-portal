@@ -1,12 +1,12 @@
-import { db } from '../../database/database';
+import { db } from '../database/database';
 import { GraphQLError } from 'graphql';
 import { enumConfigType, IFile, defaultSettings, enumFileTypes, enumFileCategories, IGenericResponse, IStudyConfig } from '@itmat-broker/itmat-types';
 import { v4 as uuid } from 'uuid';
-import { errorCodes } from '../errors';
+import { errorCodes } from '../graphql/errors';
 import { FileUpload } from 'graphql-upload-minimal';
 import crypto, { BinaryLike } from 'crypto';
-import { objStore } from '../../objStore/objStore';
-import { makeGenericReponse } from '../responses';
+import { objStore } from '../objStore/objStore';
+import { makeGenericReponse } from '../graphql/responses';
 import { use } from 'passport';
 import { config } from 'process';
 import { configCore } from './configCore';

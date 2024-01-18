@@ -2,10 +2,10 @@ import { IOrganisation, enumAPIResolver, enumConfigType, enumEventStatus, enumEv
 import { inferAsyncReturnType, initTRPC } from '@trpc/server';
 import * as trpcExpress from '@trpc/server/adapters/express';
 import { custom, z } from 'zod';
-import { configCore } from '../../graphql/core/configCore';
-import { organisationCore } from '../../graphql/core/organisationCore';
+import { configCore } from '../../core/configCore';
+import { organisationCore } from '../../core/organisationCore';
 import { baseProcedure } from '../../log/trpcLogHelper';
-import { logCore } from '../../graphql/core/logCore';
+import { logCore } from '../../core/logCore';
 
 const createContext = ({
     req,

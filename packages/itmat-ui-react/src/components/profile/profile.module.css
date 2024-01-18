@@ -71,7 +71,7 @@
 .file_wrapper {
     grid-area: FILE;
     padding: 20px;
-    background-color: white;
+    background-color: white
 }
 
 .custom-text-hover {
@@ -85,26 +85,25 @@
 }
 
 .shared_container {
+    display: flex;
+    /* Enable flexbox */
+    flex-direction: row;
+    /* Align children in a row */
+    width: 100%;
+    /* Full width of the container */
     grid-area: SHARED;
-    display: grid;
-    grid-template-areas: "SHAREDLEFT SHAREDRIGHT";
-    grid-template-columns: 30% 70%;
-
 }
 
-.shared_file_left {
-    /* This will automatically occupy the first column (20%) of the shared_container */
-    grid-area: SHAREDLEFT;
-    background-color: aqua;
-    /* Just for visualization */
+.shared_container>div:first-child {
+    width: 20%;
+    /* Width of the first div */
 }
 
-.shared_file_right {
-    grid-area: SHAREDRIGHT;
-    /* This will automatically occupy the second column (80%) of the shared_container */
-    background-color: lightgray;
-    /* Just for visualization */
+.shared_container>div:last-child {
+    width: 80%;
+    /* Width of the second div */
 }
+
 
 .ellipsis-style {
     overflow: hidden;

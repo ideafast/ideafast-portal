@@ -1,11 +1,13 @@
-import { ZBase, enumDocTypes } from '@itmat-broker/itmat-types';
-import { inferAsyncReturnType, initTRPC } from '@trpc/server';
+import { ZBase, enumDocTypes, enumUserTypes } from '@itmat-broker/itmat-types';
+import { TRPCError, inferAsyncReturnType, initTRPC } from '@trpc/server';
 import * as trpcExpress from '@trpc/server/adapters/express';
 import { z } from 'zod';
-import { docCore } from '../../graphql/core/docCore';
+import { docCore } from '../../core/docCore';
 import { baseProcedure } from '../../log/trpcLogHelper';
 import fs from 'fs';
 import path from 'path';
+import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
+import { errorCodes } from '../../graphql/errors';
 const createContext = ({
     req,
     res
@@ -69,8 +71,8 @@ export const docRouter = t.router({
         type: z.nativeEnum(enumDocTypes),
         description: z.optional(z.string()),
         tag: z.optional(z.string()),
-        studyId: z.union([z.string(), z.null()]),
-        priority: z.number(),
+        studyId: z.optional(z.string()),
+        priority: z.optional(z.number()),
         attachments: z.optional(z.array(z.object({
             path: z.any(),
             filename: z.string(),
@@ -80,13 +82,20 @@ export const docRouter = t.router({
         }))),
         contents: z.optional(z.string())
     })).mutation(async (opts: any) => {
-        const requester = opts.ctx.req.user;
+        const requester = opts.ctx.req?.user ?? opts.ctx.user;
+        if (requester.type !== enumUserTypes.ADMIN) {
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: errorCodes.NO_PERMISSION_ERROR
+            });
+        }
+
         try {
             const doc = await docCore.createDoc(
                 requester.id,
                 opts.input.title,
-                opts.input.studyId,
                 opts.input.type,
+                opts.input.studyId,
                 opts.input.description,
                 opts.input.tag,
                 opts.input.contents,
@@ -125,21 +134,27 @@ export const docRouter = t.router({
          */
     editDoc: baseProcedure.input(z.object({
         docId: z.string(),
-        contents: z.union([z.string(), z.null()]),
-        title: z.string(),
-        tag: z.union([z.string(), z.null()]),
+        contents: z.optional(z.string()),
+        title: z.optional(z.string()),
+        tag: z.optional(z.string()),
         description: z.union([z.string(), z.null()]),
-        priority: z.union([z.number(), z.null()]),
-        addAttachments: z.union([z.array(z.object({
+        priority: z.optional(z.number()),
+        addAttachments: z.optional(z.array(z.object({
             path: z.any(),
             filename: z.string(),
             mimetype: z.optional(z.string()),
             size: z.number()
             // ... other validation ...
-        })), z.null()]),
-        removeAttachments: z.union([z.array(z.string()), z.null()])
+        }))),
+        removeAttachments: z.optional(z.array(z.string()))
     })).mutation(async (opts: any) => {
-        const requester = opts.req.user;
+        const requester = opts.ctx.req?.user ?? opts.ctx.user;
+        if (requester.type !== enumUserTypes.ADMIN) {
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: errorCodes.NO_PERMISSION_ERROR
+            });
+        }
         try {
             const doc = await docCore.editDoc(requester.id, opts.input.docId, opts.input.contents, opts.input.title, opts.input.tag, opts.input.description, opts.input.priority, opts.input.addAttachments, opts.input.removeAttachments);
             return doc;

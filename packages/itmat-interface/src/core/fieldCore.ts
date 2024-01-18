@@ -1,5 +1,5 @@
 import { IField, enumDataTypes, IUser } from '@itmat-broker/itmat-types';
-import { db } from '../../database/database';
+import { db } from '../database/database';
 import { v4 as uuid } from 'uuid';
 export class FieldCore {
     public async getFieldsOfStudy(studyId: string, detailed: boolean, getOnlyTheseFields?: string[]): Promise<IField[]> {

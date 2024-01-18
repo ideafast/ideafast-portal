@@ -1,8 +1,8 @@
 import { inferAsyncReturnType, initTRPC } from '@trpc/server';
 import * as trpcExpress from '@trpc/server/adapters/express';
 import { z } from 'zod';
-import { driveCore } from '../../graphql/core/driveCore';
-import { userCore } from '../../graphql/core/userCore';
+import { driveCore } from '../../core/driveCore';
+import { userCore } from '../../core/userCore';
 import { IDrivePermission } from '@itmat-broker/itmat-types';
 import { baseProcedure } from '../../log/trpcLogHelper';
 import fs from 'fs';

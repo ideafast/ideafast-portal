@@ -6,14 +6,14 @@ import { IUser, IGenericResponse, IResetPasswordRequest, enumUserTypes, IOrganis
 import { Logger } from '@itmat-broker/itmat-commons';
 import { v4 as uuid } from 'uuid';
 import config from '../../utils/configManager';
-import { userCore } from '../core/userCore';
+import { userCore } from '../../core/userCore';
 import { errorCodes } from '../errors';
 import { makeGenericReponse } from '../responses';
 import QRCode from 'qrcode';
 import tmp from 'tmp';
 import { decryptEmail, encryptEmail, makeAESIv, makeAESKeySalt } from '../../encryption/aes';
 import * as mfa from '../../utils/mfa';
-import { configCore } from '../core/configCore';
+import { configCore } from '../../core/configCore';
 
 export const configResolvers = {
     Query: {

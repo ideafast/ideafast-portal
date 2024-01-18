@@ -1,11 +1,11 @@
 import { GraphQLError } from 'graphql';
 import { IField, enumDataTypes, ICategoricalOption, IValueVerifier, IGenericResponse, enumConfigType, defaultSettings, IOntologyTree, IOntologyRoute, IAST, enumConditionOps, enumFileTypes, enumFileCategories, IFieldProperty, IFile, permissionString, IStudyDataVersion, IData, enumASTNodeTypes, IRole, IStudyConfig, enumUserTypes } from '@itmat-broker/itmat-types';
 import { v4 as uuid } from 'uuid';
-import { db } from '../../database/database';
-import { errorCodes } from '../errors';
+import { db } from '../database/database';
+import { errorCodes } from '../graphql/errors';
 import { permissionCore } from './permissionCore';
 import { FileUpload } from 'graphql-upload-minimal';
-import { makeGenericReponse } from '../responses';
+import { makeGenericReponse } from '../graphql/responses';
 import { utilsCore } from './utilsCore';
 import { fileCore } from './fileCore';
 import { z } from 'zod';
@@ -797,7 +797,7 @@ export class DataCore {
      *
      * @return Partial<IData>[] - The list of objects of Partial<IData>
      */
-    public async getData(requester: string, studyId: string, fieldIds: string[], dataVersions: Array<string | null>, aggregation: any, useCache: boolean, forceUpdate: boolean): Promise<any> {
+    public async getData(requester: string, studyId: string, fieldIds: string[], dataVersions: Array<string | null>, aggregation?: any, useCache?: boolean, forceUpdate?: boolean): Promise<any> {
         const user = await db.collections!.users_collection.findOne({ id: requester });
         const study = await db.collections!.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null });
         if (!study) {
@@ -828,9 +828,9 @@ export class DataCore {
             } else {
                 const data = await this.getDataByRoles(user?.type === enumUserTypes.ADMIN, userRoles, studyId, dataVersions, fieldIds);
                 const filteredData = dataTransformationCore.transformationAggregate(data, { version: this.genVersioningAggregation((config.properties as IStudyConfig).defaultVersioningKeys, dataVersions.includes(null)) });
-                const transformed = dataTransformationCore.transformationAggregate(filteredData.version, aggregation);
+                const transformed = aggregation ? dataTransformationCore.transformationAggregate(filteredData.version, aggregation) : filteredData;
                 // write to minio and cache collection
-                const info = await this.convertToBufferAndUpload(transformed, fileCore.uploadFile, uuid() + '.json', requester);
+                const info = await this.convertToBufferAndUpload(transformed, uuid() + '.json', requester, true);
                 const newHashInfo = {
                     id: uuid(),
                     keyHash: hash,
@@ -1208,9 +1208,9 @@ export class DataCore {
 
     public convertToBufferAndUpload(
         jsonObject: any,
-        uploadFunc: any,
         fileName: string,
-        requester: string
+        requester: string,
+        ignore?: boolean
     ): Promise<any> {
         const uploadsDir = 'uploads'; // Define the uploads directory
 
@@ -1249,7 +1249,7 @@ export class DataCore {
                     null // properties
                 ).then(resolve).catch(reject).finally(() => {
                     // Cleanup: Delete the temporary file from the disk
-                    if (fs.existsSync(filePath)) {
+                    if (fs.existsSync(filePath) && !ignore) {
                         fs.unlink(filePath, (err) => {
                             if (err) {
                                 console.error('Error deleting temporary file:', filePath, err);

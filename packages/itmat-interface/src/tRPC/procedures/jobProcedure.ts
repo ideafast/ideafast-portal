@@ -1,11 +1,11 @@
 import { TRPCError, inferAsyncReturnType, initTRPC } from '@trpc/server';
 import * as trpcExpress from '@trpc/server/adapters/express';
 import { z } from 'zod';
-import { driveCore } from '../../graphql/core/driveCore';
-import { userCore } from '../../graphql/core/userCore';
+import { driveCore } from '../../core/driveCore';
+import { userCore } from '../../core/userCore';
 import { IDrivePermission, IUser, enumJobType, enumUserTypes } from '@itmat-broker/itmat-types';
 import { baseProcedure } from '../../log/trpcLogHelper';
-import { jobCore } from '../../graphql/core/jobCore';
+import { jobCore } from '../../core/jobCore';
 import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
 import { errorCodes } from '../../graphql/errors';
 

@@ -2,7 +2,7 @@ import { IResetPasswordRequest, IUser, enumFileCategories, enumFileTypes, enumGr
 import { TRPCError, inferAsyncReturnType, initTRPC } from '@trpc/server';
 import * as trpcExpress from '@trpc/server/adapters/express';
 import { z } from 'zod';
-import { userCore } from '../../graphql/core/userCore';
+import { userCore } from '../../core/userCore';
 import { GraphQLError } from 'graphql';
 import { errorCodes } from '../../graphql/errors';
 import { makeGenericReponse } from '../../graphql/responses';
@@ -15,7 +15,7 @@ import { Logger } from '@itmat-broker/itmat-commons';
 import { v4 as uuid } from 'uuid';
 import QRCode from 'qrcode';
 import tmp from 'tmp';
-import { fileCore } from '../../graphql/core/fileCore';
+import { fileCore } from '../../core/fileCore';
 import { baseProcedure } from '../../log/trpcLogHelper';
 import fs from 'fs';
 import path from 'path';
@@ -51,9 +51,8 @@ export const userRouter = t.router({
         const requester: IUser = opts.ctx.req?.user ?? opts.ctx.user;
         const users = (opts.input.userId || opts.input.username || opts.input.email) ? await userCore.getUser(opts.input.userId, opts.input.username, opts.input.email) : await userCore.getAllUsers(requester.id, false);
         /* If user is admin, or user is asking info of own, then return all info. Otherwise, need to remove private info. */
-        const priority = requester.type === enumUserTypes.ADMIN || requester.id === opts.input.userId;
         const clearedUsers: Partial<IUser>[] = [];
-        if (!(requester.type === enumUserTypes.ADMIN) || !(requester.id === opts.input.userId)) {
+        if (!(requester.type === enumUserTypes.ADMIN) && !(requester.id === opts.input.userId)) {
             for (const user of users) {
                 const cleared: Partial<IUser> = {
                     id: user.id,
@@ -66,12 +65,9 @@ export const userRouter = t.router({
                     profile: user.profile,
                     description: user.description
                 };
-                if (priority) {
-                    cleared.emailNotificationsActivated = user.emailNotificationsActivated;
-                    cleared.expiredAt = user.expiredAt;
-                }
                 clearedUsers.push(cleared);
             }
+            return clearedUsers as Partial<IUser>[];
         }
         return users as Partial<IUser>[];
     }),

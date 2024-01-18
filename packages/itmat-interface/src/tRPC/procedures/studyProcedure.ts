@@ -4,14 +4,14 @@ import * as trpcExpress from '@trpc/server/adapters/express';
 import { z } from 'zod';
 import { GraphQLError } from 'graphql';
 import { errorCodes } from '../../graphql/errors';
-import { studyCore } from '../../graphql/core/studyCore';
+import { studyCore } from '../../core/studyCore';
 import { baseProcedure } from '../../log/trpcLogHelper';
 import { BufferSchema } from './type';
 import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
 import { convertSerializedBufferToBuffer, isSerializedBuffer } from '../../utils/file';
 import fs from 'fs';
 import path from 'path';
-import { permissionCore } from '../../graphql/core/permissionCore';
+import { permissionCore } from '../../core/permissionCore';
 const createContext = ({
     req,
     res

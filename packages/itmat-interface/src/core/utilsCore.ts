@@ -1,6 +1,6 @@
 import { GraphQLError } from 'graphql';
 import { IValueVerifier, IAST, enumASTNodeTypes, enumMathOps, enumConditionOps } from '@itmat-broker/itmat-types';
-import { errorCodes } from '../errors';
+import { errorCodes } from '../graphql/errors';
 import crypto from 'crypto';
 export class UtilsCore {
     /**

@@ -1,9 +1,9 @@
 import { IJob, enumJobStatus, enumJobType, enumUserTypes } from '@itmat-broker/itmat-types';
 import { v4 as uuid } from 'uuid';
-import { db } from '../../database/database';
+import { db } from '../database/database';
 import { TRPCError } from '@trpc/server';
 import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
-import { errorCodes } from '../errors';
+import { errorCodes } from '../graphql/errors';
 import { TRPC_ERROR_CODES_BY_KEY } from '@trpc/server/dist/rpc';
 
 export class JobCore {

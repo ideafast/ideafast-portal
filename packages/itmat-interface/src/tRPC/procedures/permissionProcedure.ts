@@ -2,9 +2,9 @@ import { IOrganisation, enumConfigType, enumStudyRoles } from '@itmat-broker/itm
 import { inferAsyncReturnType, initTRPC } from '@trpc/server';
 import * as trpcExpress from '@trpc/server/adapters/express';
 import { custom, z } from 'zod';
-import { configCore } from '../../graphql/core/configCore';
-import { organisationCore } from '../../graphql/core/organisationCore';
-import { permissionCore } from '../../graphql/core/permissionCore';
+import { configCore } from '../../core/configCore';
+import { organisationCore } from '../../core/organisationCore';
+import { permissionCore } from '../../core/permissionCore';
 import { userInfo } from 'os';
 import { baseProcedure } from '../../log/trpcLogHelper';
 

@@ -37,7 +37,6 @@ import path from 'path';
 import { inferAsyncReturnType, initTRPC } from '@trpc/server';
 import * as trpcExpress from '@trpc/server/adapters/express';
 import multer from 'multer';
-import bodyParser from 'body-parser';
 
 // created for each request
 
@@ -335,14 +334,7 @@ export class Router {
         this.app.use('/trpc', (req, res, next) => {
             if (req.files) {
                 const filesArray = req.files as Express.Multer.File[];
-                // req.body.files = filesArray.map(file => ({
-                //     path: file.path,
-                //     filename: file.originalname,
-                //     mimetype: file.mimetype,
-                //     size: file.size
-                // }));
                 filesArray.forEach(file => {
-                    // If the fieldname doesn't exist yet or isn't an array, create an array for it.
                     if (!req.body[file.fieldname] || !Array.isArray(req.body[file.fieldname])) {
                         req.body[file.fieldname] = [];
                     }
@@ -352,7 +344,6 @@ export class Router {
                         filename: file.originalname,
                         mimetype: file.mimetype,
                         size: file.size
-                        // ... any other relevant file properties ...
                     });
                 });
             }

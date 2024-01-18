@@ -5,7 +5,7 @@ import { NavLink } from 'react-router-dom';
 import { LOGOUT, WHO_AM_I } from '@itmat-broker/itmat-models';
 import { IProject, enumUserTypes } from '@itmat-broker/itmat-types';
 import css from './scaffold.module.css';
-import { DatabaseOutlined, TeamOutlined, PoweroffOutlined, HistoryOutlined, SettingOutlined, ProjectOutlined, DesktopOutlined, WarningTwoTone, FileOutlined, GlobalOutlined, CodeSandboxOutlined } from '@ant-design/icons';
+import { DatabaseOutlined, TeamOutlined, PoweroffOutlined, HistoryOutlined, SettingOutlined, ProjectOutlined, DesktopOutlined, WarningTwoTone, FileOutlined, GlobalOutlined, CodeSandboxOutlined, UserOutlined } from '@ant-design/icons';
 import LoadSpinner from '../reusable/loadSpinner';
 import dayjs from 'dayjs';
 import { Tooltip } from 'antd';
@@ -14,7 +14,7 @@ import React from 'react';
 type MainMenuBarProps = {
     projects: IProject[];
 }
-export const MainMenuBar: FunctionComponent<MainMenuBarProps> = ({ projects }) => {
+export const MainMenuBar: FunctionComponent<MainMenuBarProps> = () => {
     const [isExpanded, setIsExpanded] = React.useState();
     const { loading: whoAmILoading, error: whoAmIError, data: whoAmIData } = useQuery(WHO_AM_I);
     if (whoAmILoading) {
@@ -25,15 +25,7 @@ export const MainMenuBar: FunctionComponent<MainMenuBarProps> = ({ projects }) =
             An error occured, please contact your administrator
         </p>;
     }
-    return <div className={isExpanded ? css.main_menubar : css.main_menubar}>
-
-        <div>
-            <NavLink to={projects.length === 1 ? `/projects/${projects[0].id}` : '/projects'} title='Projects' className={({ isActive }) => isActive ? css.clickedButton : undefined}>
-                <div className={css.button}><ProjectOutlined /> Projects</div>
-            </NavLink>
-        </div>
-
-
+    return <div className={css.main_menubar}>
         <div>
             <NavLink to='/datasets' title='Datasets' className={({ isActive }) => isActive ? css.clickedButton : undefined}>
                 <div className={css.button}><DatabaseOutlined /> Datasets</div>
@@ -91,7 +83,6 @@ export const MainMenuBar: FunctionComponent<MainMenuBarProps> = ({ projects }) =
             </div>
             : null
         }
-
         <div>
             <NavLink title='Logout' to='/'>
                 <Mutation<any, any>
@@ -110,6 +101,10 @@ export const MainMenuBar: FunctionComponent<MainMenuBarProps> = ({ projects }) =
                     )}
                 </Mutation>
             </NavLink>
+        </div>
+
+        <div>
+            sdsdsds
         </div>
     </div >;
 };

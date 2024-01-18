@@ -1,5 +1,5 @@
 import { ChangeEvent, FunctionComponent, useEffect, useState } from 'react';
-import { IUser, enumFileTypes } from '@itmat-broker/itmat-types';
+import { IUser, enumFileTypes, enumUserTypes } from '@itmat-broker/itmat-types';
 import LoadSpinner from '../reusable/loadSpinner';
 // import { ProjectSection } from '../users/projectSection';
 import { Form, Input, Button, Image, Typography, Row, Col, Divider, Upload, UploadFile, Modal, message } from 'antd';
@@ -16,15 +16,15 @@ export const ProfileManagementSection: FunctionComponent = () => {
     const whoAmI = trpc.user.whoAmI.useQuery();
     const getOrganisations = trpc.org.getOrganisations.useQuery({ orgId: whoAmI?.data?.organisation });
     const getUserProfile = trpc.user.getUserProfile.useQuery({ userId: whoAmI?.data?.id });
+    const getUserRoles = trpc.permission.getUserRoles.useQuery({ userId: whoAmI?.data.id });
     const editUser = trpc.user.editUser.useMutation();
     const uploadUserProfile = trpc.user.uploadUserProfile.useMutation();
-    const [isUploading, setIsUploading] = useState(false);
     // profile
     const [previewOpen, setPreviewOpen] = useState(false);
     const [previewImage, setPreviewImage] = useState('');
     const [previewTitle, setPreviewTitle] = useState('');
     const [fileList, setFileList] = useState<RcFile[]>([]);
-    if (whoAmI.isLoading || getOrganisations.isLoading || getUserProfile.isLoading) {
+    if (whoAmI.isLoading || getOrganisations.isLoading || getUserProfile.isLoading || getUserRoles.isLoading) {
         return <>
             <div className='page_ariane'>Loading...</div>
             <div className='page_content'>
@@ -32,7 +32,7 @@ export const ProfileManagementSection: FunctionComponent = () => {
             </div>
         </>;
     }
-    if (whoAmI.isError || getOrganisations.isError || getUserProfile.isError) {
+    if (whoAmI.isError || getOrganisations.isError || getUserProfile.isError || getUserRoles.isError) {
         return <>
             An error occured.
         </>;
@@ -72,7 +72,6 @@ export const ProfileManagementSection: FunctionComponent = () => {
                     </ImgCrop>
                     {
                         fileList.length >= 1 ? <Button onClick={async () => {
-                            setIsUploading(true);
                             if (fileList.length > 0) {
                                 const fileData = fileList[0];
                                 const formData = new FormData();
@@ -112,7 +111,7 @@ export const ProfileManagementSection: FunctionComponent = () => {
                 </div>
                 <div className={css.profile_summary_statistics}>
                     <Row>
-                        <Col className={css.profile_summary_statistics_value} span={7}>21</Col>
+                        <Col className={css.profile_summary_statistics_value} span={7}>{whoAmI.data.type === enumUserTypes.ADMIN ? 'All' : Array.from(new Set(getUserRoles.data?.map(el => el.studyId))).length}</Col>
                         <Divider type='vertical' />
                         <Col className={css.profile_summary_statistics_value} span={7}>238</Col>
                         <Divider type='vertical' />
@@ -188,7 +187,7 @@ export const ProfileEditForm: FunctionComponent<{ user: Partial<IUser>, editUser
             <Col span={10}>
                 <div className={css.profile_edit_normal_title}>USER NAME</div><br />
                 <Form.Item name='username' hasFeedback rules={[{ required: true, message: ' ' }]}>
-                    <Input className={css.login_box_input} placeholder='USER NAME' />
+                    <Input className={css.login_box_input} placeholder='USER NAME' disabled={true} />
                 </Form.Item>
             </Col>
             <Col span={13}>

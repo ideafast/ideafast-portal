@@ -1,18 +1,18 @@
 import bcrypt from 'bcrypt';
-import { db } from '../../database/database';
-import config from '../../utils/configManager';
+import { db } from '../database/database';
+import config from '../utils/configManager';
 import { GraphQLError } from 'graphql';
 import { IUser, enumUserTypes, IOrganisation, IPubkey, defaultSettings, IGenericResponse, enumFileTypes, enumFileCategories, IResetPasswordRequest, enumGroupNodeTypes, IGroupNode, IDriveNode, IFile, enumDriveNodeTypes, AccessToken } from '@itmat-broker/itmat-types';
-import { makeGenericReponse } from '../responses';
+import { makeGenericReponse } from '../graphql/responses';
 import { v4 as uuid } from 'uuid';
-import { errorCodes } from '../errors';
+import { errorCodes } from '../graphql/errors';
 import { FileUpload } from 'graphql-upload-minimal';
 import { fileCore } from './fileCore';
-import * as mfa from '../../utils/mfa';
+import * as mfa from '../utils/mfa';
 import { TRPCError } from '@trpc/server';
 import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
-import { rsakeygen, rsaverifier, tokengen } from '../../utils/pubkeycrypto';
-import { mailer } from '../../emailer/emailer';
+import { rsakeygen, rsaverifier, tokengen } from '../utils/pubkeycrypto';
+import { mailer } from '../emailer/emailer';
 
 export class UserCore {
     /**
@@ -77,22 +77,7 @@ export class UserCore {
      * @return Partial<IUser> - The object of IUser. Remove private information.
      */
     public async getAllUsers(requester: string, includeDeleted: boolean): Promise<IUser[]> {
-        const user = await db.collections!.users_collection.findOne({ 'id': requester, 'life.deletedTime': null });
-        if (!user || user.type !== enumUserTypes.ADMIN) {
-            throw new TRPCError({
-                code: enumTRPCErrorCodes.BAD_REQUEST,
-                message: errorCodes.NO_PERMISSION_ERROR
-            });
-        }
-        const users = await db.collections!.users_collection.find({}).toArray();
-        const clearedUsers: IUser[] = [];
-        for (const user of users) {
-            if (!includeDeleted && user.life.deletedTime !== null) {
-                continue;
-            }
-            clearedUsers.push(user);
-        }
-        return clearedUsers;
+        return includeDeleted ? await db.collections!.users_collection.find({}).toArray() : await db.collections!.users_collection.find({ 'life.deletedTime': null }).toArray();
     }
 
     /**

@@ -276,110 +276,115 @@ export const MyFile: FunctionComponent = () => {
         }
     ];
     return (
-        <div className={css.file_wrapper}>
-            <List
-                header={
-                    <div className={css['overview-header']}>
-                        <div className={css['overview-icon']}></div>
-                        <div>My files</div>
-                    </div>
-                }
-            >
-                <List.Item>
-                    <Row justify={'start'} gutter={1}>
-                        <Col span={1.5}>
-                            <Upload
-                                showUploadList={false}
-                                customRequest={async ({ file, onSuccess, onError }) => {
-                                    if (file) {
-                                        const fileData = file as Blob;
-                                        const formData = new FormData();
-                                        formData.append('file', fileData);
-
-                                        const response = await fetch('/upload', {
-                                            method: 'POST',
-                                            body: formData
-                                        });
-                                        const data = await response.json();
-                                        if (response.ok) {
-                                            createDriveFile.mutate({
-                                                parentId: currentLocationPath[currentLocationPath.length - 1],
-                                                description: null,
-                                                file: [{
-                                                    path: data.filePath, // This should be the path returned by the server
-                                                    filename: fileData.name,
-                                                    mimetype: fileData.type,
-                                                    size: fileData.size
-                                                }]
-                                            });
-                                        } else {
-                                            // Handle upload error
-                                            console.error('File upload failed:', data);
-                                        }
-                                    }
-                                }}
-                            >
-                                <Button icon={<PlusOutlined />}>Upload File</Button>
-                            </Upload>
-                        </Col>
-                        <Col span={1.5}>
-                            <Button icon={<PlusOutlined />} onClick={() => setIsUploadFolderModalShown(true)}>Create Folder</Button>
-                        </Col>
-                        <Col span={1.5}>
-                            <Button onClick={() => {
-                                const t = [...currentLocationPath];
-                                setCurrentLocationPath(t.length === 0 ? [] : t.slice(0, -1));
-                            }}>Back</Button>
-                        </Col>
-                        <Col span={1}>
-                            <Button>...</Button>
-                        </Col>
-                    </Row>
-                </List.Item>
-                <List.Item>
-                    <UploadFolderModal
-                        isModalShown={isUploadFolderModalShown}
-                        setIsModalShown={setIsUploadFolderModalShown}
-                        uploadFunc={createDriveFolder}
-                        uploadVariables={{ userId: whoAmI.data.id, parentNodeId: currentLocationPath[currentLocationPath.length - 1] }}
-                    />
-                    {
-                        currentLocationPath.map((el, index) => {
-                            const tag = <Tag color='cyan' style={{ marginRight: '5px' }} onClick={(value) => {
-                                setCurrentLocationPath([...currentLocationPath].slice(0, index + 1));
-                            }}>{getDrives?.data[whoAmI.data.id]?.filter(es => es.id === el)[0].name}</Tag>;
-                            if (index < currentLocationPath.length - 1) {
-                                return [tag, <span style={{ marginRight: '5px' }} key={`${el}-slash`}>/</span>];
-                            } else {
-                                return tag;
-                            }
-                        })
+        <>
+            <div className={css.file_wrapper}>
+                <List
+                    header={
+                        <div className={css['overview-header']}>
+                            <div className={css['overview-icon']}></div>
+                            <div>My files</div>
+                        </div>
                     }
-                </List.Item>
-                <List.Item>
-                    <Table
-                        columns={fileTableColumns}
-                        expandable={{ showExpandColumn: false }}
-                        dataSource={fileList[whoAmI.data.id]?.filter(el => el.parent === currentLocationPath[currentLocationPath.length - 1])}
-                    />
-                    <ShareFileModal isModalShown={isShareModalShown} setIsModalShown={setIsShareModalShown} shareFunc={shareDriveViaEmail} shareVariables={{ userId: whoAmI.data.id, nodeId: currentNodeId }} currentDrive={getDrives.data[whoAmI.data.id].filter(el => el.id === currentNodeId)[0]} users={getUsers.data} />
-                </List.Item>
-            </List>
-            <List
-                header={
-                    <div className={css['overview-header']}>
-                        <div className={css['overview-icon']}></div>
-                        <div>Shared files</div>
-                    </div>
-                }
-            >
-                <List.Item>
-                    <div className={css.shared_container}>
-                        <SharedFiles users={getUsers.data} sharedUserFiles={getDrives.data} self={whoAmI.data} />
-                    </div>
-                </List.Item>
-            </List>
-        </div >
+                >
+                    <List.Item>
+                        <Row justify={'start'} gutter={1}>
+                            <Col span={1.5}>
+                                <Upload
+                                    showUploadList={false}
+                                    customRequest={async ({ file }) => {
+                                        if (file) {
+                                            const fileData = file as Blob;
+                                            const formData = new FormData();
+                                            formData.append('file', fileData);
+
+                                            const response = await fetch('/upload', {
+                                                method: 'POST',
+                                                body: formData
+                                            });
+                                            const data = await response.json();
+                                            if (response.ok) {
+                                                createDriveFile.mutate({
+                                                    parentId: currentLocationPath[currentLocationPath.length - 1],
+                                                    description: null,
+                                                    file: [{
+                                                        path: data.filePath, // This should be the path returned by the server
+                                                        filename: fileData.name,
+                                                        mimetype: fileData.type,
+                                                        size: fileData.size
+                                                    }]
+                                                });
+                                            } else {
+                                                // Handle upload error
+                                                console.error('File upload failed:', data);
+                                            }
+                                        }
+                                    }}
+                                >
+                                    <Button icon={<PlusOutlined />}>Upload File</Button>
+                                </Upload>
+                            </Col>
+                            <Col span={1.5}>
+                                <Button icon={<PlusOutlined />} onClick={() => setIsUploadFolderModalShown(true)}>Create Folder</Button>
+                            </Col>
+                            <Col span={1.5}>
+                                <Button onClick={() => {
+                                    const t = [...currentLocationPath];
+                                    setCurrentLocationPath(t.length === 0 ? [] : t.slice(0, -1));
+                                }}>Back</Button>
+                            </Col>
+                            <Col span={1}>
+                                <Button>...</Button>
+                            </Col>
+                        </Row>
+                    </List.Item>
+                    <List.Item>
+                        <UploadFolderModal
+                            isModalShown={isUploadFolderModalShown}
+                            setIsModalShown={setIsUploadFolderModalShown}
+                            uploadFunc={createDriveFolder}
+                            uploadVariables={{ userId: whoAmI.data.id, parentNodeId: currentLocationPath[currentLocationPath.length - 1] }}
+                        />
+                        {
+                            currentLocationPath.map((el, index) => {
+                                const tag = <Tag color='cyan' style={{ marginRight: '5px' }} onClick={(value) => {
+                                    setCurrentLocationPath([...currentLocationPath].slice(0, index + 1));
+                                }}>{getDrives?.data[whoAmI.data.id]?.filter(es => es.id === el)[0].name}</Tag>;
+                                if (index < currentLocationPath.length - 1) {
+                                    return [tag, <span style={{ marginRight: '5px' }} key={`${el}-slash`}>/</span>];
+                                } else {
+                                    return tag;
+                                }
+                            })
+                        }
+                    </List.Item>
+                    <List.Item>
+                        <Table
+                            style={{ width: '100%' }}
+                            columns={fileTableColumns}
+                            expandable={{ showExpandColumn: false }}
+                            dataSource={fileList[whoAmI.data.id]?.filter(el => el.parent === currentLocationPath[currentLocationPath.length - 1])}
+                        />
+                        <ShareFileModal isModalShown={isShareModalShown} setIsModalShown={setIsShareModalShown} shareFunc={shareDriveViaEmail} shareVariables={{ userId: whoAmI.data.id, nodeId: currentNodeId }} currentDrive={getDrives.data[whoAmI.data.id].filter(el => el.id === currentNodeId)[0]} users={getUsers.data} />
+                    </List.Item>
+                </List>
+            </div >
+            <div className={css.shared_container}>
+                <List
+                    header={
+                        <div className={css['overview-header']}>
+                            <div className={css['overview-icon']}></div>
+                            <div>Shared files</div>
+                        </div>
+                    }
+                >
+                    <List.Item>
+                        <div className={css.shared_container}>
+                            <SharedFiles users={getUsers.data} sharedUserFiles={getDrives.data} self={whoAmI.data} />
+                        </div>
+                    </List.Item>
+                </List>
+            </div>
+        </>
     );
 };
 
@@ -387,7 +392,6 @@ export const SharedFiles: FunctionComponent<{ users: any, sharedUserFiles: any, 
     const [currentSharedUser, setCurrentSharedUser] = React.useState<string | null>(null);
     const [currentLocationPath, setCurrentLocationPath] = React.useState<string[]>([]);
     const sharedUsers: string[] = Object.keys(sharedUserFiles).filter(el => el !== self.id);
-
     const fileTableColumns = [
         {
             title: 'Name',
@@ -406,10 +410,40 @@ export const SharedFiles: FunctionComponent<{ users: any, sharedUserFiles: any, 
             }
         },
         {
+            title: 'Modified',
+            dataIndex: 'modified',
+            key: 'modified',
+            render: (__unused__value, record) => <span>{new Date(record.life.createdTime).toUTCString()}</span>
+        },
+        {
+            title: 'File Size',
+            dataIndex: 'fileSize',
+            key: 'fileSize',
+            render: (__unused__value, record) => <span>{formatBytes(record.metadata.fileSize)}</span>
+        },
+        {
             render: (__unused__value, record) => {
                 if (record.type === enumDriveNodeTypes.FILE) {
                     return <Button icon={<CloudDownloadOutlined />} href={`/file/${record.id}`}>
                         Download
+                    </Button>;
+                } else {
+                    return null;
+                }
+            },
+            width: '10rem',
+            key: 'download'
+        },
+        {
+            render: (__unused__value, record) => {
+                const p: boolean = false || record.sharedUsers.reduce((a, c) => {
+                    return a || c.delete;
+                }, false) || record.sharedGroups.reduce((a, c) => {
+                    return a || c.delete;
+                }, false);
+                if (p) {
+                    return <Button icon={<CloudDownloadOutlined />} href={`/file/${record.id}`}>
+                        Delete
                     </Button>;
                 } else {
                     return null;
@@ -428,9 +462,8 @@ export const SharedFiles: FunctionComponent<{ users: any, sharedUserFiles: any, 
             label: `${user.firstname} ${user.lastname}`
         };
     });
-
     return (<>
-        <div className={css.shared_file_left}>
+        <div>
             <Menu
                 mode='vertical'
                 theme='dark'
@@ -448,20 +481,21 @@ export const SharedFiles: FunctionComponent<{ users: any, sharedUserFiles: any, 
                 ))}
             </Menu>
         </div>
-        <div className={css.shared_file_right}>
+        <div>
             {
-                currentLocationPath.map((el, index) => {
+                currentSharedUser ? currentLocationPath.map((el, index) => {
                     const tag = <Tag color='cyan' style={{ marginRight: '5px' }} onClick={(value) => {
                         setCurrentLocationPath([...currentLocationPath].slice(0, index + 1));
-                    }}>{sharedUserFiles.filter(el => el.id === currentSharedUser)[0].fileNodes.filter(es => es.id === el)[0].name}</Tag>;
+                    }}>{sharedUserFiles[currentSharedUser].filter(es => es.parent === null)[0].name}</Tag>;
                     if (index < currentLocationPath.length - 1) {
                         return [tag, <span style={{ marginRight: '5px' }} key={`${el}-slash`}>/</span>];
                     } else {
                         return tag;
                     }
-                })
+                }) : null
             }
             <Table
+                style={{ width: '100%' }}
                 columns={fileTableColumns}
                 expandable={{ showExpandColumn: false }}
                 dataSource={currentSharedUser ? sharedUserFiles[currentSharedUser].filter(el => {
@@ -504,9 +538,16 @@ export const ShareFileModal: FunctionComponent<{ isModalShown: boolean, setIsMod
         dataIndex: 'value',
         key: 'value',
         render: (__unused__value, record) => {
-            console.log(record);
             const user = users.filter(el => el.id === record.iid)[0];
             return `${user.firstname} ${user.lastname}`;
+        }
+    }, {
+        title: 'Email',
+        dataIndex: 'email',
+        key: 'email',
+        render: (__unused__value, record) => {
+            const user = users.filter(el => el.id === record.iid)[0];
+            return `${user.email}`;
         }
     }, {
         title: 'Read',
@@ -527,19 +568,22 @@ export const ShareFileModal: FunctionComponent<{ isModalShown: boolean, setIsMod
         dataIndex: 'delete',
         key: 'delete',
         render: (__unused__value, record) => {
-            return <Checkbox checked={record.delted}></Checkbox>;
+            return <Checkbox checked={record.delete}></Checkbox>;
         }
     }];
     if (!currentDrive) {
         return null;
     }
+
     return (
         <Modal
+            width={'80%'}
             title='Share to a user'
             open={isModalShown}
             onCancel={() => setIsModalShown(false)}
         >
             <Table
+                style={{ width: '100%' }}
                 columns={columns}
                 dataSource={currentDrive.sharedUsers}
             ></Table>
