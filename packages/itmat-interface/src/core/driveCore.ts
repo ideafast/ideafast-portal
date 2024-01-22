@@ -13,6 +13,7 @@ import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
 import { set } from 'zod';
 import { objStore } from '../objStore/objStore';
 import { error } from 'console';
+import path from 'path';
 
 export class DriveCore {
     /**
@@ -26,7 +27,7 @@ export class DriveCore {
      *
      * @return IDriveNode - The drive node to return.
      */
-    public async createDriveFolderNode(requester: string, folderName: string, parentId: string | null, restricted: boolean, description: string | null): Promise<IDriveNode> {
+    public async createDriveFolderNode(requester: string, folderName: string, parentId: string | null, restricted: boolean, description?: string): Promise<IDriveNode> {
         // check parent existence
         let parent;
         if (parentId) {
@@ -109,7 +110,7 @@ export class DriveCore {
      *
      * @return IGenericResponse - The object of the IGenericResponse.
      */
-    public async createDriveFileNode(requester: string, parentId: string | null, description: string | null, fileType: enumFileTypes | null, file: FileUpload | null): Promise<IDriveNode> {
+    public async createDriveFileNode(requester: string, parentId: string | null, description: string | undefined, fileType: enumFileTypes | null, file: FileUpload | null): Promise<IDriveNode> {
         // check parent existence
         let parent;
         if (parentId && parentId !== '') {
@@ -148,7 +149,7 @@ export class DriveCore {
         let fileEntry: IFile | null = null;
         if (file && fileType) {
             // check duplicates, there should not be a same folder in this path
-            const children = await db.collections!.drives_collection.find({}).toArray();
+            const children = await db.collections!.drives_collection.find({ 'parent': parentId, 'life.deletedTime': null }).toArray();
             if (children.filter(el => el.type === enumDriveNodeTypes.FILE).map(el => el.name).includes(file?.filename)) {
                 throw new TRPCError({
                     code: enumTRPCErrorCodes.BAD_REQUEST,
@@ -195,6 +196,33 @@ export class DriveCore {
         });
 
         return driveEntry;
+    }
+
+    public async createRecursiveDrives(requester: string, parentId: string, files: any[], paths: string[][]) {
+
+        const createdDrives: any[] = [];
+        for (let i = 0; i < files.length; i++) {
+            let currentParent = parentId;
+            for (let j = 0; j < paths[i].length - 1; j++) {
+                const existing = await db.collections!.drives_collection.findOne({ 'parent': currentParent, 'name': paths[i][j], 'life.deletedTime': null });
+                if (!existing) {
+                    const res = await this.createDriveFolderNode(requester, paths[i][j], currentParent, false, undefined);
+                    currentParent = res.id;
+                    createdDrives.push(res);
+                } else {
+                    currentParent = existing.id;
+                    createdDrives.push(existing);
+                }
+            }
+            const existing = await db.collections!.drives_collection.findOne({ 'parent': currentParent, 'name': files[i].filename, 'life.deletedTime': null });
+            if (!existing) {
+                const res = await this.createDriveFileNode(requester, currentParent, undefined, (files[i].filename.split('.').pop() || '').toUpperCase(), files[i]);
+                createdDrives.push(res);
+            }
+        }
+
+        console.log('length', createdDrives.length);
+        return createdDrives;
     }
 
     /**
@@ -487,7 +515,7 @@ export class DriveCore {
         }
         const driveIds: string[] = [];
         const driveFileIds: string[] = [];
-        this.recursiveFindDrives(drive, driveFileIds, driveIds);
+        await this.recursiveFindDrives(drive, driveFileIds, driveIds);
         // delete metadata in drive collection
         await db.collections!.drives_collection.updateMany({ id: { $in: driveIds } }, {
             $set: {

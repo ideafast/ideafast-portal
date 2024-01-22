@@ -1,5 +1,5 @@
 import { ZodTypeAny, z } from 'zod';
-import { IBase, ZBase } from './base';
+import { ZBase } from './base';
 
 // Value verifier
 export interface IValueVerifier {

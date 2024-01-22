@@ -5,7 +5,7 @@
 // @ts-nocheck
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { db } from '../../src/database/database';
-import { Express, response } from 'express';
+import { Express } from 'express';
 import { objStore } from '../../src/objStore/objStore';
 import request from 'supertest';
 import { connectAdmin, connectUser } from './_loginHelper';
@@ -15,7 +15,7 @@ import { setupDatabase } from '@itmat-broker/itmat-setup';
 import config from '../../config/config.sample.json';
 import { v4 as uuid } from 'uuid';
 import { IOrganisation, enumUserTypes } from '@itmat-broker/itmat-types';
-import path from 'path';
+// eslint-disable-next-line @nx/enforce-module-boundaries
 import { errorCodes } from 'packages/itmat-interface/src/graphql/errors';
 import { encodeQueryParams } from '../utils/trpc';
 if (global.hasMinio) {
@@ -24,7 +24,7 @@ if (global.hasMinio) {
     let admin: request.SuperTest<request.Test>;
     let user: request.SuperTest<request.Test>;
     let mongoConnection: MongoClient;
-    let mongoClient: Db;
+    // let mongoClient: Db;
     let adminProfile;
     let userProfile;
     let organisation: IOrganisation;

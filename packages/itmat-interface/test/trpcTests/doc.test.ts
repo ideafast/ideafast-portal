@@ -14,8 +14,9 @@ import { Db, MongoClient } from 'mongodb';
 import { setupDatabase } from '@itmat-broker/itmat-setup';
 import config from '../../config/config.sample.json';
 import { v4 as uuid } from 'uuid';
-import { enumDocTypes, enumJobType, enumUserTypes } from '@itmat-broker/itmat-types';
+import { enumDocTypes, enumUserTypes } from '@itmat-broker/itmat-types';
 import path from 'path';
+// eslint-disable-next-line @nx/enforce-module-boundaries
 import { errorCodes } from 'packages/itmat-interface/src/graphql/errors';
 if (global.hasMinio) {
     let app: Express;
@@ -23,9 +24,9 @@ if (global.hasMinio) {
     let admin: request.SuperTest<request.Test>;
     let user: request.SuperTest<request.Test>;
     let mongoConnection: MongoClient;
-    let mongoClient: Db;
-    let adminProfile;
-    let userProfile;
+    // let mongoClient: Db;
+    // let adminProfile;
+    // let userProfile;
 
     afterAll(async () => {
         await db.closeConnection();
@@ -126,7 +127,7 @@ if (global.hasMinio) {
             request.field('type', enumDocTypes.GENERAL);
             request.field('description', 'test doc');
             request.field('tag', 'test doc');
-            const response = await request;
+            await request;
 
             const request2 = admin.post('/trpc/doc.createDoc');
             request2.attach('attachments', filePath);
@@ -134,7 +135,7 @@ if (global.hasMinio) {
             request2.field('type', enumDocTypes.GENERAL);
             request2.field('description', 'test doc');
             request2.field('tag', 'test doc');
-            const response = await request;
+            await request;
 
         });
     });

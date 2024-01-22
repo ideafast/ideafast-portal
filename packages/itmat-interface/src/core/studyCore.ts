@@ -115,7 +115,7 @@ export class StudyCore {
                         message: 'File type not supported.'
                     });
                 }
-                fileEntry = await fileCore.uploadFile(requester, studyId, null, profile, null, enumFileTypes[(profile.filename.split('.').pop() || '').toUpperCase() as keyof typeof enumFileTypes], enumFileCategories.STUDY_PROFILE_FILE, []);
+                fileEntry = await fileCore.uploadFile(requester, studyId, null, profile, undefined, enumFileTypes[(profile.filename.split('.').pop() || '').toUpperCase() as keyof typeof enumFileTypes], enumFileCategories.STUDY_PROFILE_FILE, []);
                 await db.collections!.studies_collection.findOneAndUpdate({ id: studyId }, {
                     $set: {
                         profile: fileEntry.id
@@ -167,7 +167,7 @@ export class StudyCore {
                         message: 'File format not supported'
                     });
                 }
-                fileEntry = await fileCore.uploadFile(requester, studyId, null, profile, null, enumFileTypes[(profile.filename.split('.').pop() || '').toUpperCase() as keyof typeof enumFileTypes], enumFileCategories.STUDY_PROFILE_FILE, []);
+                fileEntry = await fileCore.uploadFile(requester, studyId, null, profile, undefined, enumFileTypes[(profile.filename.split('.').pop() || '').toUpperCase() as keyof typeof enumFileTypes], enumFileCategories.STUDY_PROFILE_FILE, []);
                 setObj.profile = fileEntry.id;
             } catch (error) {
                 setObj.profile = study.profile;

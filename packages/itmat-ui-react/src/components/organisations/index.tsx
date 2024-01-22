@@ -5,6 +5,6 @@ import { OrganisationSection } from './organisations';
 
 export const OrganisationPage: FunctionComponent = () => {
     return (
-            <OrganisationSection />
+        <OrganisationSection />
     );
 };

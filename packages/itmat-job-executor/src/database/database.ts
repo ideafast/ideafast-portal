@@ -1,5 +1,5 @@
 import type { IData, IField, IFile, IJob, ILog, IOrganisation, IProject, IPubkey, IQueryEntry, IRole, IStudy, IUser, IStandardization, IConfig, IOntologyTree, IDoc, IDriveNode, IGroupNode } from '@itmat-broker/itmat-types';
-import { Database as DatabaseBase, IDatabaseBaseConfig } from '@itmat-broker/itmat-commons';
+import { IDatabaseBaseConfig } from '@itmat-broker/itmat-commons';
 import type { Collection } from 'mongodb';
 import { ICache } from 'packages/itmat-types/src/types/cache';
 export interface IDatabaseConfig extends IDatabaseBaseConfig {

@@ -1,6 +1,4 @@
 import { IBase } from './base';
-import { IUser } from './user';
-import { FileUpload } from 'graphql-upload-minimal';
 
 export interface IStudy extends IBase {
     name: string;

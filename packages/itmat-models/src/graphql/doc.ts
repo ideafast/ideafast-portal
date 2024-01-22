@@ -27,7 +27,7 @@ export const GET_DOCS = gql`
             metadata
         }
     }
-`
+`;
 
 export const CREATE_DOC = gql`
     mutation createDoc($title: String!, $type: EnumDocType!, $description: String, $tag: String, $studyId: String, $priority: Int!, $attachments: [Upload!], $contents: String) {
@@ -59,7 +59,7 @@ export const CREATE_DOC = gql`
             metadata
         }
     }
-`
+`;
 export const EDIT_DOC = gql`
     mutation editDoc($docId: String!, $contents: String, $title: String, $tag: String, $description: String, $priority: Int, $addAttachments: [Upload], $removeAttachments: [String]) {
         editDoc (
@@ -90,7 +90,7 @@ export const EDIT_DOC = gql`
             metadata
         }
     }
-`
+`;
 
 export const DELETE_DOC = gql `
     mutation deleteDoc($docId: String!) {
@@ -99,4 +99,4 @@ export const DELETE_DOC = gql `
         }
     }
     ${GENERIC_RESPONSE}
-`
+`;

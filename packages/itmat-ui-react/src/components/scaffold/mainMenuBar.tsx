@@ -46,6 +46,12 @@ export const MainMenuBar: FunctionComponent<MainMenuBarProps> = () => {
             </div> : null
         }
         <div>
+            <NavLink to='/drive' title='Documents' className={({ isActive }) => isActive ? css.clickedButton : undefined}>
+                <div className={css.button}><FileOutlined /> My Drive</div>
+            </NavLink>
+        </div>
+
+        <div>
             <NavLink to='/documents' title='Documents' className={({ isActive }) => isActive ? css.clickedButton : undefined}>
                 <div className={css.button}><FileOutlined /> Documents</div>
             </NavLink>

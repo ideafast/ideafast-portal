@@ -1065,7 +1065,7 @@ export class DataCore {
             }
         }
         const fileEntry = await fileCore.uploadFile(
-            requester, studyId, null, file, null, enumFileTypes[(file.filename.split('.').pop() as string).toUpperCase() as keyof typeof enumFileTypes], enumFileCategories.STUDY_DATA_FILE, properties);
+            requester, studyId, null, file, undefined, enumFileTypes[(file.filename.split('.').pop() as string).toUpperCase() as keyof typeof enumFileTypes], enumFileCategories.STUDY_DATA_FILE, properties);
 
         const dataEntry: IData = {
             id: uuid(),
@@ -1243,7 +1243,7 @@ export class DataCore {
                     null, // studyId
                     null, // userId
                     result, // fileUpload
-                    null, // description
+                    undefined, // description
                     enumFileTypes.JSON,
                     enumFileCategories.CACHE,
                     null // properties

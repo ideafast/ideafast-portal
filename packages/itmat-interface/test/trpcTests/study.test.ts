@@ -16,6 +16,7 @@ import config from '../../config/config.sample.json';
 import { v4 as uuid } from 'uuid';
 import { enumUserTypes, enumStudyRoles, enumDataTypes } from '@itmat-broker/itmat-types';
 import path from 'path';
+// eslint-disable-next-line @nx/enforce-module-boundaries
 import { errorCodes } from 'packages/itmat-interface/src/graphql/errors';
 import { encodeQueryParams } from '../utils/trpc';
 if (global.hasMinio) {
@@ -24,8 +25,8 @@ if (global.hasMinio) {
     let admin: request.SuperTest<request.Test>;
     let user: request.SuperTest<request.Test>;
     let mongoConnection: MongoClient;
-    let mongoClient: Db;
-    let adminProfile;
+    // let mongoClient: Db;
+    // let adminProfile;
     let userProfile;
 
     afterAll(async () => {
@@ -723,7 +724,7 @@ if (global.hasMinio) {
                         value: '10'
                     }]
                 });
-            const response2 = await user.post('/trpc/study.createDataVersion')
+            await user.post('/trpc/study.createDataVersion')
                 .send({
                     studyId: response1.body.result.data.id,
                     dataVersion: '1.0',

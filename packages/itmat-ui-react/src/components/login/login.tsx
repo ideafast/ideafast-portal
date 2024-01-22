@@ -35,7 +35,7 @@ export const LoginBox: FunctionComponent = () => {
             An error occured, please contact your administrator
         </p>;
     }
-
+    console.log(getSystemConfig.data);
     const systemConfig = (getSystemConfig.data as IConfig).properties as ISystemConfig;
     return (<div className={css.login_wrapper}>
         <div className={css.login_left}>

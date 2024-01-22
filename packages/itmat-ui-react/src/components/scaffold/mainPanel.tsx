@@ -1,5 +1,5 @@
 import { FunctionComponent } from 'react';
-import { Route, Routes, Navigate } from 'react-router-dom';
+import { Route, Routes } from 'react-router-dom';
 import { DatasetDetailPage } from '../datasetDetail';
 import { DatasetPage } from '../dataset';
 // import { ProjectDetailPage } from '../projectDetail';
@@ -13,6 +13,7 @@ import css from './scaffold.module.css';
 import { LogPage } from '../logs';
 import { DocumentPage } from '../documents';
 import { JobPage } from '../job';
+import { DrivePage } from '../drive';
 
 
 export const MainPanel: FunctionComponent = () => {
@@ -25,6 +26,7 @@ export const MainPanel: FunctionComponent = () => {
                 {/* <Route path='/users/:userId' element={<UserPage />} /> */}
                 <Route path='/logs' element={<LogPage />} />
                 <Route path='/profile' element={<ProfilePage />} />
+                <Route path='/drive' element={<DrivePage />} />
                 <Route path='/documents' element={<DocumentPage />} />
                 <Route path='/organisations' element={<OrganisationPage />} />
                 <Route path='/jobs' element={<JobPage />} />

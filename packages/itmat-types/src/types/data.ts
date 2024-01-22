@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { IBase, ZBase } from './base';
+import { IBase } from './base';
 import { IValueVerifier } from './utils';
 
 export interface IField extends IBase {

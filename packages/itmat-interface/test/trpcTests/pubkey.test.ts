@@ -15,7 +15,6 @@ import { setupDatabase } from '@itmat-broker/itmat-setup';
 import config from '../../config/config.sample.json';
 import { v4 as uuid } from 'uuid';
 import { enumUserTypes } from '@itmat-broker/itmat-types';
-import { createRSAKey, exportRSAKey, signwtRSAKey } from '../../src/utils/pubkeycrypto';
 
 if (global.hasMinio) {
     let app: Express;
@@ -23,9 +22,9 @@ if (global.hasMinio) {
     let admin: request.SuperTest<request.Test>;
     let user: request.SuperTest<request.Test>;
     let mongoConnection: MongoClient;
-    let mongoClient: Db;
-    let adminProfile;
-    let userProfile;
+    // let mongoClient: Db;
+    // let adminProfile;
+    // let userProfile;
 
     afterAll(async () => {
         await db.closeConnection();

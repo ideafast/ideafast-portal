@@ -133,7 +133,7 @@ export class UserCore {
                     message: 'File type not supported.'
                 });
             }
-            fileEntry = await fileCore.uploadFile(userId, null, userId, profile, null, enumFileTypes[(profile.filename.split('.').pop() || '').toUpperCase() as keyof typeof enumFileTypes], enumFileCategories.USER_PROFILE_FILE, []);
+            fileEntry = await fileCore.uploadFile(userId, null, userId, profile, undefined, enumFileTypes[(profile.filename.split('.').pop() || '').toUpperCase() as keyof typeof enumFileTypes], enumFileCategories.USER_PROFILE_FILE, []);
         }
         const entry: IUser = {
             id: userId,
@@ -246,7 +246,7 @@ export class UserCore {
                     message: 'File type not supported.'
                 });
             }
-            fileEntry = await fileCore.uploadFile(requester, null, user.id, profile, null, enumFileTypes[(profile.filename.split('.').pop() || '').toUpperCase() as keyof typeof enumFileTypes], enumFileCategories.USER_PROFILE_FILE, []);
+            fileEntry = await fileCore.uploadFile(requester, null, user.id, profile, undefined, enumFileTypes[(profile.filename.split('.').pop() || '').toUpperCase() as keyof typeof enumFileTypes], enumFileCategories.USER_PROFILE_FILE, []);
             setObj.profile = fileEntry.id;
         }
 

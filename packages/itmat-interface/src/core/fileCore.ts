@@ -17,7 +17,7 @@ import { IUser } from 'webdav-server';
 import fs from 'fs';
 
 export class FileCore {
-    public async uploadFile(requester: string, studyId: string | null, userId: string | null, fileUpload: any, description: string | null, fileType: enumFileTypes, fileCategory: enumFileCategories, properties: Record<string, any> | null): Promise<IFile> {
+    public async uploadFile(requester: string, studyId: string | null, userId: string | null, fileUpload: any, description: string | undefined, fileType: enumFileTypes, fileCategory: enumFileCategories, properties: Record<string, any> | null): Promise<IFile> {
         /**
          * Upload a file to storage.
          *

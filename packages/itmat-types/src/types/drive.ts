@@ -5,7 +5,7 @@ export interface IDriveNode extends IBase {
     path: string[];
     restricted: boolean; // whether to allow delete on this node. User own folders are protected.
     name: string; // folder name or file name
-    description: string | null;
+    description?: string;
     fileId: string | null; // null for folder
     type: enumDriveNodeTypes;
     parent: string | null; // null for root node

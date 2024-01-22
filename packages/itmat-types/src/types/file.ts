@@ -1,12 +1,11 @@
 import { IBase } from './base';
-import { IValueVerifier } from './utils';
 
 export interface IFile extends IBase {
     studyId: string | null; // null for system and user file
     userId: string | null; // null for system and study file
     fileName: string;
     fileSize: number;
-    description: string | null;
+    description?: string;
     properties: Record<string, any> | null;
     uri: string;
     path: string[];

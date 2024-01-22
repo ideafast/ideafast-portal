@@ -551,7 +551,7 @@ export const userResolvers = {
                 throw new GraphQLError('Database error.', { extensions: { code: errorCodes.DATABASE_ERROR } });
             }
         },
-        uploadUserProfile: async (parent: Record<string, unknown>, { userId, description, fileType, fileUpload }: { userId: string, description: string | null, fileType: enumFileTypes, fileUpload: Promise<FileUpload> }, context: any): Promise<IGenericResponse> => {
+        uploadUserProfile: async (parent: Record<string, unknown>, { userId, description, fileType, fileUpload }: { userId: string, description: string | undefined, fileType: enumFileTypes, fileUpload: Promise<FileUpload> }, context: any): Promise<IGenericResponse> => {
             /**
              * Upload a profile of a user.
              *

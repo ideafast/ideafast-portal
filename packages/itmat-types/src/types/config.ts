@@ -1,7 +1,6 @@
 import { IBase, ILifeCircle } from './base';
 import { v4 as uuid } from 'uuid';
 import { enumReservedDefs } from './reserved';
-import { IFile } from './file';
 import { IJobSchedulerConfig, enumJobSchedulerStrategy } from './job';
 
 export interface IConfig extends IBase {

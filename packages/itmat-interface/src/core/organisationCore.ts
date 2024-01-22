@@ -60,7 +60,7 @@ export class OrganisationCore {
                     message: 'File type not supported.'
                 });
             }
-            fileEntry = await fileCore.uploadFile(requester, null, null, profile, null, enumFileTypes[(profile.filename.split('.').pop() || '').toUpperCase() as keyof typeof enumFileTypes], enumFileCategories.ORGANISATION_PROFILE_FILE, []);
+            fileEntry = await fileCore.uploadFile(requester, null, null, profile, undefined, enumFileTypes[(profile.filename.split('.').pop() || '').toUpperCase() as keyof typeof enumFileTypes], enumFileCategories.ORGANISATION_PROFILE_FILE, []);
         }
         const entry: IOrganisation = {
             id: uuid(),
@@ -135,7 +135,7 @@ export class OrganisationCore {
                     message: 'File type not supported.'
                 });
             }
-            fileEntry = await fileCore.uploadFile(requester, null, null, profile, null, enumFileTypes[(profile.filename.split('.').pop() || '').toUpperCase() as keyof typeof enumFileTypes], enumFileCategories.ORGANISATION_PROFILE_FILE, []);
+            fileEntry = await fileCore.uploadFile(requester, null, null, profile, undefined, enumFileTypes[(profile.filename.split('.').pop() || '').toUpperCase() as keyof typeof enumFileTypes], enumFileCategories.ORGANISATION_PROFILE_FILE, []);
         }
 
         await db.collections!.organisations_collection.findOneAndUpdate({ id: organisationId }, {

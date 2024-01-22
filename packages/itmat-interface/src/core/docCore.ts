@@ -99,7 +99,7 @@ export class DocCore {
                     throw new GraphQLError('Profile file does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
                 }
 
-                const file = await fileCore.uploadFile(requester, null, null, attachment, null, enumFileTypes[(attachment.filename.split('.').pop() as string).toUpperCase() as keyof typeof enumFileTypes], enumFileCategories.DOC_FILE, []);
+                const file = await fileCore.uploadFile(requester, null, null, attachment, undefined, enumFileTypes[(attachment.filename.split('.').pop() as string).toUpperCase() as keyof typeof enumFileTypes], enumFileCategories.DOC_FILE, []);
                 attachmentsFileIds.push(file.id);
             }
             doc.attachmentFileIds = attachmentsFileIds;
@@ -141,7 +141,7 @@ export class DocCore {
                     throw new GraphQLError('Profile file does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
                 }
 
-                const file = await fileCore.uploadFile(requester, null, null, attachment, null, enumFileTypes[(attachment.filename.split('.').pop() as string).toUpperCase() as keyof typeof enumFileTypes], enumFileCategories.DOC_FILE, []);
+                const file = await fileCore.uploadFile(requester, null, null, attachment, undefined, enumFileTypes[(attachment.filename.split('.').pop() as string).toUpperCase() as keyof typeof enumFileTypes], enumFileCategories.DOC_FILE, []);
                 attachmentsFileIds.push(file.id);
             }
         }

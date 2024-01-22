@@ -36,7 +36,7 @@ export const driveRouter = t.router({
     createDriveFolder: baseProcedure.input(z.object({
         folderName: z.string(),
         parentId: z.union([z.string(), z.null()]),
-        description: z.union([z.string(), z.null()])
+        description: z.optional(z.string())
     })).mutation(async (opts: any) => {
         const requester = opts.ctx.req?.user ?? opts.ctx.user;
         return await driveCore.createDriveFolderNode(requester.id, opts.input.folderName, opts.input.parentId, false, opts.input.description);
@@ -47,7 +47,7 @@ export const driveRouter = t.router({
      * @param parentId - The id of the parent node.
      */
     createDriveFile: baseProcedure.input(z.object({
-        parentId: z.string(),
+        parentId: z.union([z.string(), z.null()]),
         description: z.union([z.string(), z.null()]),
         file: z.array(z.object({
             path: z.any(),
@@ -65,6 +65,44 @@ export const driveRouter = t.router({
             // Cleanup: Delete the temporary file from the disk
             if (opts.input.file) {
                 const filePath = opts.input.file[0].path;
+                if (fs.existsSync(filePath)) {
+                    fs.unlink(filePath, (err) => {
+                        if (err) {
+                            console.error('Error deleting temporary file:', filePath, err);
+                        }
+                    });
+                }
+            }
+        }
+    }),
+    createRecursiveDrives: baseProcedure.input(z.object({
+        parentId: z.string(),
+        files: z.array(z.object({
+            path: z.any(),
+            filename: z.string(),
+            mimetype: z.optional(z.string()),
+            size: z.number()
+            // ... other validation ...
+        })),
+        paths: z.array(z.array(z.string()))
+    })).mutation(async (opts: any) => {
+        const requester = opts.ctx.req?.user ?? opts.ctx.user;
+        try {
+            const files: any[] = [];
+            for (const file of opts.input.files) {
+                files.push(await file);
+            }
+
+            return await driveCore.createRecursiveDrives(
+                requester.id,
+                opts.input.parentId,
+                files,
+                opts.input.paths
+            );
+        } finally {
+            // Cleanup: Delete the temporary file from the disk
+            for (let i = 0; i < opts.input.files.length; i++) {
+                const filePath = opts.input.files[i].path;
                 if (fs.existsSync(filePath)) {
                     fs.unlink(filePath, (err) => {
                         if (err) {

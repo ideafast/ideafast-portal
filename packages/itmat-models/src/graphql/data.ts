@@ -127,7 +127,7 @@ export const UPLOAD_FILE_DATA = gql`
         }
     }
     ${GENERIC_RESPONSE}
-`
+`;
 
 // export const CREATE_ONTOLOGY_TREE = gql`
 //     mutation createOntologyTree($studyId: String!, $name: String!, $tag: String) {

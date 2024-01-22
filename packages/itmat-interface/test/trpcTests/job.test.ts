@@ -15,17 +15,15 @@ import { setupDatabase } from '@itmat-broker/itmat-setup';
 import config from '../../config/config.sample.json';
 import { v4 as uuid } from 'uuid';
 import { enumJobType, enumUserTypes } from '@itmat-broker/itmat-types';
-import path from 'path';
-import { errorCodes } from 'packages/itmat-interface/src/graphql/errors';
 if (global.hasMinio) {
     let app: Express;
     let mongodb: MongoMemoryServer;
     let admin: request.SuperTest<request.Test>;
     let user: request.SuperTest<request.Test>;
     let mongoConnection: MongoClient;
-    let mongoClient: Db;
-    let adminProfile;
-    let userProfile;
+    // let mongoClient: Db;
+    // let adminProfile;
+    // let userProfile;
 
     afterAll(async () => {
         await db.closeConnection();
