@@ -1,5 +1,5 @@
 import { InMemoryCache } from '@apollo/client/cache';
-import { ApolloClient, from, ApolloLink } from '@apollo/client';
+import { ApolloClient, from, ApolloLink} from '@apollo/client';
 import { onError } from '@apollo/client/link/error';
 import createUploadLink from 'apollo-upload-client/createUploadLink.mjs';
 import axios from 'axios';
@@ -60,6 +60,7 @@ const cache = new InMemoryCache({
 });
 
 export const client = new ApolloClient({
+
     link: from([
         onError(({ response, graphQLErrors, networkError }) => {
             if (graphQLErrors) {

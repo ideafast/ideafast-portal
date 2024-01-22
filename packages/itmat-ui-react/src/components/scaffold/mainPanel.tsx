@@ -7,6 +7,7 @@ import { ProjectListPage } from '../projectList';
 import { UserPage } from '../users';
 import { LogPage } from '../log';
 import { ProfilePage } from '../profile';
+import { LXDPage } from '../lxd';
 import css from './scaffold.module.css';
 
 export const MainPanel: FunctionComponent = () => {
@@ -22,6 +23,7 @@ export const MainPanel: FunctionComponent = () => {
                 <Route path='/logs' element={<LogPage />} />
                 <Route path='/profile' element={<ProfilePage />} />
                 <Route path='/pun/sys/dashboard' />
+                <Route path='/ae' element={<LXDPage />} />
                 <Route path='*' element={<Navigate to='/datasets' />} />
             </Routes>
         </div>

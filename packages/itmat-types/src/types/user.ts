@@ -4,6 +4,7 @@ export enum userTypes {
     SYSTEM = 'SYSTEM'
 }
 
+
 export interface IUserWithoutToken {
     id: string;
     username: string;

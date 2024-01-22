@@ -112,7 +112,6 @@ export const Fence: FunctionComponent = () => {
     }, [isUserLogin, isWebauthAvailable, useWebauthn]);
 
     useEffect(() => {
-        console.log('11111 showRegistrationDialog', showRegistrationDialog);
         if (isUserLogin && showRegistrationDialog && useWebauthn === 'register') {
             setwindowComponent(
                 <WebAuthnRegistrationComponent

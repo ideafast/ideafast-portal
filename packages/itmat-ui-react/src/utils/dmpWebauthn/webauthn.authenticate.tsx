@@ -1,13 +1,15 @@
-import React, { FunctionComponent, useState, useEffect} from 'react';
-import { useQuery, useMutation, useApolloClient} from '@apollo/client';
-import { Modal, Button, Select} from 'antd';
+import React, { FunctionComponent, useState, useEffect } from 'react';
+import { useQuery, useMutation, useApolloClient } from '@apollo/client';
+import { Modal, Button, Select } from 'antd';
 
-import {WHO_AM_I, WEBAUTHN_AUTHENTICATE,
+import {
+    WHO_AM_I, WEBAUTHN_AUTHENTICATE,
     WEBAUTHN_AUTHENTICATE_VERIFY,
-    WEBAUTHN_LOGIN, GET_WEBAUTHN} from '@itmat-broker/itmat-models';
+    WEBAUTHN_LOGIN, GET_WEBAUTHN
+} from '@itmat-broker/itmat-models';
 
-import { startAuthentication} from '@simplewebauthn/browser';
-import {PublicKeyCredentialRequestOptionsJSON, AuthenticationResponseJSON} from '@simplewebauthn/typescript-types';
+import { startAuthentication } from '@simplewebauthn/browser';
+import { PublicKeyCredentialRequestOptionsJSON, AuthenticationResponseJSON } from '@simplewebauthn/types';
 import LoadSpinner from '../../components/reusable/loadSpinner';
 import webauthnStyles from './webauthn.module.css';
 
@@ -15,18 +17,18 @@ import { WebAuthnAuthenticateProps } from './useLocalStorage';
 import { UserID, removeTypenameDeep } from './webauthn.utils';
 import { useAuth } from './webauthn.context';
 
-export const WebAuthnAuthenticationComponent: FunctionComponent<WebAuthnAuthenticateProps> = ( {
+export const WebAuthnAuthenticationComponent: FunctionComponent<WebAuthnAuthenticateProps> = ({
     credentials: webauthn_ids, isUserLogin
 }) => {
 
     const client = useApolloClient();
-    const { showRegistrationDialog, handleCancelRegistration} = useAuth();
+    const { showRegistrationDialog, handleCancelRegistration } = useAuth();
     const [webauthnAuthenticate] = useMutation(WEBAUTHN_AUTHENTICATE);
     const [webauthnAuthenticateVerify] = useMutation(WEBAUTHN_AUTHENTICATE_VERIFY);
     const [webauthnLogin] = useMutation(WEBAUTHN_LOGIN);
-    const { loading: webAuthnLoading, error: webAuthnError, data: webauthn_users } = useQuery(GET_WEBAUTHN, {variables: { webauthn_ids}});
+    const { loading: webAuthnLoading, error: webAuthnError, data: webauthn_users } = useQuery(GET_WEBAUTHN, { variables: { webauthn_ids } });
 
-    const [selectedUser, setSelectedUser] = useState<UserID|null>(null);
+    const [selectedUser, setSelectedUser] = useState<UserID | null>(null);
     const [userList, setUserList] = useState<UserID[]>([]);
 
     const elemSuccess = document.querySelector('#regSuccess');
@@ -59,7 +61,7 @@ export const WebAuthnAuthenticationComponent: FunctionComponent<WebAuthnAuthenti
         }
     }, [userList, webauthn_users]);
 
-    if (isUserLogin){
+    if (isUserLogin) {
         return;
     }
 
@@ -96,17 +98,17 @@ export const WebAuthnAuthenticationComponent: FunctionComponent<WebAuthnAuthenti
                 return;
             }
 
-            const {data: authenticationData} = await webauthnAuthenticate({
+            const { data: authenticationData } = await webauthnAuthenticate({
                 variables: {
                     userId: selectedUser.id
                 }
             });
 
-            const authenticationOptions: PublicKeyCredentialRequestOptionsJSON  =  removeTypenameDeep(await authenticationData?.webauthnAuthenticate);
+            const authenticationOptions: PublicKeyCredentialRequestOptionsJSON = removeTypenameDeep(await authenticationData?.webauthnAuthenticate);
             const assertionResponse: AuthenticationResponseJSON = await startAuthentication(authenticationOptions);
 
 
-            const {data: verificationData} = await webauthnAuthenticateVerify({
+            const { data: verificationData } = await webauthnAuthenticateVerify({
                 variables: {
                     userId: selectedUser.id,
                     assertionResponse: assertionResponse
@@ -122,8 +124,8 @@ export const WebAuthnAuthenticationComponent: FunctionComponent<WebAuthnAuthenti
                 }
                 try {
                     console.log('start webauthnLogin');
-                    try{
-                        const {data: logindata} = await webauthnLogin({
+                    try {
+                        const { data: logindata } = await webauthnLogin({
                             variables: {
                                 userId: selectedUser.id
                             }
@@ -138,16 +140,17 @@ export const WebAuthnAuthenticationComponent: FunctionComponent<WebAuthnAuthenti
                         });
                         console.log('user information update successed');
                         handleCancelRegistration();
-                    } catch(error) {
+                    } catch (error) {
                         console.log('webauthnLogin', error);
                     }
 
-                } catch (error){
+                } catch (error) {
                     console.log('error', error);
                     if (elemError) {
                         elemError.innerHTML = `Oh no, webauthn login,  went wrong! please try later, Response: <pre>${JSON.stringify(
                             error
-                        )}</pre>`;}
+                        )}</pre>`;
+                    }
                 }
 
             } else {
@@ -177,7 +180,7 @@ export const WebAuthnAuthenticationComponent: FunctionComponent<WebAuthnAuthenti
             maskStyle={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
             bodyStyle={{ padding: '24px' }}
         >
-            <div className = {webauthnStyles.auth_modalContent}>
+            <div className={webauthnStyles.auth_modalContent}>
                 <img alt='IDEA-FAST Logo' src='https://avatars3.githubusercontent.com/u/60649739?s=150' />
                 <h3>Authenticate with WebAuthn?</h3>
                 {userList.length > 1 && !selectedUser ? (
@@ -200,10 +203,10 @@ export const WebAuthnAuthenticationComponent: FunctionComponent<WebAuthnAuthenti
             </div>
             <div className={webauthnStyles.auth_buttonContainer}>
                 <Button key="cancel" onClick={handleCancelRegistration} size='large'>
-            Cancel
+                    Cancel
                 </Button>
                 <Button key="authenticate" type="primary" onClick={handleWebAuthnAuthentication} size='large' className={webauthnStyles.authenticateButton}>
-            Authenticate
+                    Authenticate
                 </Button>
             </div>
         </Modal>

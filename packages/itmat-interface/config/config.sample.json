@@ -40,5 +40,7 @@
         "auth": {}
     },
     "adminEmail": "admin@example.com",
-    "aeEndpoint": "http://localhost:9090"
+    "aeEndpoint": "http://localhost:9090",
+    "lxdEndpoint": "https://192.168.64.4:8443",
+    "lxdTrustPassowrd": "wjf123456"
 }

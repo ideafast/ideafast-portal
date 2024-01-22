@@ -61,7 +61,13 @@ export const LoginBox: FunctionComponent = () => {
                                             </Button>
                                         </Form.Item>
                                     }
-
+                                    {/* <Form.Item>
+                                        <NavLink to="/webauthn_register">
+                                            <Button type='link' disabled={loading} loading={loading} htmlType='submit'>
+                                                        LoginSecKey
+                                            </Button>
+                                        </NavLink>
+                                    </Form.Item> */}
                                 </Form>
                             </div>
                             <br />

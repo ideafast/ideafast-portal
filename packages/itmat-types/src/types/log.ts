@@ -1,4 +1,3 @@
-import { WEBAUTHN_REGISTER_VERIFY } from '@itmat-broker/itmat-models';
 import { userTypes } from './user';
 
 export interface ILogEntry {

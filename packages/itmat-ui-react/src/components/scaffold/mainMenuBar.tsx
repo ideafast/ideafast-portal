@@ -5,7 +5,7 @@ import { NavLink } from 'react-router-dom';
 import { LOGOUT, WHO_AM_I } from '@itmat-broker/itmat-models';
 import { IProject, userTypes } from '@itmat-broker/itmat-types';
 import css from './scaffold.module.css';
-import { DatabaseOutlined, TeamOutlined, PoweroffOutlined, HistoryOutlined, SettingOutlined, ProjectOutlined, DesktopOutlined, WarningTwoTone } from '@ant-design/icons';
+import { DatabaseOutlined, TeamOutlined, PoweroffOutlined, HistoryOutlined, SettingOutlined, ProjectOutlined, DesktopOutlined, WarningTwoTone, SafetyCertificateOutlined} from '@ant-design/icons';
 import LoadSpinner from '../reusable/loadSpinner';
 import dayjs from 'dayjs';
 import { Tooltip } from 'antd';
@@ -14,7 +14,7 @@ type MainMenuBarProps = {
     projects: IProject[];
 }
 export const MainMenuBar: FunctionComponent<MainMenuBarProps> = ({ projects }) => {
-    const { loading: whoAmILoading, error: whoAmIError, data: whoAmIData } = useQuery(WHO_AM_I);
+    const { loading: whoAmILoading, error: whoAmIError, data: whoAmIData} = useQuery(WHO_AM_I);
     if (whoAmILoading) {
         return <LoadSpinner />;
     }
@@ -76,10 +76,14 @@ export const MainMenuBar: FunctionComponent<MainMenuBarProps> = ({ projects }) =
                 </div>
             </NavLink >
         </div >
+
         {(whoAmIData.whoAmI.type === userTypes.ADMIN || whoAmIData.whoAmI.metadata?.aePermission === true)
             ? <div>
                 <NavLink to='/pun/sys/dashboard' target='_blank' title='Analytical Environment' className={({ isActive }) => isActive ? css.clickedButton : undefined}>
                     <div className={css.button}><DesktopOutlined /> Analytical Environment</div>
+                </NavLink>
+                <NavLink to='/ae' title='AE-LXD' className={({ isActive }) => isActive ? css.clickedButton : undefined}>
+                    <div className={css.button}><SafetyCertificateOutlined /> LXD Management</div>
                 </NavLink>
             </div>
             : null

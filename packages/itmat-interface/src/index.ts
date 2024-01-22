@@ -8,6 +8,7 @@ import { db } from './database/database';
 import { IUser, userTypes } from '@itmat-broker/itmat-types';
 import { mailer } from './emailer/emailer';
 
+
 let interfaceRunner = new ITMATInterfaceRunner(config);
 let interfaceSockets: Socket[] = [];
 let interfaceServer: http.Server;

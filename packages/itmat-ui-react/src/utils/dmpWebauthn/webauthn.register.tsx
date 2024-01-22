@@ -1,14 +1,14 @@
-import React, { FunctionComponent, useEffect} from 'react';
-import { useMutation} from '@apollo/client';
-import { Button, Modal} from 'antd';
+import React, { FunctionComponent, useEffect } from 'react';
+import { useMutation } from '@apollo/client';
+import { Button, Modal } from 'antd';
 
-import {WEBAUTHN_REGISTER, WEBAUTHN_REGISTER_VERIFY} from '@itmat-broker/itmat-models';
+import { WEBAUTHN_REGISTER, WEBAUTHN_REGISTER_VERIFY } from '@itmat-broker/itmat-models';
 
-import { startRegistration} from '@simplewebauthn/browser';
+import { startRegistration } from '@simplewebauthn/browser';
 import {
     RegistrationResponseJSON,
     PublicKeyCredentialCreationOptionsJSON
-} from '@simplewebauthn/typescript-types';
+} from '@simplewebauthn/types';
 
 import { WebAuthnAuthenticateProps } from './useLocalStorage';
 import { removeTypenameDeep } from './webauthn.utils';
@@ -17,17 +17,17 @@ import { useAuth } from './webauthn.context';
 
 export const WebAuthnRegistrationComponent: FunctionComponent<WebAuthnAuthenticateProps> = (
     {
-        credentials, setCredentials,isUserLogin
+        credentials, setCredentials, isUserLogin
     }) => {
 
-    const { showRegistrationDialog, handleCancelRegistration} = useAuth();
+    const { showRegistrationDialog, handleCancelRegistration } = useAuth();
     console.log('WebAuthnRegistrationComponent >>>> showRegistrationDialog', showRegistrationDialog);
 
     const [webauthnRegistration] = useMutation(WEBAUTHN_REGISTER);
     const [webauthnRegisterVerify] = useMutation(WEBAUTHN_REGISTER_VERIFY);
 
     useEffect(() => {
-        console.log('windows 22222',{ isUserLogin, showRegistrationDialog});
+        console.log('windows 22222', { isUserLogin, showRegistrationDialog });
     }, [isUserLogin, showRegistrationDialog]);
 
     const handleWebAuthnRegistration = async (event) => {
@@ -36,7 +36,7 @@ export const WebAuthnRegistrationComponent: FunctionComponent<WebAuthnAuthentica
         const elemSuccess = document.querySelector('#regSuccess');
         const elemError = document.querySelector('#regError');
 
-        if (!isUserLogin){
+        if (!isUserLogin) {
             if (elemError) {
                 elemError.innerHTML = 'There is no login user, please login and try again';
             }
@@ -49,14 +49,14 @@ export const WebAuthnRegistrationComponent: FunctionComponent<WebAuthnAuthentica
                 elemError.innerHTML = '';
             }
 
-            const {data: registrationData} = await webauthnRegistration();
-            const registrationOptions: PublicKeyCredentialCreationOptionsJSON  =  removeTypenameDeep(await registrationData?.webauthnRegister);
+            const { data: registrationData } = await webauthnRegistration();
+            const registrationOptions: PublicKeyCredentialCreationOptionsJSON = removeTypenameDeep(await registrationData?.webauthnRegister);
 
             const attestationResponse: RegistrationResponseJSON = await startRegistration(registrationOptions);
 
             console.log('frontend start verify');
 
-            const {data: verificationData} = await webauthnRegisterVerify({
+            const { data: verificationData } = await webauthnRegisterVerify({
                 variables: {
                     attestationResponse: attestationResponse
                 }
@@ -109,10 +109,10 @@ export const WebAuthnRegistrationComponent: FunctionComponent<WebAuthnAuthentica
             </div>
             <div className={webauthnStyles.primaryButton}>
                 <Button key="no" onClick={handleCancelRegistration} size='large'>
-            No
+                    No
                 </Button>
                 <Button key="yes" type="primary" onClick={handleWebAuthnRegistration} size='large'>
-            Yes
+                    Yes
                 </Button>
             </div>
         </Modal>

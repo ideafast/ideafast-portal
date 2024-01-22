@@ -11,13 +11,13 @@ import type {
     RegistrationResponseJSON,
     PublicKeyCredentialRequestOptionsJSON,
     AuthenticatorDevice
-} from '@simplewebauthn/typescript-types';
+} from '@simplewebauthn/types';
 import { errorCodes } from '../errors';
 
 
 import { db } from '../../database/database';
 import { IUser, IWebAuthn } from '@itmat-broker/itmat-types';
-import { isoBase64URL} from '@simplewebauthn/server/helpers';
+import { isoBase64URL } from '@simplewebauthn/server/helpers';
 
 function formatEmailRequestExpiryDatetoAdmin({ username, userEmail }: { username: string, userEmail: string }) {
     return ({
@@ -78,7 +78,7 @@ export const webAuthnResolvers = {
             return null;
         }
     },
-    Query:{
+    Query: {
         getWebauthn: async (__unused__parent: Record<string, unknown>, args: any) => {
             //  get the webauthn based on the webauthn ids
             const { webauthn_ids } = args;
@@ -92,8 +92,8 @@ export const webAuthnResolvers = {
             return cursor.toArray();
         },
 
-        getWebauthnRegisteredDevices: async (__unused__parent: Record<string, unknown>, args:any, context: any) => {
-            const user:IUser = context.req.user;
+        getWebauthnRegisteredDevices: async (__unused__parent: Record<string, unknown>, args: any, context: any) => {
+            const user: IUser = context.req.user;
             try {
                 return await userCore.getWebauthnDevices(user);
             } catch (error) {
@@ -114,7 +114,7 @@ export const webAuthnResolvers = {
 
         },
 
-        webauthnRegisterVerify: async (parent: Record<string, unknown>, args: any , context: any): Promise<IGenericResponse> => {
+        webauthnRegisterVerify: async (parent: Record<string, unknown>, args: any, context: any): Promise<IGenericResponse> => {
             // const user: IUser = context.req.user;
             const user: IUser = context.req.user;
             const attestationResponse: RegistrationResponseJSON = args.attestationResponse;
@@ -123,7 +123,7 @@ export const webAuthnResolvers = {
         },
 
         webauthnAuthenticate: async (parent: Record<string, unknown>, args: any): Promise<PublicKeyCredentialRequestOptionsJSON> => {
-            const user: IUser | null =  await db.collections!.users_collection.findOne({ deleted: null, id: args.userId });
+            const user: IUser | null = await db.collections!.users_collection.findOne({ deleted: null, id: args.userId });
             if (!user)
                 throw new GraphQLError('User is not found', {
                     extensions: { code: errorCodes.DATABASE_ERROR }
@@ -137,7 +137,7 @@ export const webAuthnResolvers = {
 
         webauthnAuthenticateVerify: async (parent: Record<string, unknown>, args: any): Promise<IGenericResponse> => {
             // const user: IUser = context.req.user;
-            const user: IUser | null =  await db.collections!.users_collection.findOne({ deleted: null, id: args.userId });
+            const user: IUser | null = await db.collections!.users_collection.findOne({ deleted: null, id: args.userId });
             if (!user)
                 throw new GraphQLError('User is not found', {
                     extensions: { code: errorCodes.DATABASE_ERROR }
@@ -191,7 +191,7 @@ export const webAuthnResolvers = {
 
         },
         deleteWebauthnRegisteredDevices: async (parent: Record<string, unknown>, args: any, context: any) => {
-            const user:IUser = context.req.user;
+            const user: IUser = context.req.user;
             const device_id = args.deviceId;
 
             try {

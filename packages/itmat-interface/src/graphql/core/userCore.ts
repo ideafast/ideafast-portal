@@ -6,7 +6,7 @@ import { IUser, IUserWithoutToken, userTypes, IOrganisation, IPubkey, Authentica
 import { v4 as uuid } from 'uuid';
 import { errorCodes } from '../errors';
 import { MarkOptional } from 'ts-essentials';
-import {generateSecret} from '../../utils/mfa';
+import { generateSecret } from '../../utils/mfa';
 import {
     generateRegistrationOptions,
     verifyRegistrationResponse,
@@ -20,7 +20,7 @@ import type {
     PublicKeyCredentialRequestOptionsJSON,
     AuthenticationResponseJSON
     // WebAuthnCredentialsInput,
-} from '@simplewebauthn/typescript-types';
+} from '@simplewebauthn/types';
 
 import { isoBase64URL, isoUint8Array } from '@simplewebauthn/server/helpers';
 
@@ -155,14 +155,14 @@ export class UserCore {
 
     public async getWebauthnDevices(user: IUser) {
 
-        const webauthnCursor = await db.collections!.webauthn_collection.findOne({userId: user.id}, { projection: { _id: 0 } });
+        const webauthnCursor = await db.collections!.webauthn_collection.findOne({ userId: user.id }, { projection: { _id: 0 } });
 
         return await webauthnCursor?.devices ?? [];
     }
 
     public async deleteWebauthnDevices(user: IUser, device_id: string) {
         const webAuthnData = await db.collections!.webauthn_collection.findOne({ userId: user.id });
-        if (webAuthnData){
+        if (webAuthnData) {
             const deviceIndex = webAuthnData.devices.findIndex(device => device.id === device_id);
             if (deviceIndex === -1) {
                 throw new Error('Device not found for deletion');
@@ -209,7 +209,7 @@ export class UserCore {
             userName: user.username,
             timeout: 60000,
             attestationType: 'none',
-            excludeCredentials: devices.map((authenticator:AuthenticatorDevice) => ({
+            excludeCredentials: devices.map((authenticator: AuthenticatorDevice) => ({
                 id: authenticator.credentialID.buffer as Uint8Array,
                 type: 'public-key',
                 transports: authenticator.transports
@@ -236,12 +236,12 @@ export class UserCore {
                 extensions: { code: errorCodes.DATABASE_ERROR }
             });
 
-        const { devices, challenge} = webauthn;
+        const { devices, challenge } = webauthn;
 
         const decodedString = isoBase64URL.fromBuffer(challenge.buffer as Uint8Array);
 
-        try{
-            const {verified, registrationInfo} = await verifyRegistrationResponse({
+        try {
+            const { verified, registrationInfo } = await verifyRegistrationResponse({
                 response: attestationResponse,
                 expectedChallenge: decodedString,
                 expectedOrigin: origin,
@@ -283,7 +283,7 @@ export class UserCore {
         }
     }
 
-    public async getWebauthnAuthenticationOptions(user:IUser): Promise<PublicKeyCredentialRequestOptionsJSON>{
+    public async getWebauthnAuthenticationOptions(user: IUser): Promise<PublicKeyCredentialRequestOptionsJSON> {
 
         console.log('backend  webauthn authenticationOptions', user.id);
 
@@ -296,7 +296,7 @@ export class UserCore {
                 extensions: { code: errorCodes.DATABASE_ERROR }
             });
 
-        const {devices, challenge} = webauthn;
+        const { devices, challenge } = webauthn;
 
 
         const options = await generateAuthenticationOptions({
@@ -314,7 +314,7 @@ export class UserCore {
         return options;
     }
 
-    public async handleAuthenticationVerify(user:IUser, assertionResponse: AuthenticationResponseJSON): Promise<boolean> {
+    public async handleAuthenticationVerify(user: IUser, assertionResponse: AuthenticationResponseJSON): Promise<boolean> {
 
         console.log('backend  webauthn authentication Verify');
         const webauthn = await db.collections?.webauthn_collection.findOne({
@@ -326,11 +326,11 @@ export class UserCore {
                 extensions: { code: errorCodes.DATABASE_ERROR }
             });
 
-        const { devices, challenge} = webauthn;
+        const { devices, challenge } = webauthn;
 
         const decodedString = isoBase64URL.fromBuffer(challenge.buffer as Uint8Array);
         const bodyCredIDBuffer = isoBase64URL.toBuffer(assertionResponse.rawId);
-        const deviceIndex = devices.findIndex(d =>isoUint8Array.areEqual(d.credentialID.buffer as Uint8Array, bodyCredIDBuffer));
+        const deviceIndex = devices.findIndex(d => isoUint8Array.areEqual(d.credentialID.buffer as Uint8Array, bodyCredIDBuffer));
 
 
         if (deviceIndex < 0) {

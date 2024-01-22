@@ -5,7 +5,7 @@
 * expected to generate an authentication response.
 */
 
-import type { AuthenticatorTransportFuture } from '@simplewebauthn/typescript-types';
+import type { AuthenticatorTransportFuture } from '@simplewebauthn/types';
 import { IUser } from './user';
 
 // overwrite the AuthenticatorDevice type in simplewebauthn
@@ -20,7 +20,7 @@ export type AuthenticatorDevice = {
 };
 
 // include the credential-
-export interface IWebAuthn{
+export interface IWebAuthn {
     id: string;
     userId: IUser['id'];
     username: IUser['username'];
