@@ -10,7 +10,7 @@ import { UserPage } from '../users';
 import { ProfilePage } from '../profile';
 import { OrganisationPage } from '../organisations';
 import css from './scaffold.module.css';
-import { LogPage } from '../logs';
+import { LogPage } from '../logger';
 import { DocumentPage } from '../documents';
 import { JobPage } from '../job';
 import { DrivePage } from '../drive';
