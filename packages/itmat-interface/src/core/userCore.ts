@@ -2,7 +2,7 @@ import bcrypt from 'bcrypt';
 import { db } from '../database/database';
 import config from '../utils/configManager';
 import { GraphQLError } from 'graphql';
-import { IUser, enumUserTypes, IOrganisation, IPubkey, defaultSettings, IGenericResponse, enumFileTypes, enumFileCategories, IResetPasswordRequest, enumGroupNodeTypes, IGroupNode, IDriveNode, IFile, enumDriveNodeTypes, AccessToken } from '@itmat-broker/itmat-types';
+import { IUser, enumUserTypes, IPubkey, defaultSettings, IGenericResponse, enumFileTypes, enumFileCategories, IResetPasswordRequest, enumGroupNodeTypes, IGroupNode, AccessToken } from '@itmat-broker/itmat-types';
 import { makeGenericReponse } from '../graphql/responses';
 import { v4 as uuid } from 'uuid';
 import { errorCodes } from '../graphql/errors';
@@ -10,9 +10,11 @@ import { FileUpload } from 'graphql-upload-minimal';
 import { fileCore } from './fileCore';
 import * as mfa from '../utils/mfa';
 import { TRPCError } from '@trpc/server';
+// eslint-disable-next-line @nx/enforce-module-boundaries
 import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
 import { rsakeygen, rsaverifier, tokengen } from '../utils/pubkeycrypto';
 import { mailer } from '../emailer/emailer';
+import { decryptEmail, makeAESIv, makeAESKeySalt } from '../encryption/aes';
 
 export class UserCore {
     /**
@@ -80,6 +82,39 @@ export class UserCore {
         return includeDeleted ? await db.collections!.users_collection.find({}).toArray() : await db.collections!.users_collection.find({ 'life.deletedTime': null }).toArray();
     }
 
+
+    public async validateResetPassword(encryptedEmail: string, token: string): Promise<IGenericResponse> {
+        /* decrypt email */
+        const salt = makeAESKeySalt(token);
+        const iv = makeAESIv(token);
+        let email;
+        try {
+            email = await decryptEmail(encryptedEmail, salt, iv);
+        } catch (e) {
+            throw new GraphQLError('Token is not valid.');
+        }
+
+        /* check whether username and token is valid */
+        /* not changing password too in one step (using findOneAndUpdate) because bcrypt is costly */
+        const TIME_NOW = new Date().valueOf();
+        const ONE_HOUR_IN_MILLISEC = 60 * 60 * 1000;
+        const user: IUser | null = await db.collections!.users_collection.findOne({
+            email,
+            'resetPasswordRequests': {
+                $elemMatch: {
+                    id: token,
+                    timeOfRequest: { $gt: TIME_NOW - ONE_HOUR_IN_MILLISEC },
+                    used: false
+                }
+            },
+            'life.deletedTime': null
+        });
+        if (!user) {
+            throw new GraphQLError(errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY);
+        }
+        return makeGenericReponse();
+    }
+
     /**
      * Create a user.
      *
@@ -126,6 +161,7 @@ export class UserCore {
         const hashedPassword: string = await bcrypt.hash(password, config.bcrypt.saltround);
         const expiredAt = Date.now() + 86400 * 1000 /* millisec per day */ * (userConfig.defaultUserExpiredDays);
         let fileEntry: any = undefined;
+
         if (profile) {
             if (!Object.keys(enumFileTypes).includes((profile?.filename?.split('.').pop() || '').toUpperCase())) {
                 throw new TRPCError({
@@ -262,27 +298,28 @@ export class UserCore {
 
         return result.value;
     }
-
+    /**
+     * Delete an user.
+     *
+     * @param requester - The id of the requester.
+     * @param userId - The id of the user.
+     *
+     * @return IGenericResponse - General response.
+     */
     public async deleteUser(requester: string, userId: string): Promise<IGenericResponse> {
-        /**
-         * Delete an user.
-         *
-         * @param requester - The id of the requester.
-         * @param userId - The id of the user.
-         *
-         * @return IGenericResponse - General response.
-         */
-
         const user = await db.collections!.users_collection.findOne({ 'id': userId, 'life.deletedTime': null });
         if (!user) {
-            throw new GraphQLError('User does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'User does not exist.'
+            });
         }
 
         const session = db.client!.startSession();
         session.startTransaction();
         try {
             /* delete the user */
-            await db.collections!.users_collection.findOneAndUpdate({ 'id': userId, 'life.deletedTime': null }, { $set: { 'life.deletedUser': requester, 'password': 'DeletedUserDummyPassword', 'otpSecret': 'DeletedUserDummpOtpSecret' } }, { returnDocument: 'after' });
+            await db.collections!.users_collection.findOneAndUpdate({ 'id': userId, 'life.deletedTime': null }, { $set: { 'life.deletedTime': Date.now(), 'life.deletedUser': requester, 'password': 'DeletedUserDummyPassword', 'otpSecret': 'DeletedUserDummpOtpSecret' } }, { returnDocument: 'after' });
 
             /* delete all user records in roles related to the study */
             await db.collections!.roles_collection.updateMany({
@@ -292,13 +329,13 @@ export class UserCore {
                 $pull: { users: userId }
             });
 
-            /* delete all user records in the groups related to the study */
-            await db.collections!.studies_collection.updateMany({
-                'life.deletedTime': null,
-                'orgTree.paths.users': userId
-            }, {
-                $pull: { 'orgTree.paths.users': userId }
-            });
+            // /* delete all user records in the groups related to the study */
+            // await db.collections!.studies_collection.updateMany({
+            //     'life.deletedTime': null,
+            //     'orgTree.paths.users': userId
+            // }, {
+            //     $pull: { 'orgTree.paths.users': userId }
+            // });
 
             await session.commitTransaction();
             session.endSession();
@@ -440,11 +477,6 @@ export class UserCore {
          *
          * @return IGenericResponse - The object of IGenericResponse.
          */
-
-        const user = await this.getUser(userId, undefined, undefined);
-        if (!user) {
-            throw new GraphQLError('User does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
-        }
 
         const invalidateAllTokens = await db.collections!.users_collection.findOneAndUpdate(
             { id: userId },

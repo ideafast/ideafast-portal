@@ -1,14 +1,13 @@
 import { FunctionComponent, useState } from 'react';
 import LoadSpinner from '../reusable/loadSpinner';
 // import { ProjectSection } from '../users/projectSection';
-import { Form, Input, Select, Typography, Upload, List, Table, Button, Modal, message } from 'antd';
+import { Form, Input, Select, Upload, List, Table, Button, Modal, message } from 'antd';
 import css from './organisations.module.css';
 import 'react-quill/dist/quill.snow.css';
 import { stringCompareFunc } from '../../utils/tools';
 import { trpc } from '../../utils/trpc';
 import { RcFile, UploadChangeParam, UploadFile } from 'antd/es/upload';
 import { InboxOutlined } from '@ant-design/icons';
-const { Title } = Typography;
 
 const { Option } = Select;
 
@@ -264,7 +263,7 @@ export const OrganisationSection: FunctionComponent = () => {
                                 <Upload.Dragger
                                     multiple={false}
                                     showUploadList={true}
-                                    beforeUpload={async (file: RcFile) => {
+                                    beforeUpload={async () => {
                                         return false;
                                     }}
                                     onChange={(info: UploadChangeParam<UploadFile>) => {

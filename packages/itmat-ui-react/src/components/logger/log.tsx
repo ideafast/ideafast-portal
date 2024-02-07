@@ -1,18 +1,15 @@
 import { FunctionComponent } from 'react';
 // import { useQuery, useMutation, useApolloClient } from '@apollo/client/react/hooks';
 // import { ProjectSection } from '../users/projectSection';
-import { Input, List, Progress, Select, Table, Tooltip, Typography } from 'antd';
+import { List, Progress, Table, Tooltip } from 'antd';
 import 'react-quill/dist/quill.snow.css';
 import { trpc } from '../../utils/trpc';
 import LoadSpinner from '../reusable/loadSpinner';
-import { IUser, enumConfigType } from '@itmat-broker/itmat-types';
+import { enumConfigType } from '@itmat-broker/itmat-types';
 import css from './log.module.css';
 import { Area } from '@ant-design/plots';
-const { Title } = Typography;
 
 export const LogSection: FunctionComponent = () => {
-    const startTime = Date.now() - 7 * 24 * 3600 * 1000;
-    const endTime = Date.now();
     const getLogs = trpc.log.getLogs.useQuery({});
     const getUsers = trpc.user.getUsers.useQuery({});
     const getSystemConfig = trpc.config.getConfig.useQuery({ configType: enumConfigType.SYSTEMCONFIG, key: null, useDefault: true });

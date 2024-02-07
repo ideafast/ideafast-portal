@@ -95,30 +95,10 @@
     /* Ensure the icon is vertically centered */
 }
 
-
-
-
-
 .shared_container {
-    display: flex;
-    /* Enable flexbox */
-    flex-direction: row;
-    /* Align children in a row */
     width: 100%;
-    /* Full width of the container */
     grid-area: SHARED;
 }
-
-.shared_container>div:first-child {
-    width: 20%;
-    /* Width of the first div */
-}
-
-.shared_container>div:last-child {
-    width: 80%;
-    /* Width of the second div */
-}
-
 
 .ellipsis-style {
     overflow: hidden;

@@ -1,18 +1,11 @@
-import { GraphQLError } from 'graphql';
-import { IFile, IUser, IProject, IStudy, IStudyDataVersion, IDataClip, IRole, deviceTypes, IOrganisation, IGenericResponse, enumGroupNodeTypes, IField, IGroupNode, enumFileTypes, enumFileCategories, enumConfigType, enumUserTypes } from '@itmat-broker/itmat-types';
+import { IFile, IStudy, IStudyDataVersion, IGenericResponse, enumFileTypes, enumFileCategories, enumConfigType, enumUserTypes } from '@itmat-broker/itmat-types';
 import { v4 as uuid } from 'uuid';
 import { db } from '../database/database';
-import { errorCodes } from '../graphql/errors';
-import { permissionCore } from './permissionCore';
-import { validate } from '@ideafast/idgen';
-import type { MatchKeysAndValues } from 'mongodb';
-import { objStore } from '../objStore/objStore';
-import { FileUpload, Upload } from 'graphql-upload-minimal';
-import crypto from 'crypto';
-import { fileSizeLimit } from '../utils/definition';
+import { FileUpload } from 'graphql-upload-minimal';
 import { makeGenericReponse } from '../graphql/responses';
 import { fileCore } from './fileCore';
 import { TRPCError } from '@trpc/server';
+// eslint-disable-next-line @nx/enforce-module-boundaries
 import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
 import { enumCacheStatus } from 'packages/itmat-types/src/types/cache';
 
@@ -88,6 +81,13 @@ export class StudyCore {
      */
     public async createStudy(requester: string, studyName: string, description?: string, profile?: FileUpload): Promise<Partial<IStudy>> {
         const studyId = uuid();
+        const existing = await db.collections!.studies_collection.findOne({ 'name': { $regex: studyName, $options: 'i' }, 'life.deletedTime': null });
+        if (existing) {
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'Study name already used.'
+            });
+        }
 
         const studyEntry: IStudy = {
             id: studyId,

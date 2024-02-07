@@ -9,7 +9,8 @@ export const FIELD_FRAGMENT = gql`
         fieldName
         tableName
         dataType
-        categoricalOptions {
+        dataVersion
+        possibleValues {
             id
             code
             description
@@ -17,98 +18,55 @@ export const FIELD_FRAGMENT = gql`
         metadata
         unit
         comments
-        dataVersion
-        verifier
-        properties
-        life {
-            createdTime
-            createdUser
-            deletedTime
-            deletedUser
-        }
-        metadata
+        dateAdded
+        dateDeleted
     }
 `;
 
-export const GET_FIELDS = gql`
-    query getFields($studyId: String!, $versionId: String) {
-        getFields(studyId: $studyId, versionId: $versionId) {
+export const GET_STUDY_FIELDS = gql`
+    query getStudyFields($studyId: String!, $projectId: String, $versionId: String) {
+        getStudyFields(studyId: $studyId, projectId: $projectId, versionId: $versionId) {
             ...ALL_FOR_FIELD
         }
     }
     ${FIELD_FRAGMENT}
 `;
 
-export const GET_DATA = gql`
-    query getData($studyId: String!, $versionId: String, $filters: JSON, $options: JSON) {
-        getData(studyId: $studyId, versionId: $versionId, filters: $filters, options: $options) {
+export const GET_DATA_RECORDS = gql`
+    query getDataRecords($studyId: String!, $queryString: JSON, $versionId: String, $projectId: String) {
+        getDataRecords(studyId: $studyId, queryString: $queryString, versionId: $versionId, projectId: $projectId)
+    }
+`;
+
+export const UPLOAD_DATA_IN_ARRAY = gql`
+    mutation uploadDataInArray($studyId: String!, $data: [DataClip]) {
+        uploadDataInArray(studyId: $studyId, data: $data) {
+            successful
             id
-            subjectId
-            visitId
-            fieldId
-            value
-            timestamps
-            properties
-            life {
-                createdTime
-                createdUser
-            }
-            metadata
+            code
+            description
         }
     }
 `;
 
-// export const GET_ONTOLOGY_TREE = gql`
-//     query getOntologyTree($studyId: String!, $projectId: String, $treeId: String!) {
-//         getOntologyTree(studyId: $studyId, projectId: $projectId, treeId: $treeId) {
-//             id
-//             studyId
-//             name
-//             tag
-//             routes {
-//                 id
-//                 path
-//                 name
-//                 fieldId
-//             }
-//         }
-//     }
-// `;
-
-export const UPLOAD_DATA = gql`
-    mutation uploadData($studyId: String!, $data: [DataClipInput]) {
-        uploadData(studyId: $studyId, data: $data) {
-            ...ALL_FOR_RESPONSE
+export const CREATE_NEW_FIELD = gql`
+    mutation createNewField($studyId: String!, $fieldInput: [FieldInput]!) {
+        createNewField(studyId: $studyId, fieldInput: $fieldInput) {
+            successful
+            id
+            code
+            description
         }
     }
-    ${GENERIC_RESPONSE}
-`;
-
-// export const DELETE_DATA = gql`
-//     mutation deleteData($studyId: String!, $subjectIds: [String], $visitIds: [String], $fieldIds: [String]) {
-//         deleteDataRecords(studyId: $studyId, subjectIds: $subjectIds, visitIds: $visitIds, fieldIds: $fieldIds) {
-//             ...ALL_FOR_RESPONSE
-//         }
-//     }
-//     ${GENERIC_RESPONSE}
-// `;
-
-export const CREATE_FIELD = gql`
-    mutation createField($studyId: String!, $fieldName: String!, $fieldId: String!, $description: String, $tableName: String, $dataType: EnumFieldDataType, $categoricalOptions: [CategoricalOptionInput], $unit: String, $comments: String, $verifier: JSON, $properties: JSON) {
-        createField(studyId: $studyId, fieldName: $fieldName, fieldId: $fieldId, description: $description, tableName: $tableName, dataType: $dataType, categoricalOptions: $categoricalOptions,unit: $unit, comments: $comments, verifier: $verifier, properties: $properties) {
-            ...ALL_FOR_FIELD
-        }
-    }
-    ${FIELD_FRAGMENT}
 `;
 
 export const EDIT_FIELD = gql`
-    mutation editField($studyId: String!, $fieldName: String, $fieldId: String!, $description: String, $tableName: String, $dataType: EnumFieldDataType, $categoricalOptions: [CategoricalOptionInput], $unit: String, $comments: String, $verifier: JSON, $properties: JSON) {
-        editField(studyId: $studyId, fieldName: $fieldName, fieldId: $fieldId, description: $description, tableName: $tableName, dataType: $dataType, categoricalOptions: $categoricalOptions,unit: $unit, comments: $comments, verifier: $verifier, properties: $properties) {
-            ...ALL_FOR_RESPONSE
+    mutation editField($studyId: String!, $fieldInput: FieldInput!) {
+        editField(studyId: $studyId, fieldInput: $fieldInput) {
+            ...ALL_FOR_FIELD
         }
     }
-    ${GENERIC_RESPONSE}
+    ${FIELD_FRAGMENT}
 `;
 
 export const DELETE_FIELD = gql`
@@ -120,55 +78,13 @@ export const DELETE_FIELD = gql`
     ${GENERIC_RESPONSE}
 `;
 
-export const UPLOAD_FILE_DATA = gql`
-    mutation uploadFileData($studyId: String!, $file: Upload!, $properties: JSON, $subjectId: String!, $fieldId: String!, $visitId: String, $timestamps: Int) {
-        uploadFileData(studyId: $studyId, file: $file, properties: $properties, subjectId: $subjectId, fieldId: $fieldId, visitId: $visitId, timestamps: $timestamps) {
-            ...ALL_FOR_RESPONSE
+export const DELETE_DATA_RECORDS = gql`
+    mutation deleteDataRecords($studyId: String!, $subjectIds: [String], $visitIds: [String], $fieldIds: [String]) {
+        deleteDataRecords(studyId: $studyId, subjectIds: $subjectIds, visitIds: $visitIds, fieldIds: $fieldIds) {
+            successful
+            id
+            code
+            description
         }
     }
-    ${GENERIC_RESPONSE}
 `;
-
-// export const CREATE_ONTOLOGY_TREE = gql`
-//     mutation createOntologyTree($studyId: String!, $name: String!, $tag: String) {
-//         createOntologyTree(studyId: $studyId, name: $name, tag: $tag) {
-//             id
-//             name
-//             studyId
-//             tag
-//             routes {
-//                 id
-//                 path
-//                 name
-//                 fieldId
-//             }
-//         }
-//     }
-// `;
-
-// export const DELETE_ONTOLOGY_TREE = gql`
-//     mutation deleteOntologyTree($studyId: String!, $ontologyTreeId: String!) {
-//         deleteOntologyTree(studyId: $studyId, ontologyTreeId: $ontologyTreeId) {
-//             ...ALL_FOR_RESPONSE
-//         }
-//     }
-//     ${GENERIC_RESPONSE}
-// `;
-
-// export const ADD_ONTOLOGY_ROUTES = gql`
-//     mutation addOntologyRoutes($studyId: String!, $ontologyTreeId: String!, $routes: OntologyRouteInput) {
-//         addOntologyRoutes(studyId: $studyId, ontologyTreeId: $ontologyTreeId, routes: $routes) {
-//             ...ALL_FOR_RESPONSE
-//         }
-//     }
-//     ${GENERIC_RESPONSE}
-// `;
-
-// export const DELETE_ONTOLOGY_ROUTES = gql`
-//     mutation deleteOntologyRoutes($studyId: String!, $ontologyTreeId: String!, $routeIds: [String]) {
-//         addOntologyRoutes(studyId: $studyId, ontologyTreeId: $ontologyTreeId, routeIds: $routeIds) {
-//             ...ALL_FOR_RESPONSE
-//         }
-//     }
-//     ${GENERIC_RESPONSE}
-// `;

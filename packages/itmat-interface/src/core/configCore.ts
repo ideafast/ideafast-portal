@@ -1,5 +1,5 @@
 import { GraphQLError } from 'graphql';
-import { defaultSettings, enumConfigType, enumReservedDefs, IConfig, ISystemConfig } from '@itmat-broker/itmat-types';
+import { defaultSettings, enumConfigType, enumReservedDefs, IConfig } from '@itmat-broker/itmat-types';
 import { db } from '../database/database';
 import { errorCodes } from '../graphql/errors';
 import { v4 as uuid } from 'uuid';

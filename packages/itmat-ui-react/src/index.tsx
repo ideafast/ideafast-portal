@@ -3,9 +3,9 @@ import { createRoot } from 'react-dom/client';
 import App from './App';
 import registerServiceWorker, { unregister as unregisterServiceWorker } from './registerServiceWorker';
 import { trpc } from './utils/trpc';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { httpBatchLink, httpLink } from '@trpc/client';
+import { httpBatchLink } from '@trpc/client';
 
 const AppWithTRPC = () => {
     const [queryClient] = useState(() => new QueryClient());
@@ -13,7 +13,7 @@ const AppWithTRPC = () => {
         trpc.createClient({
             links: [
                 httpBatchLink({
-                    url: 'http://localhost:4200/trpc',
+                    url: `${window.location.href}trpc`,
                     async headers() {
                         return {
                             // Add any headers if necessary

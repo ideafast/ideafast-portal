@@ -2,7 +2,7 @@ import { ApolloServerErrorCode } from '@apollo/server/errors';
 import { GraphQLError } from 'graphql';
 import bcrypt from 'bcrypt';
 import { mailer } from '../../emailer/emailer';
-import { IUser, IGenericResponse, IResetPasswordRequest, enumUserTypes, IOrganisation, enumFileTypes, enumFileCategories } from '@itmat-broker/itmat-types';
+import { IUser, IGenericResponse, IResetPasswordRequest, enumUserTypes } from '@itmat-broker/itmat-types';
 import { Logger } from '@itmat-broker/itmat-commons';
 import { v4 as uuid } from 'uuid';
 import config from '../../utils/configManager';
@@ -13,36 +13,30 @@ import QRCode from 'qrcode';
 import tmp from 'tmp';
 import { decryptEmail, encryptEmail, makeAESIv, makeAESKeySalt } from '../../encryption/aes';
 import * as mfa from '../../utils/mfa';
-import { FileUpload } from 'graphql-upload-minimal';
-import { fileCore } from '../../core/fileCore';
-import { dataCore } from '../../core/dataCore';
 
 export const userResolvers = {
     Query: {
+        /**
+         * Return the object of IUser of the current requester.
+         *
+         * @return Record<string, unknown> - The object of IUser.
+         */
         whoAmI(__unused__parent: Record<string, unknown>, __unused__args: any, context: any): Record<string, unknown> {
-            /**
-             * Return the object of IUser of the current requester.
-             *
-             * @return Record<string, unknown> - The object of IUser.
-             */
             return context.req.user;
         },
 
-        getUsers: async (__unused__parent: Record<string, unknown>, { userId }: { userId: string | null }, context: any): Promise<Partial<IUser>[]> => {
-            /**
-             * Get the list of users.
-             *
-             * @param userId - The id of the user. If null, return all users.
-             * @return Partial<IUser>[] - The list of objects of IUser.
-             */
-
-            const requester: IUser = context.req.user;
-
+        /**
+         * Get the list of users.
+         *
+         * @param userId - The id of the user. If null, return all users.
+         * @return Partial<IUser>[] - The list of objects of IUser.
+         */
+        getUsers: async (__unused__parent: Record<string, unknown>, { userId }: { userId?: string }, context: any): Promise<Partial<IUser>[]> => {
+            const requester: IUser = context.req?.user;
             const users = userId ? await userCore.getUser(userId, undefined, undefined) : await userCore.getAllUsers(requester.id, false);
             /* If user is admin, or user is asking info of own, then return all info. Otherwise, need to remove private info. */
-            const priority = requester.type === enumUserTypes.ADMIN || requester.id === userId;
             const clearedUsers: Partial<IUser>[] = [];
-            if (!(requester.type === enumUserTypes.ADMIN) || !(requester.id === userId)) {
+            if (!(requester.type === enumUserTypes.ADMIN) && !(requester.id === userId)) {
                 for (const user of users) {
                     const cleared: Partial<IUser> = {
                         id: user.id,
@@ -53,68 +47,40 @@ export const userResolvers = {
                         organisation: user.organisation,
                         type: user.type,
                         profile: user.profile,
-                        description: user.description
+                        description: user.description,
+                        resetPasswordRequests: user.resetPasswordRequests
                     };
-                    if (priority) {
-                        cleared.emailNotificationsActivated = user.emailNotificationsActivated;
-                        cleared.expiredAt = user.expiredAt;
-                    }
                     clearedUsers.push(cleared);
                 }
+                return clearedUsers as Partial<IUser>[];
             }
             return users as Partial<IUser>[];
         },
-
-        recoverSessionExpireTime: async (): Promise<IGenericResponse> => {
-            /**
-             * Refresh the existing session to avoid timeout. Express will update the session as long as there is a new query in.
-             *
-             * @return IGenericResponse - The obejct of IGenericResponse.
-             */
-            return makeGenericReponse();
+        validateResetPassword: async (__unused__parent: Record<string, unknown>, args: any): Promise<IGenericResponse> => {
+            return await userCore.validateResetPassword(
+                args.encryptedEmail,
+                args.token
+            );
         },
-
-        getUserProfile: async (__unused__parent: Record<string, unknown>, { userId }: { userId: string }): Promise<string | null> => {
-            /**
-             * Get the url of the profile of the user.
-             *
-             * @param userId - The id of the user.
-             *
-             * @return string
-             */
-            const url = await userCore.getUserProfile(userId);
-            return url;
+        /**
+         * Refresh the existing session to avoid timeout. Express will update the session as long as there is a new query in.
+         *
+         * @return IGenericResponse - The obejct of IGenericResponse.
+         */
+        recoverSessionExpireTime: async (): Promise<IGenericResponse> => {
+            return makeGenericReponse();
         }
 
-        // getUserFileNodes: async (__unused__parent: Record<string, unknown>, { userId }: { userId: string }, context: any): Promise<IFileNode[]> => {
-        //     /**
-        //      * Get the list of file nodes of a user.
-        //      *
-        //      * @param userId - The id of the user.
-        //      *
-        //      * @return IFileNode[]
-        //      */
-
-        //     const requester: IUser = context.req.user;
-
-        //     if (!(requester.type === enumUserTypes.ADMIN) || !(requester.id === userId)) {
-        //         throw new GraphQLError('', { extensions: { code: errorCodes.NO_PERMISSION_ERROR } });
-        //     }
-
-        //     return await userCore.getFileNodes(userId);
-
-        // }
     },
     Mutation: {
+        /**
+         * Ask for a request to extend account expiration time. Send notifications to user and admin.
+         *
+         * @param userId - The id of the user.
+         *
+         * @return IGenericResponse - The object of IGenericResponse
+         */
         requestExpiryDate: async (__unused__parent: Record<string, unknown>, { userId }: { userId: string }): Promise<IGenericResponse> => {
-            /**
-             * Ask for a request to extend account expiration time. Send notifications to user and admin.
-             *
-             * @param userId - The id of the user.
-             *
-             * @return IGenericResponse - The object of IGenericResponse
-             */
-
             const user = (await userCore.getUser(userId, undefined, undefined))[0];
             if (!user || !user.email || !user.username) {
                 /* even user is null. send successful response: they should know that a user doesn't exist */
@@ -135,18 +101,17 @@ export const userResolvers = {
 
             return makeGenericReponse(userId, true, undefined, 'Request successfully sent.');
         },
+        /**
+         * Request for resetting password.
+         *
+         * @param forgotUsername - Whether user forget the username.
+         * @param forgotPassword - Whether user forgot the password.
+         * @param email - The email of the user. If using email to reset password.
+         * @param username - The username of the uer. If using username to reset password.
+         *
+         * @return IGenericResponse - The object of IGenericResponse.
+         */
         requestUsernameOrResetPassword: async (__unused__parent: Record<string, unknown>, { forgotUsername, forgotPassword, email, username }: { forgotUsername: boolean, forgotPassword: boolean, email?: string, username?: string }, context: any): Promise<IGenericResponse> => {
-            /**
-             * Request for resetting password.
-             *
-             * @param forgotUsername - Whether user forget the username.
-             * @param forgotPassword - Whether user forgot the password.
-             * @param email - The email of the user. If using email to reset password.
-             * @param username - The username of the uer. If using username to reset password.
-             *
-             * @return IGenericResponse - The object of IGenericResponse.
-             */
-
             /* checking the args are right */
             if ((forgotUsername && !email) // should provide email if no username
                 || (forgotUsername && username) // should not provide username if it's forgotten.
@@ -159,11 +124,15 @@ export const userResolvers = {
             }
 
             /* check user existence */
-            const user = (await userCore.getUser(undefined, username, email))[0];
-            if (!user) {
-                /* even user is null. send successful response: they should know that a user doesn't exist */
-                await new Promise(resolve => setTimeout(resolve, Math.random() * 6000));
-                return makeGenericReponse(undefined, false, undefined, 'User does not exist.');
+            let user: IUser | null = null;
+            try {
+                user = (await userCore.getUser(undefined, username, email))[0];
+            } catch {
+                if (!user) {
+                    /* even user is null. send successful response: they should know that a user doesn't exist */
+                    await new Promise(resolve => setTimeout(resolve, Math.random() * 6000));
+                    return makeGenericReponse(undefined, false, undefined, 'User does not exist.');
+                }
             }
 
             if (forgotPassword) {
@@ -193,18 +162,17 @@ export const userResolvers = {
             }
             return makeGenericReponse(user.id, true, undefined, 'Request of resetting password successfully sent.');
         },
+        /**
+         * Log in to the system.
+         *
+         * @param username - The username of the user.
+         * @param password - The password of the user.
+         * @param totp - The totp of the user.
+         * @param requestexpirydate - Whether to request for extend the expiration time of the user.
+         *
+         * @return Partial<IUser> - The object of Partial<IUser>
+         */
         login: async (parent: Record<string, unknown>, { username, password, totp, requestexpirydate }: { username: string, password: string, totp: string, requestexpirydate: boolean }, context: any): Promise<Partial<IUser>> => {
-            /**
-             * Log in to the system.
-             *
-             * @param username - The username of the user.
-             * @param password - The password of the user.
-             * @param totp - The totp of the user.
-             * @param requestexpirydate - Whether to request for extend the expiration time of the user.
-             *
-             * @return Partial<IUser> - The object of Partial<IUser>
-             */
-
             const { req }: { req: Express.Request } = context;
             const user = (await userCore.getUser(undefined, username, undefined))[0];
 
@@ -259,13 +227,12 @@ export const userResolvers = {
                 });
             });
         },
+        /**
+         * Logout an account.
+         *
+         * @return IGenericResponse - The object of IGenericResponse.
+         */
         logout: async (parent: Record<string, unknown>, __unused__args: any, context: any): Promise<IGenericResponse> => {
-            /**
-             * Logout an account.
-             *
-             * @return IGenericResponse - The object of IGenericResponse.
-             */
-
             const requester: IUser = context.req.user;
             const req: Express.Request = context.req;
             if (!requester) {
@@ -282,60 +249,55 @@ export const userResolvers = {
                 });
             });
         },
-        createUser: async (__unused__parent: Record<string, unknown>, { username, firstname, lastname, email, password, description, organisation, profile }: {
-            username: string, firstname: string, lastname: string, email: string, password: string, description: string | null, organisation: string, profile: any | null
-        }, context: any): Promise<Partial<IUser>> => {
-            /**
-             * Create a user.
-             *
-             * @param username - The username of the user.
-             * @param firstname - The firstname of the user.
-             * @param lastname - The lastname of the user.
-             * @param email - The email of the user.
-             * @param password - The password of the user.
-             * @param description - The description of the user.
-             * @param organisation - The organisation of the user.
-             * @param profile - The profile of the user.
-             *
-             * @return IUser
-             */
+        /**
+         * Create a user.
+         *
+         * @param username - The username of the user.
+         * @param firstname - The firstname of the user.
+         * @param lastname - The lastname of the user.
+         * @param email - The email of the user.
+         * @param password - The password of the user.
+         * @param description - The description of the user.
+         * @param organisation - The organisation of the user.
+         * @param profile - The profile of the user.
+         *
+         * @return IUser
+         */
+        createUser: async (__unused__parent: Record<string, unknown>, args: any): Promise<IGenericResponse> => {
+            const { username, firstname, lastname, email, password, description, organisation }: {
+                username: string, firstname: string, lastname: string, email: string, emailNotificationsActivated?: boolean, password: string, description?: string, organisation: string, metadata: any
+            } = args.user;
 
             /* check email is valid form */
             if (!/^([a-zA-Z0-9_\-.]+)@([a-zA-Z0-9_\-.]+)\.([a-zA-Z]{2,5})$/.test(email)) {
-                throw new GraphQLError('Email is not the right format.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+                throw new GraphQLError('Email is not the right format.', { extensions: { code: ApolloServerErrorCode.BAD_USER_INPUT } });
             }
 
             /* check password validity */
             if (password && !passwordIsGoodEnough(password)) {
-                throw new GraphQLError('Password has to be at least 8 character long.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+                throw new GraphQLError('Password has to be at least 8 character long.', { extensions: { code: ApolloServerErrorCode.BAD_USER_INPUT } });
             }
 
             /* check that username and password dont have space */
             if (username.indexOf(' ') !== -1 || password.indexOf(' ') !== -1) {
-                throw new GraphQLError('Username or password cannot have spaces.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+                throw new GraphQLError('Username or password cannot have spaces.', { extensions: { code: ApolloServerErrorCode.BAD_USER_INPUT } });
             }
-
-            /* Check if username has been used */
-            const userExist = (await userCore.getUser(undefined, username, undefined))[0];
-            if (userExist) {
-                throw new GraphQLError('This username has been registered. Please sign-in or register with another username!', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
-            }
-
-            /* check if email has been used */
-            const emailExist = (await userCore.getUser(undefined, undefined, email))[0];
-            if (emailExist) {
-                throw new GraphQLError('This email has been registered. Please sign-in or register with another email!', { extensions: { code: ApolloServerErrorCode.BAD_USER_INPUT } });
-            }
-
             /* randomly generate a secret for Time-based One Time Password*/
             const otpSecret = mfa.generateSecret();
 
-            /* Check file upload */
-            let profile_ = undefined;
-            if (profile) {
-                profile_ = await profile;
-            }
-            const user = await userCore.createUser(username, email, firstname, lastname, organisation, enumUserTypes.STANDARD, false, password, otpSecret, profile_, description ?? '');
+            await userCore.createUser(
+                username,
+                email,
+                firstname,
+                lastname,
+                organisation,
+                enumUserTypes.STANDARD,
+                false,
+                password,
+                otpSecret,
+                undefined,
+                description ?? ''
+            );
 
             /* send email to the registered user */
             // get QR Code for the otpSecret.
@@ -373,7 +335,7 @@ export const userResolvers = {
                 attachments: attachments
             });
             tmpobj.removeCallback();
-            return user;
+            return makeGenericReponse();
         },
         deleteUser: async (__unused__parent: Record<string, unknown>, { userId }: { userId: string }, context: any): Promise<IGenericResponse> => {
             /**
@@ -388,7 +350,7 @@ export const userResolvers = {
 
             /* Admins can delete anyone, while general user can only delete themself */
             if (!(requester.type === enumUserTypes.ADMIN) && !(requester.id === userId)) {
-                throw new GraphQLError('', { extensions: { code: errorCodes.NO_PERMISSION_ERROR } });
+                throw new GraphQLError(errorCodes.NO_PERMISSION_ERROR, { extensions: { code: errorCodes.NO_PERMISSION_ERROR } });
             }
 
             await userCore.deleteUser(requester.id, userId);
@@ -471,55 +433,23 @@ export const userResolvers = {
             tmpobj.removeCallback();
             return makeGenericReponse();
         },
-        editUser: async (__unused__parent: Record<string, unknown>, { userId, username, type, firstname, lastname, email, emailNotificationsActivated, password, description, organisation, expiredAt, profile }: {
-            userId: string, username?: string, type?: enumUserTypes, firstname?: string, lastname?: string, email?: string, emailNotificationsActivated?: boolean, password?: string, description?: string, organisation?: string, expiredAt?: number, profile?: any
-        }, context: any): Promise<Partial<IUser>> => {
-            /**
-             * Edit a user. Besides description, other fields whose values is null will not be updated.
-             *
-             * @param userId - The id of the user.
-             * @param username - The username of the user.
-             * @param type - The type of the user.
-             * @param firstname - The first name of the user.
-             * @param lastname - The last name of the user.
-             * @param email - The email of the user.
-             * @param emailNotificationsActivated - Whether the email notification is activated.
-             * @param password - The password of the user.
-             * @param description - The description of the user.
-             * @param organisaiton - The organisation of the user.
-             * @param expiredAt - The expiration time of the user.
-             * @param profile - The profile of the user.
-             *
-             * @return Partial<IUser> - The object of IUser.
-             */
-
+        editUser: async (__unused__parent: Record<string, unknown>, args: any, context: any): Promise<Record<string, unknown>> => {
             const requester: IUser = context.req.user;
-            if (requester.type !== enumUserTypes.ADMIN && requester.id !== userId) {
-                throw new GraphQLError('User can only edit his/her own information.', { extensions: { code: errorCodes.NO_PERMISSION_ERROR } });
+            const { id, username, type, firstname, lastname, email, emailNotificationsActivated, password, description, organisation, expiredAt }: {
+                id: string, username?: string, type?: enumUserTypes, firstname?: string, lastname?: string, email?: string, emailNotificationsActivated?: boolean, emailNotificationsStatus?: any, password?: string, description?: string, organisation?: string, expiredAt?: number, metadata?: any
+            } = args.user;
+            if (password !== undefined && requester.id !== id) { // only the user themself can reset password
+                throw new GraphQLError(errorCodes.NO_PERMISSION_ERROR);
             }
-
-            if (requester.type !== enumUserTypes.ADMIN && (type || expiredAt || organisation)) {
-                throw new GraphQLError('Standard user can not change their type, expiration time and organisation. Please contact admins for help.', { extensions: { code: errorCodes.NO_PERMISSION_ERROR } });
-            }
-
             if (password && !passwordIsGoodEnough(password)) {
-                throw new GraphQLError('Password has to be at least 8 character long.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+                throw new GraphQLError('Password has to be at least 8 character long.');
             }
-
+            if (requester.type !== enumUserTypes.ADMIN && requester.id !== id) {
+                throw new GraphQLError(errorCodes.NO_PERMISSION_ERROR);
+            }
             /* check email is valid form */
             if (email && !/^([a-zA-Z0-9_\-.]+)@([a-zA-Z0-9_\-.]+)\.([a-zA-Z]{2,5})$/.test(email)) {
-                throw new GraphQLError('Email is not the right format.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
-            }
-
-            /* check password validity */
-            if (password && !passwordIsGoodEnough(password)) {
-                throw new GraphQLError('Password has to be at least 8 character long.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
-            }
-
-            /* check if email has been used */
-            const emailExist = (await userCore.getUser(undefined, undefined, email ?? undefined))[0];
-            if (emailExist) {
-                throw new GraphQLError('This email has been registered. Please sign-in or register with another email!', { extensions: { code: ApolloServerErrorCode.BAD_USER_INPUT } });
+                throw new GraphQLError('User not updated: Email is not the right format.', { extensions: { code: ApolloServerErrorCode.BAD_USER_INPUT } });
             }
             if (requester.type !== enumUserTypes.ADMIN && (
                 type || firstname || lastname || username || description || organisation
@@ -527,173 +457,23 @@ export const userResolvers = {
                 throw new GraphQLError('User not updated: Non-admin users are only authorised to change their password, email or email notification.');
             }
 
-            const oldUser = (await userCore.getUser(userId, undefined, undefined))[0];
-            if (!oldUser || !oldUser.password) {
-                throw new GraphQLError('User does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
-            }
-
-            let profile_ = undefined;
-            if (profile) {
-                profile_ = await profile;
-            }
-            const newUser = await userCore.editUser(requester.id, userId, username, email, firstname, lastname, organisation, type, emailNotificationsActivated, password, null ?? undefined, profile_, description, expiredAt);
-            if (newUser) {
-                // New expiry date has been updated successfully.
-                if (expiredAt && newUser.email && newUser.username) {
-                    /* send email to client */
-                    await mailer.sendMail(formatEmailRequestExpiryDateNotification({
-                        to: newUser.email,
-                        username: newUser.username
-                    }));
-                }
-                return newUser;
-            } else {
-                throw new GraphQLError('Database error.', { extensions: { code: errorCodes.DATABASE_ERROR } });
-            }
-        },
-        uploadUserProfile: async (parent: Record<string, unknown>, { userId, description, fileType, fileUpload }: { userId: string, description: string | undefined, fileType: enumFileTypes, fileUpload: Promise<FileUpload> }, context: any): Promise<IGenericResponse> => {
-            /**
-             * Upload a profile of a user.
-             *
-             * @param userId - The id of the user.
-             * @param description - The description of the file.
-             * @param fileType - The type of the file.
-             * @param fileUpload - The file upload.
-             *
-             * @retunr IGenericResponse
-             */
-            const requester = context.req.user;
-
-            if (requester.type !== enumUserTypes.ADMIN || requester.id !== userId) {
-                throw new GraphQLError('User can only upload profile of themself.', { extensions: { code: errorCodes.NO_PERMISSION_ERROR } });
-            }
-
-            const file = await fileUpload;
-
-            const supportedFormats: string[] = [enumFileTypes.JPG, enumFileTypes.JPEG, enumFileTypes.PNG];
-            if (!(supportedFormats.includes((file.filename.split('.').pop() || '').toUpperCase()))) {
-                throw new GraphQLError('Only JPG, JPEG and PNG are supported.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
-            }
-            const res = await fileCore.uploadFile(
+            return await userCore.editUser(
                 requester.id,
-                null,
-                userId,
-                file,
+                id,
+                username,
+                email,
+                firstname,
+                lastname,
+                organisation,
+                type,
+                emailNotificationsActivated,
+                password,
+                undefined,
+                undefined,
                 description,
-                enumFileTypes[(file.filename.split('.').pop() || '').toUpperCase() as keyof typeof enumFileTypes],
-                enumFileCategories.USER_PROFILE_FILE,
-                []
+                expiredAt
             );
-            if (res) {
-                return makeGenericReponse(res.id, true, '', 'Profile has been uploaded successfully');
-            } else {
-                throw new GraphQLError(errorCodes.DATABASE_ERROR);
-            }
         }
-        // uploadUserFileNode: async (__unused__parent: Record<string, unknown>, { userId, parentNodeId, file, folderName }: { userId: string, parentNodeId: string, file: Promise<FileUpload> | null, folderName: string }, context: any): Promise<IFileNode> => {
-        //     /**
-        //      * Add/Upload a file to the user file repo.
-        //      *
-        //      * @param requester - The id of the requester.
-        //      * @param userId - The id of the user of the file repo. Usually should be the same as The id of the requester.
-        //      * @param parentNodeId - The id of the file Node.
-        //      * @param file - The file to upload.
-        //      * @param folderName - The name of the folder. Should be numm if file is not null.
-        //      *
-        //      * @return IGenericResponse - The object of the IGenericResponse.
-        //      */
-
-        //     const requester = context.req.user;
-        //     if (requester.type !== enumUserTypes.ADMIN || requester.id !== userId) {
-        //         throw new GraphQLError('User can only upload file of themself.', { extensions: { code: errorCodes.NO_PERMISSION_ERROR } });
-        //     }
-        //     const file_ = await file;
-        //     if (file_) {
-        //         const supportedFormats: string[] = Object.keys(enumFileTypes);
-        //         if (!(supportedFormats.includes((file_.filename.split('.').pop() as string).toUpperCase()))) {
-        //             throw new GraphQLError('Only JPG, JPEG and PNG are supported.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
-        //         }
-        //     }
-        //     const fileNode: IFileNode = await userCore.addFileNodeToUserRepo(requester.id, userId, parentNodeId, null, file_ ? enumFileTypes[(file_.filename.split('.').pop() as string).toUpperCase() as keyof typeof enumFileTypes] : null, file_, folderName);
-        //     return fileNode;
-        // },
-        // editUserFileNode: async (__unused__parent: Record<string, unknown>, { userId, nodeId, parentNodeId, sharedUsers }: { userId: string, nodeId: string, parentNodeId: string | null, sharedUsers: string[] | null }, context: any): Promise<IGenericResponse> => {
-        //     /**
-        //      * Edit the file node of a user.
-        //      *
-        //      * @param userId - The id of the user.
-        //      * @param parentNodeId - The ids of the parent node id.
-        //      * @param sharedUsers - The list of shared users.
-        //      *
-        //      * @return IGenericResponse
-        //      */
-
-        //     const requester = context.req.user;
-
-        //     if (requester.type !== enumUserTypes.ADMIN || requester.id !== userId) {
-        //         throw new GraphQLError('User can only upload file of themself.', { extensions: { code: errorCodes.NO_PERMISSION_ERROR } });
-        //     }
-
-        //     if (parentNodeId) {
-        //         await userCore.moveFileNodeFromUserRepo(userId, nodeId, parentNodeId);
-        //     }
-        //     if (sharedUsers) {
-        //         await userCore.shareFileNodeToUsers(userId, nodeId, sharedUsers);
-        //     }
-
-        //     return makeGenericReponse(nodeId, true, undefined, undefined);
-
-        // },
-        // shareUserFileNodeByEmail: async (__unused__parent: Record<string, unknown>, { userId, nodeId, sharedUserEmails }: { userId: string, nodeId: string, sharedUserEmails: string[] }, context: any): Promise<IGenericResponse> => {
-        //     /**
-        //      * Edit the file node of a user.
-        //      *
-        //      * @param userId - The id of the user.
-        //      * @param parentNodeId - The ids of the parent node id.
-        //      * @param sharedUserEmails - The list of emails of shared users.
-        //      *
-        //      * @return IGenericResponse
-        //      */
-
-        //     const requester = context.req.user;
-
-        //     if (requester.type !== enumUserTypes.ADMIN || requester.id !== userId) {
-        //         throw new GraphQLError('User can only upload file of themself.', { extensions: { code: errorCodes.NO_PERMISSION_ERROR } });
-        //     }
-
-        //     const userIds: string[] = [];
-
-        //     for (const email of sharedUserEmails) {
-        //         const users = await userCore.getUser(null, null, email);
-        //         if (users.length === 1) {
-        //             userIds.push(users[0].id);
-        //         }
-        //     }
-
-        //     const response = await userCore.shareFileNodeToUsers(userId, nodeId, userIds);
-
-        //     return response;
-
-        // },
-        // deleteUserFileNode: async (__unused__parent: Record<string, unknown>, { userId, nodeId }: { userId: string, nodeId: string }, context: any): Promise<IGenericResponse> => {
-        //     /**
-        //      * Delete a file node. Note we only tag the node as deleted.
-        //      *
-        //      * @param userId - The id of the user.
-        //      * @param nodeId - The id of the node.
-        //      *
-        //      * @reutrn IGenericResponse
-        //      */
-
-        //     const requester = context.req.user;
-
-        //     if (requester.type !== enumUserTypes.ADMIN || requester.id !== userId) {
-        //         throw new GraphQLError('User can only upload file of themself.', { extensions: { code: errorCodes.NO_PERMISSION_ERROR } });
-        //     }
-
-        //     const respone = await userCore.deleteFileNodeFromUserRepo(requester.id, userId, nodeId);
-        //     return respone;
-        // }
     },
     Subscription: {},
     User: {
@@ -797,26 +577,6 @@ function formatEmailRequestExpiryDatetoAdmin({ username, userEmail }: { username
     });
 }
 
-function formatEmailRequestExpiryDateNotification({ username, to }: { username: string, to: string }) {
-    return ({
-        from: `${config.appName} <${config.nodemailer.auth.user}>`,
-        to,
-        subject: `[${config.appName}] New expiry date has been updated!`,
-        html: `
-            <p>
-                Dear user,
-            <p>
-            <p>
-                New expiry date for your <b>${username}</b> account has been updated.
-                You now can log in as normal.
-            </p>
-            <br/>
-            <p>
-                The ${config.appName} Team.
-            </p>
-        `
-    });
-}
 
 function passwordIsGoodEnough(pw: string): boolean {
     if (pw.length < 8) {

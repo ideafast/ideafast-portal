@@ -1,21 +1,14 @@
 import { IUser, enumStudyRoles, enumUserTypes } from '@itmat-broker/itmat-types';
 import { TRPCError, inferAsyncReturnType, initTRPC } from '@trpc/server';
-import * as trpcExpress from '@trpc/server/adapters/express';
 import { z } from 'zod';
-import { GraphQLError } from 'graphql';
 import { errorCodes } from '../../graphql/errors';
 import { studyCore } from '../../core/studyCore';
 import { baseProcedure } from '../../log/trpcLogHelper';
-import { BufferSchema } from './type';
+// eslint-disable-next-line @nx/enforce-module-boundaries
 import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
-import { convertSerializedBufferToBuffer, isSerializedBuffer } from '../../utils/file';
 import fs from 'fs';
-import path from 'path';
 import { permissionCore } from '../../core/permissionCore';
-const createContext = ({
-    req,
-    res
-}: trpcExpress.CreateExpressContextOptions) => ({}); // no context
+const createContext = () => ({}); // no context
 type Context = inferAsyncReturnType<typeof createContext>;
 
 const t = initTRPC.context<Context>().create();
@@ -32,9 +25,9 @@ export const studyRouter = t.router({
         studyId: z.optional(z.string())
     })).query(async (opts: any) => {
         const requester: IUser = opts.ctx.req?.user ?? opts.ctx.user;
-        if (opts.input.studyId) {
-            await permissionCore.checkOperationPermissionByUser(requester.id, opts.input.studyId);
-        }
+        // if (opts.input.studyId) {
+        //     await permissionCore.checkOperationPermissionByUser(requester.id, opts.input.studyId);
+        // }
         return await studyCore.getStudiesByUser(requester.id, opts.input.studyId);
     }),
     /**

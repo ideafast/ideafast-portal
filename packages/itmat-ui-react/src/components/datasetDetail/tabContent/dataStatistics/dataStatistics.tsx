@@ -21,8 +21,6 @@ export const StatisticsTabContent: FunctionComponent<{ studyId: string }> = ({ s
         return <>An error occurred.</>;
     }
 
-    const study = getStudies.data[0];
-
     return (
         <div className={css.page_container}>
             <div className={css.gridBlock}>
@@ -37,7 +35,7 @@ export const StatisticsTabContent: FunctionComponent<{ studyId: string }> = ({ s
 };
 
 export const BlockRendering: FunctionComponent<{ studyId: string, blockConfig: any }> = ({ studyId, blockConfig }) => {
-    const [selectedField, setSelectedField] = React.useState<string | undefined>(undefined);
+    const [selectedField, __unused__setSelectedField] = React.useState<string | undefined>(undefined);
 
     const getData = trpc.data.getData.useQuery({ studyId: studyId, fieldIds: blockConfig.fieldIds.length === 1 ? blockConfig.fieldIds : [selectedField], aggregation: blockConfig.aggregation });
     if (getData.isLoading) {

@@ -19,5 +19,8 @@ export default {
         "node_modules",
         "\\.pnp\\.[^\\\/]+$",
         "test[\\/]fixtures[\\/]_minio"
+    ],
+    testMatch: [
+        "./packages/itmat-commons/test/unitTests/*.test.ts",
     ]
 };

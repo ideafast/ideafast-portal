@@ -2,7 +2,7 @@
 import React from 'react';
 import { Form, InputNumber } from 'antd';
 
-const IntervalPicker = ({ form }) => {
+const IntervalPicker = () => {
     return (
         <>
             <Form.Item name="days" label="Days">

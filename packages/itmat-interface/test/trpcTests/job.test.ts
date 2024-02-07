@@ -21,9 +21,12 @@ if (global.hasMinio) {
     let admin: request.SuperTest<request.Test>;
     let user: request.SuperTest<request.Test>;
     let mongoConnection: MongoClient;
-    // let mongoClient: Db;
-    // let adminProfile;
-    // let userProfile;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    let mongoClient: Db;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    let adminProfile;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    let userProfile;
 
     afterAll(async () => {
         await db.closeConnection();

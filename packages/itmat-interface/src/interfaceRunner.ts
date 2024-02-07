@@ -25,9 +25,9 @@ class ITMATInterfaceRunner extends Runner {
                 .then(() => objStore.connect(this.config.objectStore))
                 .then(async () => {
 
-                    const jobChangestream = db.collections!.jobs_collection.watch([
-                        { $match: { operationType: { $in: ['update', 'insert'] } } }
-                    ], { fullDocument: 'updateLookup' });
+                    // const jobChangestream = db.collections!.jobs_collection.watch([
+                    //     { $match: { operationType: { $in: ['update', 'insert'] } } }
+                    // ], { fullDocument: 'updateLookup' });
                     _this.router = new Router(this.config);
                     await _this.router.init();
 

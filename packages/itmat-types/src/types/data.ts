@@ -13,7 +13,7 @@ export interface IField extends IBase {
     comments: string | null;
     dataVersion: string | null;
     verifier: IValueVerifier[][] | null;
-    properties: IFieldProperty[] | null; // mostly used for file ddata
+    properties: IFieldProperty[] | null; // mostly used for file data
 }
 
 export interface IFieldProperty {

@@ -4,25 +4,19 @@ import { objStore } from '../objStore/objStore';
 import { permissionCore } from '../core/permissionCore';
 import { enumDocTypes, enumFileCategories, IUser } from '@itmat-broker/itmat-types';
 import jwt from 'jsonwebtoken';
-import { userRetrieval } from '../authentication/pubkeyAuthentication';
-import { ApolloServerErrorCode } from '@apollo/server/errors';
-import { GraphQLError } from 'graphql';
+import { TRPCError } from '@trpc/server';
+// eslint-disable-next-line @nx/enforce-module-boundaries
+import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
+import { errorCodes } from '../graphql/errors';
 
 export const fileDownloadController = async (req: Request, res: Response): Promise<void> => {
     const requester = req.user as IUser;
     const requestedFile = req.params.fileId;
     const token = req.headers.authorization || '';
-    let associatedUser = requester;
-    const file = await db.collections!.files_collection.findOne({ 'id': requestedFile, 'life.deletedTime': null })!;
-    if (!file) {
-        res.status(404).json({ error: 'File not found or you do not have the necessary permission.' });
-        return;
-    }
-
+    let file: any = null;
     // if the file is HOMEPAGE file, skip permission check
-    const doc = await db.collections!.docs_collection.find({ 'attachmentFileIds': requestedFile, 'life.deletedTime': null, 'type': enumDocTypes.HOMEPAGE });
+    const doc = await db.collections!.docs_collection.findOne({ 'attachmentFileIds': requestedFile, 'life.deletedTime': null, 'type': enumDocTypes.HOMEPAGE });
     if (!doc) {
-
         if ((token !== '') && (req.user === undefined)) {
             // get the decoded payload ignoring signature, no symmetric secret or asymmetric key needed
             const decodedPayload = jwt.decode(token);
@@ -31,13 +25,46 @@ export const fileDownloadController = async (req: Request, res: Response): Promi
             // verify the JWT
             jwt.verify(token, pubkey, function (error: any) {
                 if (error) {
-                    throw new GraphQLError('JWT verification failed.', { extensions: { code: ApolloServerErrorCode.BAD_USER_INPUT, error } });
+                    throw new TRPCError({
+                        code: enumTRPCErrorCodes.BAD_REQUEST,
+                        message: 'JWT verification failed.'
+                    });
                 }
             });
-            associatedUser = await userRetrieval(pubkey);
         } else if (!requester) {
             res.status(403).json({ error: 'Please log in.' });
             return;
+        }
+        // check data permission
+        file = await db.collections!.files_collection.findOne({ 'id': requestedFile, 'life.deletedTime': null })!;
+        if (!file) {
+            res.status(200).json({ error: 'File not found or you do not have the necessary permission.' });
+            return;
+        }
+        if (file.fileCategory === enumFileCategories.STUDY_DATA_FILE) {
+            const data = await db.collections!.data_collection.findOne({ 'studyId': file.studyId ?? '', 'value': file.id, 'life.deletedTime': null });
+            if (!data) {
+                res.status(200).json({ error: errorCodes.NO_PERMISSION_ERROR });
+                return;
+            }
+
+            try {
+                const permission = await permissionCore.checkDataPermissionByUser(
+                    requester.id,
+                    {
+                        fieldId: data.fieldId,
+                        properties: data.properties
+                    },
+                    data.studyId
+                );
+                if (!permission) {
+                    res.status(200).json({ error: errorCodes.NO_PERMISSION_ERROR });
+                    return;
+                }
+            } catch (e) {
+                res.status(200).json({ error: errorCodes.NO_PERMISSION_ERROR });
+                return;
+            }
         }
     }
     try {

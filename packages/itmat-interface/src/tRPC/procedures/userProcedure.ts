@@ -1,6 +1,5 @@
 import { IResetPasswordRequest, IUser, enumFileCategories, enumFileTypes, enumGroupNodeTypes, enumUserTypes } from '@itmat-broker/itmat-types';
 import { TRPCError, inferAsyncReturnType, initTRPC } from '@trpc/server';
-import * as trpcExpress from '@trpc/server/adapters/express';
 import { z } from 'zod';
 import { userCore } from '../../core/userCore';
 import { GraphQLError } from 'graphql';
@@ -18,12 +17,9 @@ import tmp from 'tmp';
 import { fileCore } from '../../core/fileCore';
 import { baseProcedure } from '../../log/trpcLogHelper';
 import fs from 'fs';
-import path from 'path';
+// eslint-disable-next-line @nx/enforce-module-boundaries
 import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
-const createContext = ({
-    req,
-    res
-}: trpcExpress.CreateExpressContextOptions) => ({}); // no context
+const createContext = () => ({}); // no context
 type Context = inferAsyncReturnType<typeof createContext>;
 
 const t = initTRPC.context<Context>().create();
@@ -93,23 +89,17 @@ export const userRouter = t.router({
         return url;
     }),
     /**
-     * Get the list of file nodes of a user.
-     *
-     * @param userId - The id of the user.
-     *
-     * @return IFileNode[]
+     * TODO:
      */
-    // getUserFileNodes: baseProcedure.input(z.object({
-    //     userId: z.string()
-    // })).query(async (opts: any) => {
-    //     const requester: IUser = opts.ctx.req?.user ?? opts.ctx.user;
-
-    //     if (!(requester.type === enumUserTypes.ADMIN) || !(requester.id === opts.input.userId)) {
-    //         throw new GraphQLError('', { extensions: { code: errorCodes.NO_PERMISSION_ERROR } });
-    //     }
-    //     return await userCore.getFileNodes(opts.input.userId);
-    // }),
-
+    validateResetPassword: baseProcedure.input(z.object({
+        encryptedEmail: z.string(),
+        token: z.string()
+    })).query(async (opts: any) => {
+        return await userCore.validateResetPassword(
+            opts.input.encryptedEmail,
+            opts.input.token
+        );
+    }),
     /**
      * Ask for a request to extend account expiration time. Send notifications to user and admin.
      *
@@ -168,11 +158,15 @@ export const userRouter = t.router({
         }
 
         /* check user existence */
-        const user = (await userCore.getUser(undefined, opts.input.username, opts.input.email))[0];
-        if (!user) {
-            /* even user is null. send successful response: they should know that a user doesn't exist */
-            await new Promise(resolve => setTimeout(resolve, Math.random() * 6000));
-            return makeGenericReponse(undefined, false, undefined, 'User does not exist.');
+        let user: IUser | null = null;
+        try {
+            user = (await userCore.getUser(undefined, opts.input.username, opts.input.email))[0];
+        } catch {
+            if (!user) {
+                /* even user is null. send successful response: they should know that a user doesn't exist */
+                await new Promise(resolve => setTimeout(resolve, Math.random() * 6000));
+                return makeGenericReponse(undefined, false, undefined, 'User does not exist.');
+            }
         }
 
         if (opts.input.forgotPassword) {
@@ -221,12 +215,18 @@ export const userRouter = t.router({
         const req = opts.ctx.req;
         const user = (await userCore.getUser(undefined, opts.input.username, undefined))[0];
         if (!user || !user.password || !user.otpSecret || !user.email || !user.username) {
-            throw new GraphQLError('User does not exist.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'User does not exist.'
+            });
         }
 
         const passwordMatched = await bcrypt.compare(opts.input.password, user.password);
         if (!passwordMatched) {
-            throw new GraphQLError('Incorrect password.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'Incorrect password.'
+            });
         }
 
         /* validate the TOTP */
@@ -234,8 +234,12 @@ export const userRouter = t.router({
         if (!totpValidated) {
             if (process.env.NODE_ENV === 'development')
                 console.warn('Incorrect One-Time password. Continuing in development ...');
-            else
-                throw new GraphQLError('Incorrect One-Time password.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+            else {
+                throw new TRPCError({
+                    code: enumTRPCErrorCodes.BAD_REQUEST,
+                    message: 'Incorrect One-Time password.'
+                });
+            }
         }
 
         /* validate if account expired */
@@ -251,10 +255,16 @@ export const userRouter = t.router({
                     to: user.email,
                     username: user.username
                 }));
-                throw new GraphQLError('New expiry date has been requested! Wait for ADMIN to approve.', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } });
+                throw new TRPCError({
+                    code: enumTRPCErrorCodes.BAD_REQUEST,
+                    message: 'New expiry date has been requested! Wait for ADMIN to approve.'
+                });
             }
 
-            throw new GraphQLError('Account Expired. Please request a new expiry date!', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'Account Expired. Please request a new expiry date!'
+            });
         }
 
         const filteredUser: Partial<IUser> = { ...user };
@@ -265,7 +275,10 @@ export const userRouter = t.router({
             req.login(filteredUser, (err: any) => {
                 if (err) {
                     Logger.error(err);
-                    throw new GraphQLError('Cannot log in. Please try again later.');
+                    throw new TRPCError({
+                        code: enumTRPCErrorCodes.BAD_REQUEST,
+                        message: 'Cannot log in. Please try again later.'
+                    });
                 }
                 resolve(filteredUser);
             });
@@ -283,7 +296,7 @@ export const userRouter = t.router({
             return makeGenericReponse(undefined, false, undefined, 'Requester not known.');
         }
         return new Promise((resolve) => {
-            req.logout((err) => {
+            (req as any).logout((err: any) => {
                 if (err) {
                     Logger.error(err);
                     throw new GraphQLError('Cannot log out');
@@ -856,8 +869,6 @@ export const userRouter = t.router({
         parentGroupNodeId: z.string(),
         children: z.union([z.string(), z.null()])
     })).mutation(async (opts: any) => {
-        const requester = opts.ctx.req.user;
-
         const response = await userCore.editUserGroup(opts.input.managerId, opts.input.groupNodeId, opts.input.groupNodeName, opts.input.description, opts.input.parentGroupNodeId, opts.input.children);
         return response;
     }),

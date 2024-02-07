@@ -1,12 +1,12 @@
-import { IField, enumDataTypes, IUser, IDoc, enumDocTypes, enumFileTypes, enumFileCategories, IFile, IGenericResponse } from '@itmat-broker/itmat-types';
+import { IDoc, enumDocTypes, enumFileTypes, enumFileCategories, IGenericResponse } from '@itmat-broker/itmat-types';
 import { db } from '../database/database';
 import { v4 as uuid } from 'uuid';
-import { FileUpload } from 'graphql-upload-minimal';
 import { fileCore } from './fileCore';
 import { makeGenericReponse } from '../graphql/responses';
 import { GraphQLError } from 'graphql';
 import { errorCodes } from '../graphql/errors';
 import { TRPCError } from '@trpc/server';
+// eslint-disable-next-line @nx/enforce-module-boundaries
 import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
 
 export class DocCore {

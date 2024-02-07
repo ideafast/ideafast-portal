@@ -13,13 +13,16 @@ import { RcFile, UploadFile } from 'antd/lib/upload/interface';
 
 const { Option } = Select;
 export const FileRepositoryTabContent: FunctionComponent<{ studyId: string }> = ({ studyId }) => {
+    const [selectedFileCat, setSelectedFileCat] = React.useState<string[] | undefined>(undefined);
     const whoAmI = trpc.user.whoAmI.useQuery();
     const getStudy = trpc.study.getStudies.useQuery({ studyId: studyId });
     const studyConfig = trpc.config.getConfig.useQuery({ configType: enumConfigType.STUDYCONFIG, key: studyId, useDefault: true });
-    const getFiles = trpc.data.getFiles.useQuery({ studyId: studyId, versionId: null, useCache: false, forceUpdate: false, aggregation: {}, readable: true });
+    const getFiles = trpc.data.getFiles.useQuery({ studyId: studyId, versionId: null, fieldIds: selectedFileCat, useCache: false, forceUpdate: false, aggregation: {}, readable: true });
+    const getStudyLevelFiles = trpc.data.getFiles.useQuery({ studyId: studyId, versionId: null, fieldIds: ['reserved_study_level_data'], useCache: false, forceUpdate: false, aggregation: {}, readable: true });
+
     const getStudyFields = trpc.data.getStudyFields.useQuery({ studyId: studyId });
 
-    if (whoAmI.isLoading || getStudy.isLoading || studyConfig.isLoading || getFiles.isLoading || getStudyFields.isLoading) {
+    if (whoAmI.isLoading || getStudy.isLoading || studyConfig.isLoading || getFiles.isLoading || getStudyFields.isLoading || getStudyLevelFiles.isLoading) {
         return <>
             <div className='page_ariane'>Loading...</div>
             <div className='page_content'>
@@ -27,7 +30,7 @@ export const FileRepositoryTabContent: FunctionComponent<{ studyId: string }> = 
             </div>
         </>;
     }
-    if (whoAmI.isError || getStudy.isError || studyConfig.isError || getFiles.isError || getStudyFields.isError) {
+    if (whoAmI.isError || getStudy.isError || studyConfig.isError || getFiles.isError || getStudyFields.isError || getStudyLevelFiles.isError) {
         return <>
             An error occured.
         </>;
@@ -40,7 +43,23 @@ export const FileRepositoryTabContent: FunctionComponent<{ studyId: string }> = 
                     <div className={css['overview-header']} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div style={{ display: 'flex', alignItems: 'center' }}>
                             <div className={css['overview-icon']}></div>
-                            <div>Files</div>
+                            <div>Participant Level Files</div>
+                            <Select
+                                placeholder='Select a file category for filter'
+                                allowClear
+                                filterOption={(input: string, option?: { label: string; value: string }) =>
+                                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())}
+                                showSearch
+                                onChange={(e) => {
+                                    setSelectedFileCat([e]);
+                                }}
+                            >
+                                {
+                                    getStudyFields.data.filter(el => el.dataType === enumDataTypes.FILE).map(el =>
+                                        <Option value={el.fieldId} label={el.fieldName}>{el.fieldName}</Option>
+                                    )
+                                }
+                            </Select>
                         </div>
                         <div>
                             <UploadFileComponent study={getStudy.data[0]} fields={getStudyFields.data.filter(el => el.dataType === enumDataTypes.FILE)} />
@@ -54,6 +73,26 @@ export const FileRepositoryTabContent: FunctionComponent<{ studyId: string }> = 
                             columns={columns}
                             expandable={{ showExpandColumn: false }}
                             dataSource={getFiles.data}
+                        />
+                    </div>
+                </List.Item>
+            </List>
+            <List
+                header={
+                    <div className={css['overview-header']} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center' }}>
+                            <div className={css['overview-icon']}></div>
+                            <div>Study Level Files</div>
+                        </div>
+                    </div>
+                }
+            >
+                <List.Item>
+                    <div style={{ fontSize: '20px', width: '100%' }}>
+                        <Table
+                            columns={columns.slice(0, 5)}
+                            expandable={{ showExpandColumn: false }}
+                            dataSource={getStudyLevelFiles.data}
                         />
                     </div>
                 </List.Item>
@@ -85,7 +124,7 @@ export const UploadFileComponent: FunctionComponent<{ study: IStudy, fields: IFi
         fieldId: ''
     });
     const uploadStudyFileData = trpc.data.uploadStudyFileData.useMutation({
-        onSuccess: ((data) => {
+        onSuccess: (() => {
             api.open({
                 message: 'File has been uploaded',
                 description: '',
@@ -138,8 +177,7 @@ export const UploadFileComponent: FunctionComponent<{ study: IStudy, fields: IFi
             <Upload.Dragger
                 multiple={false}
                 showUploadList={true}
-                beforeUpload={async (file: RcFile) => {
-                    // const fileSchema = await convertRCFileToSchema(file);
+                beforeUpload={async () => {
                     return false;
                 }}
                 onChange={(info: UploadChangeParam<UploadFile>) => {
@@ -285,17 +323,17 @@ function generateTableColumns(properties) {
         title: 'File Name',
         dataIndex: 'fileName',
         key: 'fileName',
-        sorter: (a, b) => { return stringCompareFunc(a.properties['File Name'], b.properties['File Name']); },
+        sorter: (a, b) => { return stringCompareFunc(a.fileName, b.fileName); },
         render: (__unused__value, record) => {
-            return record.properties['File Name'];
+            return record.fileName;
         }
     }, {
         title: 'File Size',
         dataIndex: 'fileSize',
         key: 'fileSize',
-        sorter: (a, b) => { return a.properties['File Size'] - b.properties['File Size']; },
+        sorter: (a, b) => { return a.fileSize - b.fileSize; },
         render: (__unused__value, record) => {
-            return formatBytes(record.properties['File Size']);
+            return formatBytes(record.fileSize);
         }
     }, {
         title: 'File Type',

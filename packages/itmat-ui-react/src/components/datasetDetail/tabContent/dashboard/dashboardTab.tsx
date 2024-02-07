@@ -1,20 +1,15 @@
 import { FunctionComponent } from 'react';
 import { Button, Upload, Image, Row, Col, Divider, Typography } from 'antd';
-import { RcFile } from 'antd/es/upload';
 import { UploadOutlined } from '@ant-design/icons';
-import { useApolloClient, useQuery } from '@apollo/client/react/hooks';
-import { GET_STUDIES } from '@itmat-broker/itmat-models';
 import LoadSpinner from '../../../reusable/loadSpinner';
 import css from './dashboard.module.css';
-import { convertRCFileToSchema, trpc } from 'packages/itmat-ui-react/src/utils/trpc';
-import { UploadFile } from 'antd/lib/upload/interface';
+// eslint-disable-next-line @nx/enforce-module-boundaries
+import { trpc } from 'packages/itmat-ui-react/src/utils/trpc';
 const { Title } = Typography;
 export const DashboardTabContent: FunctionComponent<{ studyId: string }> = ({ studyId }) => {
-    const { loading: getStudiesLoading, error: getStudiesError, data: getStudiesData } = useQuery(GET_STUDIES, { variables: { studyId: studyId } });
-
-    const store = useApolloClient();
+    const getStudies = trpc.study.getStudies.useQuery({ studyId: studyId });
     const editStudy = trpc.study.editStudy.useMutation();
-    if (getStudiesLoading) {
+    if (getStudies.isLoading) {
         return <>
             <div className='page_ariane'>Loading...</div>
             <div className='page_content'>
@@ -22,16 +17,16 @@ export const DashboardTabContent: FunctionComponent<{ studyId: string }> = ({ st
             </div>
         </>;
     }
-    if (getStudiesError) {
+    if (getStudies.isError) {
         return <>
             An error occured.
         </>;
     }
 
-    if (getStudiesData.getStudies.length === 0) {
+    if (getStudies.data.length === 0) {
         return null;
     }
-    const study = getStudiesData.getStudies[0];
+    const study = getStudies.data[0];
     return (
         <div className={css.page_container}>
             <div className={css.study_left}>

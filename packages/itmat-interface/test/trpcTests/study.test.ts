@@ -25,8 +25,10 @@ if (global.hasMinio) {
     let admin: request.SuperTest<request.Test>;
     let user: request.SuperTest<request.Test>;
     let mongoConnection: MongoClient;
-    // let mongoClient: Db;
-    // let adminProfile;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    let mongoClient: Db;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    let adminProfile;
     let userProfile;
 
     afterAll(async () => {
@@ -101,6 +103,21 @@ if (global.hasMinio) {
             const response = await request;
             expect(response.status).toBe(400);
             expect(response.body.error.message).toBe(errorCodes.NO_PERMISSION_ERROR);
+        });
+        test('Create a study (duplicates names)', async () => {
+            const filePath = path.join(__dirname, '../filesForTests/dsi.jpeg');
+            const request = admin.post('/trpc/study.createStudy');
+            request.attach('profile', filePath);
+            request.field('name', 'Test Study');
+            request.field('description', '');
+            await request;
+            const request2 = admin.post('/trpc/study.createStudy');
+            request2.attach('profile', filePath);
+            request2.field('name', 'Test Study');
+            request2.field('description', '');
+            const response2 = await request2;
+            expect(response2.status).toBe(400);
+            expect(response2.body.error.message).toBe('Study name already used.');
         });
         test('Edit a study', async () => {
             const filePath = path.join(__dirname, '../filesForTests/dsi.jpeg');
@@ -287,7 +304,7 @@ if (global.hasMinio) {
             const response2 = await user.get('/trpc/study.getStudies?input=' + encodeQueryParams(paramteres))
                 .query({});
             expect(response2.status).toBe(400);
-            expect(response2.body.error.message).toBe('No roles found.');
+            expect(response2.body.error.message).toBe(errorCodes.NO_PERMISSION_ERROR);
         });
         test('Create a new data version', async () => {
             const filePath = path.join(__dirname, '../filesForTests/dsi.jpeg');

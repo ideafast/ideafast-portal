@@ -1,19 +1,15 @@
 import { db } from '../database/database';
 import { GraphQLError } from 'graphql';
-import { enumConfigType, IFile, defaultSettings, enumFileTypes, enumFileCategories, IGenericResponse, IStudyConfig } from '@itmat-broker/itmat-types';
+import { enumConfigType, IFile, defaultSettings, enumFileTypes, enumFileCategories, IGenericResponse } from '@itmat-broker/itmat-types';
 import { v4 as uuid } from 'uuid';
 import { errorCodes } from '../graphql/errors';
-import { FileUpload } from 'graphql-upload-minimal';
 import crypto, { BinaryLike } from 'crypto';
 import { objStore } from '../objStore/objStore';
 import { makeGenericReponse } from '../graphql/responses';
-import { use } from 'passport';
-import { config } from 'process';
-import { configCore } from './configCore';
 import { studyCore } from './studyCore';
 import { TRPCError } from '@trpc/server';
+// eslint-disable-next-line @nx/enforce-module-boundaries
 import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
-import { IUser } from 'webdav-server';
 import fs from 'fs';
 
 export class FileCore {

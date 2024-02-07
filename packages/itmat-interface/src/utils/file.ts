@@ -1,5 +1,3 @@
-import { type } from 'os';
-
 export interface SerializedBuffer {
     type: string;
     data: number[];

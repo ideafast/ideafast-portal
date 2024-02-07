@@ -5,25 +5,10 @@ scalar JSON
 scalar BigInt
 scalar Upload
 
-enum USERTYPE {
-    ADMIN
-    STANDARD
-    SYSTEM
-}
-
 enum FIELD_ITEM_TYPE {
     I  #image
     C  #clinical
 }
-
-
-
-enum STUDYTYPE {
-    SENSOR
-    CLINICAL
-    ANY
-}
-
 
 enum StandardizationRuleSource {
     value # from a given value
@@ -78,30 +63,6 @@ input StandardizationRuleInput {
     filters: JSON
 }
 
-enum EnumFieldDataType {
-    INTEGER
-    DECIMAL
-    STRING
-    BOOLEAN
-    DATETIME
-    FILE
-    JSON
-    CATEGORICAL
-}
-
-
-type CategoricalOption {
-    id: String!
-    code: String!
-    description: String
-    life: LifeCircle!
-    metadata: JSON
-}
-
-input CategoricalOptionInput {
-    code: String!
-    description: String
-}
 
 type FieldValueVerifier {
     id: String!
@@ -152,84 +113,11 @@ enum EnumMathOp {
     POW
 }
 
-type Field {
-    id: String!
-    studyId: String!
-    fieldId: String!
-    fieldName: String!
-    tableName: String
-    dataType: EnumFieldDataType!
-    categoricalOptions: [CategoricalOption]
-    unit: String
-    comments: String
-    dataVersion: String
-    verifier: JSON
-    properties: JSON
-    life: LifeCircle
-    metadata: JSON
-}
-
-
 input DataClipInput {
     fieldId: String!
     value: String
     properties: JSON
 }
-
-type UserAccess {
-    id: String!
-    projects: [Project]!
-    studies: [Study]!
-}
-
-type UserPermissions {
-    projects: [StudyOrProjectUserRole]!
-    studies: [StudyOrProjectUserRole]!
-}
-
-enum EnumFileNodeType {
-    FOLDER
-    FILE
-}
-
-type FileNode {
-    id: String!
-    name: String!
-    fileId: String
-    type: EnumFileNodeType!
-    parent: String
-    children: [String]
-    sharedUsers: [String]
-    life: LifeCircle
-}
-
-type LifeCircle {
-    createdTime: Float!
-    createdUser: String!
-    deletedTime: Float
-    deletedUser: String
-}
-
-type User {
-    id: String!
-    username: String!
-    email: String!
-    firstname: String!
-    lastname: String!
-    organisation: String!
-    type: String!
-    emailNotificationsActivated: Boolean
-    password: String
-    otpSecret: String
-    profile: String
-    description: String
-    expiredAt: Float
-    fileRepo: [FileNode]
-    sharedFileRepos: JSON
-    life: LifeCircle!
-    metadata: JSON
-}
-
 
 type Pubkey {
     id: String!
@@ -271,16 +159,7 @@ type Organisation {
     profile: String
 }
 
-type StudyOrProjectUserRole {
-    id: String!
-    name: String!
-    studyId: String
-    projectId: String
-    description: String
-    permissions: JSON
-    users: [User]!
-    metadata: JSON
-}
+
 
 enum EnumFileCategories {
     STUDY_DATA_FILE
@@ -291,30 +170,7 @@ enum EnumFileCategories {
     ORGANISATION_PROFILE_FILE
 }
 
-type File {
-    id: String!
-    studyId: String
-    userId: String
-    fileName: String
-    fileSize: String
-    description: String
-    properties: JSON
-    uri: String!
-    hash: String!
-    fileType: String
-    fileCategory: EnumFileCategories
-    life: LifeCircle
-    metadata: JSON
-}
 
-type DataVersion {
-    id: String!
-    version: String!
-    contentId: String!
-    tag: String
-    life: LifeCircle!
-    metadata: JSON
-}
 
 type OntologyTree {
     id: String!
@@ -361,18 +217,6 @@ type StudyGroupNode {
     children: [String]
 }
 
-type Study {
-    id: String!
-    name: String!
-    currentDataVersion: Int
-    dataVersions: [DataVersion]!
-    description: String
-    profile: String
-    groupList: [StudyGroupNode]
-    life: LifeCircle!
-    metadata: JSON
-}
-
 scalar ANY
 
 type Data {
@@ -386,141 +230,8 @@ type Data {
     metadata: JSON
 }
 
-type Project {
-    id: String!
-    studyId: String!
-    name: String!
-    dataVersion: DataVersion
-    summary: JSON
-
-    #only admin
-    patientMapping: JSON!
-    
-    #external to mongo documents:
-    jobs: [Job]!
-    roles: [StudyOrProjectUserRole]!
-    iCanEdit: Boolean
-    fields: [Field]!
-    files: [File]!
-    metadata: JSON
-}
-
-type Job {
-    id: String!
-    studyId: String!
-    projectId: String
-    jobType: String!
-    requester: String!
-    receivedFiles: [String]!
-    requestTime: Float!
-    status: String!
-    error: [String]
-    cancelled: Boolean
-    cancelledTime: Int
-    data: JSON
-}
-
-type Log {
-    requesterId: String!
-    userAgent: enumUserAgent
-    type: enumEventType
-    operationName: enumEventOperation
-    parameters: JSON
-    status: enumEventStatus
-    errors: [String]
-}
-
-enum enumEventType {
-   SYSTEM_LOG
-   REQUEST_LOG
-}
-
-enum enumUserAgent {
-    MOZILLA
-    OTHER
-}
-
-enum enumEventStatus {
-    SUCCESS
-    FAIL
-}
 
 
-enum enumEventOperation {
-    # SYSTEM
-    START_SERVER
-    STOP_SERVER
-
-    # USER
-    GET_USERS
-    EDIT_USER
-    DELETE_USER
-    CREATE_USER
-    LOGIN_USER
-    WHO_AM_I
-    LOGOUT
-    REQUEST_USERNAME_OR_RESET_PASSWORD
-    RESET_PASSWORD
-    REQUEST_EXPIRY_DATE
-
-    # KEY
-    REGISTER_PUBKEY
-    ISSUE_ACCESS_TOKEN
-    KEYPAIRGEN_SIGNATURE
-    RSA_SIGNER
-    LINK_USER_PUBKEY
-
-    # ORGANISATION
-    GET_ORGANISATIONS
-    CREATE_ORGANISATION
-    DELETE_ORGANISATION
-
-    # PROJECT
-    GET_PROJECT
-    # GET_PROJECT_PATIENT_MAPPING = 'GET_PROJECT_PATIENT_MAPPING',
-    EDIT_PROJECT_APPROVED_FIELDS
-    EDIT_PROJECT_APPROVED_FILES
-    CREATE_PROJECT
-    DELETE_PROJECT
-    SET_DATAVERSION_AS_CURRENT
-    SUBSCRIBE_TO_JOB_STATUS
-
-    # STUDY | DATASET
-    DELETE_STUDY
-    GET_STUDY
-    GET_STUDY_FIELDS
-    CREATE_STUDY
-    EDIT_STUDY
-    CREATE_DATA_CURATION_JOB
-    CREATE_FIELD_CURATION_JOB
-    GET_DATA_RECORDS
-    GET_ONTOLOGY_TREE
-    CHECK_DATA_COMPLETE
-    CREATE_NEW_DATA_VERSION
-    UPLOAD_DATA_IN_ARRAY
-    DELETE_DATA_RECORDS
-    CREATE_NEW_FIELD
-    EDIT_FIELD
-    DELETE_FIELD
-    ADD_ONTOLOGY_TREE
-    DELETE_ONTOLOGY_TREE
-
-    # STUDY & PROJECT
-    EDIT_ROLE
-    ADD_NEW_ROLE
-    REMOVE_ROLE
-
-    # FILE
-    UPLOAD_FILE
-    DOWNLOAD_FILE
-    DELETE_FILE
-
-    # QUERY
-    GET_QUERY
-    CREATE_QUERY
-    GET_QUERY_BY_ID
-    CREATE_QUERY_CURATION_JOB
-}
 
 type GenericResponse {
     id: String,
@@ -561,22 +272,6 @@ input CreateUserInput {
     organisation: String!
     emailNotificationsActivated: Boolean
     password: String!,
-    metadata: JSON
-}
-
-input EditUserInput {
-    id: String!
-    username: String
-    type: USERTYPE
-    firstname: String
-    lastname: String
-    email: String
-    description: String
-    organisation: String
-    emailNotificationsActivated: Boolean
-    emailNotificationsStatus: JSON
-    password: String
-    expiredAt: Float
     metadata: JSON
 }
 
@@ -623,135 +318,353 @@ enum EnumDocType {
     STUDYONLY
 }
 
+
+
+# start from now
+type LifeCircle {
+    createdTime: Float!
+    createdUser: String!
+    deletedTime: Float
+    deletedUser: String
+}
+
+
+type ResetPasswordRequest {
+    id: String!
+    timeOfRequest: Int!
+    used: Boolean!
+}
+type User {
+    id: String!
+    username: String!
+    email: String!
+    firstname: String!
+    lastname: String!
+    organisation: String!
+    type: String!
+    emailNotificationsActivated: Boolean
+    resetPasswordRequests: [ResetPasswordRequest]
+    password: String
+    otpSecret: String
+    profile: String
+    description: String
+    expiredAt: Float
+    life: LifeCircle
+    metadata: JSON
+}
+
+input CreateUserInput {
+    username: String!
+    type: USERTYPE
+    firstname: String!
+    lastname: String!
+    email: String!
+    description: String
+    organisation: String!
+    emailNotificationsActivated: Boolean
+    password: String!,
+    metadata: JSON
+}
+
+input EditUserInput {
+    id: String!
+    username: String
+    type: USERTYPE
+    firstname: String
+    lastname: String
+    email: String
+    description: String
+    organisation: String
+    emailNotificationsActivated: Boolean
+    emailNotificationsStatus: JSON
+    password: String
+    expiredAt: Float
+    metadata: JSON
+}
+
+enum USERTYPE {
+    ADMIN
+    STANDARD
+    SYSTEM
+}
+
+type Organisation {
+    id: String!
+    name: String!
+    shortname: String
+    location: [Float]
+    profile: String
+}
+
+type OrganisationMetadata {
+    siteIDMarker: String
+}
+
+input OrganisationMetadataInput {
+    siteIDMarker: String
+}
+
+type Organisation {
+    id: String!
+    name: String!
+    shortname: String
+    containOrg: String
+    deleted: String
+    metadata: OrganisationMetadata
+}
+
+type Pubkey {
+    id: String!
+    pubkey: String!
+    associatedUserId: String
+    jwtPubkey: String!
+    jwtSeckey: String!
+    refreshCounter: Int!
+    deleted: String
+}
+
+enum STUDYTYPE {
+    SENSOR
+    CLINICAL
+    ANY
+}
+
+type DataVersion {
+    id: String!
+    version: String!
+    contentId: String!
+    tag: String
+    updateDate: String!
+}
+
+type OntologyTree {
+    id: String!
+    name: String!
+    routes: [OntologyRoute]
+    dataVersion: String!
+    metadata: JSON
+    deleted: Float
+}
+
+type Field {
+    id: String!
+    studyId: String!
+    fieldId: String! # start
+    fieldName: String!
+    tableName: String
+    dataType: FIELD_VALUE_TYPE!
+    possibleValues: [ValueCategory]
+    metadata: JSON
+    unit: String
+    comments: String
+    dataVersion: String
+    dateAdded: String!
+    dateDeleted: String
+}
+
+type ValueCategory {
+    id: String!
+    code: String!
+    description: String
+}
+
+enum FIELD_VALUE_TYPE {
+    int # integer
+    dec # decimal
+    str # characters/string
+    bool # boolean
+    date # datetime, temporaily save as string
+    file # file id
+    json # JSON: array & object
+    cat # CATEGORICAL
+}
+
+input DataClip {
+    fieldId: String!
+    value: String
+    subjectId: String!
+    visitId: String!
+    file: Upload
+    metadata: JSON
+}
+
+input ValueCategoryInput {
+    code: String!
+    description: String
+}
+
+input FieldInput {
+    fieldId: String! # start
+    fieldName: String!
+    tableName: String
+    dataType: FIELD_VALUE_TYPE!
+    possibleValues: [ValueCategoryInput]
+    unit: String
+    comments: String
+    metadata: JSON
+}
+
+type DataPermission {
+    fields: [String]
+    dataProperties: JSON
+    includeUnVersioned: Boolean
+    permission: Int
+}
+
+type DataVersion {
+    id: String!
+    version: String!
+    contentId: String!
+    tag: String
+    life: LifeCircle!
+    metadata: JSON
+}
+
+type File {
+    id: String!
+    uri: String!
+    fileName: String!
+    studyId: String!
+    projectId: String
+    fileSize: String
+    description: String
+    uploadTime: String!
+    uploadedBy: String!
+    hash: String!
+    metadata: JSON
+}
+
+type Job {
+    id: String!
+    studyId: String!
+    projectId: String
+    jobType: String!
+    requester: String!
+    receivedFiles: [String]!
+    requestTime: Float!
+    status: String!
+    error: [String]
+    cancelled: Boolean
+    cancelledTime: Int
+    data: JSON
+}
+
+type Project {
+    id: String!
+    studyId: String!
+    name: String!
+    dataVersion: DataVersion
+    summary: JSON
+
+    #only admin
+    patientMapping: JSON!
+    
+    #external to mongo documents:
+    jobs: [Job]!
+    roles: [StudyOrProjectUserRole]!
+    iCanEdit: Boolean
+    fields: [Field]!
+    files: [File]!
+    metadata: JSON
+}
+
+type StudyOrProjectUserRole {
+    id: String!
+    name: String!
+    studyId: String
+    projectId: String
+    description: String
+    permissions: JSON
+    users: [User]!
+    metadata: JSON
+}
+
+type Study {
+    id: String!
+    name: String!
+    createdBy: String!
+    lastModified: Int!
+    currentDataVersion: Int
+    dataVersions: [DataVersion]!
+    description: String
+    type: STUDYTYPE
+    ontologyTrees: [OntologyTree]
+    # external to mongo documents:
+    jobs: [Job]!
+    projects: [Project]!
+    roles: [StudyOrProjectUserRole]!
+    # fields: [Field]!
+    files: [File]!
+    subjects: JSON!
+    visits: JSON!
+    numOfRecords: [Int]!
+    metadata: JSON
+}
+
 type Query {
     # USER
     whoAmI: User
     getUsers(userId: String): [User]
     validateResetPassword(encryptedEmail: String!, token: String!): GenericResponse
     recoverSessionExpireTime: GenericResponse
-    getUserFileNodes(userId: String!): [FileNode]
-    getUserProfile(userId: String!): String
+    
     # ORGANISATION
     getOrganisations(orgId: String): [Organisation]
 
     # PUBLIC KEY AUTHENTICATION
-    # getPubkeys(pubkeyId: String, associatedUserId: String): [Pubkey]
+    getPubkeys(pubkeyId: String, associatedUserId: String): [Pubkey]
 
     # STUDY
-    getStudies(studyId: String): [Study]
-    # getProject(projectId: String!): Project
-    getStudyGroupNodes(studyId: String): [StudyGroupNode]
-
-    # DATA
-    getFields(studyId: String!, versionId: String): [Field]
-    getData(studyId: String!, versionId: String, filters: JSON, options: JSON): [Data]
-    getOntologyTree(studyId: String!, projectId: String, treeId: String): [OntologyTree]
-    # getStandardization(studyId: String, projectId: String, type: String, versionId: String): [Standardization]
-    # checkDataComplete(studyId: String!): [SubjectDataRecordSummary]
+    getStudy(studyId: String): [Study]
     
-    # DOC
-    getDocs(docId: String, studyId: String, docTypes: [EnumDocType], verbose: Boolean): [Doc]
-
-    # QUERY
-    # getQueries(studyId: String, projectId: String): [QueryEntry]  # only returns the queries that the user has access to.
-    # getQueryById(queryId: String!): QueryEntry
-
-    # PERMISSION
-    # getGrantedPermissions(studyId: String, projectId: String): UserPermissions
-
-    # LOG
-    getLogs(requesterId: [String], userAgent: [enumUserAgent], type: [enumEventType], operationName: [enumEventOperation], status: [enumEventStatus], startIndex: Int, endIndex: Int): [Log]
-
-    # CONFIG
-    getConfig(configType: EnumConfigType!, key: String): JSON
-
+    # DATA
+    getStudyFields(studyId: String!, projectId: String, versionId: String): [Field]
+    getDataRecords(studyId: String!, queryString: JSON, versionId: String, projectId: String): JSON
 }
 
 type Mutation {
     # USER
-
     login(username: String!, password: String!, totp: String!, requestexpirydate: Boolean): User
     logout: GenericResponse
     requestUsernameOrResetPassword(forgotUsername: Boolean!, forgotPassword: Boolean!, email: String, username: String): GenericResponse
     resetPassword(encryptedEmail: String!, token: String!, newPassword: String!): GenericResponse
-    createUser(username: String!, firstname: String!, lastname: String!, email: String!, password: String!, description: String, organisation: String!, profile: Upload): GenericResponse
+    createUser(user: CreateUserInput!): GenericResponse
     requestExpiryDate(username: String, email: String): GenericResponse
-    editUser(userId: String!, username: String, type: USERTYPE, firstname: String, lastname: String, email: String, emailNotificationsActivated: Boolean, password: String, description: String, organisation: String, expiredAt: Int, profile: String): User
+    editUser(user: EditUserInput!): User
     deleteUser(userId: String!): GenericResponse
-    uploadUserProfile(userId: String!, description: String, fileType: String!, fileUpload: Upload!): GenericResponse
-    uploadUserFileNode(userId: String!, parentNodeId: String!, file: Upload, folderName: String): FileNode
-    editUserFileNode(userId: String!, nodeId: String!, parentNodeId: String, sharedUsers: [String]): GenericResponse
-    shareUserFileNodeByEmail(userId: String!, nodeId: String!, sharedUserEmails: [String!]): GenericResponse
-    deleteUserFileNode(userId: String!, nodeId: String!): GenericResponse
-
-    # DOC
-    createDoc(title: String!, type: EnumDocType!, description: String, tag: String, studyId: String, priority: Int!, attachments: [Upload!], contents: String): Doc
-    editDoc(docId: String!, contents: String, title: String, tag: String, description: String, priority: Int, addAttachments: [Upload], removeAttachments: [String]): Doc
-    deleteDoc(docId: String!): GenericResponse
-
-    # ORGANISATION
-    createOrganisation(name: String!, shortname: String, location: [Float], profile: Upload): Organisation
-    editOrganisation(orgId: String!, name: String, shortname: String, location: [Float], profile: Upload): GenericResponse
-    deleteOrganisation(orgId: String!): GenericResponse
 
     # PUBLIC KEY AUTHENTICATION
-    # registerPubkey(pubkey: String!, signature: String!, associatedUserId: String): Pubkey    
-    # issueAccessToken(pubkey: String!, signature: String!): AccessToken
-    # keyPairGenwSignature: KeyPairwSignature
-    # rsaSigner(privateKey: String!, message: String): Signature
-
-    
-
-    # APP USERS
-    
+    registerPubkey(pubkey: String!, signature: String!, associatedUserId: String): Pubkey    
+    issueAccessToken(pubkey: String!, signature: String!): AccessToken
+    keyPairGenwSignature: KeyPairwSignature
+    rsaSigner(privateKey: String!, message: String): Signature    
 
     # STUDY
-    createStudy(name: String!, description: String, profile: Upload): Study
+    createStudy(name: String!, description: String, type: STUDYTYPE!): Study
     deleteStudy(studyId: String!): GenericResponse
-    editStudy(studyId: String!, name: String, description: String, profile: Upload): Study
-    createDataVersion(studyId: String!, dataVersion: String!, tag: String): GenericResponse
-    setDataversionAsCurrent(studyId: String!, dataVersionId: String!): GenericResponse
-    createStudyGroupNode(studyId: String!, groupNodeName: String!, groupNodeType: EnumGroupNodeType!, description: String, parentGroupNodeId: String!): StudyGroupNode
-    editStudyGroupNode(studyId: String!, groupNodeId: String!, groupNodeName: String, description: String, parentGroupNodeId: String, children: [String]): GenericResponse
-    deleteStudyGroupNode(studyId: String!, groupNodeId: String!): GenericResponse
+    editStudy(studyId: String!, description: String): Study
+    createNewDataVersion(studyId: String!, dataVersion: String!, tag: String): DataVersion
+    setDataversionAsCurrent(studyId: String!, dataVersionId: String!): Study
 
 
     # DATA
-    uploadFileData(studyId: String!, file: Upload!, properties: JSON, subjectId: String!, fieldId: String!, visitId: String, timestamps: Int): GenericResponse
-    uploadData(studyId: String!, data: [DataClipInput]): [GenericResponse]
-    # deleteData(studyId: String!, subjectIds: [String], visitIds: [String], fieldIds: [String]): [GenericResponse]
-    createField(studyId: String!, fieldName: String!, fieldId: String!, description: String, tableName: String, dataType: EnumFieldDataType, categoricalOptions: [CategoricalOptionInput], unit: String, comments: String, verifier: JSON, properties: JSON): Field
-    editField(studyId: String!, fieldName: String, fieldId: String!, description: String, tableName: String, dataType: EnumFieldDataType, categoricalOptions: [CategoricalOptionInput], unit: String, comments: String, verifier: JSON, properties: JSON): GenericResponse
+    uploadFile(studyId: String!, description: String!, file: Upload!, fileLength: BigInt, hash: String): File
+    deleteFile(fileId: String!): GenericResponse
+    uploadDataInArray(studyId: String!, data: [DataClip]): [GenericResponse]
+    createNewField(studyId: String!, fieldInput: [FieldInput]!): [GenericResponse]
+    editField(studyId: String!, fieldInput: FieldInput!): Field
     deleteField(studyId: String!, fieldId: String!): GenericResponse
-    # createOntologyTree(studyId: String!, name: String!, tag: String): OntologyTree
-    # deleteOntologyTree(studyId: String!, ontologyTreeId: String!): GenericResponse
-    # addOntologyRoutes(studyId: String!, ontologyTreeId: String!, routes: OntologyRouteInput): [GenericResponse]
-    # deleteOntologyRoutes(studyId: String!, ontologyTreeId: String!, routeIds: [String]): [GenericResponse]
+    # createOntologyTree(studyId: String!, ontologyTree: OntologyTreeInput!): OntologyTree
+    # deleteOntologyTree(studyId: String!, treeName: String!): GenericResponse
+
 
     # STANDARDIZATION
     # deleteStandardization(studyId: String!, type: String, field: [String]!): GenericResponse
 
-    # PROJECT
-    # createProject(studyId: String!, projectName: String!): Project
-    # deleteProject(projectId: String!): GenericResponse
-
     # ACCESS MANAGEMENT
-    # addRole(studyId: String!, projectId: String, roleName: String!): StudyOrProjectUserRole
-    # editRole(roleId: String!, name: String, description: String, permissionChanges: JSON, userChanges: StringArrayChangesInput): StudyOrProjectUserRole
-    # removeRole(roleId: String!): GenericResponse
-
-    # FILES
-    # uploadFile(studyId: String!, description: String!, file: Upload!, fileLength: BigInt, hash: String): File
-    # deleteFile(fileId: String!): GenericResponse
-
-    # QUERY
-    # createQuery(query: QueryObjInput!): QueryEntry
-
-    # CURATION
-    # createDataCurationJob(file: [String]!, studyId: String!): [Job]
-    # createFieldCurationJob(file: String!, studyId: String!, tag: String!): Job
-    # createQueryCurationJob(queryId: [String], studyId: String, projectId: String): Job
-    # setDataversionAsCurrent(studyId: String!, dataVersionId: String!): Study
+    addRole(studyId: String!, projectId: String, roleName: String!): StudyOrProjectUserRole
+    editRole(roleId: String!, name: String, description: String, permissionChanges: JSON, userChanges: StringArrayChangesInput): StudyOrProjectUserRole
+    removeRole(roleId: String!): GenericResponse
 
 }
 

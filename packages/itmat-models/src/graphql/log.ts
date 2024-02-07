@@ -1,31 +1,30 @@
 import gql from 'graphql-tag';
 
-// export const GET_LOGS = gql`
-//     query getLogs(
-//         $requesterId: [String],
-//         $userAgent: [enumUserAgent],
-//         $type: [enumEventType],
-//         $operationName: [enumEventOperation],
-//         $status: [enumEventStatus],
-//         $startIndex: Int
-//         $endIndex: Int
-//     ) {
-//         getLogs (
-//             requesterId: $requesterId,
-//             userAgent: $userAgent,
-//             type: $type,
-//             operationName: $operationName,
-//             status: $status,
-//             startIndex: $startIndex,
-//             endIndex: $endIndex
-//         ) {
-//             requesterId
-//             userAgent
-//             type
-//             operationName
-//             parameters
-//             status
-//             errors
-//         }
-//     }
-// `;
+export const GET_LOGS = gql`
+    query getLogs(
+        $requesterName: String, 
+        $requesterType: USERTYPE,
+        $logType: LOG_TYPE,
+        $actionType: LOG_ACTION,
+        $status: LOG_STATUS 
+    ) {
+        getLogs (
+            requesterName: $requesterName,
+            requesterType: $requesterType,
+            logType: $logType,
+            actionType: $actionType,
+            status: $status
+        ) {
+            id,
+            requesterName,
+            requesterType,
+            userAgent,
+            logType,
+            actionType,
+            actionData,
+            time,
+            status,
+            error
+        }
+    }
+`;

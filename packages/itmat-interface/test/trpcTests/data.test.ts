@@ -24,8 +24,10 @@ if (global.hasMinio) {
     let admin: request.SuperTest<request.Test>;
     let user: request.SuperTest<request.Test>;
     let mongoConnection: MongoClient;
-    // let mongoClient: Db;
-    // let adminProfile;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    let mongoClient: Db;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    let adminProfile;
     let userProfile;
     let study;
     let fullPermissionRole;
@@ -235,7 +237,7 @@ if (global.hasMinio) {
                     dataType: enumDataTypes.INTEGER
                 });
             expect(response.status).toBe(400);
-            expect(response.body.error.message).toBe('Study does not exist.');
+            expect(response.body.error.message).toBe(errorCodes.NO_PERMISSION_ERROR);
             const field = await db.collections!.field_dictionary_collection.findOne({ 'studyId': study.id, 'fieldId': '1', 'life.deletedTime': null });
             expect(field).toBe(null);
         });
@@ -377,7 +379,7 @@ if (global.hasMinio) {
                     fieldId: '1'
                 });
             expect(response.status).toBe(400);
-            expect(response.body.error.message).toBe('Study does not exist.');
+            expect(response.body.error.message).toBe(errorCodes.NO_PERMISSION_ERROR);
             const fields = await db.collections!.field_dictionary_collection.find({ fieldId: '1' }).toArray();
             expect(fields).toHaveLength(1);
         });
@@ -1035,18 +1037,17 @@ if (global.hasMinio) {
                         value: '10'
                     }]
                 });
-            const data1 = await db.collections!.data_collection.findOne({});
             const response2 = await user.post('/trpc/data.deleteStudyData')
                 .send({
                     studyId: study.id,
-                    documentId: data1.id
+                    fieldId: '1'
                 });
             expect(response2.status).toBe(200);
             expect(response2.body.result.data.successful).toBe(true);
             const data = await db.collections!.data_collection.find({ studyId: study.id }).toArray();
             expect(data).toHaveLength(2);
             expect(data[0].life.deletedTime).toBeNull();
-            expect(data[1].life.deletedTime).not.toBeNull();
+            expect(data[1].life.deletedTime).toBeNull();
         });
         test('Delete a data clip (study does not exist)', async () => {
             await user.post('/trpc/data.createStudyField')
@@ -1065,11 +1066,10 @@ if (global.hasMinio) {
                         value: '10'
                     }]
                 });
-            const data1 = await db.collections!.data_collection.findOne({});
             const response2 = await user.post('/trpc/data.deleteStudyData')
                 .send({
                     studyId: 'random',
-                    documentId: data1.id
+                    fieldId: '1'
                 });
             expect(response2.status).toBe(400);
             expect(response2.body.error.message).toBe('Study does not exist.');
@@ -1091,20 +1091,22 @@ if (global.hasMinio) {
                         value: '10'
                     }]
                 });
-            const data1 = (await db.collections!.data_collection.find({}).toArray())[0];
             await user.post('/trpc/data.deleteStudyData')
                 .send({
                     studyId: study.id,
-                    documentId: data1.id
+                    fieldId: '1'
                 });
-            const data2 = (await db.collections!.data_collection.find({}).toArray())[1];
             const response2 = await user.post('/trpc/data.deleteStudyData')
                 .send({
                     studyId: study.id,
-                    documentId: data2.id
+                    fieldId: '1'
                 });
-            expect(response2.status).toBe(400);
-            expect(response2.body.error.message).toBe('Document does not exist or has been deleted.');
+            expect(response2.status).toBe(200);
+            const data = await db.collections!.data_collection.find({ studyId: study.id, fieldId: '1' }).toArray();
+            expect(data).toHaveLength(3);
+            expect(data[2].value).toBe(10);
+            expect(data[0].value).toBeNull();
+            expect(data[1].value).toBeNull();
         });
         test('Upload a file data', async () => {
             await user.post('/trpc/data.createStudyField')

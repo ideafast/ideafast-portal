@@ -1,64 +1,88 @@
 import gql from 'graphql-tag';
 import { GENERIC_RESPONSE } from './utils';
+import { JOB_FRAGMENT } from './curation';
 
-export const GET_STUDIES = gql`
-    query getStudies($studyId: String) {
-        getStudies(studyId: $studyId) {
+export const GET_STUDY = gql`
+    query getStudy($studyId: String!) {
+        getStudy(studyId: $studyId) {
             id
             name
+            createdBy
+            description
+            type
+            jobs {
+                ...ALL_FOR_JOB
+            }
+            projects {
+                id
+                studyId
+                name
+            }
+            roles {
+                id
+                name
+                permissions
+                projectId
+                studyId
+                description
+                users {
+                    id
+                    firstname
+                    lastname
+                    organisation
+                    username
+                }
+            }
+            files {
+                id
+                fileName
+                studyId
+                projectId
+                fileSize
+                description
+                uploadTime
+                uploadedBy
+                hash
+                metadata
+            }
+            subjects
+            visits
+            numOfRecords
             currentDataVersion
             dataVersions {
                 id
-                tag
                 version
+                tag
+                updateDate
+                contentId
             }
-            description 
-            groupList {
-                id
-                name
-                type
-                description
-                parent
-                children
-            }
-            profile
         }
     }
+    ${JOB_FRAGMENT}
 `;
 
 export const CREATE_STUDY = gql`
-    mutation createStudy($name: String!, $description: String, $profile: Upload) {
-        createStudy(name: $name, description: $description, profile: $profile) {
+    mutation createStudy($name: String!, $description: String, $type: STUDYTYPE!){
+        createStudy(name: $name, description: $description, type: $type) {
             id
             name
-            currentDataVersion
-            dataVersions {
-                id
-                version
-                tag
-            }
             description
-            profile
+            type
         }
     }
 `;
 
 export const EDIT_STUDY = gql`
-    mutation editStudy($studyId: String!, $name: String, $description: String, $profile: Upload) {
-        editStudy(studyId: $studyId, name: $name, description: $description, profile: $profile) {
+    mutation editStudy($studyId: String!, $description: String) {
+        editStudy(studyId: $studyId, description: $description) {
             id
             name
-            currentDataVersion
-            dataVersions {
-                id
-                version
-                tag
-            }
             description
-            profile
+            type
         }
     }
 `;
+
 
 export const DELETE_STUDY = gql`
     mutation deleteStudy($studyId: String!) {
@@ -69,72 +93,32 @@ export const DELETE_STUDY = gql`
     ${GENERIC_RESPONSE}
 `;
 
-export const CREATE_STUDY_GROUP_NODE = gql`
-    mutation createStudyGroupNode($studyId: String!, $groupNodeName: String!, $groupNodeType: EnumGroupNodeType!, $description: String, $parentGroupNodeId: String!) {
-        createStudyGroupNode(studyId: $studyId, groupNodeName: $groupNodeName, groupNodeType: $groupNodeType, description: $description, parentGroupNodeId: $parentGroupNodeId) {
-            id
-            name
-            type
-            description
-            parent
-        }
-    }
-`;
-
-export const EDIT_STUDY_GROUP_NODE = gql`
-    mutation editStudyGroupNode($studyId: String!, $groupNodeId: String!, $groupNodeName: String, $description: String, $parentGroupNodeId: String, $children: [String]) {
-        editStudyGroupNode(
-            studyId: $studyId,
-            groupNodeId: $groupNodeId,
-            groupNodeName: $groupNodeName,
-            description: $description,
-            parentGroupNodeId: $parentGroupNodeId,
-            children: $children
-        ) {
-            ...ALL_FOR_RESPONSE
-        }
-    }
-    ${GENERIC_RESPONSE}
-`;
-
-export const GET_STUDY_GROUP_NODES = gql`
-    query getStudyGroupNodes($studyId: String!) {
-        getStudyGroupNodes(studyId: $studyId) {
-            id
-            name
-            type
-            description
-            parent
-            children
-        }
-    }
-`;
-
-export const DELETE_STUDY_GROUP_NODE = gql`
-    mutation deleteStudyGroupNode($studyId: String!, $groupNodeId: String!) {
-        deleteStudyGroupNode(studyId: $studyId, groupNodeId: $groupNodeId) {
-            ...ALL_FOR_RESPONSE
-        }
-    }
-    ${GENERIC_RESPONSE}
-`;
-
-export const CREATE_DATA_VERSION = gql`
-    mutation createDataVersion($studyId: String!, $dataVersion: String!, $tag: String){
+export const CREATE_NEW_DATA_VERSION = gql`
+    mutation createNewDataVersion($studyId: String!, $dataVersion: String!, $tag: String){
         createNewDataVersion(studyId: $studyId, dataVersion: $dataVersion, tag: $tag) {
-            ...ALL_FOR_RESPONSE
+            id
+            version
+            tag
+            updateDate
+            contentId
         }
     }
-    ${GENERIC_RESPONSE}
 `;
 
 export const SET_DATAVERSION_AS_CURRENT = gql`
     mutation setDataversionAsCurrent($studyId: String!, $dataVersionId: String!) {
         setDataversionAsCurrent(studyId: $studyId, dataVersionId: $dataVersionId) {
-            ...ALL_FOR_RESPONSE
+            id
+            currentDataVersion
+            dataVersions {
+                id
+                version
+                tag
+                updateDate
+                contentId
+            }
         }
     }
-    ${GENERIC_RESPONSE}
 `;
 
 

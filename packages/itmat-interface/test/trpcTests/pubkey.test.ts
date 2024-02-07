@@ -22,9 +22,12 @@ if (global.hasMinio) {
     let admin: request.SuperTest<request.Test>;
     let user: request.SuperTest<request.Test>;
     let mongoConnection: MongoClient;
-    // let mongoClient: Db;
-    // let adminProfile;
-    // let userProfile;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    let mongoClient: Db;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    let adminProfile;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    let userProfile;
 
     afterAll(async () => {
         await db.closeConnection();
@@ -77,7 +80,7 @@ if (global.hasMinio) {
         await db.collections!.pubkeys_collection.deleteMany({});
     });
 
-    describe('tRPC job APIs', () => {
+    describe('tRPC key APIs', () => {
         test('Register a public key', async () => {
             // const keyPair = await createRSAKey();
             // const exportedKeyPair = await exportRSAKey(keyPair);

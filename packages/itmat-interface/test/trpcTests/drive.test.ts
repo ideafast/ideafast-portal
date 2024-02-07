@@ -25,7 +25,8 @@ if (global.hasMinio) {
     let admin: request.SuperTest<request.Test>;
     let user: request.SuperTest<request.Test>;
     let mongoConnection: MongoClient;
-    // let mongoClient: Db;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    let mongoClient: Db;
     let adminProfile;
     let userProfile;
 
@@ -146,8 +147,7 @@ if (global.hasMinio) {
             const response = await user.post('/trpc/drive.createDriveFolder')
                 .send({
                     folderName: 'Test',
-                    parentId: root.id,
-                    description: null
+                    parentId: root.id
                 });
             expect(response.status).toBe(200);
             expect(response.body.result.data.name).toBe('Test');
@@ -158,8 +158,7 @@ if (global.hasMinio) {
             const response = await user.post('/trpc/drive.createDriveFolder')
                 .send({
                     folderName: 'Test',
-                    parentId: null,
-                    description: null
+                    parentId: null
                 });
             expect(response.status).toBe(200);
             expect(response.body.result.data.name).toBe('Test');
@@ -171,8 +170,7 @@ if (global.hasMinio) {
             const response = await user.post('/trpc/drive.createDriveFolder')
                 .send({
                     folderName: 'Test',
-                    parentId: root.id,
-                    description: null
+                    parentId: root.id
                 });
             expect(response.status).toBe(400);
             expect(response.body.error.message).toBe(errorCodes.NO_PERMISSION_ERROR);
@@ -181,14 +179,12 @@ if (global.hasMinio) {
             await user.post('/trpc/drive.createDriveFolder')
                 .send({
                     folderName: 'Test',
-                    parentId: null,
-                    description: null
+                    parentId: null
                 });
             const response = await user.post('/trpc/drive.createDriveFolder')
                 .send({
                     folderName: 'Test',
-                    parentId: null,
-                    description: null
+                    parentId: null
                 });
             expect(response.status).toBe(400);
             expect(response.body.error.message).toBe('Folder already exists.');
@@ -237,17 +233,18 @@ if (global.hasMinio) {
             expect(drives).toHaveLength(1);
         });
         test('Create a Drive File （file already exist）', async () => {
-            function createDriveFile(filePath, parentId, description) {
+            const rootDrive = await db.collections!.drives_collection.findOne({ managerId: userProfile.id, parent: null });
+            function createDriveFile(filePath, parentId) {
                 const request = user.post('/trpc/drive.createDriveFile');
                 request.attach('file', filePath);
-                request.field('parentId', parentId);
-                request.field('description', description);
+                if (parentId) {
+                    request.field('parentId', parentId);
+                }
                 return request;
             }
-
             const filePath = path.join(__dirname, '../filesForTests/I7N3G6G-MMM7N3G6G-20200704-20200721.txt');
-            await createDriveFile(filePath, '', '');
-            const response = await createDriveFile(filePath, '', '');
+            await createDriveFile(filePath, rootDrive.id);
+            const response = await createDriveFile(filePath, rootDrive.id);
             expect(response.status).toBe(400);
             expect(response.body.error.message).toBe('File already exists.');
         });
@@ -255,8 +252,7 @@ if (global.hasMinio) {
             const response1 = await user.post('/trpc/drive.createDriveFolder')
                 .send({
                     folderName: 'Test',
-                    parentId: null,
-                    description: null
+                    parentId: null
                 });
             const drives = await db.collections!.drives_collection.find({ 'managerId': userProfile.id, 'life.deletedTime': null }).toArray();
             expect(drives).toHaveLength(2);
@@ -273,16 +269,14 @@ if (global.hasMinio) {
             const response1 = await user.post('/trpc/drive.createDriveFolder')
                 .send({
                     folderName: 'Test',
-                    parentId: null,
-                    description: null
+                    parentId: null
                 });
             const drives = await db.collections!.drives_collection.find({ 'managerId': userProfile.id, 'life.deletedTime': null }).toArray();
             expect(drives).toHaveLength(2);
             await user.post('/trpc/drive.createDriveFolder')
                 .send({
                     folderName: 'Test2',
-                    parentId: response1.body.result.data.id,
-                    description: null
+                    parentId: response1.body.result.data.id
                 });
             const drives2 = await db.collections!.drives_collection.find({ 'managerId': userProfile.id, 'life.deletedTime': null }).toArray();
             expect(drives2).toHaveLength(3);
@@ -299,8 +293,7 @@ if (global.hasMinio) {
             await user.post('/trpc/drive.createDriveFolder')
                 .send({
                     folderName: 'Test',
-                    parentId: null,
-                    description: null
+                    parentId: null
                 });
             const response = await user.post('/trpc/drive.deleteDrive')
                 .send({
@@ -315,8 +308,7 @@ if (global.hasMinio) {
             const response1 = await user.post('/trpc/drive.createDriveFolder')
                 .send({
                     folderName: 'Test',
-                    parentId: null,
-                    description: null
+                    parentId: null
                 });
             const response2 = await user.post('/trpc/drive.shareDriveToUserViaEmail')
                 .send({
@@ -346,8 +338,7 @@ if (global.hasMinio) {
             const response1 = await user.post('/trpc/drive.createDriveFolder')
                 .send({
                     folderName: 'Test',
-                    parentId: null,
-                    description: null
+                    parentId: null
                 });
             const response2 = await user.post('/trpc/drive.shareDriveToUserViaEmail')
                 .send({
@@ -383,8 +374,7 @@ if (global.hasMinio) {
             const response1 = await user.post('/trpc/drive.createDriveFolder')
                 .send({
                     folderName: 'Test',
-                    parentId: null,
-                    description: null
+                    parentId: null
                 });
             const response2 = await user.post('/trpc/drive.shareDriveToGroupById')
                 .send({
@@ -414,14 +404,12 @@ if (global.hasMinio) {
             const response1 = await user.post('/trpc/drive.createDriveFolder')
                 .send({
                     folderName: 'Test',
-                    parentId: null,
-                    description: null
+                    parentId: null
                 });
             const response2 = await user.post('/trpc/drive.createDriveFolder')
                 .send({
                     folderName: 'Test',
-                    parentId: response1.body.result.data.id,
-                    description: null
+                    parentId: response1.body.result.data.id
                 });
             const response3 = await user.post('/trpc/drive.editDrive')
                 .send({
@@ -443,14 +431,12 @@ if (global.hasMinio) {
             const response1 = await user.post('/trpc/drive.createDriveFolder')
                 .send({
                     folderName: 'Test',
-                    parentId: null,
-                    description: null
+                    parentId: null
                 });
             await user.post('/trpc/drive.createDriveFolder')
                 .send({
                     folderName: 'Test',
-                    parentId: response1.body.result.data.id,
-                    description: null
+                    parentId: response1.body.result.data.id
                 });
             const response3 = await user.post('/trpc/drive.editDrive')
                 .send({
@@ -469,14 +455,12 @@ if (global.hasMinio) {
             const response1 = await user.post('/trpc/drive.createDriveFolder')
                 .send({
                     folderName: 'Test',
-                    parentId: null,
-                    description: null
+                    parentId: null
                 });
             await user.post('/trpc/drive.createDriveFolder')
                 .send({
                     folderName: 'Test',
-                    parentId: response1.body.result.data.id,
-                    description: null
+                    parentId: response1.body.result.data.id
                 });
             const response3 = await admin.post('/trpc/drive.editDrive')
                 .send({
@@ -495,14 +479,12 @@ if (global.hasMinio) {
             const response1 = await user.post('/trpc/drive.createDriveFolder')
                 .send({
                     folderName: 'Test',
-                    parentId: null,
-                    description: null
+                    parentId: null
                 });
             await user.post('/trpc/drive.createDriveFolder')
                 .send({
                     folderName: 'Test',
-                    parentId: response1.body.result.data.id,
-                    description: null
+                    parentId: response1.body.result.data.id
                 });
             const response3 = await user.post('/trpc/drive.editDrive')
                 .send({
@@ -516,14 +498,12 @@ if (global.hasMinio) {
             const response1 = await user.post('/trpc/drive.createDriveFolder')
                 .send({
                     folderName: 'Test',
-                    parentId: null,
-                    description: null
+                    parentId: null
                 });
             await user.post('/trpc/drive.createDriveFolder')
                 .send({
                     folderName: 'Test',
-                    parentId: response1.body.result.data.id,
-                    description: null
+                    parentId: response1.body.result.data.id
                 });
             const response3 = await user.post('/trpc/drive.editDrive')
                 .send({
@@ -537,14 +517,12 @@ if (global.hasMinio) {
             const response1 = await user.post('/trpc/drive.createDriveFolder')
                 .send({
                     folderName: 'Test',
-                    parentId: null,
-                    description: null
+                    parentId: null
                 });
             await user.post('/trpc/drive.createDriveFolder')
                 .send({
                     folderName: 'Test',
-                    parentId: response1.body.result.data.id,
-                    description: null
+                    parentId: response1.body.result.data.id
                 });
             const response3 = await user.post('/trpc/drive.editDrive')
                 .send({
@@ -558,14 +536,12 @@ if (global.hasMinio) {
             const response1 = await user.post('/trpc/drive.createDriveFolder')
                 .send({
                     folderName: 'Test',
-                    parentId: null,
-                    description: null
+                    parentId: null
                 });
             await user.post('/trpc/drive.createDriveFolder')
                 .send({
                     folderName: 'Test',
-                    parentId: response1.body.result.data.id,
-                    description: null
+                    parentId: response1.body.result.data.id
                 });
             const response3 = await user.post('/trpc/drive.editDrive')
                 .send({
@@ -584,14 +560,12 @@ if (global.hasMinio) {
             const response1 = await user.post('/trpc/drive.createDriveFolder')
                 .send({
                     folderName: 'Test',
-                    parentId: null,
-                    description: null
+                    parentId: null
                 });
             await user.post('/trpc/drive.createDriveFolder')
                 .send({
                     folderName: 'Test',
-                    parentId: response1.body.result.data.id,
-                    description: null
+                    parentId: response1.body.result.data.id
                 });
             const response3 = await user.post('/trpc/drive.editDrive')
                 .send({
@@ -610,14 +584,12 @@ if (global.hasMinio) {
             const response1 = await user.post('/trpc/drive.createDriveFolder')
                 .send({
                     folderName: 'Test',
-                    parentId: null,
-                    description: null
+                    parentId: null
                 });
             await user.post('/trpc/drive.createDriveFolder')
                 .send({
                     folderName: 'Test',
-                    parentId: response1.body.result.data.id,
-                    description: null
+                    parentId: response1.body.result.data.id
                 });
             const response3 = await user.post('/trpc/drive.editDrive')
                 .send({

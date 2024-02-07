@@ -1,11 +1,10 @@
-import { Col, List, Row, Select, Typography } from 'antd';
+import { List, Row, Select } from 'antd';
 import { FunctionComponent } from 'react';
 import { trpc } from '../../utils/trpc';
 import LoadSpinner from '../reusable/loadSpinner';
 import React from 'react';
 import css from './profile.module.css';
 import { OrganizationGraph } from '@ant-design/graphs';
-const { Title } = Typography;
 
 export const MyGroup: FunctionComponent = () => {
     const whoAmI = trpc.user.whoAmI.useQuery();

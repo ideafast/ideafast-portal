@@ -1,19 +1,13 @@
-import { IOrganisation, IUser, enumConfigType, enumUserTypes } from '@itmat-broker/itmat-types';
+import { IUser, enumUserTypes } from '@itmat-broker/itmat-types';
 import { TRPCError, inferAsyncReturnType, initTRPC } from '@trpc/server';
-import * as trpcExpress from '@trpc/server/adapters/express';
-import { custom, z } from 'zod';
-import { configCore } from '../../core/configCore';
+import { z } from 'zod';
 import { organisationCore } from '../../core/organisationCore';
 import { baseProcedure } from '../../log/trpcLogHelper';
+// eslint-disable-next-line @nx/enforce-module-boundaries
 import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
 import { errorCodes } from '../../graphql/errors';
-import { convertSerializedBufferToBuffer, isSerializedBuffer } from '../../utils/file';
 import fs from 'fs';
-import path from 'path';
-const createContext = ({
-    req,
-    res
-}: trpcExpress.CreateExpressContextOptions) => ({}); // no context
+const createContext = () => ({}); // no context
 type Context = inferAsyncReturnType<typeof createContext>;
 
 const t = initTRPC.context<Context>().create();

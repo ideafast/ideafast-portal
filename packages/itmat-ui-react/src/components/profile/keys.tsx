@@ -119,7 +119,6 @@ export const MyKeys: FunctionComponent = () => {
 };
 
 const KeyGeneration: React.FunctionComponent<{ userId: string }> = ({ userId }) => {
-    const [form] = Form.useForm();
     const [isKeyGenOpen, setIsKeyGenOpen] = useState(false);
     const [completedKeypairGen, setcompletedKeypairGen] = useState(false);
     const [exportedKeyPair, setExportedKeyPair] = useState({ privateKey: '', publicKey: '' });

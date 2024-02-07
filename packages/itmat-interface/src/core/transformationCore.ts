@@ -1,7 +1,5 @@
 import { IAST, IValueVerifier } from '@itmat-broker/itmat-types';
 import { utilsCore } from './utilsCore';
-import { it } from 'node:test';
-import { group } from 'console';
 
 type IDataTransformationClip = {
     [key: string]: any;

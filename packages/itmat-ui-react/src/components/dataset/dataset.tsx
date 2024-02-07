@@ -1,6 +1,5 @@
 import LoadSpinner from '../reusable/loadSpinner';
-// import { ProjectSection } from '../users/projectSection';
-import { Card, Col, List, Row, Table } from 'antd';
+import { List, Table } from 'antd';
 import css from './dataset.module.css';
 import React from 'react';
 import 'react-quill/dist/quill.snow.css';
@@ -8,15 +7,6 @@ import { Link } from 'react-router-dom';
 import { trpc } from '../../utils/trpc';
 import generic from '../../assets/generic.png';
 import { stringCompareFunc } from '../../utils/tools';
-const { Meta } = Card;
-interface StudyProps {
-    study: {
-        id: string;
-        name: string;
-        profile: string | null;
-        description: string | null;
-    };
-}
 
 export const DatasetSection: React.FunctionComponent = () => {
     const getStudies = trpc.study.getStudies.useQuery({});
@@ -33,9 +23,6 @@ export const DatasetSection: React.FunctionComponent = () => {
     if (getStudies.isError) {
         return <>An error occurred.</>;
     }
-    const numberOfStudies = getStudies.data.length;
-    const numberOfStudiesEachRow = 4;
-    const numberOfRows = Math.ceil(numberOfStudies / numberOfStudiesEachRow);
 
     const columns: any[] = [{
         title: 'Dataset',

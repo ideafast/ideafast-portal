@@ -18,7 +18,6 @@ export interface IJobHistory {
     time: number;
     status: enumJobHistoryStatus;
     errors: string[];
-    info?: any;
 }
 
 export enum enumJobType {

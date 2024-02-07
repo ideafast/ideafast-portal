@@ -2,7 +2,6 @@ import GraphQLJSON from 'graphql-type-json';
 import { fileResolvers } from './fileResolvers';
 import { jobResolvers } from './jobResolvers';
 import { permissionResolvers } from './permissionResolvers';
-import { queryResolvers } from './queryResolvers';
 import { studyResolvers } from './studyResolvers';
 import { userResolvers } from './userResolvers';
 import { organisationResolvers } from './organisationResolvers';
@@ -11,24 +10,17 @@ import { GraphQLError } from 'graphql';
 import { errorCodes } from '../errors';
 import { IUser } from '@itmat-broker/itmat-types';
 import { logResolvers } from './logResolvers';
-import { standardizationResolvers } from './standardizationResolvers';
-import { configResolvers } from './configResolvers';
-import { docResolvers } from './docResolvers';
 import { dataResolvers } from './dataResolvers';
 
 const modules = [
     studyResolvers,
     userResolvers,
-    queryResolvers,
     permissionResolvers,
     jobResolvers,
     fileResolvers,
     organisationResolvers,
     pubkeyResolvers,
     logResolvers,
-    standardizationResolvers,
-    configResolvers,
-    docResolvers,
     dataResolvers
 ];
 

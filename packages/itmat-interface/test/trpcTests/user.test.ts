@@ -16,7 +16,6 @@ import config from '../../config/config.sample.json';
 import { v4 as uuid } from 'uuid';
 import { IOrganisation, enumUserTypes } from '@itmat-broker/itmat-types';
 // eslint-disable-next-line @nx/enforce-module-boundaries
-import { errorCodes } from 'packages/itmat-interface/src/graphql/errors';
 import { encodeQueryParams } from '../utils/trpc';
 if (global.hasMinio) {
     let app: Express;
@@ -24,7 +23,8 @@ if (global.hasMinio) {
     let admin: request.SuperTest<request.Test>;
     let user: request.SuperTest<request.Test>;
     let mongoConnection: MongoClient;
-    // let mongoClient: Db;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    let mongoClient: Db;
     let adminProfile;
     let userProfile;
     let organisation: IOrganisation;
@@ -94,7 +94,6 @@ if (global.hasMinio) {
         await db.collections!.field_dictionary_collection.deleteMany({});
         await db.collections!.data_collection.deleteMany({});
         await db.collections!.jobs_collection.deleteMany({});
-        const update: any = { ...userProfile };
         delete userProfile._id;
         await db.collections!.users_collection.findOneAndUpdate({ id: userProfile.id }, {
             $set: userProfile
@@ -439,14 +438,14 @@ if (global.hasMinio) {
             expect(response.status).toBe(200);
             expect(response.body.result.data).toHaveLength(2);
         });
-        test('Get all users (no permission)', async () => {
+        test('Get all users', async () => {
             const paramteres: any = {
             };
             const response = await user.get('/trpc/user.getUsers?input=' + encodeQueryParams(paramteres))
                 .query({
                 });
-            expect(response.status).toBe(400);
-            expect(response.body.error.message).toBe(errorCodes.NO_PERMISSION_ERROR);
+            expect(response.status).toBe(200);
+            expect(response.body.result.data).toHaveLength(2);
         });
     });
 } else {

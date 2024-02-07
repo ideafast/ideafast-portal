@@ -68,7 +68,7 @@ export const dataRouter = t.router({
         if (opts.input.versionId === null) {
             availableDataVersions.push(null);
         }
-        return await dataCore.getStudyFields(opts.input.studyId, availableDataVersions, null);
+        return await dataCore.getStudyFields(opts.ctx.req.user.id, opts.input.studyId, availableDataVersions, null);
     }),
     /**
      * Create a field of a study. To adjust to data versioning, create an existing field wil not throw an error.
@@ -99,7 +99,7 @@ export const dataRouter = t.router({
         properties: z.optional(z.array(ZFieldProperty))
     })).mutation(async (opts: any) => {
         // check permission
-        await permissionCore.checkDataPermissionByUser(opts.ctx.req.user.id, opts.input);
+        await permissionCore.checkDataPermissionByUser(opts.ctx.req.user.id, opts.input, opts.input.studyId);
         return await dataCore.createField(opts.ctx.req.user.id, {
             studyId: opts.input.studyId,
             fieldName: opts.input.fieldName,
@@ -125,7 +125,7 @@ export const dataRouter = t.router({
         studyId: z.string(),
         fieldId: z.string()
     })).mutation(async (opts: any) => {
-        await permissionCore.checkDataPermissionByUser(opts.ctx.req.user.id, opts.input);
+        await permissionCore.checkDataPermissionByUser(opts.ctx.req.user.id, opts.input, opts.input.studyId);
         return await dataCore.deleteField(
             opts.ctx.req.user.id,
             opts.input.studyId,
@@ -144,12 +144,14 @@ export const dataRouter = t.router({
      */
     deleteStudyData: baseProcedure.input(z.object({
         studyId: z.string(),
-        documentId: z.string()
+        fieldId: z.string(),
+        properties: z.optional(z.any())
     })).mutation(async (opts: any) => {
         return await dataCore.deleteData(
             opts.ctx.req.user.id,
             opts.input.studyId,
-            opts.input.documentId
+            opts.input.fieldId,
+            opts.input.properties
         );
     }),
 
@@ -175,9 +177,20 @@ export const dataRouter = t.router({
             opts.input.tag
         );
     }),
+    setStudyDataVersion: baseProcedure.input(z.object({
+        studyId: z.string(),
+        version: z.string()
+    })).mutation(async (opts: any) => {
+        await permissionCore.checkOperationPermissionByUser(opts.ctx.req.user.id, opts.input.studyId, enumStudyRoles.STUDY_MANAGER);
+        return await dataCore.setStudyDataVersion(
+            opts.input.studyId,
+            opts.input.version
+        );
+    }),
     getFiles: baseProcedure.input(z.object({
         studyId: z.string(),
         versionId: z.union([z.string(), z.null()]),
+        fieldIds: z.optional(z.array(z.string())),
         aggregation: z.optional(z.any()),
         useCache: z.boolean(),
         forceUpdate: z.boolean(),
@@ -192,8 +205,11 @@ export const dataRouter = t.router({
         if (opts.input.versionId === null) {
             availableDataVersions.push(null);
         }
-        const fields = await dataCore.getStudyFields(opts.input.studyId, availableDataVersions, null);
-        const filteredFieldIds = fields.filter(el => el.dataType === enumDataTypes.FILE).map(el => el.fieldId);
+        const fields = await dataCore.getStudyFields(user.id, opts.input.studyId, availableDataVersions, null);
+        let filteredFieldIds = fields.filter(el => el.dataType === enumDataTypes.FILE).map(el => el.fieldId);
+        if (opts.input.fieldIds) {
+            filteredFieldIds = filteredFieldIds.filter(el => opts.input.fieldIds.includes(el));
+        }
         const fileDataClips = await dataCore.getData(user.id, opts.input.studyId, filteredFieldIds, availableDataVersions, opts.input.aggregation, opts.input.useCache, opts.input.forceUpdate);
         const time2 = Date.now();
         const res = await fileCore.findFiles(fileDataClips.map((el: { value: any; }) => el.value), opts.input.readable);
@@ -225,7 +241,7 @@ export const dataRouter = t.router({
         const user = opts.ctx.req.user;
         if (opts.input.fieldIds) {
             for (const fieldId of opts.input.fieldIds) {
-                await permissionCore.checkDataPermissionByUser(user.id, { fieldId: fieldId });
+                await permissionCore.checkDataPermissionByUser(user.id, { fieldId: fieldId }, opts.input.studyId);
             }
         }
         const study = (await studyCore.getStudies(opts.input.studyId))[0];
@@ -235,7 +251,7 @@ export const dataRouter = t.router({
         if (opts.input.versionId === null) {
             availableDataVersions.push(null);
         }
-        let filteredFieldIds = (await dataCore.getStudyFields(opts.input.studyId, availableDataVersions, null)).map(el => el.fieldId);
+        let filteredFieldIds = (await dataCore.getStudyFields(user.id, opts.input.studyId, availableDataVersions, null)).map(el => el.fieldId);
         if (opts.input.fieldIds) {
             filteredFieldIds = filteredFieldIds.filter(el => opts.input.fieldIds.includes(el));
         }
@@ -269,7 +285,7 @@ export const dataRouter = t.router({
         if (opts.input.versionId === null) {
             availableDataVersions.push(null);
         }
-        const fieldIds = (await dataCore.getStudyFields(opts.input.studyId, availableDataVersions, null)).map(el => el.fieldId).filter(el => opts.input.fieldIds.includes(el));
+        const fieldIds = (await dataCore.getStudyFields(user.id, opts.input.studyId, availableDataVersions, null)).map(el => el.fieldId).filter(el => opts.input.fieldIds.includes(el));
         const aggregation = {
             clinical: [
                 { operationName: 'Group', params: { keys: ['fieldId', 'properties.Participant ID', 'properties.Visit ID'], skipUnmatch: true } },
@@ -317,7 +333,6 @@ export const dataRouter = t.router({
                 // { operationName: 'Concat', params: { concatKeys: ['properties', 'life'] } }
             ]
         };
-        console.log(fieldIds);
         return await dataCore.getData(user.id, opts.input.studyId, fieldIds, availableDataVersions, aggregation, opts.input.useCache, opts.input.forceUpdate);
     }),
     getFile: baseProcedure.input(z.object({
@@ -427,6 +442,7 @@ export const dataRouter = t.router({
         }
     })
 });
+
 
 /** Example of data versioning aggregation */
 /**

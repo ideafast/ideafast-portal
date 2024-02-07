@@ -1,5 +1,5 @@
 import { GraphQLError } from 'graphql';
-import { IField, enumDataTypes, ICategoricalOption, IValueVerifier, IGenericResponse, enumConfigType, defaultSettings, IOntologyTree, IOntologyRoute, IAST, enumConditionOps, enumFileTypes, enumFileCategories, IFieldProperty, IFile, permissionString, IStudyDataVersion, IData, enumASTNodeTypes, IRole, IStudyConfig, enumUserTypes } from '@itmat-broker/itmat-types';
+import { IField, enumDataTypes, ICategoricalOption, IValueVerifier, IGenericResponse, enumConfigType, defaultSettings, IOntologyTree, IOntologyRoute, IAST, enumConditionOps, enumFileTypes, enumFileCategories, IFieldProperty, IFile, IStudyDataVersion, IData, enumASTNodeTypes, IRole, IStudyConfig, enumUserTypes, IStudy } from '@itmat-broker/itmat-types';
 import { v4 as uuid } from 'uuid';
 import { db } from '../database/database';
 import { errorCodes } from '../graphql/errors';
@@ -10,17 +10,16 @@ import { utilsCore } from './utilsCore';
 import { fileCore } from './fileCore';
 import { z } from 'zod';
 import { dataTransformationCore } from './transformationCore';
-import { PassThrough } from 'stream';
 import { enumCacheStatus } from 'packages/itmat-types/src/types/cache';
 import { TRPCError } from '@trpc/server';
+// eslint-disable-next-line @nx/enforce-module-boundaries
 import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
-import { transcode } from 'buffer';
 import fs from 'fs';
 import path from 'path';
 
 export interface IDataClipInput {
     fieldId: string;
-    value: string;
+    value: string | null;
     timestamps?: number;
     properties?: Record<string, any>;
 }
@@ -222,25 +221,57 @@ export class DataCore {
 
         return responses;
     }
-
-    public async getStudyFields(studyId: string, dataVersions: Array<string | null>, selectedFields: string[] | null): Promise<IField[]> {
-        /**
-         * Get the list of fields of a study. Note, duplicate fields will be joined and only remain the latest one.
-         *
-         * @param studyId - The id of the study.
-         * @param dataVersions - The data versions of the fields. Return fields whose data version in the dataVersions.
-         * @param selectedFields - The list of ids of fields to return.
-         *
-         * @return IField[] - The list of objects of IField.
-         */
-
+    /**
+     * Get the list of fields of a study. Note, duplicate fields will be joined and only remain the latest one.
+     *
+     * @param requester - The id of the requester.
+     * @param studyId - The id of the study.
+     * @param dataVersions - The data versions of the fields. Return fields whose data version in the dataVersions.
+     * @param selectedFields - The list of ids of fields to return.
+     *
+     * @return IField[] - The list of objects of IField.
+     */
+    public async getStudyFields(requester: string, studyId: string, dataVersions: Array<string | null>, selectedFields: string[] | null): Promise<IField[]> {
+        const user = await db.collections!.users_collection.findOne({ id: requester });
+        if (!user) {
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'User does not exist.'
+            });
+        }
         const study = await db.collections!.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null });
         if (!study) {
-            throw new GraphQLError('Study does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'Study does not exist.'
+            });
         }
-
+        const roles = await permissionCore.getUserRoles(requester, studyId);
+        if (roles.length === 0 && user.type !== enumUserTypes.ADMIN) {
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: errorCodes.NO_PERMISSION_ERROR
+            });
+        }
+        const regularExpressions: string[] = [];
+        for (const role of roles) {
+            for (const permission of role.dataPermissions) {
+                for (const fieldRE of permission.fields) {
+                    if ((permission.permission & 4) === 4) {
+                        regularExpressions.push(fieldRE);
+                    }
+                }
+            }
+        }
         const fields = await db.collections!.field_dictionary_collection.aggregate([{
-            $match: { studyId: studyId, dataVersion: { $in: dataVersions }, fieldId: selectedFields ? { $in: selectedFields } : /^.*$/ }
+            $match: {
+                $and: [
+                    { studyId: studyId, dataVersion: { $in: dataVersions } },
+                    { fieldId: selectedFields ? { $in: selectedFields } : { $in: [new RegExp('^.*$')] } },
+                    { fieldId: user.type !== enumUserTypes.ADMIN ? { $in: regularExpressions.map(el => new RegExp(el)) } : { $in: [new RegExp('^.*$')] } },
+                    { 'life.deletedTime': { $ne: null } }
+                ]
+            }
         }, {
             $sort: {
                 'life.createdTime': -1
@@ -255,7 +286,7 @@ export class DataCore {
                 newRoot: '$doc'
             }
         }]).toArray();
-        return (fields as IField[]).filter(el => !el.life.deletedTime);
+        return fields as any;
     }
     /**
      * Create a field of a study. To adjust to data versioning, create an existing field wil not throw an error.
@@ -592,6 +623,7 @@ export class DataCore {
         }
 
         const availableFieldsMapping: Record<string, IField> = (await this.getStudyFields(
+            requester,
             studyId,
             (study.dataVersions.map(el => el.id) as Array<string | null>).concat([null]),
             null
@@ -608,7 +640,7 @@ export class DataCore {
         for (const dataClip of data) {
             counter++;
             try {
-                await permissionCore.checkDataPermissionByUser(requester, dataClip);
+                await permissionCore.checkDataPermissionByUser(requester, dataClip, studyId);
             }
             catch {
                 response.push(makeGenericReponse(counter.toString(), false, errorCodes.NO_PERMISSION_ERROR, errorCodes.NO_PERMISSION_ERROR));
@@ -623,7 +655,9 @@ export class DataCore {
             /* Check value is value */
             let error: any = null;
             let parsedValue: any = null;
-            if (dataClip.value.toString() === studyConfig.defaultRepresentationForMissingValue) {
+            if (dataClip.value === null) {
+                parsedValue = null;
+            } else if (dataClip.value.toString() === studyConfig.defaultRepresentationForMissingValue) {
                 parsedValue = studyConfig.defaultRepresentationForMissingValue;
             } else {
                 const field = availableFieldsMapping[dataClip.fieldId];
@@ -756,7 +790,7 @@ export class DataCore {
                 response.push(error);
                 continue;
             } else {
-                response.push(makeGenericReponse(counter.toString(), true, undefined, undefined));
+                response.push(makeGenericReponse(counter.toString(), true, undefined, `Field ${dataClip.fieldId} value ${dataClip.value} successfully uploaded.`));
             }
 
             bulk.insert({
@@ -868,7 +902,7 @@ export class DataCore {
             studyId: studyId,
             dataVersion: { $in: dataVersions }
         };
-        if (fieldIds) {
+        if (fieldIds && fieldIds[0]) {
             // we assume that for regular expressions, ^ and $ must be used
             if (fieldIds[0][0] === '^' && fieldIds[0][fieldIds[0].length - 1] === '$') {
                 matchFilter.fieldId = { $in: fieldIds.map(el => new RegExp(el)) };
@@ -958,11 +992,12 @@ export class DataCore {
      *
      * @param requester - The id of the requester.
      * @param studyId - The id of the study.
-     * @param documentId - The id of the mongo document.
+     * @param fieldId - The id of the field.
+     * @param properties - The properties.
      *
      * @return IGenreicResponse - The object of IGenericResponse.
      */
-    public async deleteData(requester: string, studyId: string, documentId: string): Promise<IGenericResponse> {
+    public async deleteData(requester: string, studyId: string, fieldId: string, properties: any): Promise<IGenericResponse> {
         const study = await db.collections!.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null });
         if (!study) {
             throw new TRPCError({
@@ -970,33 +1005,57 @@ export class DataCore {
                 message: 'Study does not exist.'
             });
         }
+        await permissionCore.checkDataPermissionByUser(requester, { fieldId: fieldId }, studyId);
+        const responses = await this.uploadData(
+            requester,
+            studyId,
+            [{
+                fieldId: fieldId,
+                value: null,
+                properties: properties
+            }]
+        );
+        // await db.collections?.data_collection.insertOne({
+        //     id: uuid(),
+        //     studyId: studyId,
+        //     fieldId: fieldId,
+        //     dataVersion: null,
+        //     value: null,
+        //     properties: properties,
+        //     life: {
+        //         createdTime: Date.now(),
+        //         createdUser: requester,
+        //         deletedTime: null,
+        //         deletedUser: null
+        //     },
+        //     metadata: {}
+        // });
+        // const data: any = await db.collections!.data_collection.findOne({ 'id': documentId, 'life.deletedTime': null });
+        // if (!data) {
+        //     throw new TRPCError({
+        //         code: enumTRPCErrorCodes.BAD_REQUEST,
+        //         message: 'Document does not exist or has been deleted.'
+        //     });
+        // }
+        // if (!permissionCore.checkDataPermissionByUser(requester, data, studyId)) {
+        //     throw new TRPCError({
+        //         code: enumTRPCErrorCodes.BAD_REQUEST,
+        //         message: errorCodes.NO_PERMISSION_ERROR
+        //     });
+        // }
 
-        const data: any = await db.collections!.data_collection.findOne({ 'id': documentId, 'life.deletedTime': null });
-        if (!data) {
-            throw new TRPCError({
-                code: enumTRPCErrorCodes.BAD_REQUEST,
-                message: 'Document does not exist or has been deleted.'
-            });
-        }
-        if (!permissionCore.checkDataPermissionByUser(requester, data)) {
-            throw new TRPCError({
-                code: enumTRPCErrorCodes.BAD_REQUEST,
-                message: errorCodes.NO_PERMISSION_ERROR
-            });
-        }
-
-        delete data._id;
-        await db.collections!.data_collection.insertOne({
-            ...data,
-            id: uuid(),
-            life: {
-                createdTime: Date.now(),
-                createdUser: requester,
-                deletedTime: Date.now(),
-                deletedUser: requester
-            }
-        });
-        return makeGenericReponse(undefined, true, undefined, 'Successfuly.');
+        // delete data._id;
+        // await db.collections!.data_collection.insertOne({
+        //     ...data,
+        //     id: uuid(),
+        //     life: {
+        //         createdTime: Date.now(),
+        //         createdUser: requester,
+        //         deletedTime: Date.now(),
+        //         deletedUser: requester
+        //     }
+        // });
+        return makeGenericReponse(undefined, responses[0].successful, undefined, responses[0].successful ? 'Deleted' : 'Erroe');
     }
 
     /**
@@ -1021,7 +1080,7 @@ export class DataCore {
 
         const availableDataVersions: (string | null)[] = (study.currentDataVersion === -1 ? [] : study.dataVersions.filter((__unused__el, index) => index <= study.currentDataVersion)).map(el => el.id);
         availableDataVersions.push(null);
-        const field = (await this.getStudyFields(studyId, availableDataVersions, [fieldId]))[0];
+        const field = (await this.getStudyFields(requester, studyId, availableDataVersions, [fieldId]))[0];
         if (!field) {
             throw new TRPCError({
                 code: enumTRPCErrorCodes.BAD_REQUEST,
@@ -1202,6 +1261,39 @@ export class DataCore {
             }
         });
         return studyDataVersion;
+    }
+
+    public async setStudyDataVersion(studyId: string, version: string): Promise<IStudy> {
+        const study = await db.collections!.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null });
+        if (!study) {
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'Study does not exist.'
+            });
+        }
+
+        if (!study.dataVersions.map(el => el.id).includes(version)) {
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'Data version does not exist.'
+            });
+        }
+
+        const index = study.dataVersions.findIndex(el => el.id === version);
+        const res = await db.collections!.studies_collection.findOneAndUpdate({ id: studyId }, {
+            $set: {
+                currentDataVersion: index
+            }
+        }, {
+            returnDocument: 'after'
+        });
+        if (!res.value) {
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: errorCodes.DATABASE_ERROR
+            });
+        }
+        return res.value;
     }
 
 

@@ -5,25 +5,29 @@ export const USER_FRAGMENT = gql`
     fragment ALL_FOR_USER on User {
         id
         username
+        email
         firstname
         lastname
-        email
         organisation
         type
-        description
         emailNotificationsActivated
-        profile
-        expiredAt
-        fileRepo {
+        resetPasswordRequests {
             id
-            name
-            fileId
-            type
-            parent
-            children
-            sharedUsers
+            timeOfRequest
+            used
         }
-        sharedFileRepos
+        password
+        otpSecret
+        profile
+        description
+        expiredAt
+        life {
+            createdTime
+            createdUser
+            deletedTime
+            deletedUser
+        }
+        metadata
     }
 `;
 
@@ -43,6 +47,20 @@ export const GET_USERS = gql`
         }
     }
     ${USER_FRAGMENT}
+`;
+
+export const VALIDATE_RESET_PASSWORD = gql`
+    query validateResetPassword(
+        $encryptedEmail: String!,
+        $token: String!
+    ) {
+        validateResetPassword(
+            encryptedEmail: $encryptedEmail,
+            token: $token
+        ) {
+            successful
+        }
+    }
 `;
 
 export const RECOVER_SESSION_EXPIRE_TIME = gql`
@@ -120,30 +138,33 @@ export const RESET_PASSWORD = gql`
 
 
 export const CREATE_USER = gql`
-    mutation createUser(
-        $username: String!,
-        $firstname: String!,
-        $lastname: String!,
-        $email: String!,
-        $password: String!,
-        $description: String,
+    mutation CreateUser(
+        $username: String!
+        $password: String!
+        $firstname: String!
+        $lastname: String!
+        $description: String
         $organisation: String!
-        $profile: Upload
+        $emailNotificationsActivated: Boolean
+        $email: String!
+        $type: USERTYPE
+        $metadata: JSON
     ){
-        createUser(
-            username: $username,
-            firstname: $firstname,
-            lastname: $lastname,
-            email: $email,
-            password: $password,
-            description: $description,
-            organisation: $organisation,
-            profile: $profile
-        ) {
-            ...ALL_FOR_RESPONSE
+        createUser(user: {
+            username: $username
+            password: $password            
+            firstname: $firstname
+            lastname: $lastname
+            description: $description
+            organisation: $organisation
+            emailNotificationsActivated: $emailNotificationsActivated
+            email: $email
+            type: $type
+            metadata: $metadata
+        }) {
+            successful
         }
     }
-    ${GENERIC_RESPONSE}
 `;
 
 export const REQUEST_EXPIRY_DATE = gql`
@@ -159,6 +180,43 @@ export const REQUEST_EXPIRY_DATE = gql`
     ${GENERIC_RESPONSE}
 `;
 
+export const EDIT_USER = gql`
+    mutation EditUser(
+        $id: String!
+        $username: String
+        $type: USERTYPE
+        $firstname: String
+        $lastname: String
+        $email: String
+        $description: String
+        $organisation: String
+        $emailNotificationsActivated: Boolean
+        $emailNotificationsStatus: JSON
+        $password: String
+        $expiredAt: Float
+        $metadata: JSON
+    ) {
+        editUser(user: {
+            id: $id
+            username: $username
+            type: $type
+            firstname: $firstname
+            lastname: $lastname
+            email: $email
+            description: $description
+            organisation: $organisation
+            emailNotificationsActivated: $emailNotificationsActivated
+            emailNotificationsStatus: $emailNotificationsStatus
+            password: $password
+            expiredAt: $expiredAt
+            metadata: $metadata
+        }) {
+            ...ALL_FOR_USER
+        }
+    }
+    ${USER_FRAGMENT}
+`;
+
 export const DELETE_USER = gql`
     mutation deleteUser(
         $userId: String!
@@ -170,191 +228,4 @@ export const DELETE_USER = gql`
         }
     }
     ${GENERIC_RESPONSE}
-`;
-
-export const EDIT_USER = gql`
-    mutation editUser(
-        $userId: String!,
-        $username: String,
-        $type: USERTYPE,
-        $firstname: String,
-        $lastname: String,
-        $email: String,
-        $emailNotificationsActivated: Boolean,
-        $password: String,
-        $description: String,
-        $organisation: String,
-        $expiredAt: Int,
-        $profile: String
-    ) {
-        editUser(
-            userId: $userId,
-            username: $username,
-            type: $type,
-            firstname: $firstname,
-            lastname: $lastname,
-            email: $email,
-            emailNotificationsActivated: $emailNotificationsActivated,
-            password: $password,
-            description: $description,
-            organisation: $organisation,
-            expiredAt: $expiredAt,
-            profile: $profile
-        ) {
-            id
-            username
-            type
-            firstname
-            lastname
-            email
-            emailNotificationsActivated
-            description
-            organisation
-            expiredAt
-            profile
-        }
-    }
-`;
-
-export const VALIDATE_RESET_PASSWORD = gql`
-    query validateResetPassword(
-        $encryptedEmail: String!,
-        $token: String!
-    ) {
-        validateResetPassword(
-            encryptedEmail: $encryptedEmail,
-            token: $token
-        ) {
-            successful
-        }
-    }
-`;
-
-export const GET_USER_FILE_NODES = gql`
-    query getUserFileNodes(
-        $userId: String!
-    ) {
-        getUserFileNodes(
-            userId: $userId
-        ) {
-            id
-            name
-            fileId
-            type
-            parent
-            children
-            sharedUsers
-            life {
-                createdTime
-                createdUser
-                deletedTime
-                deletedUser
-            }
-        }
-    }
-`;
-
-export const UPLOAD_USER_FILE_NODE = gql`
-    mutation uploadUserFileNode(
-        $userId: String!
-        $parentNodeId: String!
-        $file: Upload
-        $folderName: String
-    ) {
-        uploadUserFileNode (
-            userId: $userId,
-            parentNodeId: $parentNodeId,
-            file: $file,
-            folderName: $folderName
-        ) {
-            id
-            name
-            fileId
-            type
-            parent
-            children
-            sharedUsers
-        }
-    }
-
-`;
-
-export const EDIT_USER_FILE_NODE = gql`
-    mutation editUserFileNode(
-        $userId: String!
-        $nodeId: String!
-        $parentNodeId: String
-        $sharedUsers: [String]
-    ) {
-        editUserFileNode (
-            userId: $userId,
-            nodeId: $nodeId,
-            parentNodeId: $parentNodeId,
-            sharedUsers: $sharedUsers
-        ) {
-            ...ALL_FOR_RESPONSE
-        }
-    }
-    ${GENERIC_RESPONSE}
-`;
-
-export const SHARE_USER_FILE_NODE_BY_EMAIL = gql`
-    mutation shareUserFileNodeByEmail(
-        $userId: String!
-        $nodeId: String!
-        $sharedUserEmails: [String!]
-    ) {
-        shareUserFileNodeByEmail (
-            userId: $userId,
-            nodeId: $nodeId,
-            sharedUserEmails: $sharedUserEmails
-        ) {
-            ...ALL_FOR_RESPONSE
-        }
-    }
-    ${GENERIC_RESPONSE}
-`;
-
-export const DELETE_USER_FILE_NODE = gql`
-    mutation deleteUserFileNode(
-        $userId: String!
-        $nodeId: String!
-    ) {
-        deleteUserFileNode (
-            userId: $userId,
-            nodeId: $nodeId,
-        ) {
-            ...ALL_FOR_RESPONSE
-        }
-    }
-    ${GENERIC_RESPONSE}
-`;
-
-export const UPLOAD_USER_PROFILE = gql`
-    mutation uploadUserProfile(
-        $userId: String!,
-        $description: String,
-        $fileType: String!,
-        $fileUpload: Upload!
-    ) {
-        uploadUserProfile (
-            userId: $userId,
-            description: $description,
-            fileType: $fileType,
-            fileUpload: $fileUpload
-        ) {
-            ...ALL_FOR_RESPONSE
-        }
-    }
-    ${GENERIC_RESPONSE}
-`;
-
-export const GET_USER_PROFILE = gql`
-    query getUserProfile(
-        $userId: String!
-    ) {
-        getUserProfile (
-            userId: $userId
-        )
-    }
 `;

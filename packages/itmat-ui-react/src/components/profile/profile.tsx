@@ -82,7 +82,6 @@ export const ProfileManagementSection: FunctionComponent = () => {
                                     body: formData
                                 });
                                 const data = await response.json();
-
                                 if (response.ok) {
                                     uploadUserProfile.mutate({
                                         userId: whoAmI.data.id,
@@ -645,86 +644,6 @@ export const RsaSigner: FunctionComponent = () => {
             </Button>
         </div>
     );
-
-};
-
-export const TokenManagement: FunctionComponent<{ userId: string }> = ({ userId }) => {
-    return null;
-    // const [completedTokenGen, setcompletedTokenGen] = useState(false);
-    // //const [accessTokenGen, setaccessTokenGen] = useState('');
-    // const [tokenGen, {data: tokendata, loading, error }] = useMutation(ISSUE_ACCESS_TOKEN, {
-    //     onCompleted: () => {
-    //         setcompletedTokenGen(true);
-    //     }
-    // });
-
-    // const { loading: getPubkeysloading, error: getPubkeyserror, data: getPubkeysdata } = useQuery(GET_PUBKEYS, {
-    //     variables: {
-    //         associatedUserId: userId
-    //     }
-    // });
-    // if (getPubkeysloading) {
-    //     return <>
-    //         <div className='page_ariane'>Loading...</div>
-    //         <div className='page_content'>
-    //             <LoadSpinner />
-    //         </div>
-    //     </>;
-    // }
-    // if (getPubkeyserror) {
-    //     return <>
-    //         <div className='page_ariane'>Loading...</div>
-    //         <div className='page_content'>
-    //             <Alert type='error' message={getPubkeyserror.message} />
-    //         </div>
-    //     </>;
-    // }
-
-    // const ipubkey: IPubkey = getPubkeysdata?.getPubkeys?.[0];
-    // if ((ipubkey === null) || (ipubkey === undefined)) {
-    //     return <p>You need to register a public-key for generating access token.</p>;
-    // }
-
-    // if (completedTokenGen) {
-    //     return (
-    //         <div>
-    //             <h2>The access token is successfully generated!</h2>
-    //             <br />
-    //             <p>Securely keep this token as an authentication key when interacting with APIs</p>
-    //             <textarea title='Token' disabled value={tokendata.issueAccessToken.accessToken} cols={120} rows={20} />
-    //             <br />
-    //         </div>
-    //     );
-    // }
-
-    // return (
-    //     <Form title='TokenManagement' initialValues={{
-    //         pubkey: ipubkey?.pubkey.replace(/\n/g, '\\n')
-    //     }} layout='vertical' onFinish={(variables) => tokenGen({ variables })}>
-    //         <p>To generate an access token, you need to enter the signature signed by your private-key</p>
-    //         <p>Current refresh counter: <strong>{ipubkey?.refreshCounter}</strong></p>
-    //         <Form.Item name='pubkey' label='Your registered public key'>
-    //             <Input disabled placeholder={ipubkey?.pubkey.replace(/\n/g, '\\n')} />
-    //         </Form.Item>
-
-    //         <Form.Item name='signature' label='Signature' hasFeedback rules={[{ required: true, message: 'Please enter the signature' }]}>
-    //             <Input />
-    //         </Form.Item>
-
-    //         {error ? (
-    //             <>
-    //                 <Alert type='error' message={error.graphQLErrors.map(error => error.message).join()} />
-    //                 <br />
-    //             </>
-    //         ) : null}
-
-    //         <Form.Item>
-    //             <Button type='primary' disabled={loading} loading={loading} htmlType='submit'>
-    //                 Generate Token
-    //             </Button>
-    //         </Form.Item>
-    //     </Form>
-    // );
 
 };
 

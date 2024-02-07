@@ -7,7 +7,7 @@ export interface ILog extends IBase {
     event: string; // we do not use enum to avoid extra codes
     parameters: any;
     status: enumEventStatus;
-    errors: string[];
+    errors?: string;
     timeConsumed: number | null;
 }
 

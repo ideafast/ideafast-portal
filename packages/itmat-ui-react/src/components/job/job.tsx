@@ -1,17 +1,14 @@
 import { FunctionComponent, useState } from 'react';
 // import { useQuery, useMutation, useApolloClient } from '@apollo/client/react/hooks';
 // import { ProjectSection } from '../users/projectSection';
-import { Button, DatePicker, Form, Input, InputNumber, List, Table, Tooltip, Typography, message } from 'antd';
+import { Button, DatePicker, Form, Input, InputNumber, List, Table, Tooltip, message } from 'antd';
 import 'react-quill/dist/quill.snow.css';
 import { trpc } from '../../utils/trpc';
 import LoadSpinner from '../reusable/loadSpinner';
 import css from './job.module.css';
 import { convertMillisecondsToPeriod, formatInterval } from '../../utils/tools';
 import Modal from 'antd/es/modal/Modal';
-import IntervalPicker from '../../utils/ui';
 import dayjs from 'dayjs';
-import { record } from 'zod';
-const { Title } = Typography;
 
 export const JobSection: FunctionComponent = () => {
     const getJobs = trpc.job.getJobs.useQuery({}, {
@@ -93,7 +90,7 @@ export const JobSection: FunctionComponent = () => {
         dataIndex: 'createdBy',
         key: 'createdBy',
         render: (__unused__value, record) => {
-            const user = getUsers.data.filter(el => el.life?.createdUser)[0];
+            const user = getUsers.data.filter(el => el === record.life?.createdUser)[0];
             return user ? `${user.firstname} ${user.lastname}` : 'NA';
         }
     }, {

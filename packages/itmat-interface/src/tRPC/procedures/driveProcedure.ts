@@ -1,17 +1,12 @@
 import { inferAsyncReturnType, initTRPC } from '@trpc/server';
-import * as trpcExpress from '@trpc/server/adapters/express';
 import { z } from 'zod';
 import { driveCore } from '../../core/driveCore';
 import { userCore } from '../../core/userCore';
 import { IDrivePermission } from '@itmat-broker/itmat-types';
 import { baseProcedure } from '../../log/trpcLogHelper';
 import fs from 'fs';
-import path from 'path';
 
-const createContext = ({
-    req,
-    res
-}: trpcExpress.CreateExpressContextOptions) => ({}); // no context
+const createContext = () => ({}); // no context
 type Context = inferAsyncReturnType<typeof createContext>;
 
 const t = initTRPC.context<Context>().create();
@@ -35,11 +30,11 @@ export const driveRouter = t.router({
      */
     createDriveFolder: baseProcedure.input(z.object({
         folderName: z.string(),
-        parentId: z.union([z.string(), z.null()]),
+        parentId: z.optional(z.union([z.string(), z.null()])),
         description: z.optional(z.string())
     })).mutation(async (opts: any) => {
         const requester = opts.ctx.req?.user ?? opts.ctx.user;
-        return await driveCore.createDriveFolderNode(requester.id, opts.input.folderName, opts.input.parentId, false, opts.input.description);
+        return await driveCore.createDriveFolderNode(requester.id, opts.input.folderName, opts.input.parentId ?? null, false, opts.input.description);
     }),
     /**
      * Create a drive file.
@@ -47,8 +42,8 @@ export const driveRouter = t.router({
      * @param parentId - The id of the parent node.
      */
     createDriveFile: baseProcedure.input(z.object({
-        parentId: z.union([z.string(), z.null()]),
-        description: z.union([z.string(), z.null()]),
+        parentId: z.optional(z.union([z.string(), z.null()])),
+        description: z.optional(z.string()),
         file: z.array(z.object({
             path: z.any(),
             filename: z.string(),
@@ -60,7 +55,7 @@ export const driveRouter = t.router({
         const requester = opts.ctx.req?.user ?? opts.ctx.user;
         try {
             const file_ = await opts.input.file[0];
-            return await driveCore.createDriveFileNode(requester.id, opts.input.parentId, opts.input.description, (file_.filename.split('.').pop() || '').toUpperCase(), opts.input.file[0]);
+            return await driveCore.createDriveFileNode(requester.id, opts.input.parentId ?? null, opts.input.description, (file_.filename.split('.').pop() || '').toUpperCase(), opts.input.file[0]);
         } finally {
             // Cleanup: Delete the temporary file from the disk
             if (opts.input.file) {
@@ -194,6 +189,9 @@ export const driveRouter = t.router({
         }
         const drive = (await driveCore.getDriveNodes(opts.ctx.req.user.id, opts.input.driveId))[opts.ctx.req.user.id].filter(el => el.id === opts.input.driveId)[0];
         for (const user of drive.sharedUsers) {
+            if (userIds.map(el => el.iid).includes(user.iid)) {
+                continue;
+            }
             userIds.push(user);
         }
         return await driveCore.editDriveNodes(opts.ctx.req.user.id, opts.input.driveId, undefined, undefined, undefined, undefined, undefined, userIds, undefined);

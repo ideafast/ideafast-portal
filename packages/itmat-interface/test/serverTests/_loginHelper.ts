@@ -1,5 +1,5 @@
 import { print } from 'graphql';
-// import { LOGIN, LOGOUT } from '@itmat-broker/itmat-models';
+import { LOGIN, LOGOUT } from '@itmat-broker/itmat-models';
 import * as mfa from '../../src/utils/mfa';
 import { SuperTest, Test } from 'supertest';
 
@@ -17,10 +17,10 @@ export function connectAgent(agent: SuperTest<Test>, user: string, pw: string, s
     const otp = mfa.generateTOTP(secret).toString();
     return new Promise((resolve, reject) => agent.post('/graphql')
         .set('Content-type', 'application/json')
-        // .send({
-        //     query: print(LOGIN),
-        //     variables: { username: user, password: pw, totp: otp }
-        // })
+        .send({
+            query: print(LOGIN),
+            variables: { username: user, password: pw, totp: otp }
+        })
         .then(res => {
             if (res.status === 200)
                 return resolve();
@@ -30,9 +30,9 @@ export function connectAgent(agent: SuperTest<Test>, user: string, pw: string, s
 
 export function disconnectAgent(agent: SuperTest<Test>): Promise<void> {
     return new Promise((resolve, reject) => agent.post('/graphql')
-        // .send({
-        //     query: print(LOGOUT)
-        // })
+        .send({
+            query: print(LOGOUT)
+        })
         .then(res => {
             if (res.status === 200)
                 return resolve();

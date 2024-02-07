@@ -16,6 +16,7 @@ export interface IFile extends IBase {
 }
 
 
+
 export enum enumFileTypes {
     CSV = 'CSV',
     ZIP = 'ZIP',

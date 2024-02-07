@@ -20,8 +20,7 @@ const collections = {
     studies_collection: {
         name: 'STUDY_COLLECTION',
         indexes: [
-            { key: { id: 1 }, unique: true },
-            { key: { name: 1, deleted: 1 }, unique: true }
+            { key: { id: 1 }, unique: true }
         ]
     },
     projects_collection: {
@@ -47,7 +46,7 @@ const collections = {
         name: 'DATA_COLLECTION',
         indexes: [
             { key: { id: 1 }, unique: true },
-            { key: { 'studyId': 1, 'fieldId': 1, 'value': 1, 'life.createdTime': 1 }, unique: true }
+            { key: { 'studyId': 1, 'fieldId': 1, 'value': 1, 'life.createdTime': 1 }, unique: false }
         ]
     },
     roles_collection: {

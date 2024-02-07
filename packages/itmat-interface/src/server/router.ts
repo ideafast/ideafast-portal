@@ -162,6 +162,7 @@ export class Router {
                         };
                     },
                     async requestDidStart() {
+                        const startTime = Date.now();
                         return {
                             async executionDidStart(requestContext) {
                                 const operation = requestContext.operationName;
@@ -169,7 +170,7 @@ export class Router {
                                 (requestContext as any).request.variables = spaceFixing(operation as any, actionData);
                             },
                             async willSendResponse(requestContext) {
-                                logPlugin.requestDidStartLogPlugin(requestContext);
+                                logPlugin.requestDidStartLogPlugin(requestContext, Date.now() - startTime);
                             }
                         };
                     }
@@ -288,15 +289,18 @@ export class Router {
             const httpAuthentication = new DMPWebDAVAuthentication('realem');
             const webServer = new webdav.WebDAVServer({
                 port: this.config.webdavPort,
-                // @ts-ignore
-                httpAuthentication: httpAuthentication
+                httpAuthentication: httpAuthentication as any
             });
 
-            webServer.setFileSystem('/dav', new DMPFileSystem(), (success) => {
+            webServer.setFileSystem('/DMP', new DMPFileSystem(), (success) => {
                 console.log('MinIO file system attached:', success);
                 webServer.start(() => console.log('READY'));
-
             });
+
+            webServer.setFileSystem('/Physical', new webdav.PhysicalFileSystem('/Users/siyao/Documents/DMP'), (success) => {
+                console.log('Physical webdav started:', success);
+            });
+
             console.log('Webdav is starting...');
             this.app.use('/dav', (req, res, next) => {
                 // webServer.requestListener(req, res, next);

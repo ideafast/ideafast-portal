@@ -1,38 +1,35 @@
-import { FunctionComponent } from 'react';
-import { Collapse } from 'antd';
-const { Panel } = Collapse;
 
-type RoleControlSectionProps = {
-    studyId: string;
-    projectId?: string;
-    // roles: IRoleQL[];
-}
+// type RoleControlSectionProps = {
+//     studyId: string;
+//     projectId?: string;
+//     // roles: IRoleQL[];
+// }
 
-export const RoleControlSection: FunctionComponent<RoleControlSectionProps> = ({
-    // roles,
-    studyId,
-    projectId
-}) => {
-    return null;
-    // return (
-    //     <>
-    //         <AddRole studyId={studyId} projectId={projectId} />
-    //         <br />
-    //         <Collapse>
-    //             {roles.map((el, index) =>
-    //                 <Panel header={el.name} key={`role-${index}`}>
-    //                     <RoleDescriptor
-    //                         key={el.id}
-    //                         role={el}
-    //                     />
-    //                 </Panel>
-    //             )}
-    //         </Collapse>
-    //     </>
-    // );
-};
+// export const RoleControlSection: FunctionComponent<RoleControlSectionProps> = ({
+//     // roles,
+//     studyId,
+//     projectId
+// }) => {
+//     return null;
+//     // return (
+//     //     <>
+//     //         <AddRole studyId={studyId} projectId={projectId} />
+//     //         <br />
+//     //         <Collapse>
+//     //             {roles.map((el, index) =>
+//     //                 <Panel header={el.name} key={`role-${index}`}>
+//     //                     <RoleDescriptor
+//     //                         key={el.id}
+//     //                         role={el}
+//     //                     />
+//     //                 </Panel>
+//     //             )}
+//     //         </Collapse>
+//     //     </>
+//     // );
+// };
 
-export default RoleControlSection;
+// export default RoleControlSection;
 
 // type RoleDescriptorProps = {
 //     role: IRoleQL;

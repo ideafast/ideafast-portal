@@ -20,5 +20,8 @@ export default {
         // Force module uuid to resolve with the CJS entry point, because Jest does not support package.json.exports. See https://github.com/uuidjs/uuid/issues/451
         "uuid": require.resolve('uuid'),
     },
-    // testMatch: ["./packages/itmat-interface/test/coreTests/*.test.ts"]
+    testMatch: [
+        "./packages/itmat-interface/test/coreTests/*.test.ts",
+        "./packages/itmat-interface/test/trpcTests/*.test.ts"
+    ]
 };

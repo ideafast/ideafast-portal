@@ -1,19 +1,12 @@
-import bcrypt from 'bcrypt';
 import { db } from '../database/database';
-import config from '../utils/configManager';
 import { GraphQLError } from 'graphql';
-import { IUser, enumUserTypes, IOrganisation, IPubkey, defaultSettings, IGenericResponse, enumFileTypes, enumFileCategories, IResetPasswordRequest, IDriveNode, enumDriveNodeTypes, IFile, IDrivePermission, FileUpload } from '@itmat-broker/itmat-types';
-import { makeGenericReponse } from '../graphql/responses';
+import { enumUserTypes, enumFileTypes, enumFileCategories, IDriveNode, enumDriveNodeTypes, IFile, IDrivePermission, FileUpload } from '@itmat-broker/itmat-types';
 import { v4 as uuid } from 'uuid';
 import { errorCodes } from '../graphql/errors';
 import { fileCore } from './fileCore';
-import * as mfa from '../utils/mfa';
 import { TRPCError } from '@trpc/server';
+// eslint-disable-next-line @nx/enforce-module-boundaries
 import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
-import { set } from 'zod';
-import { objStore } from '../objStore/objStore';
-import { error } from 'console';
-import path from 'path';
 
 export class DriveCore {
     /**
@@ -287,7 +280,7 @@ export class DriveCore {
             }
             if (drives.drives.filter((el: any) => el.parent === null).length === 0) {
                 const rootDrive: any = {
-                    id: uuid(),
+                    id: `shared_by_${drives.managerId}`,
                     managerId: drives.managerId,
                     restricted: false,
                     name: 'Shared',
@@ -513,6 +506,12 @@ export class DriveCore {
                 message: 'Drive does not exist.'
             });
         }
+        if (drive.id === null) {
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'You can not delete root drive.'
+            });
+        }
         const driveIds: string[] = [];
         const driveFileIds: string[] = [];
         await this.recursiveFindDrives(drive, driveFileIds, driveIds);
@@ -528,6 +527,11 @@ export class DriveCore {
             $set: {
                 'life.deletedTime': Date.now(),
                 'life.deletedUser': requester
+            }
+        });
+        await db.collections?.files_collection.updateMany({ id: drive.parent ?? '' }, {
+            $pull: {
+                children: drive.id
             }
         });
         return drive;

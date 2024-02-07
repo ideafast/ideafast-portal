@@ -5,6 +5,7 @@ import { db } from '../database/database';
 import { errorCodes } from '../graphql/errors';
 import { makeGenericReponse } from '../graphql/responses';
 import { TRPCError } from '@trpc/server';
+// eslint-disable-next-line @nx/enforce-module-boundaries
 import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
 
 export class PermissionCore {
@@ -678,7 +679,7 @@ export class PermissionCore {
         return roleEntry;
     }
 
-    public async editRole(roleId: string, name: string | null, description: string | null, dataPermisisons: IDataPermission[] | null, studyRole: enumStudyRoles | null, users: string[] | null, groups: string[] | null): Promise<IGenericResponse> {
+    public async editRole(roleId: string, name?: string, description?: string, dataPermisisons?: IDataPermission[], studyRole?: enumStudyRoles, users?: string[], groups?: string[]): Promise<IGenericResponse> {
         /**
          * Edit a Role.
          *
@@ -735,21 +736,29 @@ export class PermissionCore {
         return makeGenericReponse(roleId, true, undefined, `Role ${roleId} ${role.name} has been deleted.`);
     }
 
-    public async getRoles(studyId: string, roleId: string | null): Promise<IRole[]> {
+    public async getRoles(studyId?: string, roleId?: string): Promise<IRole[]> {
         /**
          * Get the roles of a study or a roleId.
          *
          * @param studyId - The id of the study.
          */
-        const study = await db.collections!.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null });
-        if (!study) {
-            throw new GraphQLError(`Study ${studyId} does not exist.`, { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+        if (studyId) {
+            const study = await db.collections!.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null });
+            if (!study) {
+                throw new TRPCError({
+                    code: enumTRPCErrorCodes.BAD_REQUEST,
+                    message: 'Study does not exist.'
+                });
+            }
         }
 
         if (roleId) {
             const role = await db.collections!.roles_collection.findOne({ 'studyId': studyId, 'id': roleId, 'life.deletedTime': null });
             if (!role) {
-                throw new GraphQLError(`Role ${roleId} does not exist.`, { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+                throw new TRPCError({
+                    code: enumTRPCErrorCodes.BAD_REQUEST,
+                    message: 'Role does not exist.'
+                });
             }
             return [role];
         } else {
@@ -818,7 +827,7 @@ export class PermissionCore {
      * @param dataclip - The data clip.
      * @return boolean
      */
-    public async checkDataPermissionByUser(userId: string, dataClip: any) {
+    public async checkDataPermissionByUser(userId: string, dataClip: any, studyId: string) {
         const user = await db.collections!.users_collection.findOne({ 'id': userId, 'life.deletedTime': null });
         if (!user) {
             throw new TRPCError({
@@ -829,7 +838,7 @@ export class PermissionCore {
         if (user.type === enumUserTypes.ADMIN) {
             return true;
         }
-        const roles = await this.getUserRoles(userId);
+        const roles = await this.getUserRoles(userId, studyId);
         for (const role of roles) {
             if (role.studyRole === enumStudyRoles.STUDY_MANAGER) {
                 return true;
@@ -866,7 +875,7 @@ export class PermissionCore {
         if (roles.length === 0) {
             throw new TRPCError({
                 code: enumTRPCErrorCodes.BAD_REQUEST,
-                message: 'No roles found.'
+                message: errorCodes.NO_PERMISSION_ERROR
             });
         }
         if (!requiredRole) {
@@ -891,8 +900,8 @@ export class PermissionCore {
          */
         const userGroups = await this.getUserGroups(userId);
         const groupIds = userGroups.map(el => el.id);
-        return studyId ? await db.collections!.roles_collection.find({ 'studyId': studyId, '$or': [{ users: userId }, { groups: groupIds }], 'life.deletedTime': null }).toArray() :
-            await db.collections!.roles_collection.find({ '$or': [{ users: userId }, { groups: groupIds }], 'life.deletedTime': null }).toArray();
+        return studyId ? await db.collections!.roles_collection.find({ 'studyId': studyId, '$or': [{ users: userId }, { groups: { $in: groupIds } }], 'life.deletedTime': null }).toArray() :
+            await db.collections!.roles_collection.find({ '$or': [{ users: userId }, { groups: { $in: groupIds } }], 'life.deletedTime': null }).toArray();
     }
 
     public async getUserGroups(userId: string): Promise<IGroupNode[]> {

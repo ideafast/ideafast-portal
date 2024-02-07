@@ -1,6 +1,6 @@
 import { FunctionComponent, useState } from 'react';
 // import { ProjectSection } from '../users/projectSection';
-import { Button, DatePicker, Form, Input, List, Modal, Progress, Select, Table, Tooltip, Typography, message } from 'antd';
+import { Button, DatePicker, Form, Input, List, Modal, Progress, Select, Table, Tooltip, message } from 'antd';
 import 'react-quill/dist/quill.snow.css';
 import { trpc } from '../../utils/trpc';
 import LoadSpinner from '../reusable/loadSpinner';
@@ -11,7 +11,7 @@ import dayjs from 'dayjs';
 import weekday from 'dayjs/plugin/weekday';
 
 dayjs.extend(weekday);
-const { Title } = Typography;
+
 
 const { Option } = Select;
 
@@ -49,7 +49,7 @@ export const UserSection: FunctionComponent = () => {
         dataIndex: 'firstname',
         key: 'firstname',
         ellipsis: true,
-        width: '5%',
+        width: '10%',
         sorter: (a, b) => { return stringCompareFunc(a.firstname, b.firstname); },
         render: (__unused__value, record) => {
             return record.firstname;
@@ -59,7 +59,7 @@ export const UserSection: FunctionComponent = () => {
         dataIndex: 'lastname',
         key: 'lastname',
         ellipsis: true,
-        width: '5%',
+        width: '10%',
         sorter: (a, b) => { return stringCompareFunc(a.lastname, b.lastname); },
         render: (__unused__value, record) => {
             return record.lastname;
@@ -116,18 +116,21 @@ export const UserSection: FunctionComponent = () => {
         dataIndex: 'expiredAt',
         key: 'expiredAt',
         ellipsis: true,
-        width: '30%', // Adjust the width as needed
+        width: '20%', // Adjust the width as needed
         sorter: (a, b) => a.expiredAt - b.expiredAt,
         render: (__unused__value, record) => {
             const progressInfo = getProgressStatusAndPercent(systemConfig.defaultUserExpireDays, record.expiredAt);
             return (
                 <div style={{ width: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    <Progress
-                        percent={progressInfo.percent}
-                        status={progressInfo.status}
-                        format={() => ''}
-                        style={{ width: '70%', float: 'left' }} // Adjust the width to fit the text and progress bar within the cell
-                    />
+                    {
+                        progressInfo.status !== 'exception' ?
+                            <Progress
+                                percent={progressInfo.percent}
+                                status={progressInfo.status}
+                                format={() => ''}
+                                style={{ width: '70%', float: 'left' }} // Adjust the width to fit the text and progress bar within the cell
+                            /> : <span style={{ width: '70%', float: 'left', color: 'grey' }}>Expired</span>
+                    }
                     <Tooltip title={(new Date(record.expiredAt)).toLocaleString()}>
                         <span style={{ float: 'left', marginLeft: '5px' }}>
                             {(new Date(record.expiredAt)).toLocaleString()}
@@ -161,7 +164,7 @@ export const UserSection: FunctionComponent = () => {
                         <div className={css['overview-header']} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div style={{ display: 'flex', alignItems: 'center' }}>
                                 <div className={css['overview-icon']}></div>
-                                <div>List of Organisations</div>
+                                <div>List of Users</div>
                             </div>
                         </div>
                         <div>
@@ -267,19 +270,20 @@ export const UserSection: FunctionComponent = () => {
 const getProgressStatusAndPercent = (maximumDays, expiredAt) => {
     const now = Date.now();
     const upperLimit = maximumDays * 24 * 60 * 60 * 1000; // 90 days in milliseconds
-    const minimumLength = 20; // Minimum length for expired items
+    const minimumLength = 0; // Minimum length for expired items
 
     // Calculate time left until expiration
     const timeLeft = expiredAt - now;
-
     // Calculate percentage
     let percent;
     if (timeLeft < 0) {
         // Already expired
         percent = minimumLength;
+    } else if (timeLeft > upperLimit) {
+        percent = 100;
     } else {
         // Calculate the percentage based on the time left, with 100% being the upper limit (90 days)
-        percent = 20 + (timeLeft / upperLimit) * (100 - minimumLength);
+        percent = 0 + (timeLeft / upperLimit) * 100;
         percent = Math.min(percent, 100); // Ensure the percent does not exceed 100
     }
 
@@ -292,6 +296,6 @@ const getProgressStatusAndPercent = (maximumDays, expiredAt) => {
     } else {
         status = 'success'; // Safe
     }
-
+    console.log((new Date(expiredAt).toDateString()), timeLeft, percent);
     return { percent, status };
 };

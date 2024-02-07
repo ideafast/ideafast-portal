@@ -1,12 +1,9 @@
-import { FunctionComponent, useEffect, useState } from 'react';
-import { Mutation } from '@apollo/client/react/components';
-import { LOGIN, WHO_AM_I, GET_CONFIG, GET_DOCS } from '@itmat-broker/itmat-models';
+import { FunctionComponent, useEffect, useRef } from 'react';
 import { NavLink } from 'react-router-dom';
 import css from './login.module.css';
-import { Input, Form, Button, Alert, Checkbox, Image, Carousel } from 'antd';
-import { useMutation, useQuery } from '@apollo/client/react/hooks';
+import { Input, Form, Button } from 'antd';
 import LoadSpinner from '../reusable/loadSpinner';
-import { IConfig, ISystemConfig, enumConfigType, enumDocTypes } from '@itmat-broker/itmat-types';
+import { IConfig, ISystemConfig, enumConfigType } from '@itmat-broker/itmat-types';
 import 'react-quill/dist/quill.snow.css'; // for Snow theme
 import { GithubOutlined } from '@ant-design/icons';
 import { trpc } from '../../utils/trpc';
@@ -35,7 +32,6 @@ export const LoginBox: FunctionComponent = () => {
             An error occured, please contact your administrator
         </p>;
     }
-    console.log(getSystemConfig.data);
     const systemConfig = (getSystemConfig.data as IConfig).properties as ISystemConfig;
     return (<div className={css.login_wrapper}>
         <div className={css.login_left}>
@@ -45,6 +41,7 @@ export const LoginBox: FunctionComponent = () => {
             />
         </div>
         <div className={css.login_right}>
+            <ParticleEffect />
             <div className={css.login_logo}>
                 <a href={systemConfig.logoLink ?? '/'}>
                     <img
@@ -96,4 +93,122 @@ export const LoginBox: FunctionComponent = () => {
             </div>
         </div>
     </div >);
+};
+
+const ParticleEffect: React.FunctionComponent = () => {
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        const ctx = canvas!.getContext('2d')!;
+        canvas!.width = canvas!.offsetWidth;
+        canvas!.height = canvas!.offsetHeight;
+
+        let particles: Particle[] = [];
+        const numberOfParticles = 100;
+        const mouse = {
+            x: null as null | number,
+            y: null as null | number,
+            radius: 100
+        };
+
+        class Particle {
+            public x: number;
+            public y: number;
+            public size: number;
+            private speedX: number;
+            private speedY: number;
+            private speedFactor: number;
+
+            constructor() {
+                this.x = Math.random() * canvas!.width;
+                this.y = Math.random() * canvas!.height;
+                this.speedFactor = 0.5;
+                this.size = this.speedFactor * (Math.random() * 3 + 1);
+                this.speedX = this.speedFactor * (Math.random() * 2 - 1);
+                this.speedY = this.speedFactor * (Math.random() * 2 - 1);
+            }
+
+            update() {
+                if (this.x > canvas!.width || this.x < 0) {
+                    this.speedX = -this.speedX;
+                }
+                if (this.y > canvas!.height || this.y < 0) {
+                    this.speedY = -this.speedY;
+                }
+                this.x += this.speedX;
+                this.y += this.speedY;
+
+                if (mouse.x !== null && mouse.y !== null) {
+                    const dx = mouse.x - this.x;
+                    const dy = mouse.y - this.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    if (distance < mouse.radius) {
+                        this.speedX = -this.speedX;
+                        this.speedY = -this.speedY;
+                    }
+                }
+            }
+
+            draw() {
+                ctx.fillStyle = '#333333';
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        const handleMouseMove = (event: MouseEvent) => {
+            mouse.x = event.x - canvas!.getBoundingClientRect().left;
+            mouse.y = event.y - canvas!.getBoundingClientRect().top;
+        };
+
+        const init = () => {
+            particles = [];
+            for (let i = 0; i < numberOfParticles; i++) {
+                particles.push(new Particle());
+            }
+        };
+
+        const connectParticles = () => {
+            for (let a = 0; a < particles.length; a++) {
+                for (let b = a; b < particles.length; b++) {
+                    const distance = ((particles[a].x - particles[b].x) ** 2) + ((particles[a].y - particles[b].y) ** 2);
+                    if (distance < (canvas!.width / 7) * (canvas!.height / 7)) {
+                        ctx.strokeStyle = `rgba(51, 51, 51, ${1 - distance / 20000})`; // Dark gray color for lines
+                        ctx.beginPath();
+                        ctx.lineWidth = 1;
+                        ctx.moveTo(particles[a].x, particles[a].y);
+                        ctx.lineTo(particles[b].x, particles[b].y);
+                        ctx.stroke();
+                    }
+                }
+            }
+        };
+
+        const animate = () => {
+            ctx.clearRect(0, 0, canvas!.width, canvas!.height);
+            for (let i = 0; i < particles.length; i++) {
+                particles[i].update();
+                particles[i].draw();
+            }
+            connectParticles();
+            requestAnimationFrame(animate);
+        };
+
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('resize', () => {
+            canvas!.width = canvas!.offsetWidth;
+            canvas!.height = canvas!.offsetHeight;
+        });
+
+        init();
+        animate();
+
+        return () => {
+            window.removeEventListener('mousemove', handleMouseMove);
+        };
+    }, []);
+
+    return <canvas ref={canvasRef} className={css.particleCanvas}></canvas>;
 };

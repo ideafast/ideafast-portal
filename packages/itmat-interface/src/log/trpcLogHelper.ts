@@ -1,46 +1,8 @@
-import { z } from 'zod';
 import { t } from '../server/tRPCRouter';
-import { TRPCError } from '@trpc/server';
-import { exec } from 'child_process';
-import { ILog, enumAPIResolver, enumEventStatus, enumEventType, enumUserAgent } from '@itmat-broker/itmat-types';
+import { ILog, enumAPIResolver, enumEventStatus, enumEventType } from '@itmat-broker/itmat-types';
 import { v4 as uuid } from 'uuid';
 import { db } from '../database/database';
-type LogInput = {
-    name: string;
-    input: unknown;
-    executionTime: number;
-};
-import jwt from 'jsonwebtoken';
-import { GraphQLError } from 'graphql';
-import { ApolloServerErrorCode } from '@apollo/server/dist/esm/errors';
-import { userRetrieval } from '../authentication/pubkeyAuthentication';
 
-async function saveLogToDatabase(log: LogInput) {
-    // Implement the logic to save log to your database
-}
-
-function loggerMiddleware({ input, type, path }: any) {
-    return async (next: any) => {
-        const startTime = Date.now();
-
-        // Proceed with the original procedure
-        const result = await next(input);
-
-        const endTime = Date.now();
-        const executionTime = endTime - startTime;
-
-        // Save log details to the database
-        saveLogToDatabase({
-            name: path,
-            input,
-            executionTime
-        });
-
-        return result;
-    };
-}
-
-const publicProcedure = t.procedure;
 // export const baseProcedure = publicProcedure.use(async (opts: any) => {
 //     const url = opts.ctx.req.url;
 //     const listCalls = parseBatchedUrl(url);
@@ -68,7 +30,7 @@ export const baseProcedure = t.procedure.use(async (opts: any) => {
                 event: event.apiName,
                 parameters: event.parameters,
                 status: enumEventStatus.SUCCESS,
-                errors: [],
+                errors: undefined,
                 timeConsumed: event.executionTime,
                 life: {
                     createdTime: Date.now(),

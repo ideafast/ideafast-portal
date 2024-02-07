@@ -1,4 +1,4 @@
-import { enumEventOperation, enumEventType, enumEventStatus, enumUserTypes } from '@itmat-broker/itmat-types';
+import { enumEventType, enumEventStatus, enumUserTypes } from '@itmat-broker/itmat-types';
 import { FetchResult } from '@apollo/client';
 
 export function logFun(mutationFunc: (__unused__data: { variables: any }) => Promise<FetchResult<any>>, whoamidata: any, type: enumEventType, actionData: any, status: enumEventStatus) {

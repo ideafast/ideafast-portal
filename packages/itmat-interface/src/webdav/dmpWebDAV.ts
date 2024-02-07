@@ -51,6 +51,7 @@ export class DMPFileSystem extends webdav.FileSystem {
         const pathArr = pathToArray(pathStr);
         if (pathStr === '/') {
             callback(true);
+            return;
         } else {
             if (pathArr[0] === 'My Drive') {
                 if (this.isCopying) {
@@ -63,16 +64,46 @@ export class DMPFileSystem extends webdav.FileSystem {
                 const ownUserFiles = userFileDir[(ctx.user as any).id];
                 const allPaths = ownUserFiles.map((el: { path: any; }) => el.path.map((ek: any) => ownUserFiles.filter(es => es.id === ek)[0].name));
                 callback(isPathIncluded(pathArr, allPaths));
+                return;
+            } else if (pathArr[0] === 'Shared') {
+                if (pathArr.length == 1) {
+                    callback(true);
+                    return;
+                }
+                const usersFileDir: Record<string, IDriveNode[]> = await caller.drive.getDrives({
+                    userId: (ctx.user as any).id
+                });
+                const users = await caller.user.getUsers({});
+                let allPaths: any[] = [];
+                for (const userId of Object.keys(usersFileDir)) {
+                    if (userId === (ctx.user as any).id) {
+                        continue;
+                    }
+                    const user = users.filter((el: { id: string; }) => el.id === userId)[0];
+                    const ownUserFiles = usersFileDir[userId].filter(el => el.path);
+                    const validFileIds: string[] = ownUserFiles.map(el => el.id);
+                    for (const item of ownUserFiles) {
+                        item.path = item.path.filter(el => validFileIds.includes(el));
+                    }
+                    const partialPaths: any = ownUserFiles.map((el: { path: any; }) => el.path.map((ek: any) => ownUserFiles.filter(es => es.id === ek)[0].name));
+                    partialPaths.forEach((element: any[]) => {
+                        element.unshift(user ? `${user.firstname} ${user.lastname}` : 'NA');
+                        element.unshift('Shared');
+                    });
+                    allPaths = [...allPaths, ...partialPaths];
+                }
+                callback(isPathIncluded(pathArr, allPaths));
+                return;
             } else {
                 if (pathArr.length === 1 && pathArr[0] === 'Study') {
                     callback(true);
+                    return;
                 } else {
-                    const studies: IStudy[] = await caller.study.getStudies({
-                        studyId: null
-                    });
+                    const studies: IStudy[] = await caller.study.getStudies({});
                     const study = studies.filter(el => el.name === pathArr[1])[0];
                     if (!study) {
                         callback(false);
+                        return;
                     } else {
                         callback(true);
                         return;
@@ -96,7 +127,7 @@ export class DMPFileSystem extends webdav.FileSystem {
 
     override _type(path: webdav.Path, ctx: webdav.TypeInfo, callback: webdav.ReturnCallback<webdav.ResourceType>): void {
         // Determine type based on path (directory if ends with '/', file otherwise)
-        const fileExtensionRegex = /\.[^\/]+$/;
+        const fileExtensionRegex = /\.[^/]+$/;
         const isFile = fileExtensionRegex.test(path.toString());
         callback(undefined, isFile ? webdav.ResourceType.File : webdav.ResourceType.Directory);
         // callback(undefined, webdav.ResourceType.Directory);
@@ -128,7 +159,7 @@ export class DMPFileSystem extends webdav.FileSystem {
         const caller = this.router.createCaller({ user: ctx.context.user });
         const pathStr: string = path.toString();
         const pathArr = pathToArray(pathStr);
-        const fileExtensionRegex = /\.[^\/]+$/;
+        const fileExtensionRegex = /\.[^/]+$/;
         const isFile = fileExtensionRegex.test(pathStr);
         if (isFile) {
             this.isCopying = true;
@@ -172,6 +203,7 @@ export class DMPFileSystem extends webdav.FileSystem {
             });
             const ownUserFiles: IDriveNode[] = userFileDir[(ctx.context.user as any).id];
             const node: IDriveNode = ownUserFiles.filter(el => el.path.length === pathArr.length && el.path.every((part, index) => ownUserFiles.filter(ek => ek.id === part)[0].name === pathArr[index]))[0];
+            // TODO: replace with real url
             const fileUri = `${'http://localhost:4200'}/file/${node.fileId}`;
             try {
                 // todo
@@ -179,11 +211,9 @@ export class DMPFileSystem extends webdav.FileSystem {
                 if (!response.ok) {
                     throw new Error('Failed to fetch file');
                 }
-                //@ts-ignore
-                callback(undefined, response.body);
+                callback(undefined, response.body as any);
             } catch (error) {
-                //@ts-ignore
-                callback(error);
+                callback(error as any);
             }
         }
     }
@@ -246,7 +276,7 @@ export class DMPFileSystem extends webdav.FileSystem {
         try {
             // if path str is root, return my Drive and all studies
             if (pathStr === '/') {
-                callback(undefined, ['My Drive', 'Study']);
+                callback(undefined, ['My Drive', 'Study', 'Shared']);
             } else {
                 const rootPath = pathToArray(pathStr);
                 if (rootPath[0] === 'My Drive') {
@@ -256,10 +286,41 @@ export class DMPFileSystem extends webdav.FileSystem {
                     const ownUserFiles = userFileDir[(ctx.context.user as any).id];
                     callback(undefined, convertToWebDAVPaths(ownUserFiles, depth, pathStr));
                     return;
-                } else {
-                    const studies: IStudy[] = await caller.study.getStudies({
-                        studyId: null
+                } else if (rootPath[0] === 'Shared') {
+                    const usersFileDir: Record<string, IDriveNode[]> = await caller.drive.getDrives({
+                        userId: (ctx.context.user as any).id
                     });
+                    const users = await caller.user.getUsers({});
+                    if (rootPath.length === 1) {
+                        callback(undefined, Object.keys(usersFileDir).filter(el => el !== (ctx.context.user as any).id).map(el => {
+                            const user = users.filter((es: { id: string; }) => es.id === el)[0];
+                            return user ? `${user.firstname} ${user.lastname}` : 'NA';
+                        }));
+                        return;
+                    }
+
+                    let allPaths: any[] = [];
+                    for (const userId of Object.keys(usersFileDir)) {
+                        if (userId === (ctx.context.user as any).id) {
+                            continue;
+                        }
+                        const user = users.filter((el: { id: string; }) => el.id === userId)[0];
+                        const ownUserFiles = usersFileDir[userId].filter(el => el.path);
+                        const validFileIds: string[] = ownUserFiles.map(el => el.id);
+                        for (const item of ownUserFiles) {
+                            item.path = item.path.filter(el => validFileIds.includes(el));
+                        }
+                        const partialPaths: any = convertToWebDAVPaths(ownUserFiles, depth, pathStr, ['Shared', `${user.firstname} ${user.lastname}`]);
+                        const completePaths: string[][] = partialPaths.map((el: any) => {
+                            return ['Shared', `${user.firstname} ${user.lastname}`, el];
+                        });
+                        allPaths = [...allPaths, ...completePaths];
+                    }
+                    callback(undefined, allPaths.map(el => el[el.length - 1]));
+                    return;
+                }
+                else {
+                    const studies: IStudy[] = await caller.study.getStudies({});
                     if (rootPath.length === 1) {
                         callback(undefined, studies.map(el => el.name));
                         return;
@@ -278,12 +339,6 @@ export class DMPFileSystem extends webdav.FileSystem {
                                     forceUpdate: false
                                 });
                             }
-                            // const studyConfig = await caller.config.getConfig({
-                            //     configType: enumConfigType.STUDYCONFIG,
-                            //     key: study.id,
-                            //     useDefault: false
-                            // });
-                            // const allPaths = convertFilesByLabelsToPath(study.name, results, studyConfig.properties.defaultFileDirectoryStructure.pathLabels);
                             const allPaths = this.getFileResults.map((el: { path: string[]; }) => ['Study'].concat(el.path));
                             const children = getDirectChildren(allPaths, pathToArray(pathStr));
                             callback(undefined, children);
@@ -367,7 +422,7 @@ export class DMPWebDAVAuthentication implements HTTPAuthentication {
             return;
         }
         const pubkey = (decodedPayload as any).publicKey;
-        jwt.verify(token, pubkey, (error: any, decoded: any) => {
+        jwt.verify(token, pubkey, (error: any) => {
             if (error) {
                 callback(new Error('Unauthorized: Invalid credentials.'), undefined);
                 return;
@@ -382,7 +437,7 @@ export class DMPWebDAVAuthentication implements HTTPAuthentication {
                     isDefaultUser: false
                 };
                 callback(null, formattedUser); // Use `null` instead of `undefined` here to indicate no error
-            }).catch(err => {
+            }).catch(() => {
                 callback(new Error('Token Not recognized.'), undefined); // Pass `undefined` for the user if there's an error
             });
         });
@@ -393,9 +448,13 @@ function pathToArray(path: string) {
     return path.split('/').filter(Boolean);
 }
 
-function convertToWebDAVPaths(ownUserFiles: any, depth: any, pathStr: string): string[] {
+function convertToWebDAVPaths(ownUserFiles: any, depth: any, pathStr: string, prefix?: string[]): string[] {
     const allPaths = ownUserFiles.map((el: { path: any; }) => el.path.map((ek: any) => ownUserFiles.filter((es: { id: any; }) => es.id === ek)[0].name));
     const basePath = pathToArray(pathStr);
+    if (prefix) {
+        const result = allPaths.map((el: ConcatArray<string>) => prefix.concat(el));
+        return getDirectChildren(result, basePath);
+    }
     return getDirectChildren(allPaths, basePath);
 }
 

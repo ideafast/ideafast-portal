@@ -53,6 +53,13 @@ export interface IUserConfig extends IBase {
     defaultMaximumRepoSize: number;
     defaultMaximumProfileSize: number;
     defaultFileBucketId: string;
+
+    // LXD containers
+    defaultLXDMaximumContainers: number;
+    defaultLXDMaximumContainerCPUCores: number;
+    defaultLXDMaximumContainerDiskSize: number;
+    defaultLXDMaximumContainerMemory: number;
+    defaultLXDMaximumContainerLife: number;
 }
 
 export interface IOrganisationConfig extends IBase {
@@ -155,7 +162,12 @@ export class DefaultSettings implements IDefaultSettings {
         defaultMaximumFileRepoSize: 500 * 1024 * 1024, // 500 MB
         defaultMaximumRepoSize: 10 * 1024 * 1024 * 1024, // 10GB
         defaultMaximumProfileSize: 10 * 1024 * 1024, // 10MB
-        defaultFileBucketId: 'user'
+        defaultFileBucketId: 'user',
+        defaultLXDMaximumContainers: 2,
+        defaultLXDMaximumContainerCPUCores: 2,
+        defaultLXDMaximumContainerDiskSize: 50 * 1024 * 1024 * 1024,
+        defaultLXDMaximumContainerMemory: 8 * 1024 * 1024 * 1024,
+        defaultLXDMaximumContainerLife: 8 * 60 * 60
     };
 
     public readonly docConfig: IDocConfig = {

@@ -17,6 +17,7 @@ export class LXDJobHandler extends JobHandler {
     }
 
     public async execute(document: IJob): Promise<any> {
+        console.log(document.id);
         throw new TRPCError({
             code: enumTRPCErrorCodes.UNAUTHORIZED,
             message: 'Not implemented.'
@@ -37,6 +38,7 @@ export class LXDControlHandler extends JobHandler {
     }
 
     public async execute(document: IJob): Promise<any> {
+        console.log(document.id);
         throw new TRPCError({
             code: enumTRPCErrorCodes.UNAUTHORIZED,
             message: 'Not implemented.'
@@ -57,6 +59,7 @@ export class LXDMonitorHandler extends JobHandler {
     }
 
     public async execute(document: IJob): Promise<any> {
+        console.log(document.id);
         throw new TRPCError({
             code: enumTRPCErrorCodes.UNAUTHORIZED,
             message: 'Not implemented.'
