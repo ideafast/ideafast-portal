@@ -53,6 +53,7 @@ export interface IUserConfig extends IBase {
     defaultMaximumRepoSize: number;
     defaultMaximumProfileSize: number;
     defaultFileBucketId: string;
+    defaultMaximumQPS: number;
 
     // LXD containers
     defaultLXDMaximumContainers: number;
@@ -163,6 +164,7 @@ export class DefaultSettings implements IDefaultSettings {
         defaultMaximumRepoSize: 10 * 1024 * 1024 * 1024, // 10GB
         defaultMaximumProfileSize: 10 * 1024 * 1024, // 10MB
         defaultFileBucketId: 'user',
+        defaultMaximumQPS: 500,
         defaultLXDMaximumContainers: 2,
         defaultLXDMaximumContainerCPUCores: 2,
         defaultLXDMaximumContainerDiskSize: 50 * 1024 * 1024 * 1024,
