@@ -13,7 +13,7 @@ const AppWithTRPC = () => {
         trpc.createClient({
             links: [
                 httpBatchLink({
-                    url: `${window.location.href}trpc`,
+                    url: `${window.location.origin}/trpc`,
                     async headers() {
                         return {
                             // Add any headers if necessary

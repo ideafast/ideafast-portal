@@ -3,7 +3,7 @@ import css from './drive.module.css';
 import { Input, Button, Row, Col, Table, Menu, notification, Modal, Tag, Upload, Tooltip, message, Form, Checkbox, List, Dropdown, Spin, Select } from 'antd';
 import LoadSpinner from '../reusable/loadSpinner';
 import { IUser, enumDriveNodeTypes } from '@itmat-broker/itmat-types';
-import { EditOutlined, FileTwoTone, FolderTwoTone, MailOutlined, MinusOutlined, MoreOutlined, PlusOutlined, ShareAltOutlined, UploadOutlined, UsergroupAddOutlined } from '@ant-design/icons';
+import { FileTwoTone, FolderTwoTone, MailOutlined, MinusOutlined, MoreOutlined, PlusOutlined, ShareAltOutlined, UploadOutlined, UsergroupAddOutlined } from '@ant-design/icons';
 import { trpc } from '../../utils/trpc';
 import { useQueryClient } from '@tanstack/react-query';
 import { formatBytes } from '../../utils/tools';
@@ -913,30 +913,24 @@ export const ShareFileModal: FunctionComponent<{ isModalShown: boolean, setIsMod
 };
 
 
-export const EditPermissionTable: FunctionComponent<{ sharedUsers: any, add: any, remove: any, users: IUser[] }> = ({ sharedUsers, add, remove, users }) => {
+export const EditPermissionTable: FunctionComponent<{ sharedUsers: any, add: any, remove: any, users: IUser[] }> = ({ sharedUsers, add, remove }) => {
     const columns: any = [{
         title: 'User',
         dataIndex: 'user',
         key: 'user',
-        width: '20%',
-        render: (__unused__value, record) => {
-            const user = users.filter(el => el.id === record.iid)[0];
-            return `${user.firstname} ${user.lastname}`;
-        }
+        minWidth: 100 // Example minimum width
+        // ... other properties
     }, {
         title: 'Email',
         dataIndex: 'email',
         key: 'email',
-        width: '50%',
-        render: (__unused__value, record) => {
-            const user = users.filter(el => el.id === record.iid)[0];
-            return `${user.email}`;
-        }
+        minWidth: 200 // Example minimum width
+        // ... other properties
+        // ... other columns remain unchanged
     }, {
         title: 'Read',
         dataIndex: 'read',
         key: 'read',
-        width: '10%',
         render: (__unused__value, record) => {
             return <Checkbox checked={record.read}></Checkbox>;
         }
@@ -944,7 +938,6 @@ export const EditPermissionTable: FunctionComponent<{ sharedUsers: any, add: any
         title: 'Write',
         dataIndex: 'write',
         key: 'write',
-        width: '10%',
         render: (__unused__value, record) => {
             return <Checkbox checked={record.write}></Checkbox>;
         }
@@ -952,7 +945,6 @@ export const EditPermissionTable: FunctionComponent<{ sharedUsers: any, add: any
         title: 'Delete',
         dataIndex: 'delete',
         key: 'delete',
-        width: '10%',
         render: (__unused__value, record) => {
             return <Checkbox checked={record.delete}></Checkbox>;
         }
@@ -961,6 +953,7 @@ export const EditPermissionTable: FunctionComponent<{ sharedUsers: any, add: any
         <Table
             dataSource={sharedUsers}
             pagination={false}
+            tableLayout='fixed'
             footer={() => {
                 return (
                     <Form.Item>
@@ -982,7 +975,7 @@ export const EditPermissionTable: FunctionComponent<{ sharedUsers: any, add: any
                                     <Input
                                         disabled={el.dataIndex === 'email' ? false : true}
                                         placeholder={el.dataIndex}
-                                        style={{ width: '30%', marginRight: 8 }}
+                                        style={{ width: '100%', marginRight: 8 }}
                                     />
                                 </Form.Item>
                             );
@@ -1011,18 +1004,11 @@ export const EditPermissionTable: FunctionComponent<{ sharedUsers: any, add: any
                 title={'Action'}
                 render={(value, row) => {
                     return (
-                        <React.Fragment>
-                            <Button
-                                icon={<EditOutlined />}
-                                shape={'circle'}
-                                style={{ marginRight: 8 }}
-                            />
-                            <Button
-                                icon={<MinusOutlined />}
-                                shape={'circle'}
-                                onClick={() => remove((row as any).name)}
-                            />
-                        </React.Fragment>
+                        <Button
+                            icon={<MinusOutlined />}
+                            shape={'circle'}
+                            onClick={() => remove((row as any).name)}
+                        />
                     );
                 }}
             />
