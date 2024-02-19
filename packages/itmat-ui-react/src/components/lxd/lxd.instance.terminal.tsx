@@ -7,8 +7,12 @@ import {updateMaxHeight} from './util/updateMaxHeight';
 import './lxd.module.css';
 
 export const LXDCommandExecutor: React.FC<{ instanceName: string }> = ({ instanceName }) => {
-    const [dataWs, setDataWs] = useState<WebSocket | null>(null);
-    const [controlWs, setControlWs] = useState<WebSocket | null>(null);
+    // const [dataWs, setDataWs] = useState<WebSocket | null>(null);
+    // const [controlWs, setControlWs] = useState<WebSocket | null>(null);
+
+    const dataWs = useRef<WebSocket | null>(null);
+    const controlWs = useRef<WebSocket | null>(null);
+
     const xtermRef = useRef<XTerm>(null);
     const [terminalReady, setTerminalReady] = useState(false);
     // const fitAddon = useRef(new FitAddon()).current;
@@ -46,42 +50,33 @@ export const LXDCommandExecutor: React.FC<{ instanceName: string }> = ({ instanc
             console.log('WebSocket request response:', response.data);
             // console.log('Frontend code for response', response);
             if (fds && operationId) {
-                // const dataWsUrl = `ws://localhost:3333/lxd/1.0/operations/${operationId}/websocket?secret=${fds['0']}`;
-                // const controlWsUrl = `ws://localhost:3333/lxd/1.0/operations/${operationId}/websocket?secret=${fds.control}`;
 
-                // Update these URLs to point directly to LXD server
-                // const lxdServerWsBase = 'wss://192.168.64.4:8443';
+                const lxdServerWsBase = 'ws://localhost:3333/ae_wslxd';
+                // const lxdServerWsBase = 'ws://localhost:4200/ae_wslxd';
+                const dataWsUrl = `${lxdServerWsBase}/1.0/operations/${operationId}/websocket?secret=${fds['0']}`;
+                const controlWsUrl = `${lxdServerWsBase}/1.0/operations/${operationId}/websocket?secret=${fds.control}`;
+
                 // const dataWsUrl = `${lxdServerWsBase}/1.0/operations/${operationId}/websocket?secret=${fds['0']}`;
                 // const controlWsUrl = `${lxdServerWsBase}/1.0/operations/${operationId}/websocket?secret=${fds.control}`;
-
-                // const backendWsBase = 'ws://localhost:3333/lxd';
-                const backendWsBase = 'ws://localhost:4200/lxd';
-                const dataWsUrl = `${backendWsBase}/1.0/operations/${operationId}/websocket?secret=${fds['0']}`;
-                const controlWsUrl = `${backendWsBase}/1.0/operations/${operationId}/websocket?secret=${fds.control}`;
 
                 console.log('Data WebSocket URL:', dataWsUrl);
                 console.log('Control WebSocket URL:', controlWsUrl);
 
                 const dataSocket = new WebSocket(dataWsUrl);
-                console.log('Data WebSocket', dataSocket);
                 const controlSocket = new WebSocket(controlWsUrl);
+                console.log('Attempting to open Data WebSocket', dataSocket);
 
+                console.log('Data WebSocket', dataSocket);
                 dataSocket.onopen = () => {
-                    console.log('Data WebSocket opened');
+                    console.log('Data WebSocket opened successfully', dataSocket);
 
                     // Log target information when the dataSocket opens
                     console.log('Target WebSocket server for dataSocket (onopen):', {
                         url: dataSocket.url
                     });
 
-                    setDataWs(dataSocket);
+                    dataWs.current = dataSocket;
 
-                };
-
-                controlSocket.onopen = () => {
-                    console.log('Control WebSocket opened');
-                    setControlWs(controlSocket);
-                    setTerminalReady(true);
                 };
 
                 dataSocket.onmessage = (event: MessageEvent<ArrayBuffer>) => {
@@ -121,11 +116,19 @@ export const LXDCommandExecutor: React.FC<{ instanceName: string }> = ({ instanc
 
                 dataSocket.onclose = (event) => {
                     console.log('Data WebSocket closed', event);
-                    if (1005 !== event.code) {
-                        console.error('Error', event.reason, event.code);
+                    if (event.code !== 1000) { // 1000 is the code for normal closure
+                        console.error('Unexpected closure of Data WebSocket:', event);
                     }
-                    setDataWs(null);
+                    dataWs.current = null;
                 };
+
+
+                controlSocket.onopen = () => {
+                    console.log('Control WebSocket opened');
+                    controlWs.current = controlSocket;
+                    setTerminalReady(true);
+                };
+
                 controlSocket.onmessage = (message) => {
                     const data = JSON.parse(message.data);
                     console.log('Received control message:', data);
@@ -138,7 +141,7 @@ export const LXDCommandExecutor: React.FC<{ instanceName: string }> = ({ instanc
 
                 controlSocket.onclose = () => {
                     console.log('Control WebSocket closed');
-                    setControlWs(null);
+                    controlWs.current = null;
                 };
 
                 return () => {
@@ -155,11 +158,11 @@ export const LXDCommandExecutor: React.FC<{ instanceName: string }> = ({ instanc
     };
     useEffect(() => {
         initWebSocket();
-        return () => {
-            dataWs?.close();
-            controlWs?.close();
-        };
-    }, [instanceName]);
+        // return () => {
+        //     dataWs?.close();
+        //     controlWs?.close();
+        // };
+    }, []);
 
     // useEffect to initialize the terminal and handle resizing
     useEffect(() => {
@@ -188,7 +191,7 @@ export const LXDCommandExecutor: React.FC<{ instanceName: string }> = ({ instanc
 
         // Setup the resize event listener
         const handleResize = () => {
-            if (!controlWs || controlWs.readyState === WebSocket.CLOSED) {
+            if (!controlWs.current || controlWs.current.readyState === WebSocket.CLOSED) {
                 return;
             }
 
@@ -201,8 +204,8 @@ export const LXDCommandExecutor: React.FC<{ instanceName: string }> = ({ instanc
 
                 // Send the new dimensions to the WebSocket server
                 const dimensions = fitAddonRef.current.proposeDimensions();
-                if (dimensions && controlWs.readyState === WebSocket.OPEN) {
-                    controlWs.send(
+                if (dimensions && controlWs.current.readyState === WebSocket.OPEN) {
+                    controlWs.current.send(
                         textEncoder.encode(
                             JSON.stringify({
                                 command: 'window-resize',
@@ -229,12 +232,12 @@ export const LXDCommandExecutor: React.FC<{ instanceName: string }> = ({ instanc
     const onData = (input) => {
 
         console.log('ondata command', input);
-        if (dataWs && dataWs.readyState === WebSocket.OPEN) {
+        if (dataWs.current && dataWs.current.readyState === WebSocket.OPEN) {
             console.log('dataWs.send command', textEncoder.encode(input));
             // Send the command as is, no JSON formatting is required here.
-            dataWs.send(textEncoder.encode(input));
+            dataWs.current.send(textEncoder.encode(input));
         }
-        else{  console.log('dataWs', dataWs?.readyState);}
+        else{  console.log('dataWs', dataWs?.current?.readyState);}
     };
 
 

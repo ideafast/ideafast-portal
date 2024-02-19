@@ -11,9 +11,7 @@ export const LXDPage: FunctionComponent = () => {
                     LXD Management
                 </div>
                 <div className={css.pagePanel}>
-                    {/* Replace LXDCommandExecutor with LXDInstanceList */}
                     <LXDInstanceList />
-                    {/* <LXDCommandExecutor /> */}
                 </div>
             </div>
         </div>

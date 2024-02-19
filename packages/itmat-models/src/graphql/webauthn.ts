@@ -5,6 +5,7 @@ import { USER_FRAGMENT } from './user';
 export const GET_WEBAUTHN = gql`
     query getWebauthn($webauthn_ids: [String]) {
         getWebauthn(webauthn_ids: $webauthn_ids) {
+        id
         username
         userId
         }

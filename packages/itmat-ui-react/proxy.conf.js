@@ -45,5 +45,12 @@ module.exports = {
         changeOrigin: true,
         autoRewrite: true,
         ws: true
+    },
+    '/ae_wslxd': {
+        target: API_SERVER,
+        secure: false,
+        changeOrigin: true,
+        autoRewrite: true,
+        ws: true
     }
 };

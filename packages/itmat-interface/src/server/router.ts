@@ -1,4 +1,3 @@
-
 import { ApolloServer } from '@apollo/server';
 import { ApolloServerErrorCode } from '@apollo/server/errors';
 import { expressMiddleware } from '@apollo/server/express4';
@@ -14,8 +13,6 @@ import MongoStore from 'connect-mongo';
 import express from 'express';
 import { Express } from 'express';
 import session from 'express-session';
-
-
 
 import rateLimit from 'express-rate-limit';
 import http from 'node:http';
@@ -35,8 +32,6 @@ import * as fs from 'fs';
 import * as https from 'https';
 import { createProxyMiddleware, RequestHandler } from 'http-proxy-middleware';
 
-import qs from 'qs';
-import { IUser } from '@itmat-broker/itmat-types';
 interface ApolloServerContext {
     token?: string;
 }
@@ -57,18 +52,20 @@ declare module 'express-session' {
 export class Router {
     private readonly app: Express;
     private readonly server: http.Server;
+    private readonly httpsServer: https.Server; // TODO, Test in local
     private readonly config: IConfiguration;
     public readonly proxies: Array<RequestHandler> = [];
 
     constructor(config: IConfiguration) {
-
         this.config = config;
         this.app = express();
 
-        this.app.use(rateLimit({
-            windowMs: 1 * 60 * 1000,
-            max: 500
-        }));
+        this.app.use(
+            rateLimit({
+                windowMs: 1 * 60 * 1000,
+                max: 500
+            })
+        );
 
         // if (process.env.NODE_ENV === 'development')
         //     this.app.use(cors({ credentials: true }));
@@ -82,7 +79,8 @@ export class Router {
             session({
                 store: MongoStore.create({
                     client: db.client,
-                    collectionName: config.database.collections.sessions_collection
+                    collectionName:
+                        config.database.collections.sessions_collection
                 }),
                 secret: this.config.sessionsSecret,
                 saveUninitialized: false,
@@ -99,7 +97,10 @@ export class Router {
         // this.app.use(cors({ origin: 'http://localhost:4200'}));
         // Enable CORS for your React frontend
         // this.app.use(cors({ origin: 'http://localhost:4200', credentials: true }));
-        this.app.use(cors());
+        this.app.use(cors({
+            origin: '*', // Be cautious with this in production
+            credentials: true
+        }));
 
         /* authenticating user of the request */
         this.app.use(passport.initialize());
@@ -107,14 +108,17 @@ export class Router {
         passport.serializeUser(userLoginUtils.serialiseUser);
         passport.deserializeUser(userLoginUtils.deserialiseUser);
 
-        this.server = http.createServer({
-            allowHTTP1: true,
-            keepAlive: true,
-            keepAliveInitialDelay: 0,
-            requestTimeout: 0,
-            headersTimeout: 0,
-            noDelay: true
-        } as any, this.app);
+        this.server = http.createServer(
+            {
+                allowHTTP1: true,
+                keepAlive: true,
+                keepAliveInitialDelay: 0,
+                requestTimeout: 0,
+                headersTimeout: 0,
+                noDelay: true
+            } as any,
+            this.app
+        );
 
         this.server.timeout = 0;
         this.server.headersTimeout = 0;
@@ -127,11 +131,18 @@ export class Router {
             (socket as any).timeout = 0;
         });
 
+        // Load the SSL certificate and key
+        const sslCert = fs.readFileSync('/Users/jwang12/mylxd.crt');
+        const sslKey = fs.readFileSync('/Users/jwang12/mylxd.key');
+
+        // Create an HTTPS server
+        this.httpsServer = https.createServer(
+            { key: sslKey, cert: sslCert },
+            this.app
+        );
     }
 
-
     async init() {
-
         const _this = this;
 
         /* putting schema together */
@@ -165,11 +176,15 @@ export class Router {
                         return {
                             async executionDidStart(requestContext) {
                                 const operation = requestContext.operationName;
-                                const actionData = requestContext.request.variables;
-                                (requestContext as any).request.variables = spaceFixing(operation as any, actionData);
+                                const actionData =
+                                    requestContext.request.variables;
+                                (requestContext as any).request.variables =
+                                    spaceFixing(operation as any, actionData);
                             },
                             async willSendResponse(requestContext) {
-                                logPlugin.requestDidStartLogPlugin(requestContext);
+                                logPlugin.requestDidStartLogPlugin(
+                                    requestContext
+                                );
                             }
                         };
                     }
@@ -182,61 +197,6 @@ export class Router {
                 // Logger().error(error);
                 return error;
             }
-        });
-
-        /* AE proxy middleware */
-        // initial this before graphqlUploadExpress middleware
-        const ae_proxy = createProxyMiddleware({
-            target: _this.config.aeEndpoint,
-            ws: true,
-            xfwd: true,
-            // logLevel: 'debug',
-            autoRewrite: true,
-            changeOrigin: true,
-            onProxyReq: function (preq, req, res) {
-                if (!req.user)
-                    return res.status(403).redirect('/');
-                res.cookie('ae_proxy', req.headers['host']);
-                const data = (req.user as IUser).username + ':token';
-                preq.setHeader('authorization', `Basic ${Buffer.from(data).toString('base64')}`);
-                if (req.body && Object.keys(req.body).length) {
-                    const contentType = preq.getHeader('Content-Type');
-                    preq.setHeader('origin', _this.config.aeEndpoint);
-                    const writeBody = (bodyData: string) => {
-                        preq.setHeader('Content-Length', Buffer.byteLength(bodyData));
-                        preq.write(bodyData);
-                        preq.end();
-                    };
-
-                    if (contentType === 'application/json') {  // contentType.includes('application/json')
-                        writeBody(JSON.stringify(req.body));
-                    }
-
-                    if (contentType === 'application/x-www-form-urlencoded') {
-                        writeBody(qs.stringify(req.body));
-                    }
-
-                }
-            },
-            onProxyReqWs: function (preq) {
-                const data = 'username:token';
-                preq.setHeader('authorization', `Basic ${Buffer.from(data).toString('base64')}`);
-            },
-            onError: function (err, req, res, target) {
-                console.error(err, target);
-            }
-        });
-
-        // this.proxies.push(ae_proxy);
-
-        /* AE routers */
-        // pun for AE portal
-        // node and rnode for AE application
-        // public for public resource like favicon and logo
-        const proxy_routers = ['/pun', '/node', '/rnode', '/public'];
-
-        proxy_routers.forEach(router => {
-            this.app.use(router, ae_proxy);
         });
 
         await gqlServer.start();
@@ -254,7 +214,7 @@ export class Router {
                     // }
                     const token: string = req.headers.authorization || '';
 
-                    if ((token !== '') && (req.user === undefined)) {
+                    if (token !== '' && req.user === undefined) {
                         console.log('JWT verify');
                         // get the decoded payload ignoring signature, no symmetric secret or asymmetric key needed
                         const decodedPayload = jwt.decode(token);
@@ -264,16 +224,23 @@ export class Router {
                         // verify the JWT
                         jwt.verify(token, pubkey, function (error: any) {
                             if (error) {
-                                throw new GraphQLError('JWT verification failed. ' + error, { extensions: { code: ApolloServerErrorCode.BAD_USER_INPUT, error } });
+                                throw new GraphQLError(
+                                    'JWT verification failed. ' + error,
+                                    {
+                                        extensions: {
+                                            code: ApolloServerErrorCode.BAD_USER_INPUT,
+                                            error
+                                        }
+                                    }
+                                );
                             }
                         });
                         // store the associated user with the JWT to context
                         const associatedUser = await userRetrieval(pubkey);
                         req.user = associatedUser;
                     }
-                    return ({ req, res });
+                    return { req, res };
                 }
-
             })
         );
 
@@ -289,7 +256,10 @@ export class Router {
 
         // Passing in an instance of a GraphQLSchema and
         // telling the WebSocketServer to start listening
-        const serverCleanup = useServer({ schema: schema, execute: execute, subscribe: subscribe }, wsServer);
+        const serverCleanup = useServer(
+            { schema: schema, execute: execute, subscribe: subscribe },
+            wsServer
+        );
 
         /* Bounce all unauthenticated non-graphql HTTP requests */
         // this.app.use((req: Request, res: Response, next: NextFunction) => {
@@ -313,32 +283,146 @@ export class Router {
             rejectUnauthorized: false
         });
 
-        // const wsLxdServer = new WebSocketServer({ noServer: true, path: '/lxd' });
+        // Endpoint to connect to Jupyter through LXD
+        // Middleware to proxy HTTP requests to the Jupyter server via the LXD API
+        this.app.use('/api/connect-jupyter/:instanceName', createProxyMiddleware({
+            target: this.config.lxdEndpoint, // LXD server's endpoint
+            changeOrigin: true,
+            ws: true, // Enable WebSocket proxying
+            agent: httpsAgent, // Use the HTTPS agent for secure connections
+            pathRewrite: (path, req) => {
+                const instanceName = req.params.instanceName;
+                // Rewrite the path to point to the exec endpoint for the instance
+                return `/1.0/instances/${instanceName}/exec`;
+            },
+            router: (req) => {
+                const instanceName = req.params.instanceName;
+                // Return the URL to the LXD instance's WebSocket
+                return `wss://${this.config.lxdEndpoint.replace('https://', '')}/1.0/instances/${instanceName}/console`;
+            },
+            onProxyReq: (proxyReq /*, req, res*/) => {
+                // Modify the proxy request to include the command to access the Jupyter server
+                const execPayload = {
+                    command: ['bash', '-c', 'jupyter notebook list | grep http | awk \'{print $1}\' | sed \'s/::/0.0.0.0/\''],
+                    environment: {}, // Set any necessary environment variables
+                    wait_for_websocket: true,
+                    interactive: true
+                };
+
+                // Write the modified body to the proxy request
+                const bodyData = JSON.stringify(execPayload);
+                proxyReq.setHeader('Content-Length', Buffer.byteLength(bodyData));
+                proxyReq.write(bodyData);
+                proxyReq.end();
+            },
+            onProxyReqWs: (proxyReq/*, req, socket, options, head*/) => {
+                // Modify the WebSocket handshake or headers if needed
+                proxyReq.setHeader('origin', this.config.lxdEndpoint);
+                // Additional headers can be set here
+            },
+            onError: (err, req, res) => {
+                console.error('Error during proxying:', err);
+                res.status(500).send('Proxy Error');
+            }
+        }));
 
         // Define the LXD proxy middleware
-        const lxdProxy = createProxyMiddleware({
-            target: _this.config.lxdEndpoint,
+        const lxdwsProxy = createProxyMiddleware({
+            target: 'wss://localhost:8443',
             ws: true,
             xfwd: true,
             autoRewrite: true,
             changeOrigin: true,
             agent: httpsAgent,
             secure: false, // Set to false if your target server has a self-signed or invalid SSL certificate
-            // ssl: {
-            //     cert: sslCert,
-            //     key: sslKey,
-            //     rejectUnauthorized: false
-            // },
-            pathRewrite: (path) => {
+            pathRewrite: (path/*, req*/) => {
+                // Retain the part of the path after '/lxd'
+                const newPath = path.replace(/^\/ae_wslxd/, '');
+                console.log(`Rewriting path: ${path} to ${newPath}`);
+                return newPath;
+            },
+            onProxyReqWs: (proxyReq, req, socket, options/*, head*/) => {
+                console.log('Proxying WebSocket request 11111111:', req.url);
+                console.log('Target WebSocket server:', options.target);
+                console.log(
+                    'Target WebSocket server type',
+                    typeof options.target
+                );
+                options.agent = httpsAgent;
+                proxyReq.setHeader('origin', 'wss://10.142.106.1:8443');
+                proxyReq.setHeader('host', '10.142.106.1:8443');
+
+                // Remove the 'sec-websocket-extensions' header
+                proxyReq.removeHeader('sec-websocket-extensions');
+            }
+        });
+
+
+        // this.server.on('upgrade', lxdwsProxy.upgrade);
+        // Check if the upgrade function is available and use it
+        if (lxdwsProxy.upgrade) {
+            this.server.on('upgrade', (request, socket, head) => {
+                console.log('Received upgrade request from:', request.headers.origin);
+                console.log('Upgrade request URL:', request.url);
+                console.log('Upgrade request headers:', request.headers);
+
+                if (request.url?.startsWith('/ae_wslxd')) {
+                    // Add CORS headers to the response
+                    socket.write('HTTP/1.1 101 Web Socket Protocol Handshake\r\n' +
+                        'Upgrade: WebSocket\r\n' +
+                        'Connection: Upgrade\r\n' +
+                        'Access-Control-Allow-Credentials: true\r\n' +
+                        'Access-Control-Allow-Origin: *\r\n' +
+                        '\r\n');
+                    request.headers['access-control-allow-credentials'] = 'true';
+                    request.headers['access-control-allow-origin'] = '*'; // Replace '*' with your frontend origin in production
+
+                    lxdwsProxy.upgrade!(request as any, socket as any, head);
+                } else {
+                    console.log('Upgrade request not for WebSocket proxy, destroying socket.');
+                    socket.destroy();
+                }
+            });
+        } else {
+            console.error('WebSocket upgrade function is not available in proxy middleware');
+        }
+
+        this.app.use('/ae_wslxd', lxdwsProxy);
+
+        // Define the LXD proxy middleware
+        const lxdProxy = createProxyMiddleware({
+            target: _this.config.lxdEndpoint, // 'https://localhost:8443';
+            // ws: true,
+            xfwd: true,
+            autoRewrite: true,
+            changeOrigin: true,
+            agent: httpsAgent,
+            secure: false, // Set to false if your target server has a self-signed or invalid SSL certificate
+            pathRewrite: (path/*, req*/) => {
                 // Retain the part of the path after '/lxd'
                 const newPath = path.replace(/^\/lxd/, '');
                 console.log(`Rewriting path: ${path} to ${newPath}`);
                 return newPath;
             },
-            onProxyReq: (proxyReq, req) => {
+            onProxyReq: (proxyReq, req/*, res*/) => {
+                console.log('Proxy Req headers: ', req.headers);
+                console.log('Proxy Req body: ', req.body);
 
+                // Set other necessary headers
                 proxyReq.setHeader('Content-Type', 'application/json');
                 proxyReq.setHeader('Connection', 'keep-alive');
+
+                // Set the 'Host' header to the correct value of the LXD server you are proxying to
+                // This should match the domain or IP address and port number that the LXD server expects
+                proxyReq.setHeader(
+                    'Host', new URL(_this.config.lxdEndpoint).host
+                );
+
+                // Log the modified proxy request headers for debugging
+                // console.log(
+                //     'Modified Proxy Req headers: ',
+                //     proxyReq.getHeaders()
+                // );
                 console.log('Proxying LXD API request:', req.url);
             },
             onProxyRes: (proxyRes, req, res) => {
@@ -350,46 +434,27 @@ export class Router {
                     console.log('Handling WebSocket response...');
 
                     // const socket = res.socket;
-
-                    // socket.on('data', (chunk) => {
-                    //     console.log('Data from target WebSocket server:', chunk.toString());
-                    // });
-
-                    // socket.on('end', () => {
-                    //     console.log('WebSocket connection to target server ended');
-                    // });
-
-                    // socket.on('error', (err) => {
-                    //     console.error('Error in WebSocket response from target server:', err);
-                    // });
                 } else {
                     // Non-WebSocket handling
                     if (!res.headersSent && !req.url.includes('/websocket')) {
-                        res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
+                        res.setHeader(
+                            'Access-Control-Allow-Origin',
+                            req.headers.origin || '*'
+                        );
                     }
                     console.log('Handling non-WebSocket response...');
                 }
                 console.log('Received response from LXD:', proxyRes.statusCode);
             },
-            onProxyReqWs: (proxyReq, req, socket, options) => {
-                console.log('Proxying WebSocket request:', req.url);
+            onProxyReqWs: (proxyReq, req, socket, options/*, head*/) => {
+                console.log('Proxying WebSocket request 11111111:', req.url);
                 console.log('Target WebSocket server:', options.target);
-                console.log('Target WebSocket server type', typeof options.target);
-                // Modify the target protocol to 'wss' as it's an HTTPS connection
-                // Ensure that options.target is treated as a URL object
-
-                // Check if options.target is an object and has a protocol property
-                if (typeof options.target === 'object' && options.target && 'protocol' in options.target) {
-                    if (options.target.protocol !== 'wss:') {
-                        options.target.protocol = 'wss:';
-                        console.log('Modified Target WebSocket server protocol to wss:', options.target);
-                    }
-                } else {
-                    console.error('Invalid target for WebSocket proxying');
-                }
+                console.log(
+                    'Target WebSocket server type',
+                    typeof options.target
+                );
 
                 options.agent = httpsAgent;
-
             },
             onError: (err, req, res) => {
                 console.error('Error during proxying:', err);
@@ -397,108 +462,163 @@ export class Router {
                 res.status(500).send('Proxy Error');
             }
         });
-        // Then, apply the LXD proxy middleware to the Express application
-        // instance creation, instance management
-        const lxd_proxy_routers = [
-            '/lxd/*',
-            '/lxd/1.0/instances'
-            // '/lxd/1.0/instances/:instanceId',
-            // '/lxd/1.0/instances/:instanceId/*',
-            // '/lxd/1.0/operations/:operationId/websocket'
-        ];
 
-        lxd_proxy_routers.forEach(router => {
-            this.app.use(router, lxdProxy);
-        });
+        this.app.use('/lxd/1.0/instances', lxdProxy);
 
-        this.server.on('upgrade', (request, socket, head) => {
-            console.log('Received upgrade request from', request.headers.origin);
-            console.log('Upgrade request URL:', request.url);
+        this.app.post(
+            '/api/lxd/instances/:instanceName/exec',
+            async (req, res) => {
+                console.log('Proxying to LXD:', req.body);
+                console.log(req.headers);
+                const instanceName = req.params.instanceName;
+                console.log(
+                    `Proxying exec command to instance: ${instanceName}`
+                );
+                const lxdUrl = `${_this.config.lxdEndpoint}/1.0/instances/${encodeURIComponent(instanceName)}/exec`;
+                console.log('lxd url', lxdUrl);
 
-            // wsLxdServer.handleUpgrade(request, socket, head, (socket) => {
-            //     wsServer.emit('connection', socket, request);
-            // });
+                const execPayload = {
+                    'command': ['bash'],
+                    'environment': {
+                        TERM: 'xterm-256color',
+                        HOME: '/root',
+                        ...req.body.environment // Add additional environment variables if provided
+                    },
+                    'user': req.body.user || 0, // Use provided user or default to 0
+                    'group': req.body.group || 0, // Use provided group or default to 0
+                    'wait-for-websocket': true,
+                    'interactive': true
+                };
+                // Create an instance of axios with a custom HTTPS agent
+                const axiosInstance = axios.create({
+                    httpsAgent: new https.Agent({
+                        cert: fs.readFileSync('/Users/jwang12/mylxd.crt'),
+                        key: fs.readFileSync('/Users/jwang12/mylxd.key'),
+                        rejectUnauthorized: false // to allow self-signed certs
+                    })
+                });
+                const headers = {
+                    // ...req.headers,
+                    'Content-Type': 'application/json',
+                    'Connection': 'keep-alive',
+                    'Accept': '*/*',
+                    'Cache-Control': 'no-cache',
+                    'Host': 'localhost:8443',
+                    'Accept-Encoding': 'gzip, deflate, br',
+                    'User-Agent': 'axios/1.4.0'
+                };
+                try {
+                    // Proxy the request to the LXD server
+                    // const lxdResponse = await axiosInstance.post(lxdUrl, req.body, {headers});
+                    const lxdResponse = await axiosInstance.post(
+                        lxdUrl,
+                        execPayload,
+                        { headers }
+                    );
+                    // console.log('Initial response from LXD:', lxdResponse.data);
 
-            if (request.headers.origin === 'http://localhost:4200' && request.url?.startsWith('/lxd')) {
-                console.log('Proxying WebSocket request:', request.url);
-
-                const proxyUpgrade = lxdProxy.upgrade;
-                if (proxyUpgrade) {
-                    // Using type assertion to match the expected type
-                    proxyUpgrade(request as any, socket as any, head);
-                } else {
-                    socket.destroy();
+                    if (
+                        lxdResponse.data.metadata.class === 'websocket' &&
+                        lxdResponse.data.metadata.metadata.fds
+                    ) {
+                        console.log(
+                            'WebSocket information received from LXD:',
+                            lxdResponse.data.metadata.metadata
+                        );
+                        res.json({
+                            fds: lxdResponse.data.metadata.metadata.fds,
+                            operationId: lxdResponse.data.metadata.id
+                        });
+                    } else {
+                        throw new Error(
+                            'File descriptors not found in operation response'
+                        );
+                    }
+                } catch (error) {
+                    console.error('Error proxying to LXD:', error);
+                    res.status(500).send('Error proxying to LXD');
                 }
-            } else {
-                socket.destroy();
             }
-        });
+        );
 
+        this.app.post('/api/lxd/instances/create', cors(), async (req, res) => {
+            const payload = req.body;
+            const lxdUrl = `${_this.config.lxdEndpoint}/1.0/instances`;
 
-        this.app.post('/api/lxd/instances/:instanceName/exec', async (req, res) => {
-
-            console.log('Proxying to LXD:', req.body);
-            console.log(req.headers);
-            const instanceName = req.params.instanceName;
-            console.log(`Proxying exec command to instance: ${instanceName}`);
-            const lxdUrl = `https://192.168.64.4:8443/1.0/instances/${encodeURIComponent(instanceName)}/exec`;
-            console.log('lxd url', lxdUrl);
-
-            const execPayload = {
-                'command': ['bash'],
-                'environment': {
-                    TERM: 'xterm-256color',
-                    HOME: '/root',
-                    ...req.body.environment // Add additional environment variables if provided
-                },
-                'user': req.body.user || 0, // Use provided user or default to 0
-                'group': req.body.group || 0, // Use provided group or default to 0
-                'wait-for-websocket': true,
-                'interactive': true
-            };
-            // Create an instance of axios with a custom HTTPS agent
-            const axiosInstance = axios.create({
-                httpsAgent: new https.Agent({
-                    cert: fs.readFileSync('/Users/jwang12/mylxd.crt'),
-                    key: fs.readFileSync('/Users/jwang12/mylxd.key'),
-                    rejectUnauthorized: false // to allow self-signed certs
-                })
+            const httpsAgent = new https.Agent({
+                cert: fs.readFileSync('/Users/jwang12/mylxd.crt'),
+                key: fs.readFileSync('/Users/jwang12/mylxd.key'),
+                rejectUnauthorized: false // Allow self-signed certs
             });
-            const headers = {
-                // ...req.headers,
-                'Content-Type': 'application/json',
-                'Connection': 'keep-alive',
-                'Accept': '*/*',
-                'Cache-Control': 'no-cache',
-                'Host': '192.168.64.4:8443',
-                'Accept-Encoding': 'gzip, deflate, br',
-                'User-Agent': 'axios/1.4.0'
-                // 'Origin': 'https://192.168.64.4:8443/'
-            };
+
             try {
+                const lxdResponse = await axios.post(lxdUrl, payload, {
+                    headers: { 'Content-Type': 'application/json' },
+                    httpsAgent
+                });
 
-
-                // Proxy the request to the LXD server
-                // const lxdResponse = await axiosInstance.post(lxdUrl, req.body, {headers});
-                const lxdResponse = await axiosInstance.post(lxdUrl, execPayload, { headers });
-                // console.log('Initial response from LXD:', lxdResponse.data);
-
-                if (lxdResponse.data.metadata.class === 'websocket' && lxdResponse.data.metadata.metadata.fds) {
-
-                    console.log('WebSocket information received from LXD:', lxdResponse.data.metadata.metadata);
-                    res.json({ fds: lxdResponse.data.metadata.metadata.fds, operationId: lxdResponse.data.metadata.id });
-                } else {
-                    throw new Error('File descriptors not found in operation response');
-                }
-
+                console.log('Response from LXD:', lxdResponse.data);
+                res.json(lxdResponse.data);
             } catch (error) {
                 console.error('Error proxying to LXD:', error);
                 res.status(500).send('Error proxying to LXD');
             }
         });
 
-        this.proxies.push(lxdProxy);
+        // Combined endpoint for starting/stopping an instance
+        this.app.put(
+            '/api/lxd/instances/:instanceName/action',
+            async (req, res) => {
+                const instanceName = req.params.instanceName;
+                const action = req.body.action; // 'start' or 'stop'
+                const lxdUrl = `${_this.config.lxdEndpoint}/1.0/instances/${instanceName}/state`;
 
+                const httpsAgent = new https.Agent({
+                    cert: fs.readFileSync('/Users/jwang12/mylxd.crt'),
+                    key: fs.readFileSync('/Users/jwang12/mylxd.key'),
+                    rejectUnauthorized: false // Allow self-signed certs
+                });
+
+                const actionPayload = {
+                    action: action,
+                    timeout: 30,
+                    force: false,
+                    stateful: false
+                };
+
+                try {
+                    const lxdResponse = await axios.put(lxdUrl, actionPayload, {
+                        headers: { 'Content-Type': 'application/json' },
+                        httpsAgent
+                    });
+
+                    console.log('Response from LXD:', lxdResponse.data);
+                    res.json(lxdResponse.data);
+                } catch (error) {
+                    console.error('Error proxying to LXD:', error);
+                    res.status(500).send('Error proxying to LXD');
+                }
+            }
+        );
+
+        this.app.delete('/api/lxd/instances/:instanceName', async (req, res) => {
+            const instanceName = req.params.instanceName;
+            const lxdUrl = `${this.config.lxdEndpoint}/1.0/instances/${instanceName}`;
+
+            try {
+                // It's a good practice to use the httpsAgent for consistency
+                const lxdResponse = await axios.delete(lxdUrl, { httpsAgent });
+                console.log('Response from LXD:', lxdResponse.data);
+                res.json(lxdResponse.data);
+            } catch (error) {
+                console.error('Error proxying to LXD:', error);
+                res.status(500).send('Error proxying to LXD');
+            }
+        });
+
+
+        // this.proxies.push(lxdProxy);
+        this.proxies.push(lxdProxy);
     }
 
     public getApp(): Express {
@@ -512,6 +632,7 @@ export class Router {
     public getServer(): http.Server {
         return this.server;
     }
+    public getHttpsServer(): https.Server {
+        return this.httpsServer;
+    }
 }
-
-
