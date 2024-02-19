@@ -129,6 +129,13 @@ const collections = {
         indexes: [
             { key: { id: 1 } }
         ]
+    },
+    colddata_collection: {
+        name: 'COLDDATA_COLLECTION',
+        indexes: [
+            { key: { id: 1 }, unique: true },
+            { key: { studId: 1, fieldId: 1 } }
+        ]
     }
 };
 

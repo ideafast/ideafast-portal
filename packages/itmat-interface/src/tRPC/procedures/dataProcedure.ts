@@ -271,69 +271,17 @@ export const dataRouter = t.router({
      */
     getDataLatest: baseProcedure.input(z.object({
         studyId: z.string(),
-        versionId: z.optional(z.union([z.string(), z.null()])),
-        aggregation: z.optional(z.any()),
-        fieldIds: z.optional(z.union([z.array(z.string()), z.null()])),
-        useCache: z.optional(z.boolean()),
-        forceUpdate: z.optional(z.boolean())
+        fieldIds: z.optional(z.union([z.array(z.string()), z.null()]))
     })).query(async (opts: any) => {
         const user = opts.ctx.req.user;
         const study = (await studyCore.getStudies(opts.input.studyId))[0];
         // get the versions
-        const availableDataVersions: Array<string | null> = !opts.input.versionId ? (study.currentDataVersion === -1 ? [] : study.dataVersions.filter((__unused__el, index) => index <= study.currentDataVersion)).map(el => el.id)
-            : study.dataVersions.filter((__unused__el, index) => index <= study.dataVersions.findIndex(el => el.id === opts.input.versionId)).map(el => el.id);
-        if (opts.input.versionId === null) {
-            availableDataVersions.push(null);
+        const availableDataVersions: Array<string | null> = (study.currentDataVersion === -1 ? [] : study.dataVersions.filter((__unused__el, index) => index <= study.currentDataVersion)).map(el => el.id);
+        let fieldIds = (await dataCore.getStudyFields(user.id, opts.input.studyId, availableDataVersions, null)).map(el => el.fieldId);
+        if (opts.input.fieldIds) {
+            fieldIds = fieldIds.filter(el => opts.input.fieldIds.includes(el));
         }
-        const fieldIds = (await dataCore.getStudyFields(user.id, opts.input.studyId, availableDataVersions, null)).map(el => el.fieldId).filter(el => opts.input.fieldIds.includes(el));
-        const aggregation = {
-            clinical: [
-                { operationName: 'Group', params: { keys: ['fieldId', 'properties.Participant ID', 'properties.Visit ID'], skipUnmatch: true } },
-                { operationName: 'LeaveOne', params: { scoreFormula: { type: enumASTNodeTypes.VARIABLE, operator: null, value: 'life.createdTime', parameters: {}, children: null }, isDescend: true } },
-                {
-                    operationName: 'Filter', params: {
-                        filters: {
-                            deleted: {
-                                formula: {
-                                    type: enumASTNodeTypes.VARIABLE,
-                                    operation: null,
-                                    value: 'life.deletedTime',
-                                    parameter: {},
-                                    children: null
-                                },
-                                condition: enumConditionOps.GENERALISNULL,
-                                value: '',
-                                parameters: {}
-                            }
-                        }
-                    }
-                }
-            ],
-            device: [
-                { operationName: 'Group', params: { keys: ['properties.Participant ID', 'properties.Device Type', 'properties.Device ID', 'properties.Start Date', 'properties.End Date'], skipUnmatch: true } },
-                { operationName: 'LeaveOne', params: { scoreFormula: { type: enumASTNodeTypes.VARIABLE, operator: null, value: 'life.createdTime', parameters: {}, children: null }, isDescend: true } },
-                {
-                    operationName: 'Filter', params: {
-                        filters: {
-                            deleted: {
-                                formula: {
-                                    type: enumASTNodeTypes.VARIABLE,
-                                    operation: null,
-                                    value: 'life.deletedTime',
-                                    parameter: {},
-                                    children: null
-                                },
-                                condition: enumConditionOps.GENERALISNULL,
-                                value: '',
-                                parameters: {}
-                            }
-                        }
-                    }
-                }
-                // { operationName: 'Concat', params: { concatKeys: ['properties', 'life'] } }
-            ]
-        };
-        return await dataCore.getData(user.id, opts.input.studyId, fieldIds, availableDataVersions, aggregation, opts.input.useCache, opts.input.forceUpdate);
+        return await dataCore.getDataLatest(user.id, opts.input.studyId, fieldIds);
     }),
     getFile: baseProcedure.input(z.object({
         fileId: z.string()

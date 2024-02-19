@@ -19,7 +19,8 @@
             "standardizations_collection": "STANDARDIZATION_COLLECTION",
             "configs_collection": "CONFIG_COLLECTION",
             "ontologies_collection": "ONTOLOGY_COLLECTION",
-            "docs_collection": "DOC_COLLECTION"
+            "docs_collection": "DOC_COLLECTION",
+            "colddata_collection": "COLDDATA_COLLECTION"
         }
     },
     "server": {

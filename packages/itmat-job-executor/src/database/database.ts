@@ -22,7 +22,8 @@ export interface IDatabaseConfig extends IDatabaseBaseConfig {
         docs_collection: string,
         cache_collection: string,
         drives_collection: string,
-        groups_collection: string
+        groups_collection: string,
+        'colddata_collection': string
     };
 }
 
@@ -45,7 +46,8 @@ export interface IDatabaseCollectionConfig {
     docs_collection: Collection<IDoc>,
     cache_collection: Collection<ICache>,
     drives_collection: Collection<IDriveNode>,
-    groups_collection: Collection<IGroupNode>
+    groups_collection: Collection<IGroupNode>,
+    colddata_collection: Collection<IData>
 }
 
 // export const db = new DatabaseBase<IDatabaseBaseConfig, IDatabaseCollectionConfig>();

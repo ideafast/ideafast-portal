@@ -269,7 +269,7 @@ export class DataCore {
                     { studyId: studyId, dataVersion: { $in: dataVersions } },
                     { fieldId: selectedFields ? { $in: selectedFields } : { $in: [new RegExp('^.*$')] } },
                     { fieldId: user.type !== enumUserTypes.ADMIN ? { $in: regularExpressions.map(el => new RegExp(el)) } : { $in: [new RegExp('^.*$')] } },
-                    { 'life.deletedTime': { $ne: null } }
+                    { 'life.deletedTime': null }
                 ]
             }
         }, {
@@ -897,6 +897,96 @@ export class DataCore {
         }
     }
 
+    public async getDataLatest(requester: string, studyId: string, fieldIds: string[]): Promise<any> {
+        const user = await db.collections!.users_collection.findOne({ id: requester });
+        if (!user) {
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'User does not exist.'
+            });
+        }
+        const study = await db.collections!.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null });
+        if (!study) {
+            throw new GraphQLError('Study does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
+        }
+        const userRoles = (await permissionCore.getUserRoles(requester, studyId));
+        const config = await db.collections!.configs_collection.findOne({ type: enumConfigType.STUDYCONFIG, key: studyId });
+        if (!config) {
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'Study config not found.'
+            });
+        }
+
+        // copied from getDataByRoles
+        const matchFilter: any = {
+            studyId: studyId
+        };
+        if (fieldIds) {
+            matchFilter.fieldId = { $in: fieldIds };
+
+        }
+        const groupKeys: any = {};
+        for (const key of (config.properties as IStudyConfig).defaultVersioningKeys) {
+            let usedKey: string = key;
+            if (key.startsWith('properties.')) {
+                usedKey = key.split('.')[1];
+            }
+            groupKeys[usedKey] = `$${key}`;
+        }
+        if (user.type === enumUserTypes.ADMIN) {
+            return await db.collections!.colddata_collection.aggregate([{
+                $match: {
+                    ...matchFilter
+                }
+            }, {
+                $project: {
+                    _id: 0,
+                    studyId: 1,
+                    fieldId: 1,
+                    value: 1,
+                    properties: 1
+                }
+            }]).toArray();
+        } else {
+            const roleArr: any[] = [];
+            for (const role of userRoles) {
+                const permissionArr: any[] = [];
+                for (let i = 0; i < role.dataPermissions.length; i++) {
+                    if (role.dataPermissions[i].fields.length === 0) {
+                        continue;
+                    }
+                    const obj: any = {
+                        fieldId: { $in: role.dataPermissions[i].fields.map(el => new RegExp(el)) }
+                    };
+                    if (role.dataPermissions[i].dataProperties) {
+                        for (const key of Object.keys(role.dataPermissions[i].dataProperties)) {
+                            obj[`properties.${key}`] = { $in: role.dataPermissions[i].dataProperties[key].map((el: string | RegExp) => new RegExp(el)) };
+                        }
+                    }
+                    permissionArr.push(obj);
+                }
+                if (permissionArr.length === 0) {
+                    return [];
+                }
+                roleArr.push({ $or: permissionArr });
+            }
+            return await db.collections!.colddata_collection.aggregate([{
+                $match: { ...matchFilter }
+            }, {
+                $match: { $or: roleArr }
+            }, {
+                $project: {
+                    _id: 0,
+                    studyId: 1,
+                    fieldId: 1,
+                    value: 1,
+                    properties: 1
+                }
+            }], { allowDiskUse: true }).toArray();
+        }
+    }
+
     public async getDataByRoles(isAdmin: boolean, roles: IRole[], studyId: string, dataVersions: Array<string | null>, fieldIds?: string[]) {
         const matchFilter: any = {
             studyId: studyId,
@@ -1249,6 +1339,34 @@ export class DataCore {
                 dataVersion: studyDataVersion.id
             }
         });
+
+        let bulk = db.collections!.colddata_collection.initializeUnorderedBulkOp();
+        const skip = 1000;
+        const index = 0;
+        let continueLoop = true;
+        while (continueLoop) {
+            const unsyncedData = await db.collections!.data_collection.find({
+                studyId: study.id,
+                dataVersion: studyDataVersion.id
+            }).skip(index * skip).limit(skip).toArray();
+            for (const data of unsyncedData) {
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                const { _id, ...dataWithoutId } = data;
+                bulk.find({
+                    studyId: study.id,
+                    fieldId: data.fieldId,
+                    properties: data.properties
+                }).upsert().update({
+                    $set: dataWithoutId
+                });
+            }
+            if (bulk.batches.length > 0) {
+                bulk.execute();
+                bulk = db.collections!.colddata_collection.initializeUnorderedBulkOp();
+            } else {
+                continueLoop = false;
+            }
+        }
 
 
         // push new verison to study
