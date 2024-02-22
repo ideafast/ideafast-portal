@@ -177,8 +177,6 @@ export const WebAuthnAuthenticationComponent: FunctionComponent<WebAuthnAuthenti
             onCancel={handleCancelRegistration}
             footer={null}
             centered
-            maskStyle={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
-            bodyStyle={{ padding: '24px' }}
         >
             <div className={webauthnStyles.auth_modalContent}>
                 <img alt='IDEA-FAST Logo' src='https://avatars3.githubusercontent.com/u/60649739?s=150' />

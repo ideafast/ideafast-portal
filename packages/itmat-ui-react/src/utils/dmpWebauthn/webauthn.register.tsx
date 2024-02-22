@@ -98,8 +98,6 @@ export const WebAuthnRegistrationComponent: FunctionComponent<WebAuthnAuthentica
             onCancel={handleCancelRegistration}
             footer={null}
             centered
-            maskStyle={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
-            bodyStyle={{ padding: '24px' }} // Adjust padding as needed to reduce boundary
         >
             <div className={webauthnStyles.registration_dialog}>
                 <img alt='IDEA-FAST Logo' src='https://avatars3.githubusercontent.com/u/60649739?s=150' />
