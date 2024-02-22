@@ -49,6 +49,10 @@ declare module 'express-session' {
     }
 }
 
+// Load the SSL certificate and key
+const lxdSslCert = fs.readFileSync(process.env.NX_ITMAT_INTERFACE_LXD_CERT_PATH || '/');
+const lxdSslKey = fs.readFileSync(process.env.NX_ITMAT_INTERFACE_LXD_KEY_PATH || '/');
+
 export class Router {
     private readonly app: Express;
     private readonly server: http.Server;
@@ -131,13 +135,9 @@ export class Router {
             (socket as any).timeout = 0;
         });
 
-        // Load the SSL certificate and key
-        const sslCert = fs.readFileSync('/Users/jwang12/mylxd.crt');
-        const sslKey = fs.readFileSync('/Users/jwang12/mylxd.key');
-
         // Create an HTTPS server
         this.httpsServer = https.createServer(
-            { key: sslKey, cert: sslCert },
+            { key: lxdSslKey, cert: lxdSslCert },
             this.app
         );
     }
@@ -272,14 +272,10 @@ export class Router {
 
         this.app.get('/file/:fileId', fileDownloadController);
 
-        // Load the SSL certificate and key
-        const sslCert = fs.readFileSync('/Users/jwang12/mylxd.crt');
-        const sslKey = fs.readFileSync('/Users/jwang12/mylxd.key');
-
         // Create an HTTPS agent for the proxy
         const httpsAgent = new https.Agent({
-            cert: sslCert,
-            key: sslKey,
+            cert: lxdSslCert,
+            key: lxdSslKey,
             rejectUnauthorized: false
         });
 
@@ -492,8 +488,8 @@ export class Router {
                 // Create an instance of axios with a custom HTTPS agent
                 const axiosInstance = axios.create({
                     httpsAgent: new https.Agent({
-                        cert: fs.readFileSync('/Users/jwang12/mylxd.crt'),
-                        key: fs.readFileSync('/Users/jwang12/mylxd.key'),
+                        cert: lxdSslCert,
+                        key: lxdSslKey,
                         rejectUnauthorized: false // to allow self-signed certs
                     })
                 });
@@ -546,8 +542,8 @@ export class Router {
             const lxdUrl = `${_this.config.lxdEndpoint}/1.0/instances`;
 
             const httpsAgent = new https.Agent({
-                cert: fs.readFileSync('/Users/jwang12/mylxd.crt'),
-                key: fs.readFileSync('/Users/jwang12/mylxd.key'),
+                cert: lxdSslCert,
+                key: lxdSslKey,
                 rejectUnauthorized: false // Allow self-signed certs
             });
 
@@ -574,8 +570,8 @@ export class Router {
                 const lxdUrl = `${_this.config.lxdEndpoint}/1.0/instances/${instanceName}/state`;
 
                 const httpsAgent = new https.Agent({
-                    cert: fs.readFileSync('/Users/jwang12/mylxd.crt'),
-                    key: fs.readFileSync('/Users/jwang12/mylxd.key'),
+                    cert: lxdSslCert,
+                    key: lxdSslKey,
                     rejectUnauthorized: false // Allow self-signed certs
                 });
 
