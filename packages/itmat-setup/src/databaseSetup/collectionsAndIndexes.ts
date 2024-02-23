@@ -136,6 +136,12 @@ const collections = {
             { key: { id: 1 }, unique: true },
             { key: { studId: 1, fieldId: 1 } }
         ]
+    },
+    hashnode_collection: {
+        name: 'HASHNODE_COLLECTION',
+        indexes: [
+            { key: { rootHash: 1 }, unique: true }
+        ]
     }
 };
 

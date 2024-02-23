@@ -22,7 +22,7 @@ export const baseProcedure = t.procedure.use(async (opts: any) => {
         const listEvents = parseBatchedUrl(opts.ctx.req.url, executionTime);
         const logs: ILog[] = [];
         for (const event of listEvents) {
-            logs.push({
+            const logContent = {
                 id: uuid(),
                 requester: opts.ctx.req.user?.id ?? 'NA',
                 type: enumEventType.API_LOG,
@@ -39,7 +39,9 @@ export const baseProcedure = t.procedure.use(async (opts: any) => {
                     deletedUser: null
                 },
                 metadata: {}
-            });
+            };
+            logs.push(logContent);
+
         }
         logs.length && await db.collections!.log_collection.insertMany(logs);
         return result;

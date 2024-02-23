@@ -37,6 +37,7 @@ import path from 'path';
 import { inferAsyncReturnType, initTRPC } from '@trpc/server';
 import * as trpcExpress from '@trpc/server/adapters/express';
 import multer from 'multer';
+import { MerkleTreeLog } from '../log/merkleTree';
 
 // created for each request
 
@@ -57,17 +58,28 @@ export const createContext = async ({
         const associatedUser = await userRetrieval(pubkey);
         req.user = associatedUser;
     }
+
+    const requestContext = {
+        headers: req.headers,
+        body: req.body,
+        query: req.query,
+        params: req.params,
+        url: req.url,
+        method: req.method
+    };
+    merkleTreeLog.updateLog(JSON.stringify(requestContext));
+
     return ({ req, res });
 }; // no context
 type Context = inferAsyncReturnType<typeof createContext>;
 const t = initTRPC.context<Context>().create();
 const appRouter = t.router(routers);
+const merkleTreeLog = new MerkleTreeLog(null);
 
 export type AppRouter = typeof appRouter;
 interface ApolloServerContext {
     token?: string;
 }
-
 
 export class Router {
     private readonly app: Express;
@@ -157,6 +169,7 @@ export class Router {
             socket.setTimeout(0);
             (socket as any).timeout = 0;
         });
+
     }
 
     async init() {
@@ -182,6 +195,7 @@ export class Router {
                 {
                     async serverWillStart() {
                         logPlugin.serverWillStartLogPlugin();
+                        merkleTreeLog.initLog();
                         return {
                             async drainServer() {
                                 serverCleanup.dispose();
@@ -197,7 +211,8 @@ export class Router {
                                 (requestContext as any).request.variables = spaceFixing(operation as any, actionData);
                             },
                             async willSendResponse(requestContext) {
-                                logPlugin.requestDidStartLogPlugin(requestContext, Date.now() - startTime);
+                                logPlugin.requestDidStartLogPlugin(requestContext, startTime);
+                                merkleTreeLog.updateLog(requestContext);
                             }
                         };
                     }
