@@ -29,7 +29,19 @@ export class ConfigCore {
                         deletedUser: null
                     },
                     metadata: {},
-                    properties: defaultSettings.systemConfig
+                    properties: (() => {
+                        if (configType === enumConfigType.CACHECONFIG) {
+                            return defaultSettings.cacheConfig;
+                        } else if (configType === enumConfigType.STUDYCONFIG) {
+                            return defaultSettings.studyConfig;
+                        } else if (configType === enumConfigType.SYSTEMCONFIG) {
+                            return defaultSettings.systemConfig;
+                        } else if (configType === enumConfigType.USERCONFIG) {
+                            return defaultSettings.userConfig;
+                        } else {
+                            return defaultSettings.userConfig;
+                        }
+                    })()
                 };
             } else {
                 throw new GraphQLError('Config does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });

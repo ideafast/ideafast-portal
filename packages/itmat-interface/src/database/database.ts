@@ -1,4 +1,4 @@
-import type { IData, IField, IFile, IJob, ILog, IOrganisation, IProject, IPubkey, IQueryEntry, IRole, IStudy, IUser, IStandardization, IConfig, IOntologyTree, IDoc, IDriveNode, IGroupNode } from '@itmat-broker/itmat-types';
+import type { IData, IField, IFile, IJob, ILog, IOrganisation, IProject, IPubkey, IQueryEntry, IRole, IStudy, IUser, IStandardization, IConfig, IOntologyTree, IDoc, IDriveNode, IGroupNode, IWebAuthn} from '@itmat-broker/itmat-types';
 import { Database as DatabaseBase, IDatabaseBaseConfig } from '@itmat-broker/itmat-commons';
 import type { Collection } from 'mongodb';
 import { ICache } from 'packages/itmat-types/src/types/cache';
@@ -22,7 +22,8 @@ export interface IDatabaseConfig extends IDatabaseBaseConfig {
         docs_collection: string,
         cache_collection: string,
         drives_collection: string,
-        groups_collection: string
+        groups_collection: string,
+        webauthn_collection: string
     };
 }
 
@@ -45,7 +46,8 @@ export interface IDatabaseCollectionConfig {
     docs_collection: Collection<IDoc>,
     cache_collection: Collection<ICache>,
     drives_collection: Collection<IDriveNode>,
-    groups_collection: Collection<IGroupNode>
+    groups_collection: Collection<IGroupNode>,
+    webauthn_collection: Collection<IWebAuthn>,
 }
 
 export const db = new DatabaseBase<IDatabaseBaseConfig, IDatabaseCollectionConfig>();

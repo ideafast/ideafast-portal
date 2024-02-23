@@ -29,7 +29,7 @@ import jwt from 'jsonwebtoken';
 import { userRetrieval } from '../authentication/pubkeyAuthentication';
 import { createProxyMiddleware, RequestHandler } from 'http-proxy-middleware';
 import qs from 'qs';
-import { IUser } from '@itmat-broker/itmat-types';
+import { defaultSettings, enumConfigType, IUser, IUserConfig } from '@itmat-broker/itmat-types';
 import { v2 as webdav } from 'webdav-server';
 import { DMPFileSystem, DMPWebDAVAuthentication } from '../webdav/dmpWebDAV';
 import { routers } from '../tRPC/procedures/index';
@@ -81,7 +81,34 @@ export class Router {
 
         this.app.use(rateLimit({
             windowMs: 1 * 60 * 1000,
-            max: 500
+            max: async function (req) {
+                // TODO: Queries do not use token
+                const token: string = req.headers.authorization || '';
+                if ((token !== '') && (req.user === undefined)) {
+                    // get the decoded payload ignoring signature, no symmetric secret or asymmetric key needed
+                    const decodedPayload = jwt.decode(token);
+                    // obtain the public-key of the robot user in the JWT payload
+                    const pubkey = (decodedPayload as any)?.publicKey;
+
+                    // verify the JWT
+                    jwt.verify(token, pubkey, function (error: any) {
+                        if (error) {
+                            throw new GraphQLError('JWT verification failed. ' + error, { extensions: { code: ApolloServerErrorCode.BAD_USER_INPUT, error } });
+                        }
+                    });
+                    // store the associated user with the JWT to context
+                    const associatedUser = await userRetrieval(pubkey);
+                    const config = await db.collections!.configs_collection.findOne({
+                        type: enumConfigType.USERCONFIG,
+                        key: associatedUser.id
+                    });
+                    if (config) {
+                        return (config.properties as IUserConfig).defaultMaximumQPS;
+                    }
+                    return defaultSettings.userConfig.defaultMaximumQPS;
+                }
+                return defaultSettings.userConfig.defaultMaximumQPS;
+            }
         }));
 
         this.app.use(express.json({ limit: '50mb' }));
@@ -239,6 +266,7 @@ export class Router {
             '/graphql',
             express.json(),
             graphqlUploadExpress(),
+
             expressMiddleware(gqlServer, {
                 // context: async({ req }) => ({ token: req.headers.token })
                 context: async ({ req, res }) => {

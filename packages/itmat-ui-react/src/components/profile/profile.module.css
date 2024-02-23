@@ -13,6 +13,8 @@
     grid-template-columns: 40% 60%;
     grid-template-rows: 750px 1fr;
     padding: 2rem;
+    display: flex;
+    flex-direction: column;
 }
 
 .profile_left {
@@ -158,4 +160,8 @@
     grid-area: KEY;
     padding: 20px;
     background-color: white;
+}
+
+.section {
+    margin-bottom: 20px; /* Adjust as necessary to create space between sections */
 }
