@@ -21,13 +21,13 @@ export const WebAuthnRegistrationComponent: FunctionComponent<WebAuthnAuthentica
     }) => {
 
     const { showRegistrationDialog, handleCancelRegistration } = useAuth();
-    console.log('WebAuthnRegistrationComponent >>>> showRegistrationDialog', showRegistrationDialog);
+    // console.log('WebAuthnRegistrationComponent >>>> showRegistrationDialog', showRegistrationDialog);
 
     const [webauthnRegistration] = useMutation(WEBAUTHN_REGISTER);
     const [webauthnRegisterVerify] = useMutation(WEBAUTHN_REGISTER_VERIFY);
 
     useEffect(() => {
-        console.log('windows 22222', { isUserLogin, showRegistrationDialog });
+        // console.log('windows 22222', { isUserLogin, showRegistrationDialog });
     }, [isUserLogin, showRegistrationDialog]);
 
     const handleWebAuthnRegistration = async (event) => {

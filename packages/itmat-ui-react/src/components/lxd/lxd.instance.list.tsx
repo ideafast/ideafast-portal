@@ -1,28 +1,29 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Table, Button, message, Spin ,Modal, Space} from 'antd';
-import { ContainerOutlined, CloseOutlined } from '@ant-design/icons';
+import { Table, Button, message, Spin, Modal, Space } from 'antd';
+import { ContainerOutlined, CloseOutlined, DeleteOutlined } from '@ant-design/icons';
 // Additional imports
 import { PoweroffOutlined, PlayCircleOutlined } from '@ant-design/icons';
 
-import { instanceCreationTypes } from './instanceOptions';
+// import { instanceCreationTypes } from './instanceOptions';
 import InstanceStatusIcon from '././lxd.Instance.statusIcon';
-import { COLUMN_WIDTHS } from './instanceTable';
 import CreateInstance from './lxd.instance.create';
 import InstanceOverview from './lxd.insatnce.detail';
-import {LXDCommandExecutor} from './lxd.instance.terminal';
+import { LXDCommandExecutor } from './lxd.instance.terminal';
+import { LXDConsole } from './lxd.instance.console';
+import css from './lxd.module.css';
 
 interface NetworkAddresses {
     family: string;
     address: string;
-  }
+}
 
 interface NetworkInterface {
-addresses: NetworkAddresses[];
+    addresses: NetworkAddresses[];
 }
 
 interface NetworkData {
-[interfaceName: string]: NetworkInterface;
+    [interfaceName: string]: NetworkInterface;
 }
 
 interface LXDInstanceType {
@@ -31,30 +32,6 @@ interface LXDInstanceType {
     network: NetworkData;
     key: string;
 }
-
-// Add a new function to get the instance state which includes network info
-const fetchInstanceState = async (name) => {
-    try {
-        const response = await axios.get(`http://localhost:3333/lxd/1.0/instances/${name}/state`);
-        return response.data.metadata.network;
-    } catch (error) {
-        // Use a type assertion to tell TypeScript that error is of type Error
-        const messageText = error instanceof Error ? error.message : 'An unknown error occurred';
-        message.error('Failed to load instance state: ' + messageText);
-    }
-};
-
-// Define the full-screen style for the terminal modal
-const fullScreenModalStyle: React.CSSProperties = {
-    position: 'absolute', // Use 'absolute' as a specific value instead of a string
-    top: 0,
-    left: 0,
-    width: '100vw',
-    height: '100vh',
-    margin: 0,
-    padding: 0,
-    overflow: 'hidden'
-};
 
 const LXDInstanceList = () => {
     const [instances, setInstances] = useState<LXDInstanceType[]>([]);
@@ -72,28 +49,29 @@ const LXDInstanceList = () => {
 
 
     useEffect(() => {
-        axios.get('http://localhost:3333/lxd/1.0/instances')
+        axios.get('/lxd')
             .then(async response => {
-                const instanceUrls = response.data.metadata;
-                const instanceDetailsPromises = instanceUrls.map(url =>
-                    axios.get(url.replace('/1.0/instances/', 'http://localhost:3333/lxd/1.0/instances/'))
-                );
-                const instancesResponses = await Promise.all(instanceDetailsPromises);
+                const instances = response.data.data;
+                // console.log(instances);
 
-                // New code to get network info for each instance
-                const networkInfoPromises = instancesResponses.map(res =>
-                    fetchInstanceState(res.data.metadata.name)
-                );
-                const networkInfoResponses = await Promise.all(networkInfoPromises);
+                // // New code to get network info for each instance
+                // const networkInfoPromises = instances.map(res =>
+                //     fetchInstanceState(res.name)
+                // );
+                // const networkInfoResponses = await Promise.all(networkInfoPromises);
 
-                // Merge the detailed instances with network info
-                const detailedInstances = instancesResponses.map((res, index) => ({
-                    ...res.data.metadata,
-                    network: networkInfoResponses[index], // This will add the network info to your instance data
-                    key: res.data.metadata.name // Assuming 'name' is unique for each instance
-                }));
+                // console.log(networkInfoResponses);
+                // // Merge the detailed instances with network info
+                // const detailedInstances = instances.map((res, index) => ({
+                //     ...res.data.metadata,
+                //     network: networkInfoResponses[index], // This will add the network info to your instance data
+                //     key: res.data.metadata.name // Assuming 'name' is unique for each instance
+                // }));
 
-                setInstances(detailedInstances);
+                setInstances(instances.map((instance) => ({
+                    ...instance,
+                    key: instance.name
+                })));
                 setLoading(false);
             })
             .catch(error => {
@@ -112,26 +90,6 @@ const LXDInstanceList = () => {
         // Pass a callback function to toggle back to the list view
         return <CreateInstance onInstanceCreated={() => setCreatingInstance(false)} />;
     }
-
-    //  extractIPv4 function to handle multiple network interfaces
-    const extractIPv4 = (networkData: NetworkData): string[] => {
-        const ipv4Addresses: string[] = [];
-        // Check if networkData is defined and not null
-        if (networkData) {
-            // Iterate over all network interfaces
-            Object.values(networkData).forEach(networkInterface => {
-                // Ensure networkInterface and networkInterface.addresses are defined
-                if (networkInterface && networkInterface.addresses) {
-                    networkInterface.addresses.forEach(addr => {
-                        if (addr.family === 'inet' && addr.address !== '127.0.0.1') { // inet is typically used for IPv4
-                            ipv4Addresses.push(addr.address);
-                        }
-                    });
-                }
-            });
-        }
-        return ipv4Addresses;
-    };
 
     // Function to start or stop an instance
     const startOrStopInstance = async (instanceName, action) => {
@@ -162,38 +120,13 @@ const LXDInstanceList = () => {
     // Function to refresh the list of instances
     const refreshInstancesList = async () => {
         setLoading(true);
-        try {
-            const response = await axios.get('http://localhost:3333/lxd/1.0/instances');
-            const instanceDetailsPromises = response.data.metadata.map(url =>
-                axios.get(url.replace('/1.0/instances/', 'http://localhost:3333/lxd/1.0/instances/'))
-            );
-            const instancesResponses = await Promise.all(instanceDetailsPromises);
-
-            const networkInfoPromises = instancesResponses.map(res =>
-                fetchInstanceState(res.data.metadata.name)
-            );
-            const networkInfoResponses = await Promise.all(networkInfoPromises);
-
-            const detailedInstances = instancesResponses.map((res, index) => ({
-                ...res.data.metadata,
-                network: networkInfoResponses[index],
-                key: res.data.metadata.name
-            }));
-
-            setInstances(detailedInstances);
-        } catch (error) {
-            const messageText = error instanceof Error ? error.message : 'An unknown error occurred';
-            message.error(`Failed to refresh instances: ${messageText}`);
-        } finally {
-            setLoading(false);
-        }
     };
 
     // Function to handle the Connect to Jupyter button click
     const connectToJupyter = async (instance) => {
         try {
-        // Construct the URL to include the instance name
-        // Ensure this URL matches the route defined in your backend
+            // Construct the URL to include the instance name
+            // Ensure this URL matches the route defined in your backend
             const url = `http://localhost:3333/api/connect-jupyter/${instance.name}`;
 
             // Make a GET request to your backend
@@ -228,24 +161,17 @@ const LXDInstanceList = () => {
                 </button>
             )
         },
-        {
-            title: 'Type',
-            dataIndex: 'type',
-            key: 'type',
-            render: (text) => instanceCreationTypes.find(type => type.value === text)?.label || text
-        },
-        {
-            title: 'Description',
-            dataIndex: 'description',
-            key: 'description'
-        },
-        {
-            title: 'IPv4',
-            dataIndex: 'network',
-            key: 'ipv4',
-            render: (networkData: NetworkData) => extractIPv4(networkData).join(', ') || 'No IP',
-            width: COLUMN_WIDTHS.IPV4
-        },
+        // {
+        //     title: 'Type',
+        //     dataIndex: 'type',
+        //     key: 'type',
+        //     render: (text) => instanceCreationTypes.find(type => type.value === text)?.label || text
+        // },
+        // {
+        //     title: 'Description',
+        //     dataIndex: 'description',
+        //     key: 'description'
+        // },
         {
             title: 'Status',
             dataIndex: 'status',
@@ -253,25 +179,29 @@ const LXDInstanceList = () => {
             render: (status) => <InstanceStatusIcon status={status} />
         },
         {
-            title: 'Connect to Jupyter',
-            key: 'connectToJupyter',
-            render: (_, record) => (
-                record.status === 'Running' && (
-                    <Button onClick={() => connectToJupyter(record)}>Connect to Jupyter</Button>
-                )
-            )
-        },
-        {
             title: 'Actions',
             key: 'actions',
             render: (_, record) => (
                 <Space size="middle">
                     <Button
-                        type="link"
-                        onClick={() => handleOpenTerminal(record.name)}
+                        onClick={() => connectToJupyter(record)}
                         disabled={record.status !== 'Running'} // Disable if the instance is not running
+                        style={{ display: 'none' }}
                     >
-                    Open Terminal
+                        Connect to Jupyter
+                    </Button>
+                    {/* <Button
+                        onClick={() => handleOpenTerminal(record.name)}
+                        disabled
+                    // disabled={record.status !== 'Running'} // Disable if the instance is not running
+                    >
+                        Open Terminal
+                    </Button> */}
+                    <Button
+                        onClick={() => handleOpenConsole(record.name)}
+                        disabled={record.status !== 'Running' || record.type !== 'virtual-machine'} // Disable if the instance is not running
+                    >
+                        Open Console
                     </Button>
                     <Button
                         type="link"
@@ -292,8 +222,8 @@ const LXDInstanceList = () => {
                     <Button
                         type="link"
                         onClick={() => deleteInstance(record.name)}
-                        icon={<CloseOutlined />}
-                        disabled={record.status === 'Running'} // Optional: Disable if instance is running
+                        icon={<DeleteOutlined />}
+                        danger
                     >
                         Delete
                     </Button>
@@ -304,34 +234,59 @@ const LXDInstanceList = () => {
         // Add more columns as needed
     ];
 
-    const handleOpenTerminal = (instanceName) => {
+    const handleOpenConsole = (instanceName) => {
         setSelectedInstanceName(instanceName);
-        setSelectedTab('terminal');
+        setSelectedTab('console');
         setIsModalVisible(true);
     };
+
+    // const handleOpenTerminal = (instanceName) => {
+    //     setSelectedInstanceName(instanceName);
+    //     setSelectedTab('terminal');
+    //     setIsModalVisible(true);
+    // };
 
 
     return (
         <div>
             <Button type="primary" icon={<ContainerOutlined />} onClick={handleCreateInstance}>
-            Create Instance
+                Create Instance
             </Button>
             {loading ? <Spin /> : <Table dataSource={instances} columns={columns} rowKey="key" />}
             <Modal
                 title={`Instance ${selectedTab.charAt(0).toUpperCase() + selectedTab.slice(1)}`}
                 open={isModalVisible}
                 onOk={() => setIsModalVisible(false)}
-                onCancel={() => setIsModalVisible(false)}
-                style={selectedTab === 'terminal' ? fullScreenModalStyle : { width: '800px' }}
+                onCancel={() => {
+                    setIsModalVisible(false);
+                    // TODO !!!
+                    // Should be removed and use proper async traps
+                    (window as any).hasSpice = false;
+                }}
+                // style={selectedTab !== 'overview' ? fullScreenModalStyle : { width: '800px' }}
+                style={{
+                    width: 'auto !important'
+                }}
+                className={css.modalOverrides}
                 footer={null} // Hide footer when terminal is displayed
                 closable={true} // Always allow closing the modal
-                closeIcon={selectedTab === 'terminal' ? <CloseOutlined /> : undefined}
+                closeIcon={selectedTab !== 'overview' ? <CloseOutlined /> : undefined}
                 destroyOnClose={true} // Destroy Terminal on close
-                forceRender // Pre-render Modal for immediate open
+            // forceRender // Pre-render Modal for immediate open
             >
-                {selectedInstanceName && selectedTab === 'overview' && <InstanceOverview instanceName={selectedInstanceName} />}
+                {selectedInstanceName && selectedTab === 'overview' && (
+                    <InstanceOverview instanceName={selectedInstanceName} />
+                )}
                 {selectedInstanceName && selectedTab === 'terminal' && (
                     <LXDCommandExecutor instanceName={selectedInstanceName} />
+                )}
+                {selectedInstanceName && selectedTab === 'console' && (
+                    <div style={{
+                        height: '100%',
+                        width: '100%'
+                    }}>
+                        <LXDConsole instanceName={selectedInstanceName} />
+                    </div>
                 )}
             </Modal>
         </div>

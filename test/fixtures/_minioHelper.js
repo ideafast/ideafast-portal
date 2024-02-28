@@ -1,5 +1,4 @@
 const importDependencies = async () => {
-    const fetch = (await import('node-fetch')).default;
     const crossSpawn = (await import('cross-spawn')).default;
     const getPort = (await import('get-port')).default;
     const { v4: uuid } = await import('uuid');

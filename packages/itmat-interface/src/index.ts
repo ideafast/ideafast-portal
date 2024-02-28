@@ -2,18 +2,15 @@
 import { Express } from 'express';
 import { Socket } from 'net';
 import http from 'http';
-import https from 'https';
 import ITMATInterfaceRunner from './interfaceRunner';
 import config from './utils/configManager';
 import { db } from './database/database';
 import { IUser, userTypes } from '@itmat-broker/itmat-types';
 import { mailer } from './emailer/emailer';
 
-
 let interfaceRunner = new ITMATInterfaceRunner(config);
 let interfaceSockets: Socket[] = [];
 let interfaceServer: http.Server;
-let interfaceHttpsServer: https.Server;
 let interfaceRouter: Express;
 
 function serverStart() {
@@ -21,19 +18,9 @@ function serverStart() {
     interfaceRunner.start().then(async (itmatRouter) => {
 
         interfaceServer = itmatRouter.getServer();
-
-        interfaceHttpsServer = itmatRouter.getHttpsServer(); // Add a method in your Router class to get the HTTPS server
-
-        // interfaceServer.timeout = 0;
-        // interfaceServer.headersTimeout = 0;
-        // interfaceServer.requestTimeout = 0;
-
-        //TODO temporary extend the time
-
-        interfaceServer.timeout = 120000;
-        interfaceServer.headersTimeout = 125000;
-        interfaceServer.requestTimeout = 130000;
-
+        interfaceServer.timeout = 0;
+        interfaceServer.headersTimeout = 0;
+        interfaceServer.requestTimeout = 0;
         interfaceServer.keepAliveTimeout = 1000 * 60 * 60 * 24 * 5;
         interfaceServer.listen(config.server.port, () => {
             console.info(`Listening at http://localhost:${config.server.port}/`);
@@ -52,32 +39,6 @@ function serverStart() {
                 }
             });
 
-        // TODO local test wjf
-        // Set timeouts and other configurations for the HTTPS server
-        interfaceHttpsServer.timeout = 120000; // 2 minutes in milliseconds
-        interfaceHttpsServer.headersTimeout = 125000; // Slightly longer than 'timeout'
-        interfaceHttpsServer.keepAliveTimeout = 75000; // Adjust as needed
-
-        // Start the HTTPS server
-        interfaceHttpsServer.listen('3443', () => {
-            console.info('HTTPS Server listening at https://localhost:3443/');
-        }).on('connection', (/*socket*/) => {
-            // You might want to apply similar socket configurations as with the HTTP server
-            console.log('On connection for https');
-            // try {
-            //     if (socket) {
-            //         socket.setKeepAlive(true);
-            //         socket.setNoDelay(true);
-            //         socket.setTimeout(0);
-            //     } else {
-            //         console.error('Received undefined socket object in connection event.');
-            //     }
-            // } catch (error) {
-            //     console.error('An error occurred in the connection event:', error);
-            // }
-        }).on('error', (error) => {
-            console.error('An error occurred while starting the HTTPS server.', error);
-        });
         // notice users of expiration
         await emailNotification();
 

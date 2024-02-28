@@ -1,28 +1,28 @@
 import React, { useState, createContext, useContext, FunctionComponent, ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+// import { useNavigate } from 'react-router-dom';
 
 interface AuthContextState {
-  showRegistrationDialog: boolean;
-  setShowRegistrationDialog: (show: boolean) => void;
-  handleCancelRegistration: () => void;
+    showRegistrationDialog: boolean;
+    setShowRegistrationDialog: (show: boolean) => void;
+    handleCancelRegistration: () => void;
 }
 
 const AuthContext = createContext<AuthContextState | undefined>(undefined);
 
 interface AuthProviderProps {
-  children: ReactNode;
+    children: ReactNode;
 }
 
 export const AuthProvider: FunctionComponent<AuthProviderProps> = ({ children }) => {
     const [showRegistrationDialog, setShowRegistrationDialog] = useState(false);
-    const navigate = useNavigate();
+    // const navigate = useNavigate();
 
     const handleCancelRegistration = () => {
-        console.log('handleCancelRegistration, executed');
-        if (showRegistrationDialog){
+        // console.log('handleCancelRegistration, executed');
+        if (showRegistrationDialog) {
             setShowRegistrationDialog(false);
         }
-        navigate('/');
+        // navigate('/');
     };
 
     return (

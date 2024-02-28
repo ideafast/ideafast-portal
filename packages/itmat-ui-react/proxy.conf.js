@@ -42,13 +42,13 @@ module.exports = {
     '/lxd': {
         target: API_SERVER,
         secure: false,
-        changeOrigin: true,
-        autoRewrite: true,
+        // changeOrigin: true,
+        // autoRewrite: true,
         ws: true
     },
-    '/ae_wslxd': {
+    '/rtc': {
         target: API_SERVER,
-        secure: false,
+        // secure: false,
         changeOrigin: true,
         autoRewrite: true,
         ws: true

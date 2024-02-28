@@ -16,6 +16,7 @@
         "**/*.test.ts"
     ],
     "include": [
-        "**/*.ts"
-, "../itmat-ui-react/src/utils/WebauthnLogin.ts"    ]
+        "**/*.ts",
+        "../itmat-ui-react/src/utils/WebauthnLogin.ts"
+    ]
 }

@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef} from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { XTerm } from 'xterm-for-react';
 import { FitAddon } from 'xterm-addon-fit';
 import 'xterm/css/xterm.css';
 import axios from 'axios';
-import {updateMaxHeight} from './util/updateMaxHeight';
+import { updateMaxHeight } from './util/updateMaxHeight';
 import './lxd.module.css';
 
 export const LXDCommandExecutor: React.FC<{ instanceName: string }> = ({ instanceName }) => {
@@ -44,7 +44,7 @@ export const LXDCommandExecutor: React.FC<{ instanceName: string }> = ({ instanc
                 'interactive': true
             };
 
-            const response = await axios.post(`${backendEndpoint}/instances/${instanceName}/exec`,execPayload
+            const response = await axios.post(`${backendEndpoint}/instances/${instanceName}/exec`, execPayload
             );
             const { fds, operationId } = response.data;
             console.log('WebSocket request response:', response.data);
@@ -86,7 +86,7 @@ export const LXDCommandExecutor: React.FC<{ instanceName: string }> = ({ instanc
                         // If the message is a Blob, read it as text
                         const reader = new FileReader();
                         reader.onload = () => {
-                        // Ensure that reader.result is a string before writing to the terminal
+                            // Ensure that reader.result is a string before writing to the terminal
                             const result = reader.result;
                             if (typeof result === 'string') {
                                 console.log('Received text:', result);
@@ -237,7 +237,7 @@ export const LXDCommandExecutor: React.FC<{ instanceName: string }> = ({ instanc
             // Send the command as is, no JSON formatting is required here.
             dataWs.current.send(textEncoder.encode(input));
         }
-        else{  console.log('dataWs', dataWs?.current?.readyState);}
+        else { console.log('dataWs', dataWs?.current?.readyState); }
     };
 
 

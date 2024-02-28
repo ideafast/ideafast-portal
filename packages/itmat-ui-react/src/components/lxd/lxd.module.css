@@ -12,9 +12,9 @@
     padding: 20px;
     background-color: #f4f4f4;
     border-radius: 8px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     /* Adjust the overflow as needed to handle the content within */
-    overflow: auto; 
+    overflow: auto;
 }
 
 .pageAriane {
@@ -28,7 +28,7 @@
     background-color: white;
     padding: 20px;
     border-radius: 8px;
-    box-shadow: inset 0 0 10px rgba(0,0,0,0.1);
+    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.1);
     /* Ensure that the panel can scroll if content overflows */
     overflow: auto;
 }
@@ -48,7 +48,8 @@
 
 .p-terminal-fullscreen {
     width: 100%;
-    height: calc(100vh - 108px); /* Adjust the height based on your header/footer sizes */
+    height: calc(100vh - 108px);
+    /* Adjust the height based on your header/footer sizes */
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -57,7 +58,8 @@
 .p-terminal {
     height: 100%;
     width: 100%;
-    flex-grow: 1; /* Allow terminal to fill the space */
+    flex-grow: 1;
+    /* Allow terminal to fill the space */
 }
 
 
@@ -65,6 +67,35 @@
     width: 100%;
     padding: 10px;
     font-size: 16px;
-    box-sizing: border-box; /* Include padding in the width */
+    box-sizing: border-box;
+    /* Include padding in the width */
 }
 
+.modalOverrides {
+    width: fit-content !important;
+    height: fit-content !important;
+    /* object-fit: contain !important;
+    margin: auto !important; */
+}
+
+.spiceArea {
+    min-width: 500px;
+    min-height: 300px;
+    max-width: 80vw;
+    min-height: 50vh;
+    width: fit-content !important;
+    height: fit-content !important;
+    display: block;
+    background-color: black;
+}
+
+.spiceScreen {
+    width: 100%;
+    height: 100%;
+    /* Ensure the spice screen fills the space */
+}
+
+.spiceScreen canvas {
+    max-width: 100%;
+    max-height: 100%;
+}
