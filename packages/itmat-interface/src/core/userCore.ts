@@ -778,7 +778,7 @@ export class UserCore {
         }
         return group;
     }
-    public async issueAccessToken(pubkey: string, signature: string): Promise<AccessToken> {
+    public async issueAccessToken(pubkey: string, signature: string, life?: number): Promise<AccessToken> {
         // refine the public-key parameter from browser
         pubkey = pubkey.replace(/\\n/g, '\n');
 
@@ -816,7 +816,7 @@ export class UserCore {
         }
         // return the acccess token
         const accessToken = {
-            accessToken: tokengen(payload, pubkeyrec.jwtSeckey)
+            accessToken: tokengen(payload, pubkeyrec.jwtSeckey, undefined, undefined, life)
         };
 
         return accessToken;

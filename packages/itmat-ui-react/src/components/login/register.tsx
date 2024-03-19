@@ -1,10 +1,12 @@
 import { FunctionComponent, useState } from 'react';
-import { useQuery, useMutation } from '@apollo/client/react/hooks';
+import { useMutation } from '@apollo/client/react/hooks';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { GET_ORGANISATIONS, CREATE_USER } from '@itmat-broker/itmat-models';
+import { CREATE_USER } from '@itmat-broker/itmat-models';
 import { IOrganisation } from '@itmat-broker/itmat-types';
 import { Input, Form, Button, Alert, Checkbox, Select } from 'antd';
 import css from './login.module.css';
+import { trpc } from '../../utils/trpc';
+import LoadSpinner from '../reusable/loadSpinner';
 
 export const RegisterNewUser: FunctionComponent = () => {
     const navigate = useNavigate();
@@ -14,10 +16,18 @@ export const RegisterNewUser: FunctionComponent = () => {
     );
 
     // Get list of organisations from server
-    const { loading: getorgsloading, error: getorgserror, data: getorgsdata } = useQuery(GET_ORGANISATIONS, { variables: { orgId: null } });
-    if (getorgsloading) { return <p>Loading..</p>; }
-    if (getorgserror) { return <p>ERROR: please try again.</p>; }
-    const orgList: IOrganisation[] = getorgsdata.getOrganisations;
+    const getOrgs = trpc.org.getOrganisations.useQuery({});
+    if (getOrgs.isLoading) {
+        return <LoadSpinner />;
+    }
+    if (getOrgs.isError) {
+        return <p>
+            An error occured, please contact your administrator
+        </p>;
+    }
+    const orgList: IOrganisation[] = getOrgs.data;
+
+
 
     if (completedCreation) {
         return (

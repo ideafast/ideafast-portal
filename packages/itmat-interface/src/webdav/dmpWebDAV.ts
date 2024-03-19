@@ -33,7 +33,9 @@ export class DMPFileSystem extends webdav.FileSystem {
     router: any;
     isCopying: boolean;
     getFileResults: any;
+    currentStudy: any;
     lastUpdateTime: number;
+    shouldUpdate: boolean;
 
     constructor() {
         super(new DMPFileSystemSerializer());
@@ -41,7 +43,9 @@ export class DMPFileSystem extends webdav.FileSystem {
         this.router = t.router(routers);
         this.isCopying = false;
         // we use a temporaily cache for _readDir, we keep the cache of getFiles
-        this.getFileResults = null;
+        this.getFileResults = [];
+        this.currentStudy = null;
+        this.shouldUpdate = false;
         this.lastUpdateTime = Date.now();
     }
 
@@ -167,6 +171,8 @@ export class DMPFileSystem extends webdav.FileSystem {
         } else {
             if (pathArr.length <= 1) {
                 callback(new Error('You can not edit the root node'));
+            } else if (pathArr[1] === 'Study') {
+                callback(new Error('You can not edit study data'));
             } else {
                 const parentPath = pathArr.slice(0, -1);
                 const userFileDir: Record<string, IDriveNode[]> = await caller.drive.getDrives({
@@ -204,7 +210,7 @@ export class DMPFileSystem extends webdav.FileSystem {
             const ownUserFiles: IDriveNode[] = userFileDir[(ctx.context.user as any).id];
             const node: IDriveNode = ownUserFiles.filter(el => el.path.length === pathArr.length && el.path.every((part, index) => ownUserFiles.filter(ek => ek.id === part)[0].name === pathArr[index]))[0];
             // TODO: replace with real url
-            const fileUri = `${'http://localhost:4200'}/file/${node.fileId}`;
+            const fileUri = `${window.location.origin}/file/${node.fileId}`;
             try {
                 // todo
                 const response = await nodeFetch(fileUri);
@@ -326,11 +332,15 @@ export class DMPFileSystem extends webdav.FileSystem {
                         return;
                     } else {
                         const study = studies.filter(el => el.name === rootPath[1])[0];
+                        if (study.id !== this.currentStudy) {
+                            this.shouldUpdate = true;
+                        }
+                        this.currentStudy = study.id;
                         if (!study) {
                             callback(new Error('Path not found.'));
                             return;
                         } else {
-                            if (!this.getFileResults || (Date.now() - this.lastUpdateTime) > 1000 * 60 * 60) {
+                            if (this.shouldUpdate) {
                                 // update cache
                                 this.getFileResults = await caller.data.getFiles({
                                     studyId: study.id,
@@ -339,6 +349,7 @@ export class DMPFileSystem extends webdav.FileSystem {
                                     forceUpdate: false
                                 });
                             }
+                            this.shouldUpdate = false;
                             const allPaths = this.getFileResults.map((el: { path: string[]; }) => ['Study'].concat(el.path));
                             const children = getDirectChildren(allPaths, pathToArray(pathStr));
                             callback(undefined, children);

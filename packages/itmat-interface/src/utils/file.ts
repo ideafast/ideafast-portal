@@ -19,7 +19,11 @@ export function parseJsonOrString(input: any): any {
     }
     if (typeof input === 'string') {
         try {
-            return JSON.parse(input);
+            let res = JSON.parse(input);
+            if (typeof res === 'string') {
+                res = JSON.parse(res);
+            }
+            return res;
         } catch (error) {
             console.error('Invalid JSON string:', error);
             return null; // or handle the error as appropriate

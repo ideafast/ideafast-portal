@@ -324,16 +324,15 @@ export class Router {
                 webServer.start(() => console.log('READY'));
             });
 
+            // To be removed in further
             webServer.setFileSystem('/Physical', new webdav.PhysicalFileSystem('/Users/siyao/Documents/DMP'), (success) => {
                 console.log('Physical webdav started:', success);
             });
 
             console.log('Webdav is starting...');
             this.app.use('/dav', (req, res, next) => {
-                // webServer.requestListener(req, res, next);
                 next();
             });
-            // this.app.listen(this.config.webdavPort);
         }
 
         const uploadDir = 'uploads'; // Make sure this directory exists
@@ -350,7 +349,11 @@ export class Router {
         });
         const upload = multer({ storage: storage });
         const fileNames = ['file', 'profile', 'attachments', 'fileUpload'];
-        fileNames.forEach(el => this.app.post('/upload', upload.single(el), (req, res) => {
+        fileNames.forEach(el => this.app.post('/upload', upload.single(el), async (req, res) => {
+            const user = await db.collections!.users_collection.findOne({ id: (req?.user as any).id });
+            if (!user) {
+                res.status(400).send('Permission denied.');
+            }
             if (req.file) {
                 res.json({ filePath: req.file.path });
             } else {

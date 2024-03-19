@@ -933,9 +933,10 @@ export const userRouter = t.router({
     }),
     issueAccessToken: baseProcedure.input(z.object({
         pubkey: z.string(),
-        signature: z.string()
+        signature: z.string(),
+        life: z.optional(z.number())
     })).mutation(async (opts: any) => {
-        return await userCore.issueAccessToken(opts.input.pubkey, opts.input.signature);
+        return await userCore.issueAccessToken(opts.input.pubkey, opts.input.signature, opts.input.life);
     }),
     deletePubkey: baseProcedure.input(z.object({
         keyId: z.string(),

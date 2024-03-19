@@ -46,7 +46,7 @@ const collections = {
         name: 'DATA_COLLECTION',
         indexes: [
             { key: { id: 1 }, unique: true },
-            { key: { 'studyId': 1, 'fieldId': 1, 'value': 1, 'life.createdTime': 1 }, unique: false }
+            { key: { studyId: 1, dataVersion: 1, fieldId: 1 }, unique: false }
         ]
     },
     roles_collection: {
@@ -134,7 +134,7 @@ const collections = {
         name: 'COLDDATA_COLLECTION',
         indexes: [
             { key: { id: 1 }, unique: true },
-            { key: { studId: 1, fieldId: 1 } }
+            { key: { studyId: 1, dataVersion: 1, fieldId: 1 }, unique: false }
         ]
     }
 };

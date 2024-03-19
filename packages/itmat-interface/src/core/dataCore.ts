@@ -941,11 +941,11 @@ export class DataCore {
                 }
             }, {
                 $project: {
-                    _id: 0,
-                    studyId: 1,
-                    fieldId: 1,
-                    value: 1,
-                    properties: 1
+                    _id: 0
+                    // studyId: 1,
+                    // fieldId: 1,
+                    // value: 1,
+                    // properties: 1
                 }
             }]).toArray();
         } else {
@@ -977,11 +977,11 @@ export class DataCore {
                 $match: { $or: roleArr }
             }, {
                 $project: {
-                    _id: 0,
-                    studyId: 1,
-                    fieldId: 1,
-                    value: 1,
-                    properties: 1
+                    _id: 0
+                    // studyId: 1,
+                    // fieldId: 1,
+                    // value: 1,
+                    // properties: 1
                 }
             }], { allowDiskUse: true }).toArray();
         }
