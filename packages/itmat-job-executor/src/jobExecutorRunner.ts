@@ -10,6 +10,7 @@ import { JobDispatcher } from './jobDispatch/dispatcher';
 import { MongoClient } from 'mongodb';
 import { APIHandler } from './jobHandlers/apiJobHandler';
 import { defaultSettings } from '@itmat-broker/itmat-types';
+import { LXDJobHandler } from './jobHandlers/lxdJobHandler';
 
 class ITMATJobExecutorRunner extends Runner {
 
@@ -37,6 +38,11 @@ class ITMATJobExecutorRunner extends Runner {
                     // jobDispatcher.registerJobType('QUERY_EXECUTION', QueryHandler.prototype.getInstance.bind(QueryHandler));
                     // jobDispatcher.registerJobType('UKB_IMAGE_UPLOAD', UKB_IMAGE_UPLOAD_Handler.prototype.getInstance);
                     jobDispatcher.registerJobType('DMPAPI', APIHandler.prototype.getInstance.bind(APIHandler));
+                    // register the lxd jobhandler, bind the instance collection to LXDJobHandler
+                    jobDispatcher.registerJobType(
+                        'LXD',
+                        async () => await LXDJobHandler.getHandler(db.collections!.instance_collection)
+                    );
                     const poller = new JobPoller({
                         identity: uuid(),
                         jobCollection: db.collections!.jobs_collection,

@@ -8,6 +8,7 @@ import { IServerConfig } from '../server/server.js';
 export interface IConfiguration extends IServerConfig {
     database: IDatabaseBaseConfig;
     objectStore: IObjectStoreConfig;
+    dmpEndpoint: string;
 }
 
 class ConfigurationManager {

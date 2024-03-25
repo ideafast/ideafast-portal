@@ -17,6 +17,7 @@ import * as Cache from './cache';
 import * as Drive from './drive';
 import * as Group from './group';
 import * as Permission from './permission';
+import * as Instance from './instance';
 
 export * from './file';
 export * from './job';
@@ -36,5 +37,6 @@ export * from './utils';
 export * from './drive';
 export * from './group';
 export * from './permission';
+export * from './instance';
 
-export const Types = { File, Job, Log, User, Pubkey, Study, Query, Data, Standardization, Base, Config, Reserved, Response, Doc, Utils, Cache, Drive, Group, Permission };
+export const Types = { File, Job, Log, User, Pubkey, Study, Query, Data, Standardization, Base, Config, Reserved, Response, Doc, Utils, Cache, Drive, Group, Permission, Instance };

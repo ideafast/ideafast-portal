@@ -76,7 +76,11 @@ export const MyFile: FunctionComponent = () => {
         // if (getDrives?.data && whoAmI?.data) {
         //     setFileList(getDrives.data);
         // }
-        if (isInitialize && getDrives?.data) {
+        // if (isInitialize && getDrives?.data) {
+        //     setCurrentLocationPath([getDrives.data[whoAmI.data.id][0].id]);
+        //     setIsInitialize(false);
+        // }
+        if (isInitialize && getDrives?.data && Array.isArray(getDrives.data[whoAmI.data.id]) && getDrives.data[whoAmI.data.id].length > 0) {
             setCurrentLocationPath([getDrives.data[whoAmI.data.id][0].id]);
             setIsInitialize(false);
         }
@@ -561,14 +565,14 @@ export const MyFile: FunctionComponent = () => {
                             style={{ width: '100%', fontSize: '20px' }}
                             columns={fileTableColumns}
                             expandable={{ showExpandColumn: false }}
-                            dataSource={getDrives.data[whoAmI.data.id]?.filter(el => el.parent === currentLocationPath[currentLocationPath.length - 1])}
+                            dataSource={getDrives.data[whoAmI.data.id]?.filter(el => el.parent === currentLocationPath[currentLocationPath.length - 1]) ?? []}
                         />
-                        <ShareFileModal isModalShown={isSharingDrive} setIsModalShown={setIsSharingDrive} shareFunc={shareDriveViaEmail} shareVariables={{ userId: whoAmI.data.id, nodeId: currentNodeId }} currentDrive={getDrives.data[whoAmI.data.id].filter(el => el.id === currentNodeId)[0]} users={getUsers.data} />
+                        <ShareFileModal isModalShown={isSharingDrive} setIsModalShown={setIsSharingDrive} shareFunc={shareDriveViaEmail} shareVariables={{ userId: whoAmI.data.id, nodeId: currentNodeId }} currentDrive={getDrives.data[whoAmI.data.id]?.filter(el => el.id === currentNodeId)[0] ?? null} users={getUsers.data} />
                     </List.Item>
                 </List >
             </div >
             <div className={css.shared_container}>
-                <SharedFiles users={getUsers.data} sharedUserFiles={getDrives.data} self={whoAmI.data} deleteDriveFunc={deleteDrive} />
+                <SharedFiles users={getUsers.data ?? []} sharedUserFiles={getDrives.data ?? []} self={whoAmI.data} deleteDriveFunc={deleteDrive} />
             </div>
         </>
     );

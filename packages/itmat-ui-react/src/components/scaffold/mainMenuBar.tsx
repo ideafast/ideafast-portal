@@ -73,21 +73,35 @@ export const MainMenuBar: FunctionComponent<MainMenuBarProps> = () => {
                 </div>
             </NavLink >
         </div >
-        {(whoAmI.data.type === enumUserTypes.ADMIN || whoAmI.data.metadata?.logPermission) ?
+        {/* {(whoAmI.data.type === enumUserTypes.ADMIN || whoAmI.data.metadata?.logPermission) ?
             <div>
                 <NavLink to='/jobs' title='Jobs' className={({ isActive }) => isActive ? css.clickedButton : undefined}>
                     <div className={css.button}><CodeSandboxOutlined /> Jobs</div>
                 </NavLink>
             </div> : null
+        } */}
+        {
+            <div>
+                <NavLink to='/ae' title='Analytical Environment' className={({ isActive }) => isActive ? css.clickedButton : undefined}>
+                    <div className={css.button}><DesktopOutlined /> Analytical Environment</div>
+                </NavLink>
+            </div>
         }
-        {(whoAmI.data.type === enumUserTypes.ADMIN || whoAmI.data.metadata?.aePermission === true)
+        {(whoAmI.data.type === enumUserTypes.ADMIN) ?
+            <div>
+                <NavLink to='/instances' title='instances' className={({ isActive }) => isActive ? css.clickedButton : undefined}>
+                    <div className={css.button}><DesktopOutlined /> Instances</div>
+                </NavLink>
+            </div> : null
+        }
+        {/* {(whoAmI.data.type === enumUserTypes.ADMIN || whoAmI.data.metadata?.aePermission === true)
             ? <div>
                 <NavLink to='/pun/sys/dashboard' target='_blank' title='Analytical Environment' className={({ isActive }) => isActive ? css.clickedButton : undefined}>
                     <div className={css.button}><DesktopOutlined /> Analytical Environment</div>
                 </NavLink>
             </div>
             : null
-        }
+        } */}
         <div>
             <NavLink title='Logout' to='/'>
                 <Mutation<any, any>

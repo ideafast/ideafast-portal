@@ -37,6 +37,9 @@ import path from 'path';
 import { inferAsyncReturnType, initTRPC } from '@trpc/server';
 import * as trpcExpress from '@trpc/server/adapters/express';
 import multer from 'multer';
+import lxdRouter, { registerContainSocketServer } from '../lxd';
+// local test
+import cors from 'cors';
 
 // created for each request
 
@@ -132,6 +135,16 @@ export class Router {
                 }
             })
         );
+
+        // webauthn local test
+        // this.app.use(cors({ origin: 'http://localhost:4200'}));
+        // Enable CORS for your React frontend
+        // this.app.use(cors({ origin: 'http://localhost:4200', credentials: true }));
+        this.app.use(cors({
+            origin: '*', // Be cautious with this in production
+            credentials: true
+        }));
+
         /* authenticating user of the request */
         this.app.use(passport.initialize());
         this.app.use(passport.session());
@@ -161,7 +174,7 @@ export class Router {
 
     async init() {
 
-        const _this = this;
+        // const _this = this;
 
         /* putting schema together */
         const schema = makeExecutableSchema({
@@ -184,7 +197,7 @@ export class Router {
                         logPlugin.serverWillStartLogPlugin();
                         return {
                             async drainServer() {
-                                serverCleanup.dispose();
+                                // serverCleanup.dispose();
                             }
                         };
                     },
@@ -211,54 +224,70 @@ export class Router {
 
         /* AE proxy middleware */
         // initial this before graphqlUploadExpress middleware
-        const ae_proxy = createProxyMiddleware({
-            target: _this.config.aeEndpoint,
-            ws: true,
-            xfwd: true,
-            // logLevel: 'debug',
-            autoRewrite: true,
-            changeOrigin: true,
-            onProxyReq: function (preq, req, res) {
-                if (!req.user)
-                    return res.status(403).redirect('/');
-                res.cookie('ae_proxy', req.headers['host']);
-                const data = (req.user as IUser).username + ':token';
-                preq.setHeader('authorization', `Basic ${Buffer.from(data).toString('base64')}`);
-                if (req.body && Object.keys(req.body).length) {
-                    const contentType = preq.getHeader('Content-Type');
-                    preq.setHeader('origin', _this.config.aeEndpoint);
-                    const writeBody = (bodyData: string) => {
-                        preq.setHeader('Content-Length', Buffer.byteLength(bodyData));
-                        preq.write(bodyData);
-                        preq.end();
-                    };
+        // const ae_proxy = createProxyMiddleware({
+        //     target: _this.config.aeEndpoint,
+        //     ws: true,
+        //     xfwd: true,
+        //     // logLevel: 'debug',
+        //     autoRewrite: true,
+        //     changeOrigin: true,
+        //     onProxyReq: function (preq, req, res) {
+        //         if (!req.user)
+        //             return res.status(403).redirect('/');
+        //         res.cookie('ae_proxy', req.headers['host']);
+        //         const data = (req.user as IUser).username + ':token';
+        //         preq.setHeader('authorization', `Basic ${Buffer.from(data).toString('base64')}`);
+        //         if (req.body && Object.keys(req.body).length) {
+        //             const contentType = preq.getHeader('Content-Type');
+        //             preq.setHeader('origin', _this.config.aeEndpoint);
+        //             const writeBody = (bodyData: string) => {
+        //                 preq.setHeader('Content-Length', Buffer.byteLength(bodyData));
+        //                 preq.write(bodyData);
+        //                 preq.end();
+        //             };
 
-                    if (contentType === 'application/json') {  // contentType.includes('application/json')
-                        writeBody(JSON.stringify(req.body));
-                    }
+        //             if (contentType === 'application/json') {  // contentType.includes('application/json')
+        //                 writeBody(JSON.stringify(req.body));
+        //             }
 
-                    if (contentType === 'application/x-www-form-urlencoded') {
-                        writeBody(qs.stringify(req.body));
-                    }
+        //             if (contentType === 'application/x-www-form-urlencoded') {
+        //                 writeBody(qs.stringify(req.body));
+        //             }
 
-                }
-            },
-            onProxyReqWs: function (preq) {
-                const data = 'username:token';
-                preq.setHeader('authorization', `Basic ${Buffer.from(data).toString('base64')}`);
-            },
-            onError: function (err, req, res, target) {
-                console.error(err, target);
-            }
+        //         }
+        //     },
+        //     onProxyReqWs: function (preq) {
+        //         const data = 'username:token';
+        //         preq.setHeader('authorization', `Basic ${Buffer.from(data).toString('base64')}`);
+        //     },
+        //     onError: function (err, req, res, target) {
+        //         console.error(err, target);
+        //     }
+        // });
+
+        // this.proxies.push(ae_proxy);
+
+        // const proxy_routers = ['/pun', '/node', '/rnode', '/public'];
+
+        // proxy_routers.forEach(router => {
+        //     this.app.use(router, ae_proxy);
+        // });
+
+        /* Containered Service Routes */
+
+        // Top level Websocket server Object
+        const containerWsServer = new WebSocketServer({
+            // This is the `httpServer` returned by createServer(app);
+            server: this.server,
+            // Pass a different path here if your ApolloServer serves at
+            // a different path.
+            path: '/rtc'
         });
 
-        this.proxies.push(ae_proxy);
+        registerContainSocketServer(containerWsServer);
 
-        const proxy_routers = ['/pun', '/node', '/rnode', '/public'];
-
-        proxy_routers.forEach(router => {
-            this.app.use(router, ae_proxy);
-        });
+        // REST-API
+        this.app.use('/lxd', lxdRouter);
 
         await gqlServer.start();
 
@@ -297,17 +326,17 @@ export class Router {
 
         /* register the graphql subscription functionalities */
         // Creating the WebSocket subscription server
-        const wsServer = new WebSocketServer({
-            // This is the `httpServer` returned by createServer(app);
-            server: this.server,
-            // Pass a different path here if your ApolloServer serves at
-            // a different path.
-            path: '/graphql'
-        });
+        // const wsServer = new WebSocketServer({
+        //     // This is the `httpServer` returned by createServer(app);
+        //     server: this.server,
+        //     // Pass a different path here if your ApolloServer serves at
+        //     // a different path.
+        //     path: '/graphql'
+        // });
 
         // Passing in an instance of a GraphQLSchema and
         // telling the WebSocketServer to start listening
-        const serverCleanup = useServer({ schema: schema, execute: execute, subscribe: subscribe }, wsServer);
+        // const serverCleanup = useServer({ schema: schema, execute: execute, subscribe: subscribe }, wsServer);
 
         this.app.get('/file/:fileId', fileDownloadController);
 
@@ -324,7 +353,7 @@ export class Router {
                 webServer.start(() => console.log('READY'));
             });
 
-            webServer.setFileSystem('/Physical', new webdav.PhysicalFileSystem('/Users/siyao/Documents/DMP'), (success) => {
+            webServer.setFileSystem('/Physical', new webdav.PhysicalFileSystem('/Users/jwang12/Documents/DMP'), (success) => {
                 console.log('Physical webdav started:', success);
             });
 

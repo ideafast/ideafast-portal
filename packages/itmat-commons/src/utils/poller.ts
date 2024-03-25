@@ -49,34 +49,55 @@ export class JobPoller {
         }
         if (job) {
             Logger.log('Find job');
-            const result = await this.action(job);
-            console.log('Execution finished: ', new Date((Date.now())).toISOString(), result === 'error');
             // update log status
             const setObj: any = {};
-            if (job.period) {
-                setObj.status = enumJobStatus.PENDING;
-                setObj.nextExecutionTime = Date.now() + job.period;
-            } else {
-                if (job.type === enumJobType.LXD) {
-                    setObj.status = enumJobStatus.INUSE;
+            try {
+                // let result: any;
+                console.log('[JobPoller -> checkForJobs] start the action', this.action);
+                // try {
+                //     result = await this.action(job);
+                // }
+                const result = await this.action(job);
+                // catch (e){
+                //     console.error('this.action(job);', e);
+                //     throw new Error(`Failed to update instance metadata: ${e}`);
+                // }
+                console.log('Job Execution finished: ', new Date((Date.now())).toISOString(), result?.error, result);
+
+                if (job.period) {
+                    setObj.status = enumJobStatus.PENDING;
+                    setObj.nextExecutionTime = Date.now() + job.period;
                 } else {
-                    setObj.status = enumJobStatus.FINISHED;
+                    if (job.type === enumJobType.LXD) {
+                        setObj.status = enumJobStatus.INUSE;
+                    } else {
+                        setObj.status = enumJobStatus.FINISHED;
+                    }
                 }
-            }
-            if (result.error) {
+                if (result) {
+                    if (result?.error){
+                        setObj.history = [{
+                            time: Date.now(),
+                            status: enumJobHistoryStatus.FAILED,
+                            errors: [result.response]
+                        }];
+                    } else {
+                        setObj.history = [{
+                            time: Date.now(),
+                            status: enumJobHistoryStatus.SUCCESS,
+                            errors: []
+                        }];
+                    }
+
+                }
+            } catch (error) {
+                console.error('[JOB poller]Job execution Error', new Date((Date.now())).toISOString(),  error);
                 setObj.history = [{
                     time: Date.now(),
                     status: enumJobHistoryStatus.FAILED,
-                    errors: [result.response]
-                }];
-            } else {
-                setObj.history = [{
-                    time: Date.now(),
-                    status: enumJobHistoryStatus.SUCCESS,
-                    errors: []
+                    errors: [error]
                 }];
             }
-
             await this.jobCollection.findOneAndUpdate({ id: job.id }, {
                 $set: setObj
             });

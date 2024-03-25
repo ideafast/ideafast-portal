@@ -14,6 +14,8 @@ import { LogPage } from '../logger';
 import { DocumentPage } from '../documents';
 import { JobPage } from '../job';
 import { DrivePage } from '../drive';
+import {InstancePage} from '../instance';
+import { LXDPage } from '../lxd';
 
 
 export const MainPanel: FunctionComponent = () => {
@@ -30,6 +32,8 @@ export const MainPanel: FunctionComponent = () => {
                 <Route path='/documents' element={<DocumentPage />} />
                 <Route path='/organisations' element={<OrganisationPage />} />
                 <Route path='/jobs' element={<JobPage />} />
+                <Route path='/ae' element={<InstancePage />} />
+                <Route path='/instances' element={<LXDPage />} />
                 {/* <Route path='/myfiles' element={<MyFilePage />} /> */}
                 {/* <Route path='/pun/sys/dashboard' /> */}
                 {/* <Route path='*' element={<Navigate to='/datasets' />} /> */}

@@ -37,5 +37,7 @@
         "bucketRegion": "region",
         "useSSL": false
     },
-    "pollingInterval": 10000
+    "pollingInterval": 10000,
+
+    "dmpEndpoint": "http://localhost:3333"
 }

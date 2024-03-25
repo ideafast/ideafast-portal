@@ -12,6 +12,7 @@ import { driveRouter } from 'packages/itmat-interface/src/tRPC/procedures/driveP
 import { permissionRouter } from 'packages/itmat-interface/src/tRPC/procedures/permissionProcedure';
 import { logRouter } from 'packages/itmat-interface/src/tRPC/procedures/logProcedure';
 import { jobRouter } from 'packages/itmat-interface/src/tRPC/procedures/jobProcedure';
+import { instanceRouter } from 'packages/itmat-interface/src/tRPC/procedures/instanceProcedure';
 
 type ProcedureCaller = {
     [key: string]: (input: any) => Promise<any>;
@@ -28,6 +29,7 @@ type TRPCCaller = {
     permission: ProcedureCaller;
     log: ProcedureCaller;
     job: ProcedureCaller;
+    instance: ProcedureCaller;
 };
 export class APIHandler extends JobHandler {
     private caller: TRPCCaller;
@@ -47,7 +49,8 @@ export class APIHandler extends JobHandler {
             drive: driveRouter,
             permission: permissionRouter,
             log: logRouter,
-            job: jobRouter
+            job: jobRouter,
+            instance: instanceRouter
         });
         this.caller = this.router.createCaller({});
     }

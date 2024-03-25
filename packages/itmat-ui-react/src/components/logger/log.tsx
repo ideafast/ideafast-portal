@@ -247,8 +247,12 @@ const generateLogColumns = (users: any[], barThreshold: number[]) => {
         title: 'Execution Time',
         dataIndex: 'time',
         key: 'time',
-        sorter: (a, b) => a.life.createdTime - b.life.createdTime,
+        sorter: (a, b) => (a.life?.createdTime || 0) - (b.life?.createdTime || 0),
         render: (__unused__value, record) => {
+        // If record.life or record.life.createdTime is undefined, return a default string or handle accordingly
+            if (!record.life?.createdTime) {
+                return 'N/A'; // TODO local fix
+            }
             return new Date(record.life.createdTime).toUTCString();
         }
     }];

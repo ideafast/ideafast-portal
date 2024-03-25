@@ -51,6 +51,7 @@
     },
     "adminEmail": "admin@example.com",
     "aeEndpoint": "http://localhost:9090",
+    "lxdEndpoint": "https://localhost:8443",
     "webdavPort": 1900,
     "useWebdav": false
 }
