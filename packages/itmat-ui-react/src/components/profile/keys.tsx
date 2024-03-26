@@ -53,7 +53,10 @@ export const MyKeys: FunctionComponent = () => {
                     <span>{displayKey}</span>
                     <Button
                         icon={<CopyOutlined />}
-                        onClick={() => copy(pubkey)}
+                        onClick={() => {
+                            copy(pubkey);
+                            message.success('Publick key copied to clipboard');
+                        }}
                         style={{ marginLeft: '8px' }}
                     />
                 </div>
@@ -206,7 +209,7 @@ const TokenGenerationForm = ({ pubkey, issueAccessToken }) => {
 
     const onFormFinish = async (values) => {
         try {
-            const data = await issueAccessToken.mutateAsync({ pubkey, signature: values.signature });
+            const data = await issueAccessToken.mutateAsync({ pubkey, signature: values.signature, life: values.life * 60 * 60 });
             copy(data.accessToken);
             message.success('Token copied to clipboard');
         } catch (error) {
@@ -222,6 +225,12 @@ const TokenGenerationForm = ({ pubkey, issueAccessToken }) => {
                 rules={[{ required: true, message: 'Signature is required' }]}
             >
                 <Input placeholder="Enter signature" />
+            </Form.Item>
+            <Form.Item
+                name="life"
+                rules={[{ required: true, message: 'Life is required' }]}
+            >
+                <Input placeholder="Enter life in hours" />
             </Form.Item>
             <Form.Item>
                 <Button type="primary" htmlType="submit">

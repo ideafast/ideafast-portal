@@ -30,6 +30,7 @@ export interface ISystemConfig extends IBase {
     jobSchedulerConfig: IJobSchedulerConfig;
     defaultUserExpireDays: number;
     domainMeta: IDomainMeta[];
+    systemKeyId: string | null;
 }
 
 export interface IStudyConfig extends IBase {
@@ -125,7 +126,8 @@ export class DefaultSettings implements IDefaultSettings {
             maxAttempts: 10 // the number of attempts should be stored in history
         },
         defaultUserExpireDays: 90,
-        domainMeta: []
+        domainMeta: [],
+        systemKeyId: null
     };
 
     public readonly studyConfig: IStudyConfig = {

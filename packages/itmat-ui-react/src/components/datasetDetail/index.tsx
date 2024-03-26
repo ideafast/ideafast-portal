@@ -52,7 +52,7 @@ export const DatasetDetailPage: FunctionComponent = () => {
                 <Route path='dashboard' element={<DashboardTabContent studyId={studyId} />} />
                 {/* <Route path='field_management' element={<FieldManagementTabContentFetch studyId={studyId} />} /> */}
                 {/* <Route path='data_management' element={<DataManagementTabContentFetch />} /> */}
-                <Route path='data_STATISTICS' element={<StatisticsTabContent studyId={studyId} />} />
+                <Route path='data_statistics' element={<StatisticsTabContent studyId={studyId} />} />
                 <Route path='files' element={<FileRepositoryTabContent studyId={studyId} />} />
                 {/* <Route path='projects/*' element={<ProjectsTabContent projectList={data.getStudy.projects} />} /> */}
                 {/* <Route path='admin' element={<AdminTabContent />} /> */}

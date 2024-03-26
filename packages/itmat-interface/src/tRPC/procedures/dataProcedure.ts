@@ -189,11 +189,11 @@ export const dataRouter = t.router({
     }),
     getFiles: baseProcedure.input(z.object({
         studyId: z.string(),
-        versionId: z.union([z.string(), z.null()]),
+        versionId: z.optional(z.string()),
         fieldIds: z.optional(z.array(z.string())),
         aggregation: z.optional(z.any()),
-        useCache: z.boolean(),
-        forceUpdate: z.boolean(),
+        useCache: z.optional(z.boolean()),
+        forceUpdate: z.optional(z.boolean()),
         readable: z.optional(z.boolean())
     })).query(async (opts: any) => {
         const user = opts.ctx.req?.user ?? opts.ctx.user;
@@ -205,7 +205,7 @@ export const dataRouter = t.router({
             availableDataVersions.push(null);
         }
         const fields = await dataCore.getStudyFields(user.id, opts.input.studyId, availableDataVersions, null);
-        let filteredFieldIds = fields.filter(el => el.dataType === enumDataTypes.FILE).map(el => el.fieldId);
+        let filteredFieldIds = fields.filter(el => el.dataType === enumDataTypes.FILE).map(el => el.fieldId).filter(el => !el.startsWith('reserved'));
         if (opts.input.fieldIds) {
             filteredFieldIds = filteredFieldIds.filter(el => opts.input.fieldIds.includes(el));
         }

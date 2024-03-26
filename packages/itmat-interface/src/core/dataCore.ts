@@ -36,16 +36,15 @@ export const ZValueVerifier = z.object({
 });
 
 export class DataCore {
+    /**
+     * Get the ontology tree of a study by id.
+     *
+     * @param studyId - The id of the study.
+     * @param treeId - The id of the tree.
+     *
+     * @return IOntologyTree
+     */
     public async getOntologyTree(studyId: string, treeId: string): Promise<IOntologyTree> {
-        /**
-         * Get the ontology tree of a study by id.
-         *
-         * @param studyId - The id of the study.
-         * @param treeId - The id of the tree.
-         *
-         * @return IOntologyTree
-         */
-
         const study = await db.collections!.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null });
         if (!study) {
             throw new GraphQLError('Study does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
@@ -59,18 +58,17 @@ export class DataCore {
         return ontologyTree;
     }
 
+    /**
+     * Create an ontology tree.
+     *
+     * @param requester - The id of the requester.
+     * @param studyId - The id of the study.
+     * @param name - The name of the tree.
+     * @param tag - The tag.
+     *
+     * @return IOntologyTree
+     */
     public async createOntologyTree(requester: string, studyId: string, name: string, tag: string): Promise<IOntologyTree> {
-        /**
-         * Create an ontology tree.
-         *
-         * @param requester - The id of the requester.
-         * @param studyId - The id of the study.
-         * @param name - The name of the tree.
-         * @param tag - The tag.
-         *
-         * @return IOntologyTree
-         */
-
         const study = await db.collections!.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null });
         if (!study) {
             throw new GraphQLError('Study does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
@@ -95,17 +93,16 @@ export class DataCore {
         return ontologyTreeEntry;
     }
 
+    /**
+     * Delete an ontology tree.
+     *
+     * @param requester - The id of the requester.
+     * @param studyId - The id of the study.
+     * @param ontologyTreeId - The id of the ontology tree.
+     *
+     * @return IGenericResponse
+     */
     public async deleteOntologyTree(requester: string, studyId: string, ontologyTreeId: string): Promise<IGenericResponse> {
-        /**
-         * Delete an ontology tree.
-         *
-         * @param requester - The id of the requester.
-         * @param studyId - The id of the study.
-         * @param ontologyTreeId - The id of the ontology tree.
-         *
-         * @return IGenericResponse
-         */
-
         const study = await db.collections!.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null });
         if (!study) {
             throw new GraphQLError('Study does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
@@ -125,18 +122,17 @@ export class DataCore {
         return makeGenericReponse(ontologyTreeId, true, undefined, `Ontology tree ${ontologyTreeId} has been deleted.`);
     }
 
+    /**
+     * Add ontology routes to an ontology tree.
+     *
+     * @param requester - The id of the requester.
+     * @param studyId - The id of the study.
+     * @param ontologyTreeId - The id of the ontologyTree.
+     * @param routes - The list of ontology routes.
+     *
+     * @return IGenericResponse[]
+     */
     public async addOntologyRoutes(requester: string, studyId: string, ontologyTreeId: string, routes: { path: string[], name: string, fieldId: string }[]): Promise<IGenericResponse[]> {
-        /**
-         * Add ontology routes to an ontology tree.
-         *
-         * @param requester - The id of the requester.
-         * @param studyId - The id of the study.
-         * @param ontologyTreeId - The id of the ontologyTree.
-         * @param routes - The list of ontology routes.
-         *
-         * @return IGenericResponse[]
-         */
-
         const study = await db.collections!.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null });
         if (!study) {
             throw new GraphQLError('Study does not exist.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });
@@ -892,7 +888,7 @@ export class DataCore {
         } else {
             const data = await this.getDataByRoles(user?.type === enumUserTypes.ADMIN, userRoles, studyId, dataVersions, fieldIds);
             const filteredData = dataTransformationCore.transformationAggregate(data, { version: this.genVersioningAggregation((config.properties as IStudyConfig).defaultVersioningKeys, dataVersions.includes(null)) });
-            const transformed = dataTransformationCore.transformationAggregate(filteredData.version, aggregation);
+            const transformed = aggregation ? dataTransformationCore.transformationAggregate(filteredData.version, aggregation) : filteredData;
             return transformed;
         }
     }
@@ -942,10 +938,6 @@ export class DataCore {
             }, {
                 $project: {
                     _id: 0
-                    // studyId: 1,
-                    // fieldId: 1,
-                    // value: 1,
-                    // properties: 1
                 }
             }]).toArray();
         } else {
@@ -1015,6 +1007,9 @@ export class DataCore {
                     for (const key of Object.keys(role.dataPermissions[i].dataProperties)) {
                         obj[`properties.${key}`] = { $in: role.dataPermissions[i].dataProperties[key].map(el => new RegExp(el)) };
                     }
+                }
+                if (!role.dataPermissions[i].includeUnVersioned) {
+                    obj['dataVersion'] = { $ne: null };
                 }
                 permissionArr.push(obj);
             }
