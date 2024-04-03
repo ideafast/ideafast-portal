@@ -88,6 +88,7 @@ export interface IDefaultSettings extends IBase {
 export interface IDomainMeta {
     profile?: string;
     domain: string;
+    color?: string;
 }
 
 // default settings

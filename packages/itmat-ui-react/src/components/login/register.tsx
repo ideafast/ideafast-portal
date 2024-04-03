@@ -2,18 +2,31 @@ import { FunctionComponent, useState } from 'react';
 import { useMutation } from '@apollo/client/react/hooks';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { CREATE_USER } from '@itmat-broker/itmat-models';
-import { IOrganisation } from '@itmat-broker/itmat-types';
+import { IConfig, IOrganisation, ISystemConfig, enumConfigType } from '@itmat-broker/itmat-types';
 import { Input, Form, Button, Alert, Checkbox, Select } from 'antd';
 import css from './login.module.css';
 import { trpc } from '../../utils/trpc';
 import LoadSpinner from '../reusable/loadSpinner';
+import { getRedirectPath } from '../../utils/tools';
 
 export const RegisterNewUser: FunctionComponent = () => {
     const navigate = useNavigate();
+    const getSystemConfig = trpc.config.getConfig.useQuery({ configType: enumConfigType.SYSTEMCONFIG, key: null, useDefault: true });
     const [completedCreation, setCompletedCreation] = useState(false);
     const [createUser, { loading, error }] = useMutation(CREATE_USER,
         { onCompleted: () => setCompletedCreation(true) }
     );
+    if (getSystemConfig.isLoading) {
+        return <LoadSpinner />;
+    }
+    if (getSystemConfig.isError) {
+        return <p>
+            An error occured, please contact your administrator
+        </p>;
+    }
+    const systemConfig = (getSystemConfig.data as IConfig).properties as ISystemConfig;
+    const endpointName = getRedirectPath();
+    const domainProfile = systemConfig.domainMeta.filter(el => el.domain === endpointName)[0]?.profile;
 
     // Get list of organisations from server
     const getOrgs = trpc.org.getOrganisations.useQuery({});
@@ -27,13 +40,11 @@ export const RegisterNewUser: FunctionComponent = () => {
     }
     const orgList: IOrganisation[] = getOrgs.data;
 
-
-
     if (completedCreation) {
         return (
             <div className={css.login_wrapper}>
                 <div className={css.login_box}>
-                    <img alt='IDEA-FAST Logo' src='https://avatars3.githubusercontent.com/u/60649739?s=150' />
+                    <img alt='Logo' src={domainProfile ? `${window.location.origin}/file/${domainProfile}` : undefined} />
                     <h1>Registration Successful!</h1>
                     <br />
                     <div>
@@ -57,7 +68,7 @@ export const RegisterNewUser: FunctionComponent = () => {
             </div>
             <div className={css.login_right}>
                 <div className={css.login_box}>
-                    <img alt='IDEA-FAST Logo' src='https://avatars3.githubusercontent.com/u/60649739?s=150' />
+                    <img alt='Logo' src={domainProfile ? `${window.location.origin}/file/${domainProfile}` : undefined} />
                     <h1>Register an Account</h1>
                     <br />
                     <div>

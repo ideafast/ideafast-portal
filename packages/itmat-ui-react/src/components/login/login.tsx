@@ -10,6 +10,7 @@ import { trpc } from '../../utils/trpc';
 import logo from '../../assets/logo.png';
 import dsi from '../../assets/datascienceinstitute.png';
 import mainPageImage from '../../assets/mainPageImage.png';
+import { getRedirectPath } from '../../utils/tools';
 export const LoginBox: FunctionComponent = () => {
     const getSystemConfig = trpc.config.getConfig.useQuery({ configType: enumConfigType.SYSTEMCONFIG, key: null, useDefault: true });
     const login = trpc.user.login.useMutation({
@@ -33,10 +34,12 @@ export const LoginBox: FunctionComponent = () => {
         </p>;
     }
     const systemConfig = (getSystemConfig.data as IConfig).properties as ISystemConfig;
+    const endpointName = getRedirectPath();
+    const domainProfile = systemConfig.domainMeta.filter(el => el.domain === endpointName)[0]?.profile;
     return (<div className={css.login_wrapper}>
         <div className={css.login_left}>
             <img
-                src={mainPageImage}
+                src={domainProfile ? `${window.location.origin}/file/${domainProfile}` : mainPageImage}
                 alt=''
             />
         </div>

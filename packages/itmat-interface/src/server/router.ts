@@ -126,6 +126,29 @@ export class Router {
         this.app.use(express.json({ limit: '50mb' }));
         this.app.use(express.urlencoded({ extended: true }));
 
+        // redirection for multiple endpoints
+        this.app.use(async (req, res, next) => {
+            let systemConfig: any = await db.collections!.configs_collection.findOne({
+                type: enumConfigType.SYSTEMCONFIG
+            });
+            if (!systemConfig) {
+                systemConfig = defaultSettings.systemConfig;
+            }
+            const availablePaths: string[] = systemConfig.properties.domainMeta.map((el: { domain: any; }) => el.domain);
+            // Use a regular expression to match the first path segment after the initial '/'
+            const pathMatch = req.url.match(/^\/([^/]+)/);
+            // If there's a match and it's one of the known base paths, remove it from req.url
+            if (pathMatch && availablePaths.includes(pathMatch[1])) {
+                // Remove the matched segment from req.url
+                req.url = req.url.substring(pathMatch[0].length);
+                // Handle the special case where req.url becomes empty, which should default to '/'
+                if (req.url === '') {
+                    req.url = '/';
+                }
+            }
+            next();
+        });
+
 
         /* save persistent sessions in mongo */
         this.app.use(

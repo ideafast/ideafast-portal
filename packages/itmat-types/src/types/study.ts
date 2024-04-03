@@ -7,6 +7,7 @@ export interface IStudy extends IBase {
     description: string | null;
     profile: string | null;
     webLayout?: any;
+    domain?: string;
 }
 
 export interface IStudyDataVersion extends IBase {

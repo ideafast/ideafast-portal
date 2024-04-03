@@ -43,7 +43,8 @@ export enum enumFileCategories {
     USER_PROFILE_FILE = 'USER_PROFILE_FILE',
     DOC_FILE = 'DOC_FILE',
     ORGANISATION_PROFILE_FILE = 'ORGANISATION_PROFILE_FILE',
-    CACHE = 'CACHE'
+    CACHE = 'CACHE',
+    DOMAIN_PROFILE_FILE = 'DOMAIN_PROFILE_FILE'
 }
 
 export interface FileUpload {

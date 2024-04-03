@@ -4,18 +4,36 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { REQUEST_USERNAME_OR_RESET_PASSWORD } from '@itmat-broker/itmat-models';
 import css from './login.module.css';
 import { Input, Form, Button, Alert } from 'antd';
+import { getRedirectPath } from '../../utils/tools';
+import LoadSpinner from '../reusable/loadSpinner';
+import { IConfig, ISystemConfig, enumConfigType } from '@itmat-broker/itmat-types';
+import { trpc } from '../../utils/trpc';
 
 export const RequestResetPassword: FunctionComponent = () => {
 
     const navigate = useNavigate();
+    const getSystemConfig = trpc.config.getConfig.useQuery({ configType: enumConfigType.SYSTEMCONFIG, key: null, useDefault: true });
+
     const [forgotUsername, setForgotUsername] = useState(false);
     const [requestCompleted, setRequestCompleted] = useState(false);
+
+    if (getSystemConfig.isLoading) {
+        return <LoadSpinner />;
+    }
+    if (getSystemConfig.isError) {
+        return <p>
+            An error occured, please contact your administrator
+        </p>;
+    }
+    const systemConfig = (getSystemConfig.data as IConfig).properties as ISystemConfig;
+    const endpointName = getRedirectPath();
+    const domainProfile = systemConfig.domainMeta.filter(el => el.domain === endpointName)[0]?.profile;
 
     if (requestCompleted) {
         return (
             <div className={css.login_wrapper}>
                 <div className={css.login_box}>
-                    <img alt='IDEA-FAST Logo' src='https://avatars3.githubusercontent.com/u/60649739?s=150' />
+                    <img alt='Logo' src={domainProfile ? `${window.location.origin}/file/${domainProfile}` : undefined} />
                     <h1>Done!</h1>
                     <br />
                     <p>{`A link for password reset ${forgotUsername ? 'together with your username ' : ''}has been sent to your email.`}</p>
@@ -42,7 +60,7 @@ export const RequestResetPassword: FunctionComponent = () => {
                 return (
                     <div className={css.login_wrapper}>
                         <div className={css.login_box}>
-                            <img alt='IDEA-FAST Logo' src='https://avatars3.githubusercontent.com/u/60649739?s=150' />
+                            <img alt='Logo' src={domainProfile ? `${window.location.origin}/file/${domainProfile}` : undefined} />
                             <h1>Forgot your {forgotUsername ? 'username' : 'password'}?</h1>
                             <br />
                             <div>
