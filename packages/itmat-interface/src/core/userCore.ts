@@ -2,7 +2,7 @@ import bcrypt from 'bcrypt';
 import { db } from '../database/database';
 import config from '../utils/configManager';
 import { GraphQLError } from 'graphql';
-import { IUser, enumUserTypes, IPubkey, defaultSettings, IGenericResponse, enumFileTypes, enumFileCategories, IResetPasswordRequest, enumGroupNodeTypes, IGroupNode, AccessToken } from '@itmat-broker/itmat-types';
+import { IUser, enumUserTypes, IPubkey, defaultSettings, IGenericResponse, enumFileTypes, enumFileCategories, IResetPasswordRequest, enumGroupNodeTypes, IGroupNode, AccessToken, enumConfigType, ISystemConfig } from '@itmat-broker/itmat-types';
 import { makeGenericReponse } from '../graphql/responses';
 import { v4 as uuid } from 'uuid';
 import { errorCodes } from '../graphql/errors';
@@ -15,6 +15,7 @@ import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
 import { rsakeygen, rsaverifier, tokengen } from '../utils/pubkeycrypto';
 import { mailer } from '../emailer/emailer';
 import { decryptEmail, makeAESIv, makeAESKeySalt } from '../encryption/aes';
+import { configCore } from './configCore';
 
 export class UserCore {
     /**
@@ -817,6 +818,47 @@ export class UserCore {
         // return the acccess token
         const accessToken = {
             accessToken: tokengen(payload, pubkeyrec.jwtSeckey)
+        };
+        console.log('generate the system token for user:', accessToken.accessToken);
+
+        return accessToken;
+    }
+
+
+    public async issueSystemAccessToken(userId: string): Promise<AccessToken> {
+        console.log('start issue the System token for user', userId);
+        // use the system public key to generate token.
+        const systemConfig: ISystemConfig  = (await configCore.getConfig(enumConfigType.SYSTEMCONFIG, null, true)).properties as ISystemConfig;
+        console.log('get the system public key id', systemConfig.systemKeyId);
+        const pubkeyrec = await db.collections!.pubkeys_collection.findOne({id: systemConfig.systemKeyId, deleted: null });
+        if (pubkeyrec === null || pubkeyrec === undefined) {
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'This public-key has not been registered yet.'
+            });
+        }
+
+        // payload of the JWT for storing user information
+        const payload = {
+            publicKey: pubkeyrec.jwtPubkey,
+            associatedUserId: userId,  // encode the UserId into the token
+            refreshCounter: pubkeyrec.refreshCounter,
+            Issuer: 'IDEA-FAST DMP SYSTEM',
+            timestamp: Date.now()
+        };
+
+        // update the counter
+        const fieldsToUpdate = {
+            refreshCounter: (pubkeyrec.refreshCounter + 1)
+        };
+        const updateResult = await db.collections!.pubkeys_collection.findOneAndUpdate({ id: systemConfig.systemKeyId, deleted: null }, { $set: fieldsToUpdate }, { returnDocument: 'after' });
+        if (updateResult === null) {
+            throw new GraphQLError('Server error; cannot fulfil the JWT request.');
+        }
+        // return the acccess token
+        const accessToken = {
+            // set the token not to be expired by transfer the life time to 1 year
+            accessToken: tokengen(payload, pubkeyrec.jwtSeckey, undefined,undefined, 365 * 24 * 60 * 60 * 1000)
         };
 
         return accessToken;

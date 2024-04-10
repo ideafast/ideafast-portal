@@ -109,7 +109,7 @@ export const UserSection: FunctionComponent = () => {
         width: '10%',
         sorter: (a, b) => a.life.createdTime - b.life.createdTime,
         render: (__unused__value, record) => {
-            return (new Date(record.life.createdTime)).toLocaleString();
+            return record.life?.createdTime ? (new Date(record.life.createdTime)).toLocaleString() : 'NA';
         }
     }, {
         title: 'Expired At',

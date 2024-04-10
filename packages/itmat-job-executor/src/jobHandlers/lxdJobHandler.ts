@@ -1,5 +1,5 @@
 /* eslint-disable @nx/enforce-module-boundaries */
-import { IJob, IInstance, enumOpeType, enumInstanceStatus, IUser} from '@itmat-broker/itmat-types';
+import { IJob, IInstance, enumOpeType, enumInstanceStatus} from '@itmat-broker/itmat-types';
 import { JobHandler } from './jobHandlerInterface';
 import { TRPCError } from '@trpc/server';
 import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
@@ -13,7 +13,7 @@ const lxdInstance = axios.create({
     baseURL: config.dmpEndpoint
 });
 
-const pollOperation = async (operationUrl: string): Promise<void> => {
+const pollOperation = async (operationUrl: string, instanceToken: string | undefined): Promise<void> => {
     return new Promise<void>((resolve, reject) => {
         // Extract the operation ID from the operation URL
         const operationIdMatch = operationUrl.match(/\/1\.0\/operations\/([^/]+)/);
@@ -23,13 +23,17 @@ const pollOperation = async (operationUrl: string): Promise<void> => {
         }
         const operationId = operationIdMatch[1];
 
-        // Adjust the endpoint URL to use the DMP backend route for polling
         const dmpOperationEndpoint = `/lxd/operation/${operationId}`;
 
         const interval = setInterval(async () => {
             try {
                 // Adjust the request to call the DMP backend endpoint for the operation status
-                const opResponse = await lxdInstance.get(dmpOperationEndpoint);
+                const opResponse = await lxdInstance.get(dmpOperationEndpoint, {
+                    headers: {
+                        'Authorization': instanceToken,
+                        'Content-Type': 'application/json'
+                    }
+                });
                 const opData = opResponse.data;
 
                 if (opData.metadata.status === 'Success') {
@@ -77,12 +81,16 @@ export class LXDJobHandler extends JobHandler {
     }
 
     public async execute(document: IJob): Promise<any> {
-        // Directly access metadata, which is assumed to be an object already
-        const metadata = document.metadata ?? {};
+        console.log('instance job execute: ', document.id);
 
-        // Extract operation and other data directly from metadata
-        const operation = metadata.operation ?? null;
-        const instanceId = metadata.instanceId ?? null;
+        const { operation, instanceId } = document.metadata ?? {};
+
+        if (!operation || !instanceId) {
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'Missing required metadata: operation or instanceId.'
+            });
+        }
 
         switch (operation) {
             case enumOpeType.CREATE:
@@ -112,14 +120,31 @@ export class LXDJobHandler extends JobHandler {
         const metadata = document.metadata ?? {};
         const payload = metadata.payload ?? {};
         const instanceId = metadata.instanceId ?? '';
+
+        // Retrieve instance data from the database using instanceId
+        const instanceData = await this.instanceCollection.findOne({ id: instanceId });
+        if (!instanceData) {
+            throw new Error('Instance not found.');
+        }
+
+        // Retrieve the instanceToken from the instanceData
+        const instanceToken = instanceData.instanceToken;
+        if (!instanceToken) {
+            throw new Error('Instance token not found.');
+        }
         try {
             console.log('execute lxd job payload', payload);
-            const response = await lxdInstance.post('/lxd/instances/create', payload);
+            const response = await lxdInstance.post('/lxd/instances/create', payload,
+                {headers: {
+                    'Authorization': instanceToken,
+                    'Content-Type': 'application/json'
+                }}
+            );
 
             // Assuming the operation URL is provided in the response
             if (response.data.operation) {
                 console.log('Operation URL:', response.data.operation);
-                await pollOperation(response.data.operation);
+                await pollOperation(response.data.operation, instanceToken);
                 // get the update information of this instance
 
                 // Operation succeeded, update instance status to RUNNING
@@ -142,7 +167,7 @@ export class LXDJobHandler extends JobHandler {
 
     private async update(document: IJob): Promise<any> {
         //update the instance
-        const { instanceId, updates, requester} = document.metadata ?? {};
+        const { instanceId, updates} = document.metadata ?? {};
         console.log(`Updating instance configuration: ${instanceId}`);
 
         // Retrieve instance details to get the instance name
@@ -157,7 +182,9 @@ export class LXDJobHandler extends JobHandler {
         try {
         // Perform the PATCH request to update the instance
             const response = await lxdInstance.patch(`/lxd/instances/${instance.name}/update`, payload, {
-                headers: { 'Content-Type': 'application/json' }
+                headers: {
+                    'Authorization': instance.instanceToken,
+                    'Content-Type': 'application/json' }
                 // setup the user by the requester
             });
 
@@ -178,15 +205,21 @@ export class LXDJobHandler extends JobHandler {
             throw new Error('Instance not found.');
         }
 
-        const instanceName = instanceData.name; // Assuming you store the instance name
+        const instanceName = instanceData.name;
+        const instanceToken = instanceData.instanceToken;
         try {
-            const response = await lxdInstance.put(`/lxd/instances/${instanceName}/action`, { action });
+            const response = await lxdInstance.put(`/lxd/instances/${instanceName}/action`, { action }, {
+                headers: {
+                    'Authorization': instanceToken,
+                    'Content-Type': 'application/json'
+                }
+            });
 
             console.log(`Instance ${action} response:`, response.data);
             // Check for an operation URL and poll if present
             if (response.data.operation) {
                 console.log('Operation URL:', response.data.operation);
-                await pollOperation(response.data.operation);
+                await pollOperation(response.data.operation, instanceToken);
             }
 
             // Update instance status in the database
@@ -207,14 +240,21 @@ export class LXDJobHandler extends JobHandler {
             throw new Error('Instance not found.');
         }
 
-        const instanceName = instanceData.name; // Assuming you store the instance name
+        const instanceName = instanceData.name;
+        const instanceToken = instanceData.instanceToken;
+
         try {
-            const response = await lxdInstance.delete(`/lxd/instances/${instanceName}`);
+            const response = await lxdInstance.delete(`/lxd/instances/${instanceName}`,{
+                headers: {
+                    'Authorization': instanceToken,
+                    'Content-Type': 'application/json'
+                }
+            });
             console.log('Delete instance response:', response.data);
             // Check for an operation URL and poll if present
             if (response.data.operation) {
                 console.log('Operation URL:', response.data.operation);
-                await pollOperation(response.data.operation);
+                await pollOperation(response.data.operation, instanceToken);
             }
 
             // Remove instance from the database or mark it as deleted

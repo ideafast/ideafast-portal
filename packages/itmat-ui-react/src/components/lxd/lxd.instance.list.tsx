@@ -1,32 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Table, Button, message, Spin, Modal, Space, Form, InputNumber, Input } from 'antd';
-import { ContainerOutlined, CloseOutlined, DeleteOutlined } from '@ant-design/icons';
+import {  CloseOutlined, DeleteOutlined } from '@ant-design/icons';
 // Additional imports
 import { PoweroffOutlined, PlayCircleOutlined } from '@ant-design/icons';
 
 // import { instanceCreationTypes } from './instanceOptions';
 import InstanceStatusIcon from '././lxd.Instance.statusIcon';
 import CreateInstance from './lxd.instance.create';
-import InstanceOverview from './lxd.insatnce.detail';
-import { LXDCommandExecutor } from './lxd.instance.terminal';
 import { LXDConsole } from './lxd.instance.console';
 import LXDTextConsole from './lxd.instance.text.console';
 import { trpc } from '../../utils/trpc';
 import css from './lxd.module.css';
-
-interface NetworkAddresses {
-    family: string;
-    address: string;
-}
-
-interface NetworkInterface {
-    addresses: NetworkAddresses[];
-}
-
-interface NetworkData {
-    [interfaceName: string]: NetworkInterface;
-}
 
 interface LXDInstanceType {
     name: string;
@@ -162,31 +147,6 @@ const LXDInstanceList = () => {
         setLoading(true);
     };
 
-    // Function to handle the Connect to Jupyter button click
-    const connectToJupyter = async (instance) => {
-        try {
-            // Construct the URL to include the instance name
-            // Ensure this URL matches the route defined in your backend
-            const url = `http://localhost:3333/api/connect-jupyter/${instance.name}`;
-
-            // Make a GET request to your backend
-            const response = await axios.get(url);
-
-            // Open the Jupyter server in a new tab using the URL returned from the backend
-            // The backend should return the full URL to access Jupyter, including the http:// prefix
-            if (response.data.jupyterUrl) {
-                window.open(response.data.jupyterUrl, '_blank');
-            } else {
-                throw new Error('Jupyter URL not provided by the backend.');
-            }
-        } catch (error) {
-            const messageText = error instanceof Error ? error.message : 'An unknown error occurred';
-            console.error(`Failed to connect to Jupyter: ${messageText}`);
-            // Replace `message.error` with your frontend's method of showing errors, if necessary
-            alert(`Failed to connect to Jupyter: ${messageText}`);
-        }
-    };
-
     const columns = [
         {
             title: 'Name',
@@ -209,18 +169,6 @@ const LXDInstanceList = () => {
             key: 'username',
             render: text => <span>{text}</span> // Basic rendering, can be customized
         },
-
-        // {
-        //     title: 'Type',
-        //     dataIndex: 'type',
-        //     key: 'type',
-        //     render: (text) => instanceCreationTypes.find(type => type.value === text)?.label || text
-        // },
-        // {
-        //     title: 'Description',
-        //     dataIndex: 'description',
-        //     key: 'description'
-        // },
         {
             title: 'Status',
             dataIndex: 'status',
@@ -232,20 +180,6 @@ const LXDInstanceList = () => {
             key: 'actions',
             render: (_, record) => (
                 <Space size="middle">
-                    <Button
-                        onClick={() => connectToJupyter(record)}
-                        disabled={record.status !== 'Running'} // Disable if the instance is not running
-                        style={{ display: 'none' }}
-                    >
-                        Connect to Jupyter
-                    </Button>
-                    {/* <Button
-                        onClick={() => handleOpenTerminal(record.name)}
-                        disabled
-                    // disabled={record.status !== 'Running'} // Disable if the instance is not running
-                    >
-                        Open Terminal
-                    </Button> */}
                     <Button
                         onClick={() => handleOpenConsole(record)}
                         disabled={record.status !== 'Running'} // Disable if the instance is not running
@@ -304,12 +238,6 @@ const LXDInstanceList = () => {
         // Should be removed and use proper async traps
         (window as any).hasSpice = false;
     };
-
-    // const handleOpenTerminal = (instanceName) => {
-    //     setSelectedInstanceName(instanceName);
-    //     setSelectedTab('terminal');
-    //     setIsModalVisible(true);
-    // };
 
     const handleUpdateInstanceConfig = async (values: { cpuLimit: number; memoryLimit: number; }) => {
         if (!editingInstance) return; // Guard clause in case no instance is selected
@@ -389,12 +317,6 @@ const LXDInstanceList = () => {
                 destroyOnClose={true} // Destroy Terminal on close
                 forceRender // Pre-render Modal for immediate open
             >
-                {/* {selectedInstanceName && selectedTab === 'overview' && (
-                    <InstanceOverview instanceName={selectedInstanceName} />
-                )}
-                {selectedInstanceName && selectedTab === 'terminal' && (
-                    <LXDCommandExecutor instanceName={selectedInstanceName} />
-                )} */}
                 {selectedInstance && selectedTab === 'console' && (
                     <div className={css.consoleContainer}>
                         {selectedInstance.type === 'container' ?

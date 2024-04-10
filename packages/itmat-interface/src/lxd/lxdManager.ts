@@ -4,6 +4,8 @@ import { WebSocket } from 'ws';
 import axios, { isAxiosError } from 'axios';
 import config from '../utils/configManager';
 import * as lxdUtil  from './lxd.util';
+import { db } from '../database/database';
+import { LXDInstanceState } from '@itmat-broker/itmat-types';
 
 
 // Load the SSL certificate and key
@@ -68,6 +70,7 @@ export default {
             const instances = await Promise.allSettled(instanceUrls.data.metadata.map(async (instanceUrl: string) => await lxdInstance.get(instanceUrl)));
 
             const sanitizedIntances = instances.map((instance: any) => {
+
                 const { metadata } = instance.value.data;
                 return {
                     name: metadata.name,
@@ -110,7 +113,87 @@ export default {
     getInstanceState: async (instanceName: string) => {
         instanceName = encodeURIComponent(instanceName);
         return await lxdInstance.get(`/1.0/instances/${instanceName}/state`);
+
     },
+    // getJupyterServiceUrl
+    getJupyterServiceUrl: async (instanceName: string) => {
+        instanceName = encodeURIComponent(instanceName);
+        try {
+            const response = await lxdInstance.get(`/1.0/instances/${instanceName}/state`);
+            // construct   jupyterServiceUrl
+            const instanceState: LXDInstanceState = response.data.metadata;
+            console.log('instanceState:', instanceState);
+
+            // Assuming getInstanceState is an existing method that returns instance details
+            // including the state, which has network configurations.
+            if (!instanceState || !instanceState.network || !instanceState.network.eth0) {
+                console.error('Unable to retrieve network details for instance.', instanceName);
+                return {
+                    error: true,
+                    data: 'Unable to retrieve network details for instance.'
+                };
+            }
+
+            // Extract the first IPv4 address from the network.eth0.addresses array
+            const ipv4Address = instanceState.network.eth0.addresses
+                .filter(addr => addr.family === 'inet')
+                .map(addr => addr.address)[0];
+
+
+            if (!ipv4Address) {
+                console.error('No IPv4 address found for instance:', instanceName);
+                return {
+                    error: true,
+                    data: 'No IPv4 address found for instance.'
+                };
+            }
+
+            // retrive the instance name from the database by instanceId
+            const instance = await db.collections!.instance_collection.findOne({
+                name: instanceName
+            });
+
+            if (!instance) {
+                console.error('Instance does not exist:', instanceName);
+                return {
+                    error: true,
+                    data: 'Instance does not exist.'
+                };
+            }
+
+            // Retrieve the notebook token from the instance
+            const notebookToken = instance.notebookToken;
+
+            if (!notebookToken) {
+                console.error('Instance does not exist:', instanceName);
+                return {
+                    error: true,
+                    data: 'Instance does not exist.'
+                };
+            }
+
+            // update the instance details to the database
+            await db.collections!.instance_collection.updateOne({ name: instanceName }, {
+                $set: { lxdState: instanceState }
+            });
+
+            // TODO Assuming the Jupyter service is running on port 8888
+            const port = 8888;  // the port may need to get from the instance details
+            const jupyterUrl = `http://${ipv4Address}:${port}/?token=${notebookToken}`;
+            // const jupyterUrl = `http://${config.lxdEndpoint}:${port}/?token=${notebookToken}`;
+
+            return {
+                jupyterUrl: jupyterUrl
+            };
+        } catch (error) {
+            console.error('Error fetching Jupyter service URL from LXD:', error);
+            return {
+                error: true,
+                data: error
+            };
+        }
+    },
+
     getInstanceConsole: async (instanceName: string, options: {
         height: number;
         width: number;
@@ -144,7 +227,7 @@ export default {
         }
     },
     // getInstanceConsoleLog
-    getInstanceConsoleLog: async (instanceName: string): Promise<string> => {
+    getInstanceConsoleLog: async (instanceName: string) => {
         instanceName = encodeURIComponent(instanceName);
         try {
             const response = await lxdInstance.get(`/1.0/instances/${instanceName}/console?project=default`);
@@ -152,14 +235,25 @@ export default {
             // Use response.text() to get the response body as text
                 return response.data;
             } else {
-                throw new Error('Failed to fetch console log data.');
+                console.error(`Failed to fetch console log data. ${response.data}`);
+                return {
+                    error: true,
+                    data: `Failed to fetch console log data. ${response.data}`
+                };
             }
         } catch (error: any) {
             if (error.response && error.response.status === 404) {
-                throw new Error('Console log file not found.');
+                console.error(`Console log file not found.${error.response}`);
+                return {
+                    error: true,
+                    data: `Console log file not found.${error.response}`
+                };
             } else {
                 console.error('Error fetching instance console log from LXD:', error);
-                throw error; // Rethrow other errors for the caller to handle.
+                return {
+                    error: true,
+                    data: error
+                };
             }
         }
     },
@@ -188,7 +282,6 @@ export default {
     getOperationStatus: async (operationUrl: string) => {
         try {
             const opResponse = await lxdInstance.get(operationUrl);
-            console.log('Operation status:', opResponse.data);
             return opResponse.data;
         } catch (error) {
             console.error('Error fetching operation status from LXD:', error);
@@ -213,7 +306,6 @@ export default {
             });
 
             console.log('Response from LXD:', lxdResponse.data);
-
             return lxdResponse.data;
         } catch (error) {
             console.error('Error creating instance on LXD:', error);

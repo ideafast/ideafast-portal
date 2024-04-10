@@ -2,18 +2,55 @@ import express from 'express';
 import { WebSocketServer, WebSocket } from 'ws';
 import qs from 'qs';
 import lxdManager from './lxdManager';
-import { TextDecoder } from 'util';
+
+import jwt from 'jsonwebtoken';
+import { GraphQLError } from 'graphql';
+import { ApolloServerErrorCode } from '@apollo/server/errors';
+import { userRetrieval, userRetrievalByUserId } from '../authentication/pubkeyAuthentication';
+
 
 const lxdCallsRouter = express.Router();
 
-const textDecoder = new TextDecoder('utf-8');
+// Middleware for JWT verification and user retrieval, in the style of createContext
+const LXDauthenticateRequest = async (req: any, res: any, next: any) => {
+
+    const token: string = req.headers.authorization || '';
+    if ((token !== '') && (token !==undefined) && (req.user === undefined)) {
+        // skip the token start with '_xsrf'
+        if (token.startsWith('_xsrf')) {
+            next();
+            return;
+        }
+        const decodedPayload = jwt.decode(token);
+        const pubkey = (decodedPayload as any).publicKey;
+        // verify the JWT
+        jwt.verify(token, pubkey, function (error: any) {
+            if (error) {
+                throw new GraphQLError('JWT verification failed. ' + error, { extensions: { code: ApolloServerErrorCode.BAD_USER_INPUT, error } });
+            }
+        });
+        const userId = (decodedPayload as any).userId;
+        let associatedUser;
+        if (userId){
+            console.log('using the system token to login:', userId);
+            associatedUser = await userRetrievalByUserId(pubkey, userId);
+        } else {
+            associatedUser = await userRetrieval(pubkey);
+        }
+        req.user = associatedUser;
+    }
+    next();
+};
+
+lxdCallsRouter.use(LXDauthenticateRequest);
 
 lxdCallsRouter.get('/resources', async (req, res) => {
+    console.log('get resources lxd');
     if (!req.user)
         return res.status(403).send('Unauthorized access');
     try {
         const resources = await lxdManager.getResources();
-        return  res.send(resources);
+        return res.send(resources);
     } catch (error) {
         console.error('Error fetching LXD resources:', error);
         return res.status(500).send('Failed to fetch LXD resources');
@@ -30,11 +67,19 @@ lxdCallsRouter.get('/state', async (req, res) => {
     return res.send(await lxdManager.getInstanceState(req.query.c as string));
 });
 
+// jupyter url
+lxdCallsRouter.get('/instances/:instanceName/jupyter', async (req, res) => {
+    if (!req.user)
+        return res.status(403).send('Unauthorized access');
+    const { instanceName } = req.params;
+    return res.send(await lxdManager.getJupyterServiceUrl(instanceName));
+});
+
+
 lxdCallsRouter.get('/operations', async (req, res) => {
     console.log('dmp, /operations');
-    // TODO, need authorization
-    // if (!req.user)
-    //     return res.status(403).send('Unauthorized access');
+    if (!req.user)
+        return res.status(403).send('Unauthorized access');
     return res.send(await lxdManager.getOperations());
 });
 
@@ -43,14 +88,15 @@ lxdCallsRouter.get('/operation/:operationId', async (req, res) => {
     console.log('dmp, /operation/:operationId');
     const { operationId } = req.params;
 
-    // TODO: Add authorization logic here
+    if (!req.user)
+        return res.status(403).send('Unauthorized access');
 
     try {
         const operationStatus = await lxdManager.getOperationStatus(`/1.0/operations/${operationId}`);
-        res.send(operationStatus);
+        return res.send(operationStatus);
     } catch (error) {
         console.error('Error fetching operation status:', error);
-        res.status(500).send(`Error fetching operation status: ${error}`);
+        return res.status(500).send(`Error fetching operation status: ${error}`);
     }
 });
 
@@ -93,40 +139,33 @@ lxdCallsRouter.get('/', async (req, res) => {
 lxdCallsRouter.post('/instances/create', async (req, res) => {
     console.log('dmp, /instances/create');
     console.log('Received create instance request. User:', req.user);
-    // TODO, need authorization
-    // if (!req.user)
-    //     return res.status(403).send('Unauthorized access');
+    if (!req.user)
+        return res.status(403).send('Unauthorized access');
 
     try {
         const payload = req.body;
 
         const createResponse = await lxdManager.createInstance(payload);
-        // Update the instance metadata and status in your database here
 
-        // Respond with the LXD server's response or your own success message
-        res.status(201).send(createResponse);
+        return res.status(201).send(createResponse);
     } catch (error) {
-        // Handle errors appropriately
-        res.status(500).send(`Error creating instance: ${error}`);
+
+        return res.status(500).send(`Error creating instance: ${error}`);
     }
 });
 
 // updateInstance
 lxdCallsRouter.patch('/instances/:instanceName/update', async (req, res) => {
     console.log('Received update instance config request for:', req.params.instanceName);
-    // Ensure user is authenticated
-    //TODO
-    // if (!req.user) return res.status(403).send('Unauthorized access');
+
+    if (!req.user) return res.status(403).send('Unauthorized access');
 
     const { instanceName } = req.params;
     const payload = req.body; // Contains fields like cpuLimit, memoryLimit
 
     try {
-        // Call LXD or your internal logic to apply updates to the instance
-        // This function should be implemented in your lxdManager or similar service
-        const updateResponse = await lxdManager.updateInstance(instanceName, payload);
 
-        // Respond with success or the updateResponse directly
+        const updateResponse = await lxdManager.updateInstance(instanceName, payload);
         return res.status(200).send({ message: `Instance ${instanceName} updated successfully`, data: updateResponse });
     } catch (error) {
         console.error(`Error updating instance ${instanceName}:`, error);
@@ -136,26 +175,30 @@ lxdCallsRouter.patch('/instances/:instanceName/update', async (req, res) => {
 
 // Start or stop an instance
 lxdCallsRouter.put('/instances/:instanceName/action', async (req, res) => {
+    if (!req.user)
+        return res.status(403).send('Unauthorized access');
     const { instanceName } = req.params;
     const { action } = req.body; // Expecting 'start' or 'stop'
     try {
         const response = await lxdManager.startStopInstance(instanceName, action);
-        res.send(response);
+        return res.send(response);
     } catch (error) {
         console.error(`Error performing ${action} on instance ${instanceName}:`, error);
-        res.status(500).send(`Error performing ${action} on instance: ${error}`);
+        return res.status(500).send(`Error performing ${action} on instance: ${error}`);
     }
 });
 
 // Delete an instance
 lxdCallsRouter.delete('/instances/:instanceName', async (req, res) => {
+    if (!req.user)
+        return res.status(403).send('Unauthorized access');
     const { instanceName } = req.params;
     try {
         const response = await lxdManager.deleteInstance(instanceName);
-        res.send(response);
+        return res.send(response);
     } catch (error) {
         console.error('[LXD API]Failed to delete instance:', error);
-        res.status(500).send('Failed to delete instance: ' + error);
+        return res.status(500).send('Failed to delete instance: ' + error);
     }
 });
 
@@ -164,13 +207,6 @@ export const registerContainSocketServer = (server: WebSocketServer) => {
     server.on('connection', (clientSocket, req) => {
 
         clientSocket.pause();
-
-        // User login should be checked here !
-        // Feel free to use the req.headers['cookie']
-        // if (...) {
-        //     socket.send('Unauthorized access');
-        //     return socket.close();
-        // }
 
         let containerSocket: WebSocket | undefined;
         const query = qs.parse(req.url?.split('?')[1] || '');

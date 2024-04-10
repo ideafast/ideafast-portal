@@ -26,7 +26,7 @@ import { logPlugin } from '../log/logPlugin';
 import { spaceFixing } from '../utils/regrex';
 import { BigIntResolver as scalarResolvers } from 'graphql-scalars';
 import jwt from 'jsonwebtoken';
-import { userRetrieval } from '../authentication/pubkeyAuthentication';
+import { userRetrieval, userRetrievalByUserId } from '../authentication/pubkeyAuthentication';
 import { createProxyMiddleware, RequestHandler } from 'http-proxy-middleware';
 import qs from 'qs';
 import { defaultSettings, enumConfigType, IUser, IUserConfig } from '@itmat-broker/itmat-types';
@@ -49,6 +49,10 @@ export const createContext = async ({
 }: trpcExpress.CreateExpressContextOptions) => {
     const token: string = req.headers.authorization || '';
     if ((token !== '') && (req.user === undefined)) {
+        // skip the token that start with '_xsrf'
+        if (token.startsWith('_xsrf')) {
+            return ({ req, res });
+        }
         const decodedPayload = jwt.decode(token);
         const pubkey = (decodedPayload as any).publicKey;
         // verify the JWT
@@ -57,7 +61,13 @@ export const createContext = async ({
                 throw new GraphQLError('JWT verification failed. ' + error, { extensions: { code: ApolloServerErrorCode.BAD_USER_INPUT, error } });
             }
         });
-        const associatedUser = await userRetrieval(pubkey);
+        const userId = (decodedPayload as any).userId;
+        let associatedUser;
+        if (userId){
+            associatedUser = await userRetrievalByUserId(pubkey, userId);
+        } else {
+            associatedUser = await userRetrieval(pubkey);
+        }
         req.user = associatedUser;
     }
     return ({ req, res });
@@ -87,7 +97,11 @@ export class Router {
             max: async function (req) {
                 // TODO: Queries do not use token
                 const token: string = req.headers.authorization || '';
-                if ((token !== '') && (req.user === undefined)) {
+                if ((token !== '') && (token !== undefined) && (req.user === undefined)) {
+                    // skip the token that start with '_xsrf'
+                    if (token.startsWith('_xsrf')) {
+                        return defaultSettings.userConfig.defaultMaximumQPS;
+                    }
                     // get the decoded payload ignoring signature, no symmetric secret or asymmetric key needed
                     const decodedPayload = jwt.decode(token);
                     // obtain the public-key of the robot user in the JWT payload

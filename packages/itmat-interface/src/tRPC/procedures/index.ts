@@ -9,6 +9,7 @@ import { permissionRouter } from './permissionProcedure';
 import { logRouter } from './logProcedure';
 import { jobRouter } from './jobProcedure';
 import { instanceRouter } from './instanceProcedure';
+import { lxdRouter } from './lxdProcedure';
 export const routers = {
     user: userRouter,
     doc: docRouter,
@@ -20,5 +21,6 @@ export const routers = {
     permission: permissionRouter,
     log: logRouter,
     job: jobRouter,
-    instance: instanceRouter
+    instance: instanceRouter,
+    lxd: lxdRouter
 };

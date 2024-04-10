@@ -4,12 +4,13 @@ import { db } from '../database/database';
 import { TRPCError } from '@trpc/server';
 // eslint-disable-next-line @nx/enforce-module-boundaries
 import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
-import { errorCodes } from '../graphql/errors';
 import { jobCore } from './jobCore'; // Ensure you have the correct import path
-import { enumJobType, enumJobStatus } from '@itmat-broker/itmat-types'; // Ensure you have the correct import path
-
+import { userCore } from './userCore';
+import { enumJobType} from '@itmat-broker/itmat-types'; // Ensure you have the correct import path
+import * as mfa from '../utils/mfa';
 
 export class InstanceCore {
+
     /**
      * Create an instance.
      *
@@ -24,21 +25,48 @@ export class InstanceCore {
      */
     public async createInstance(userId: string, username: string, name: string, type: 'virtual-machine' | 'container',
         appType: enumAppType, lifeSpan: number, project = 'default', cpuLimit?: number, memoryLimit?: string): Promise<IInstance> {
-        // cloud init user Data
-        // const cloudInitUserData = `#cloud-config
-        //                                 users:
-        //                                 - name: myuser
-        //                                     groups: sudo
-        //                                     sudo: ['ALL=(ALL) NOPASSWD:ALL']
-        //                                     ssh_authorized_keys:
-        //                                     - <your-public-ssh-key>`;
 
+        // generate the token for instance
+        let instanceSystemToken;
+        try {
+            const data = await userCore.issueSystemAccessToken(userId);
+            instanceSystemToken = data.accessToken;
+            console.log('Token issueSystemAccessToken', instanceSystemToken);
+        } catch (error) {
+            console.error('Error generating token:', error);
+            throw new Error('Error generating instance token.');
+        }
+        const notebookToken = mfa.generateSecret(20);
+        // Prepare user-data for cloud-init to append the token to /etc/profile
+        const cloudInitUserData = `
+        #cloud-config
+        users:
+          - name: ubuntu
+            groups: sudo
+            sudo: ['ALL=(ALL) NOPASSWD:ALL']
+            shell: /bin/bash
+        write_files:
+          - path: /etc/profile.d/instance_token.sh
+            content: |
+              export INSTANCE_TOKEN="${instanceSystemToken}"
+            permissions: '0755'
+          - path: /root/.jupyter/jupyter_notebook_config.py
+            content: |
+              c.NotebookApp.ip = '0.0.0.0'
+              c.NotebookApp.port = 8888
+              c.NotebookApp.open_browser = False
+              c.NotebookApp.token = '${notebookToken}'
+              c.NotebookApp.password = ''
+              c.NotebookApp.allow_root = True
+            permissions: '0644'
+        `;
+
+        // add boot-time script, to be executed on first boot
         const config = {
             'limits.cpu': cpuLimit ? cpuLimit.toString() : '2',
             'limits.memory': memoryLimit ? memoryLimit : '4GB',
-            'user.username': username // store username to instance config
-            // 'environment.WEBDAV_TOKEN': 'XXXX'
-            // 'user.user-data': cloudInitUserData
+            'user.username': username, // store username to instance config
+            'user.user-data': cloudInitUserData
         };
 
         const instanceEntry: IInstance = {
@@ -51,9 +79,10 @@ export class InstanceCore {
             appType,
             createAt: Date.now(),
             lifeSpan,
-            notebookToken: undefined, // Assign or generate as needed
+            instanceToken: instanceSystemToken,
+            notebookToken: notebookToken,
             project,
-            webDavToken: 'undefined', // Assign or generate as needed
+            webDavToken: instanceSystemToken, // Assign or generate as needed, System token
             life: {
                 createdTime: Date.now(),
                 createdUser: userId,
@@ -92,7 +121,7 @@ export class InstanceCore {
                     type: 'image',
                     alias: type==='virtual-machine'? 'ubuntu-matlab-image' : 'ubuntu-jupyter-container-image' // Example fingerprint, adjust as necessary
                 },
-                profiles: [ type==='virtual-machine'? 'matlab-profile' : 'default'], // Assuming 'default' profile, adjust as necessary
+                profiles: [ type==='virtual-machine'? 'matlab-profile' : 'jupyter-profile'], // Assuming 'default' profile, adjust as necessary
                 type: type // 'virtual-machine' or 'container'
             // Include other fields as required by your LXD setup
             }
@@ -153,10 +182,11 @@ export class InstanceCore {
     /**
      * Delete an instance.
      */
-    public async deleteInstance(instanceId: string): Promise<boolean> {
+    public async deleteInstance(UserId: string, instanceId: string): Promise<boolean> {
         const result = await db.collections!.instance_collection.findOneAndUpdate({ id: instanceId }, {
             $set: {
                 'life.deletedTime': Date.now(),
+                'life.deletedUser': UserId,
                 'status': enumInstanceStatus.DELETED
             }
         }, {
@@ -226,9 +256,6 @@ export class InstanceCore {
             });
         }
 
-        // Validate user permissions here, only the user and admin can update the config of instance
-        console.log('editInstance', requester, instance.userId, requester.type);
-        console.log('editInstance', updates);
         if (requester.username !== instance.username || requester.type !== enumUserTypes.ADMIN) {
             throw new TRPCError({
                 code: enumTRPCErrorCodes.BAD_REQUEST,
@@ -281,6 +308,7 @@ export class InstanceCore {
 
         return result.value;
     }
+
 }
 
 export const instanceCore = Object.freeze(new InstanceCore());

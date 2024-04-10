@@ -5,7 +5,6 @@ import { IUser, enumAppType, enumInstanceStatus } from '@itmat-broker/itmat-type
 import { instanceCore } from '../../core/instanceCore';
 // eslint-disable-next-line @nx/enforce-module-boundaries
 import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
-import { errorCodes } from '../../graphql/errors';
 
 const createContext = () => ({}); // Simplified context creation for this example
 type Context = inferAsyncReturnType<typeof createContext>;
@@ -106,6 +105,7 @@ export const instanceRouter = t.router({
                 message: 'Insufficient permissions.'
             });
         }
-        return await instanceCore.deleteInstance(opts.input.instanceId);
+        return await instanceCore.deleteInstance(requester.id, opts.input.instanceId);
     })
+
 });

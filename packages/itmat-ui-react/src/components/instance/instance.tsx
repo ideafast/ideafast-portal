@@ -1,11 +1,12 @@
-import React, { FunctionComponent, useEffect, useState} from 'react';
+import React, { FunctionComponent, useState} from 'react';
 // import { Button, Table, message, Modal, Form, Select, InputNumber, Input } from 'antd';
-import { Button, message, Modal, Form, Select, InputNumber, Input, Card, Tag, Space } from 'antd';
+import { Button, message, Modal, Form, Select, InputNumber, Card, Tag, Space } from 'antd';
 import { trpc } from '../../utils/trpc';
 import css from './instance.module.css';
 import { enumAppType,enumInstanceType, enumInstanceStatus, IInstance } from '@itmat-broker/itmat-types';
 import { LXDConsole } from '../lxd/lxd.instance.console';
 import LXDTextConsole from '../lxd/lxd.instance.text.console';
+
 
 
 const { Option } = Select;
@@ -21,6 +22,7 @@ type CreateInstanceFormValues = {
     memoryLimit: string; // Added field for memory limit (e.g., '3GB')
     token: string;
 };
+
 
 const instanceTypeConfig = {
     [enumInstanceType.SMALL]: { cpuLimit: 2, memoryLimit: '4GB' },
@@ -41,6 +43,7 @@ export const InstanceSection: FunctionComponent = () => {
     const [connectSignal, setConnectSignal] = useState(false);
 
     const [selectedInstanceTypeDetails, setSelectedInstanceTypeDetails] = useState('');
+    const [isConnectingToJupyter, setIsConnectingToJupyter] = useState(false); // New state for managing Jupyter connection attempts
 
 
     const handleConsoleConnect = (instance) => {
@@ -89,12 +92,16 @@ export const InstanceSection: FunctionComponent = () => {
         }
     });
 
+
+    // const getInstanceJupyterUrl = trpc.instance.getInstanceJupyterUrl.useMutation();
+    // const getInstanceJupyterUrl = trpc.instance.getInstanceJupyterUrl.useMutation<JupyterUrlResponse>();
+
     // instance edit state
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [currentInstance, setCurrentInstance] = useState<Partial<IInstance| null>>(null);
 
     const openEditModal = (instance: Partial<IInstance>) => {
-        console.log('Opening edit modal with instance:', instance); // Debugging
+        console.log('Opening edit modal with instance:', instance); // update the instance life span
         setCurrentInstance(instance);
         setIsEditModalOpen(true);
     };
@@ -128,11 +135,44 @@ export const InstanceSection: FunctionComponent = () => {
             project: defaultProject,
             cpuLimit: cpuLimit,
             memoryLimit: memoryLimit
-            // token: values.token
 
         });
         setIsModalOpen(false);
         createForm.resetFields();
+    };
+
+    const connectToJupyterHandler = async (instanceName: string) => {
+        console.log('Connecting to Jupyter...', instanceName);
+        setIsConnectingToJupyter(true); // Indicate that connection attempt is in progress
+
+        try {
+            const encodedInstanceName = encodeURIComponent(instanceName);
+            const response = await fetch(`/lxd/instances/${encodedInstanceName}/jupyter`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to connect to Jupyter. Please try again.');
+            }
+
+            const data = await response.json(); // Assuming the server responds with JSON containing the Jupyter URL
+
+            if (data && data.jupyterUrl) {
+                console.log('Successfully connected to Jupyter:', data.jupyterUrl);
+                window.open(data.jupyterUrl, '_blank');
+            } else {
+                console.error('Jupyter URL not found.');
+                message.error('Jupyter URL not found.');
+            }
+        } catch (error: any) {
+            console.error('Failed to connect to Jupyter:', error);
+            message.error(error?.message || 'Failed to connect to Jupyter. Please try again.');
+        } finally {
+            setIsConnectingToJupyter(false); // Reset the connection attempt status
+        }
     };
 
     const handleDeleteInstance = (instance: IInstance) => {
@@ -147,7 +187,6 @@ export const InstanceSection: FunctionComponent = () => {
             }
         });
     };
-
 
     if (getInstances.isLoading) {
         return <div>Loading instances...</div>;
@@ -265,6 +304,14 @@ export const InstanceSection: FunctionComponent = () => {
                         {instance.status === enumInstanceStatus.RUNNING && (
                             <Button style={{ marginRight: '8px' }} onClick={() => handleConsoleConnect(instance)}>Open Console</Button>
                         )}
+                        {instance.appType === enumAppType.JUPYTER && instance.status === enumInstanceStatus.RUNNING && (
+                            <Button
+                                style={{ marginRight: '8px' }}
+                                onClick={() => connectToJupyterHandler(instance.name)}
+                                disabled={isConnectingToJupyter} // Disable button during connection attempt
+                            >
+                           Connect to Jupyter
+                            </Button> )}
                     </Space>
                 </Card>
             ))}
@@ -287,12 +334,12 @@ export const InstanceSection: FunctionComponent = () => {
                         rules={[{ required: true, message: 'Please input the life span!' }]}>
                         <InputNumber min={1} max={30}/>
                     </Form.Item>
-                    <Form.Item
+                    {/* <Form.Item
                         name="token"
                         label="Token"
                         rules={[{ required: true, message: 'Please input the token!' }]}>
                         <Input placeholder="Enter your token"/>
-                    </Form.Item>
+                    </Form.Item> */}
                     <Form.Item
                         name="instanceType"
                         label="Instance Type"
