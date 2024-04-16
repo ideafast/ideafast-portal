@@ -1,6 +1,5 @@
 import request from 'supertest';
 import { db } from '../../src/database/database';
-import { TRPCError } from '@trpc/server';
 import { objStore } from '../../src/objStore/objStore';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { MongoClient, Db } from 'mongodb';
@@ -11,7 +10,7 @@ import { connectAdmin } from './_loginHelper';
 import config from '../../config/config.sample.json';
 
 // Add necessary imports for instance types and enums
-import { enumInstanceStatus, enumAppType, IInstance } from '@itmat-broker/itmat-types';
+import { enumInstanceStatus, enumAppType} from '@itmat-broker/itmat-types';
 
 let app: Express;
 let admin: request.SuperTest<request.Test>;
