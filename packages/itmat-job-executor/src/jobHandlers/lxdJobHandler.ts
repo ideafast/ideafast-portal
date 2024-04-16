@@ -94,7 +94,7 @@ export class LXDJobHandler extends JobHandler {
 
         switch (operation) {
             case enumOpeType.CREATE:
-                return this.create(document); // Already implemented
+                return this.create(document);
             case enumOpeType.UPDATE:
                 return this.update(document);
             case enumOpeType.START:

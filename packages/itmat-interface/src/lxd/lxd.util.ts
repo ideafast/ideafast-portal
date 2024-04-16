@@ -41,3 +41,19 @@ export function formatBytes(bytes: number, decimals = 2) {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 }
 
+
+// Helper function to deeply merge two objects, including arrays and nested objects
+export function deepMerge(obj1: Record<string, any>, obj2: Record<string, any>): Record<string, any> {
+    // Recursively merge objects and arrays
+    if (Array.isArray(obj1) && Array.isArray(obj2)) {
+        return [...obj1, ...obj2];
+    } else if (obj1 != null && typeof obj1 === 'object' && obj2 != null && typeof obj2 === 'object') {
+        const result: Record<string, any> = { ...obj1 };
+        for (const [key, value] of Object.entries(obj2)) {
+            result[key] = key in obj1 ? deepMerge(obj1[key], value) : value;
+        }
+        return result;
+    }
+    // Values are not arrays or objects, so override with obj2's value
+    return obj2;
+}

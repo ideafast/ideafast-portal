@@ -7,9 +7,11 @@ import jwt from 'jsonwebtoken';
 import { GraphQLError } from 'graphql';
 import { ApolloServerErrorCode } from '@apollo/server/errors';
 import { userRetrieval, userRetrievalByUserId } from '../authentication/pubkeyAuthentication';
-
+import { logRESTAPICall } from '../log/restLogHelper';
 
 const lxdCallsRouter = express.Router();
+
+lxdCallsRouter.use(logRESTAPICall);
 
 // Middleware for JWT verification and user retrieval, in the style of createContext
 const LXDauthenticateRequest = async (req: any, res: any, next: any) => {
@@ -85,7 +87,6 @@ lxdCallsRouter.get('/operations', async (req, res) => {
 
 // operations url
 lxdCallsRouter.get('/operation/:operationId', async (req, res) => {
-    console.log('dmp, /operation/:operationId');
     const { operationId } = req.params;
 
     if (!req.user)
@@ -204,10 +205,10 @@ lxdCallsRouter.delete('/instances/:instanceName', async (req, res) => {
 
 
 export const registerContainSocketServer = (server: WebSocketServer) => {
+
     server.on('connection', (clientSocket, req) => {
 
         clientSocket.pause();
-
         let containerSocket: WebSocket | undefined;
         const query = qs.parse(req.url?.split('?')[1] || '');
         const operationId = query['o']?.toString() || '';
@@ -291,35 +292,6 @@ export const registerContainSocketServer = (server: WebSocketServer) => {
             });
 
             containerSocket.on('message', (message: ArrayBuffer | Uint8Array[], isBinary: boolean) => {
-                // let arrayBuffer;
-
-                // if (isBinary) {
-                //     // message will be one of ArrayBuffer | Buffer[] | Buffer
-                //     if (Array.isArray(message)) {
-                //         // If it's an array, we need to concatenate into a single buffer
-                //         const combinedBuffer = Buffer.concat(message);
-                //         arrayBuffer = combinedBuffer.buffer.slice(
-                //             combinedBuffer.byteOffset,
-                //             combinedBuffer.byteOffset + combinedBuffer.byteLength
-                //         );
-                //     } else if (message instanceof Buffer) {
-                //         // Node.js Buffer instance, we need to slice the ArrayBuffer it references
-                //         arrayBuffer = message.buffer.slice(
-                //             message.byteOffset,
-                //             message.byteOffset + message.byteLength
-                //         );
-                //     } else {
-                //         // It's already an ArrayBuffer
-                //         arrayBuffer = message;
-                //     }
-
-                //     const messageContent = `Binary message: ${textDecoder.decode(arrayBuffer)}`;
-                //     console.log(`Message from container: ${messageContent}`);
-                // } else {
-                //     // If it's not binary, we expect a text message, which should be a string
-                //     const messageContent = `Text message: ${message.toString()}`;
-                //     console.log(`Message from container: ${messageContent}`);
-                // }
                 const tuple: [Buffer, boolean] = [Buffer.from(message as ArrayBuffer), isBinary];
                 containerMessageBuffers.push(tuple);
                 flushContainerMessageBuffers();

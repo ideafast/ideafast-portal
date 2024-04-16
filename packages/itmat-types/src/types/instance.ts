@@ -1,5 +1,6 @@
 import { IBase } from './base';
 import { IUser } from './user';
+import { LXDInstanceState } from './lxd';
 
 export interface IInstance extends IBase{
     id: string;
@@ -16,6 +17,7 @@ export interface IInstance extends IBase{
     project?: string |'default'; // the lxd project of the this instance
     webDavToken?: string; // webDav cert token
     config: Record<string, any>;
+    lxdState?: LXDInstanceState; // Optional field for LXD instance state details
 }
 
 export enum enumInstanceStatus {
@@ -47,3 +49,4 @@ export enum enumInstanceType {
     MIDDLE ='middle',
     LARGE = 'large'
 }
+

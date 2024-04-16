@@ -132,6 +132,7 @@ export class JobScheduler {
         // we sort jobs based on the config
         availableJobs = availableJobs.filter(el => {
             if (this.config.reExecuteFailedJobs && el.history.filter(ek => ek.status === enumJobHistoryStatus.FAILED).length > this.config.maxAttempts) {
+                // console.log('Job failed more than max attempts: ', el.id);
                 return false;
             }
             if (Date.now() < el.nextExecutionTime) {

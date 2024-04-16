@@ -4,7 +4,7 @@ import { initTRPC } from '@trpc/server';
 import { routers } from '../tRPC/procedures/index';
 import { HTTPRequestContext } from 'webdav-server/lib/index.v2';
 import jwt from 'jsonwebtoken';
-import { userRetrieval } from '../authentication/pubkeyAuthentication';
+import { userRetrieval, userRetrievalByUserId} from '../authentication/pubkeyAuthentication';
 import nodeFetch from 'node-fetch';
 import { IDriveNode, IStudy, enumUserTypes } from '@itmat-broker/itmat-types';
 
@@ -422,14 +422,22 @@ export class DMPWebDAVAuthentication implements HTTPAuthentication {
             return;
         }
         const pubkey = (decodedPayload as any).publicKey;
+        const userId = (decodedPayload as any).userId;  // Capture userId from the decoded token, if available.
+
         jwt.verify(token, pubkey, (error: any) => {
             if (error) {
                 callback(new Error('Unauthorized: Invalid credentials.'), undefined);
                 return;
             }
+            // retrieval the user by pubkey or userId(system token)
+
+            // Decide the retrieval method based on whether a userId is present
+            const userRetrievalPromise = userId
+                ? userRetrievalByUserId(pubkey, userId)
+                : userRetrieval(pubkey);
 
             // Now that the token is verified, retrieve the associated user.
-            userRetrieval(pubkey).then(associatedUser => {
+            userRetrievalPromise.then(associatedUser => {
                 const formattedUser = {
                     ...associatedUser,
                     uid: associatedUser.id,

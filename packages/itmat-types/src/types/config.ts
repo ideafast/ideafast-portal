@@ -30,7 +30,7 @@ export interface ISystemConfig extends IBase {
     jobSchedulerConfig: IJobSchedulerConfig;
     defaultUserExpireDays: number;
     domainMeta: IDomainMeta[];
-    systemKeyId: string
+    systemKeyId: string  // for system token generation
 }
 
 export interface IStudyConfig extends IBase {
@@ -126,7 +126,7 @@ export class DefaultSettings implements IDefaultSettings {
         },
         defaultUserExpireDays: 90,
         domainMeta: [],
-        systemKeyId: 'fdb467f2-987d-45ee-945f-049715b6c9b4' // set the key, the system public key id to generate the token
+        systemKeyId: 'fdb467f2-987d-45ee-945f-049715b6c9b4' // set the system public key id to generate the system token, which should be the admin token
     };
 
     public readonly studyConfig: IStudyConfig = {

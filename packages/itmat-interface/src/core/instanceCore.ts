@@ -8,8 +8,57 @@ import { jobCore } from './jobCore'; // Ensure you have the correct import path
 import { userCore } from './userCore';
 import { enumJobType} from '@itmat-broker/itmat-types'; // Ensure you have the correct import path
 import * as mfa from '../utils/mfa';
+// import the config and rename to dmpConfig
+import config  from '../utils/configManager';
+import * as yaml from 'js-yaml';
+import lxdManager from '../lxd/lxdManager';
+import { deepMerge } from '../lxd/lxd.util';
 
 export class InstanceCore {
+
+    // Method to fetch the vendor-data from the profile
+    private async getVendorData(profileName: string): Promise<string> {
+        const profileData = await lxdManager.getProfile(profileName);
+        if (profileData.error) {
+            throw new Error(`Error fetching profile data: ${profileData.data}`);
+        }
+        return profileData.data.config['user.vendor-data'];
+    }
+
+
+    // Function to merge cloud-init configurations
+    // define the type of the vendorData and userData and the return type
+    public mergeCloudInitConfigs(vendorData: string, userData: string): string {
+        // Parse YAML strings into objects
+        const vendorConfig: any = yaml.load(vendorData);
+        const userConfig: any = yaml.load(userData);
+
+        // Merge runcmd arrays
+        // const combinedRuncmd = [].concat(vendorConfig.runcmd || [], userConfig.runcmd || []);
+        // const mergedConfig = { ...vendorConfig, ...userConfig, runcmd: combinedRuncmd };
+        // const mergedConfig = _.merge({}, vendorConfig, userConfig, { runcmd: combinedRuncmd });
+
+
+        // Deeply merge vendor and user configurations
+        const mergedConfig = deepMerge(vendorConfig, userConfig);
+
+        // Convert the merged object back into a YAML string
+        // Properly structured YAML dump with correct options
+        const yamlOptions = {
+            indent: 2,
+            noArrayIndent: true,
+            flowLevel: -1,
+            lineWidth: -1,
+            noRefs: true,
+            sortKeys: true  // Adjust based on your requirements
+        };
+
+        // Now pass the mergedConfig and options as a single object
+        const yamlString = yaml.dump({ data: mergedConfig, options: yamlOptions });
+
+        console.log('YAML String:', yamlString);
+        return yamlString;
+    }
 
     /**
      * Create an instance.
@@ -37,32 +86,148 @@ export class InstanceCore {
             throw new Error('Error generating instance token.');
         }
         const notebookToken = mfa.generateSecret(20);
-        // Prepare user-data for cloud-init to append the token to /etc/profile
-        const cloudInitUserData = `
-        #cloud-config
-        users:
-          - name: ubuntu
-            groups: sudo
-            sudo: ['ALL=(ALL) NOPASSWD:ALL']
-            shell: /bin/bash
-        write_files:
-          - path: /etc/profile.d/instance_token.sh
-            content: |
-              export INSTANCE_TOKEN="${instanceSystemToken}"
-            permissions: '0755'
-          - path: /root/.jupyter/jupyter_notebook_config.py
-            content: |
-              c.NotebookApp.ip = '0.0.0.0'
-              c.NotebookApp.port = 8888
-              c.NotebookApp.open_browser = False
-              c.NotebookApp.token = '${notebookToken}'
-              c.NotebookApp.password = ''
-              c.NotebookApp.allow_root = True
-            permissions: '0644'
-        `;
 
+        // TDDO, replace the url, WebDAV mount configuration
+        const webdavServer = `http://localhost:${config.webdavPort}`;
+        const webdavMountPath = '/mnt/webdav'; // Adjust as necessary
+
+        const instanceProfile = type==='virtual-machine'? 'matlab-profile' : 'jupyter-profile'; // Assuming 'default' profile, adjust as necessary
+
+        // Prepare user-data for cloud-init to append the token to /etc/profile
+        const cloudInitUserDataComntainer = `
+#cloud-config
+packages:
+  - davfs2
+users:
+  - name: ubuntu
+    groups: sudo
+    sudo: "ALL=(ALL) NOPASSWD:ALL"
+    shell: /bin/bash
+write_files:
+  - path: /etc/profile.d/instance_token.sh
+    content: |
+      export INSTANCE_TOKEN="${instanceSystemToken}"
+      export DMP_TOKEN="${instanceSystemToken}"
+    permissions: '0755'
+  - path: /etc/davfs2/secrets
+    content: |
+      ${webdavServer} ubuntu ${instanceSystemToken}
+    permissions: '0600'
+  - path: /etc/systemd/system/webdav-mount.service
+    content: |
+      [Unit]
+      Description=Mount WebDAV on startup
+      After=network.target
+      [Service]
+      Type=oneshot
+      ExecStart=/bin/mount -t davfs ${webdavServer} ${webdavMountPath} -o rw,uid=ubuntu,gid=ubuntu
+      ExecStartPre=/bin/mkdir -p ${webdavMountPath}
+      RemainAfterExit=true
+      [Install]
+      WantedBy=multi-user.target
+    permissions: '0644'
+runcmd:
+  - |
+    DEFAULT_USER="\${USERNAME:-ubuntu}"
+    if ! getent group nopasswdlogin > /dev/null; then
+      addgroup nopasswdlogin
+    fi
+    if ! id -u \${DEFAULT_USER} > /dev/null 2>&1; then
+      adduser \${DEFAULT_USER} nopasswdlogin || true
+    fi
+    passwd -d \${DEFAULT_USER} || true
+    echo "@reboot \${DEFAULT_USER} DISPLAY=:0 /home/\${DEFAULT_USER}/disable_autolock.sh" | crontab -u \${DEFAULT_USER} -
+    cat << 'EOF' > "/home/\${DEFAULT_USER}/disable_autolock.sh"
+    #!/bin/bash
+    if [ -z "\${DISPLAY}" ]; then
+      echo "No DISPLAY available. Skipping GUI settings."
+    else
+      dbus-launch gsettings set org.gnome.desktop.screensaver lock-enabled false
+      dbus-launch gsettings set org.gnome.desktop.session idle-delay 0
+    fi
+    EOF
+    chmod +x "/home/\${DEFAULT_USER}/disable_autolock.sh"
+    chown \${DEFAULT_USER}: "/home/\${DEFAULT_USER}/disable_autolock.sh"
+  - sleep 10
+  - systemctl daemon-reload
+  - systemctl enable webdav-mount.service
+  - systemctl start webdav-mount.service
+  - source /etc/profile.d/dmpy.sh
+  - source /etc/profile.d/instance_token.sh
+`;
+
+
+        const cloudInitUserDataVM = `
+#cloud-config
+packages:
+  - davfs2
+users:
+  - name: ubuntu
+    groups: sudo
+    sudo: "ALL=(ALL) NOPASSWD:ALL"
+    shell: /bin/bash
+write_files:
+  - path: /etc/profile.d/instance_token.sh
+    content: |
+      export INSTANCE_TOKEN="${instanceSystemToken}"
+      export DMP_TOKEN="${instanceSystemToken}"
+    permissions: '0755'
+  - path: /etc/davfs2/secrets
+    content: |
+      ${webdavServer} ubuntu ${instanceSystemToken}
+    permissions: '0600'
+  - path: /etc/systemd/system/webdav-mount.service
+    content: |
+      [Unit]
+      Description=Mount WebDAV on startup
+      After=network.target
+      [Service]
+      Type=oneshot
+      ExecStart=/bin/mount -t davfs ${webdavServer} ${webdavMountPath} -o rw,uid=ubuntu,gid=ubuntu
+      ExecStartPre=/bin/mkdir -p ${webdavMountPath}
+      RemainAfterExit=true
+      [Install]
+      WantedBy=multi-user.target
+    permissions: '0644'
+runcmd:
+  # Removing MATLAB licenses
+  - rm -rf /usr/local/MATLAB/R2022b/licenses/
+  - rm /home/ubuntu/.matlab/R2022b_licenses/license_matlab-ubuntu-vm_600177_R2022b.lic
+  - rm /usr/local/MATLAB/R2022b/licenses/license.dat
+  - rm /usr/local/MATLAB/R2022b/licenses/license*.lic
+  # New commands for user setup
+  - |
+    DEFAULT_USER="\${USERNAME:-ubuntu}"
+    if ! getent group nopasswdlogin > /dev/null; then
+      addgroup nopasswdlogin
+    fi
+    if ! id -u \${DEFAULT_USER} > /dev/null 2>&1; then
+      adduser \${DEFAULT_USER} nopasswdlogin || true
+    fi
+    passwd -d \${DEFAULT_USER} || true
+    echo "@reboot \${DEFAULT_USER} DISPLAY=:0 /home/\${DEFAULT_USER}/disable_autolock.sh" | crontab -u \${DEFAULT_USER} -
+    cat << 'EOF' > "/home/\${DEFAULT_USER}/disable_autolock.sh"
+    #!/bin/bash
+    if [ -z "\${DISPLAY}" ]; then
+      echo "No DISPLAY available. Skipping GUI settings."
+    else
+      dbus-launch gsettings set org.gnome.desktop.screensaver lock-enabled false
+      dbus-launch gsettings set org.gnome.desktop.session idle-delay 0
+    fi
+    EOF
+    chmod +x "/home/\${DEFAULT_USER}/disable_autolock.sh"
+    chown \${DEFAULT_USER}: "/home/\${DEFAULT_USER}/disable_autolock.sh"
+  - sleep 10
+  - systemctl daemon-reload
+  - systemctl enable webdav-mount.service
+  - systemctl start webdav-mount.service
+  - source /etc/profile.d/dmpy.sh
+  - source /etc/profile.d/instance_token.sh
+`;
+
+        const cloudInitUserData = type==='virtual-machine'? cloudInitUserDataVM : cloudInitUserDataComntainer;
         // add boot-time script, to be executed on first boot
-        const config = {
+        const instaceConfig = {
             'limits.cpu': cpuLimit ? cpuLimit.toString() : '2',
             'limits.memory': memoryLimit ? memoryLimit : '4GB',
             'user.username': username, // store username to instance config
@@ -90,7 +255,7 @@ export class InstanceCore {
                 deletedUser: null
             },
             metadata: {},
-            config: config
+            config: instaceConfig
         };
 
         await db.collections!.instance_collection.insertOne(instanceEntry);
@@ -102,10 +267,10 @@ export class InstanceCore {
 
         // Override defaults if cpuLimit and memoryLimit are provided
         if (cpuLimit) {
-            config['limits.cpu'] = cpuLimit.toString(); // Ensure it's a string
+            instaceConfig['limits.cpu'] = cpuLimit.toString(); // Ensure it's a string
         }
         if (memoryLimit) {
-            config['limits.memory'] = memoryLimit;
+            instaceConfig['limits.memory'] = memoryLimit;
         }
 
         // Construct the payload from the job document parameters
@@ -116,16 +281,16 @@ export class InstanceCore {
             payload: {
                 name: name,
                 architecture: 'x86_64',
-                config: config,
+                config: instaceConfig,
                 source: {
                     type: 'image',
                     alias: type==='virtual-machine'? 'ubuntu-matlab-image' : 'ubuntu-jupyter-container-image' // Example fingerprint, adjust as necessary
                 },
-                profiles: [ type==='virtual-machine'? 'matlab-profile' : 'jupyter-profile'], // Assuming 'default' profile, adjust as necessary
+                profiles: [instanceProfile],
                 type: type // 'virtual-machine' or 'container'
-            // Include other fields as required by your LXD setup
             }
         };
+        // console.log('lxd_metadata', lxd_metadata);
 
         // Call the createJob method of JobCore to create a new job
         await jobCore.createJob(
@@ -178,7 +343,6 @@ export class InstanceCore {
     }
 
 
-
     /**
      * Delete an instance.
      */
@@ -224,14 +388,64 @@ export class InstanceCore {
     }
 
     /**
-     * Get all instances.
-     *
-     * @return IInstance[]
-     */
+ * Get all instances and update their status based on lifespan.
+ *
+ * @param userId The ID of the user managing instances.
+ * @return IInstance[] The list of instances.
+ */
     public async getInstances(userId: string): Promise<IInstance[]> {
-        return await db.collections!.instance_collection.find({userId}).toArray();
-    }
+    // Retrieve all instances that haven't been deleted
+        const instances = await db.collections!.instance_collection.find({
+            status: { $ne: enumInstanceStatus.DELETED },
+            userId: userId  // Ensure to only fetch instances related to the userId if necessary
+        }).toArray();
 
+        const now = Date.now();
+
+        // Create a series of promises to handle lifespan and status updates
+        const updates = instances.map(async (instance) => {
+            const lifeDuration = now - instance.createAt;
+            const remainingLife = instance.lifeSpan * 3600000 - lifeDuration;
+
+            // Check if the lifespan has been exceeded
+            if (remainingLife <= 0) {
+            // Check if the instance is not already stopped
+                if (instance.status !== enumInstanceStatus.STOPPED && instance.status !== enumInstanceStatus.STOPPING) {
+                    // Stop the instance and update status in the database
+                    await this.startStopInstance(userId, instance.id, 'stop');
+                }
+
+                return await db.collections!.instance_collection.updateOne(
+                    { id: instance.id },
+                    {
+                        $set: {
+                            lifeSpan: 0  // Reset lifespan to zero as it's now considered ended
+                            // status: enumInstanceStatus.STOPPED  // Ensure the status is set to STOPPED
+                        }
+                    }
+                );
+
+            } else {
+                // resolve the promise with the instance object
+                return instance;
+
+            }
+        });
+
+        // Wait for all updates to complete
+        await Promise.all(updates);
+
+        // Fetch and return the updated list of instances
+        return instances.map(instance => {
+            // This will provide the updated remaining life span without persisting it
+            const lifeDuration = now - instance.createAt;
+            const remainingLifeHours = (instance.lifeSpan * 3600000 - lifeDuration) / 3600000;
+            return {
+                ...instance,
+                lifeSpan: remainingLifeHours > 0 ? remainingLifeHours : 0
+            };
+        });
+    }
     /**
      * Edit an instance.
      *

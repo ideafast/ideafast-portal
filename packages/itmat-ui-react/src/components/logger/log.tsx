@@ -26,6 +26,7 @@ export const LogSection: FunctionComponent = () => {
     if (getLogs.isError || getUsers.isError || getSystemConfig.isError || getLogsSummary.isError) {
         return <>An error occurred.</>;
     }
+
     return <div className={css.page_container}>
         <List
             header={

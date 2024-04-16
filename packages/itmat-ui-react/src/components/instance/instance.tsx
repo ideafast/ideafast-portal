@@ -38,7 +38,7 @@ export const InstanceSection: FunctionComponent = () => {
 
     // Console
     const [consoleModalOpen, setConsoleModalOpen] = useState(false);
-    const [selectedInstance, setSelectedInstance] = useState<Partial<IInstance> | null>(null);
+    const [selectedInstance, setSelectedInstance] = useState<IInstance | null>(null);
 
     const [connectSignal, setConnectSignal] = useState(false);
 
@@ -175,7 +175,7 @@ export const InstanceSection: FunctionComponent = () => {
         }
     };
 
-    const handleDeleteInstance = (instance: IInstance) => {
+    const handleDeleteInstance = (instance) => {
         Modal.confirm({
             title: 'Are you sure to delete this instance?',
             content: `This will delete the instance "${instance.name}". This action cannot be undone.`,
@@ -244,7 +244,7 @@ export const InstanceSection: FunctionComponent = () => {
         (window as any).hasSpice = false;
     };
 
-    // Example sorting function
+    // sorting function
     const sortedInstances = [...getInstances.data].sort((a, b) => {
         if (a.status === enumInstanceStatus.RUNNING && b.status !== enumInstanceStatus.RUNNING) {
             return -1; // a comes first
@@ -283,10 +283,10 @@ export const InstanceSection: FunctionComponent = () => {
                     <p>Username: {instance.username}</p>
                     <p>Application Type: {instance.appType}</p>
                     <p>Created At: {new Date(instance.createAt).toLocaleString()}</p>
-                    <p>Life Span (hours): {instance.lifeSpan}</p>
+                    <p>Life Span (hours): {Number(instance.lifeSpan).toFixed(2)}</p>
                     {/* Conditionally render Launch/Stop button based on status */}
                     <Space>
-                        {instance.status === enumInstanceStatus.STOPPED && (
+                        {instance.status === enumInstanceStatus.STOPPED && instance.lifeSpan > 0 && (
                             <Button type="primary" style={{ marginRight: '8px' }} onClick={() => startStopInstance.mutate({ instanceId: instance.id, action: 'start' })}>Launch</Button>
                         )}
                         {instance.status === enumInstanceStatus.RUNNING && (
@@ -332,14 +332,8 @@ export const InstanceSection: FunctionComponent = () => {
                         label="Life Span (hours)"
                         initialValue={10} // Set the default value for lifeSpan
                         rules={[{ required: true, message: 'Please input the life span!' }]}>
-                        <InputNumber min={1} max={30}/>
+                        <InputNumber min={1} max={100}/>
                     </Form.Item>
-                    {/* <Form.Item
-                        name="token"
-                        label="Token"
-                        rules={[{ required: true, message: 'Please input the token!' }]}>
-                        <Input placeholder="Enter your token"/>
-                    </Form.Item> */}
                     <Form.Item
                         name="instanceType"
                         label="Instance Type"
@@ -406,7 +400,6 @@ export const InstanceSection: FunctionComponent = () => {
                 ) : (
                     <LXDConsole
                         instanceName={selectedInstance.name}
-                    // ...additional props you may need to pass to LXDConsole
                     /> ))}
             </Modal>
 

@@ -9,8 +9,8 @@ import { LXDInstanceState } from '@itmat-broker/itmat-types';
 
 
 // Load the SSL certificate and key
-const lxdSslCert = fs.readFileSync(process.env.NX_ITMAT_INTERFACE_LXD_CERT_PATH || '/');
-const lxdSslKey = fs.readFileSync(process.env.NX_ITMAT_INTERFACE_LXD_KEY_PATH || '/');
+const lxdSslCert = fs.readFileSync(process.env.NX_ITMAT_INTERFACE_LXD_CERT_PATH || '/Users/jwang12/mylxd.crt');
+const lxdSslKey = fs.readFileSync(process.env.NX_ITMAT_INTERFACE_LXD_KEY_PATH || '/Users/jwang12/mylxd.key');
 
 const lxdOptions: https.AgentOptions & Pick<https.RequestOptions, 'agent'> = {
     cert: lxdSslCert,
@@ -18,6 +18,7 @@ const lxdOptions: https.AgentOptions & Pick<https.RequestOptions, 'agent'> = {
     rejectUnauthorized: false,
     keepAlive: true
 };
+
 
 const lxdAgent = lxdOptions.agent = new https.Agent(lxdOptions);
 const lxdInstance = axios.create({
@@ -60,6 +61,37 @@ export default {
                 error: true,
                 data: e
             };
+        }
+    },
+    // getProfile
+    getProfile: async (profileName: string) => {
+        try {
+            const response = await lxdInstance.get(`/1.0/profiles/${encodeURIComponent(profileName)}`);
+            if (response.status === 200) {
+                return {
+                    data: response.data.metadata// assuming this is the format in which LXD returns profile data
+                };
+            } else {
+                console.error(`Failed to fetch profile data. ${response.data}`);
+                return {
+                    error: true,
+                    data: `Failed to fetch profile data. ${response.data}`
+                };
+            }
+        } catch (error: any) {
+            if (error.response) {
+                console.error(`Failed to fetch profile data. ${error.response}`);
+                return {
+                    error: true,
+                    data: `Failed to fetch profile data. ${error.response}`
+                };
+            } else {
+                console.error('Error fetching profile data from LXD:', error);
+                return {
+                    error: true,
+                    data: error
+                };
+            }
         }
     },
 
@@ -187,6 +219,7 @@ export default {
             };
         } catch (error) {
             console.error('Error fetching Jupyter service URL from LXD:', error);
+            // TODO raise an REST api error
             return {
                 error: true,
                 data: error
