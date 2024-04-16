@@ -22,7 +22,7 @@ export class JobCore {
      *
      * @return IJob
      */
-    public async createJob(requester: string, name: string, type: enumJobType, nextExecutionTime?: number, period?: number, executor?: any, data?: any, parameters?: any, priority?: number): Promise<IJob> {
+    public async createJob(requester: string, name: string, type: enumJobType, nextExecutionTime?: number, period?: number, executor?: any, data?: any, parameters?: any, priority?: number, metadata?: Record<string, any>): Promise<IJob> {
         const jobEntry: IJob = {
             id: uuid(),
             name: name,
@@ -41,7 +41,7 @@ export class JobCore {
                 deletedUser: null
             },
             counter: 0,
-            metadata: {},
+            metadata: metadata ?? {},
             status: enumJobStatus.PENDING
         };
 

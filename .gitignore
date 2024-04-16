@@ -94,3 +94,5 @@ target
 
 # temporary files
 uploads/*
+
+.nx

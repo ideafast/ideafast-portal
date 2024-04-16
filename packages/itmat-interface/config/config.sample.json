@@ -25,7 +25,9 @@
             "drives_collection": "DRIVE_COLLECTION",
             "groups_collection": "GROUP_COLLECTION",
             "colddata_collection": "COLDDATA_COLLECTION",
-            "hashnode_collection": "HASHNODE_COLLECTION"
+            "hashnode_collection": "HASHNODE_COLLECTION",
+            "webauthn_collection": "WEBAUTHN_COLLECTION",
+            "instance_collection": "INSTANCE_COLLECTION"
         }
     },
     "server": {
@@ -57,6 +59,7 @@
     },
     "adminEmail": "admin@example.com",
     "aeEndpoint": "http://localhost:9090",
+    "lxdEndpoint": "https://localhost:8443",
     "webdavPort": 1900,
     "useWebdav": false
 }

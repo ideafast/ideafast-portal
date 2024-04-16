@@ -17,6 +17,7 @@ export interface IConfiguration extends IServerConfig {
     aeEndpoint: string;
     webdavPort: number;
     useWebdav: boolean;
+    lxdEndpoint: string;
 }
 
 class ConfigurationManager {

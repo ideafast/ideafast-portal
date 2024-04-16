@@ -30,7 +30,7 @@ export interface ISystemConfig extends IBase {
     jobSchedulerConfig: IJobSchedulerConfig;
     defaultUserExpireDays: number;
     domainMeta: IDomainMeta[];
-    systemKeyId: string | null;
+    systemKeyId: string  // for system token generation
 }
 
 export interface IStudyConfig extends IBase {
@@ -122,13 +122,13 @@ export class DefaultSettings implements IDefaultSettings {
             strategy: enumJobSchedulerStrategy.FIFO,
             usePriority: true,
             // for errored jobs
-            reExecuteFailedJobs: false,
+            reExecuteFailedJobs: true,
             failedJobDelayTime: 30 * 60 * 1000, // unit timestamps
             maxAttempts: 10 // the number of attempts should be stored in history
         },
         defaultUserExpireDays: 90,
         domainMeta: [],
-        systemKeyId: null
+        systemKeyId: 'fdb467f2-987d-45ee-945f-049715b6c9b4' //TODO: set the system public key id to generate the system token, which should be the admin token
     };
 
     public readonly studyConfig: IStudyConfig = {

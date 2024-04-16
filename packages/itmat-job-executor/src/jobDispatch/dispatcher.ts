@@ -1,5 +1,6 @@
-import { IJob } from '@itmat-broker/itmat-types';
+import { IJob} from '@itmat-broker/itmat-types';
 import { JobHandler } from '../jobHandlers/jobHandlerInterface';
+import { error } from 'console';
 
 export class JobDispatcher {
     private _handlerCollection: {
@@ -22,7 +23,8 @@ export class JobDispatcher {
     public async dispatch(job: IJob): Promise<any> {
         if (!this._handlerCollection[job.type]) {
             //TODO set job to UNPROCESSED
-            return;
+            throw error('No JobHandler for job', job.type);
+            // return;
         }
         return await (await this._handlerCollection[job.type]()).execute(job);
     }

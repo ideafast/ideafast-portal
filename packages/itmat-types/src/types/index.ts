@@ -18,6 +18,8 @@ import * as Drive from './drive';
 import * as Group from './group';
 import * as Permission from './permission';
 import * as HashNode from './hashnode';
+import * as Instance from './instance';
+import * as Lxd from './lxd';
 
 export * from './file';
 export * from './job';
@@ -38,5 +40,8 @@ export * from './drive';
 export * from './group';
 export * from './permission';
 export * from './hashnode';
+export * from './instance';
+export * from './lxd';
 
-export const Types = { File, Job, Log, User, Pubkey, Study, Query, Data, Standardization, Base, Config, Reserved, Response, Doc, Utils, Cache, Drive, Group, Permission, HashNode };
+
+export const Types = { File, Job, Log, User, Pubkey, Study, Query, Data, Standardization, Base, Config, Reserved, Response, Doc, Utils, Cache, Drive, Group, Permission, HashNode, Instance, Lxd};

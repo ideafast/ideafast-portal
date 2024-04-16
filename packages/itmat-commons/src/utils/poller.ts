@@ -37,7 +37,6 @@ export class JobPoller {
     }
 
     private async checkForJobs() {
-        // Logger.log(`${this.identity} polling for new jobs of type ${this.jobType || 'ALL'}.`);
         let job: IJob | null;
         try {
             // implement the scheduler here
@@ -49,37 +48,68 @@ export class JobPoller {
         }
         if (job) {
             Logger.log('Find job');
-            const result = await this.action(job);
-            console.log('Execution finished: ', new Date((Date.now())).toISOString(), result === 'error');
             // update log status
             const setObj: any = {};
-            if (job.period) {
-                setObj.status = enumJobStatus.PENDING;
-                setObj.nextExecutionTime = Date.now() + job.period;
-            } else {
-                if (job.type === enumJobType.LXD) {
-                    setObj.status = enumJobStatus.INUSE;
+            try {
+                // let result: any;
+                console.log('[JobPoller -> checkForJobs] start the action', this.action);
+
+                const result = await this.action(job);
+                console.log('Job Execution finished: ', new Date((Date.now())).toISOString(), result?.error, result);
+
+                if (job.period) {
+                    setObj.status = enumJobStatus.PENDING;
+                    setObj.nextExecutionTime = Date.now() + job.period;
                 } else {
-                    setObj.status = enumJobStatus.FINISHED;
+                    if (job.type === enumJobType.LXD) {
+                        setObj.status = enumJobStatus.INUSE;
+                    } else {
+                        setObj.status = enumJobStatus.FINISHED;
+                    }
                 }
-            }
-            if (result.error) {
-                setObj.history = [{
+                let newHistoryEntry;
+                if (result) {
+                    if (result?.error) {
+                        newHistoryEntry = {
+                            time: Date.now(),
+                            status: enumJobHistoryStatus.FAILED,
+                            errors: [result.response]
+                        };
+                        // update the job status to failed
+                        setObj.status = enumJobStatus.CANCELLED;
+                    } else {
+                        newHistoryEntry = {
+                            time: Date.now(),
+                            status: enumJobHistoryStatus.SUCCESS,
+                            errors: []
+                        };
+                        // update the job status to success
+                        setObj.status = enumJobStatus.FINISHED;
+                    }
+                }
+
+                const jobUpdate = await this.jobCollection.findOne({ id: job.id });
+                if (jobUpdate) {
+                    const currentHistory = jobUpdate.history || [];
+                    setObj.history = [...currentHistory, newHistoryEntry];
+
+                    await this.jobCollection.findOneAndUpdate({ id: job.id }, {
+                        $set: setObj
+                    });
+                }
+            } catch (error) {
+                console.error('[JOB poller]Job execution Error', new Date((Date.now())).toISOString(),  error);
+                const currentHistory = job.history || [];
+                setObj.history = [...currentHistory, {
                     time: Date.now(),
                     status: enumJobHistoryStatus.FAILED,
-                    errors: [result.response]
+                    errors: [error]
                 }];
-            } else {
-                setObj.history = [{
-                    time: Date.now(),
-                    status: enumJobHistoryStatus.SUCCESS,
-                    errors: []
-                }];
-            }
+                await this.jobCollection.findOneAndUpdate({ id: job.id }, {
+                    $set: setObj
+                });
 
-            await this.jobCollection.findOneAndUpdate({ id: job.id }, {
-                $set: setObj
-            });
+            }
             // this.setInterval();
         }
         // this.setInterval();
@@ -102,6 +132,7 @@ export class JobScheduler {
         // we sort jobs based on the config
         availableJobs = availableJobs.filter(el => {
             if (this.config.reExecuteFailedJobs && el.history.filter(ek => ek.status === enumJobHistoryStatus.FAILED).length > this.config.maxAttempts) {
+                // console.log('Job failed more than max attempts: ', el.id);
                 return false;
             }
             if (Date.now() < el.nextExecutionTime) {

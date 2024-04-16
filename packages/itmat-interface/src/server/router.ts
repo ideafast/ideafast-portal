@@ -26,7 +26,7 @@ import { logPlugin } from '../log/logPlugin';
 import { spaceFixing } from '../utils/regrex';
 import { BigIntResolver as scalarResolvers } from 'graphql-scalars';
 import jwt from 'jsonwebtoken';
-import { userRetrieval } from '../authentication/pubkeyAuthentication';
+import { userRetrieval, userRetrievalByUserId } from '../authentication/pubkeyAuthentication';
 import { createProxyMiddleware, RequestHandler } from 'http-proxy-middleware';
 import qs from 'qs';
 import { defaultSettings, enumConfigType, IUser, IUserConfig } from '@itmat-broker/itmat-types';
@@ -38,6 +38,9 @@ import { inferAsyncReturnType, initTRPC } from '@trpc/server';
 import * as trpcExpress from '@trpc/server/adapters/express';
 import multer from 'multer';
 import { MerkleTreeLog } from '../log/merkleTree';
+import lxdRouter, { registerContainSocketServer } from '../lxd';
+// local test
+import cors from 'cors';
 
 // created for each request
 
@@ -47,6 +50,10 @@ export const createContext = async ({
 }: trpcExpress.CreateExpressContextOptions) => {
     const token: string = req.headers.authorization || '';
     if ((token !== '') && (req.user === undefined)) {
+        // skip the token that start with '_xsrf'
+        if (token.startsWith('_xsrf')) {
+            return ({ req, res });
+        }
         const decodedPayload = jwt.decode(token);
         const pubkey = (decodedPayload as any).publicKey;
         // verify the JWT
@@ -55,7 +62,13 @@ export const createContext = async ({
                 throw new GraphQLError('JWT verification failed. ' + error, { extensions: { code: ApolloServerErrorCode.BAD_USER_INPUT, error } });
             }
         });
-        const associatedUser = await userRetrieval(pubkey);
+        const userId = (decodedPayload as any).userId;
+        let associatedUser;
+        if (userId){
+            associatedUser = await userRetrievalByUserId(pubkey, userId);
+        } else {
+            associatedUser = await userRetrieval(pubkey);
+        }
         req.user = associatedUser;
     }
 
@@ -96,7 +109,11 @@ export class Router {
             max: async function (req) {
                 // TODO: Queries do not use token
                 const token: string = req.headers.authorization || '';
-                if ((token !== '') && (req.user === undefined)) {
+                if ((token !== '') && (token !== undefined) && (req.user === undefined)) {
+                    // skip the token that start with '_xsrf'
+                    if (token.startsWith('_xsrf')) {
+                        return defaultSettings.userConfig.defaultMaximumQPS;
+                    }
                     // get the decoded payload ignoring signature, no symmetric secret or asymmetric key needed
                     const decodedPayload = jwt.decode(token);
                     // obtain the public-key of the robot user in the JWT payload
@@ -128,24 +145,24 @@ export class Router {
 
         // redirection for multiple endpoints
         this.app.use(async (req, res, next) => {
-            let systemConfig: any = await db.collections!.configs_collection.findOne({
-                type: enumConfigType.SYSTEMCONFIG
-            });
-            if (!systemConfig) {
-                systemConfig = defaultSettings.systemConfig;
-            }
-            const availablePaths: string[] = systemConfig.properties.domainMeta.map((el: { domain: any; }) => el.domain);
+            // let systemConfig: any = await db.collections!.configs_collection.findOne({
+            //     type: enumConfigType.SYSTEMCONFIG
+            // });
+            // if (!systemConfig) {
+            // const systemConfig = defaultSettings.systemConfig;
+            // }
+            // const availablePaths: string[] = systemConfig.properties.domainMeta.map((el: { domain: any; }) => el.domain);
             // Use a regular expression to match the first path segment after the initial '/'
-            const pathMatch = req.url.match(/^\/([^/]+)/);
+            // const pathMatch = req.url.match(/^\/([^/]+)/);
             // If there's a match and it's one of the known base paths, remove it from req.url
-            if (pathMatch && availablePaths.includes(pathMatch[1])) {
-                // Remove the matched segment from req.url
-                req.url = req.url.substring(pathMatch[0].length);
-                // Handle the special case where req.url becomes empty, which should default to '/'
-                if (req.url === '') {
-                    req.url = '/';
-                }
-            }
+            // if (pathMatch && availablePaths.includes(pathMatch[1])) {
+            //     // Remove the matched segment from req.url
+            //     req.url = req.url.substring(pathMatch[0].length);
+            //     // Handle the special case where req.url becomes empty, which should default to '/'
+            //     if (req.url === '') {
+            //         req.url = '/';
+            //     }
+            // }
             next();
         });
 
@@ -167,6 +184,16 @@ export class Router {
                 }
             })
         );
+
+        // webauthn local test
+        // this.app.use(cors({ origin: 'http://localhost:4200'}));
+        // Enable CORS for your React frontend
+        // this.app.use(cors({ origin: 'http://localhost:4200', credentials: true }));
+        this.app.use(cors({
+            origin: '*', // Be cautious with this in production
+            credentials: true
+        }));
+
         /* authenticating user of the request */
         this.app.use(passport.initialize());
         this.app.use(passport.session());
@@ -197,7 +224,7 @@ export class Router {
 
     async init() {
 
-        const _this = this;
+        // const _this = this;
 
         /* putting schema together */
         const schema = makeExecutableSchema({
@@ -221,7 +248,7 @@ export class Router {
                         merkleTreeLog.initLog();
                         return {
                             async drainServer() {
-                                serverCleanup.dispose();
+                                // serverCleanup.dispose();
                             }
                         };
                     },
@@ -249,54 +276,70 @@ export class Router {
 
         /* AE proxy middleware */
         // initial this before graphqlUploadExpress middleware
-        const ae_proxy = createProxyMiddleware({
-            target: _this.config.aeEndpoint,
-            ws: true,
-            xfwd: true,
-            // logLevel: 'debug',
-            autoRewrite: true,
-            changeOrigin: true,
-            onProxyReq: function (preq, req, res) {
-                if (!req.user)
-                    return res.status(403).redirect('/');
-                res.cookie('ae_proxy', req.headers['host']);
-                const data = (req.user as IUser).username + ':token';
-                preq.setHeader('authorization', `Basic ${Buffer.from(data).toString('base64')}`);
-                if (req.body && Object.keys(req.body).length) {
-                    const contentType = preq.getHeader('Content-Type');
-                    preq.setHeader('origin', _this.config.aeEndpoint);
-                    const writeBody = (bodyData: string) => {
-                        preq.setHeader('Content-Length', Buffer.byteLength(bodyData));
-                        preq.write(bodyData);
-                        preq.end();
-                    };
+        // const ae_proxy = createProxyMiddleware({
+        //     target: _this.config.aeEndpoint,
+        //     ws: true,
+        //     xfwd: true,
+        //     // logLevel: 'debug',
+        //     autoRewrite: true,
+        //     changeOrigin: true,
+        //     onProxyReq: function (preq, req, res) {
+        //         if (!req.user)
+        //             return res.status(403).redirect('/');
+        //         res.cookie('ae_proxy', req.headers['host']);
+        //         const data = (req.user as IUser).username + ':token';
+        //         preq.setHeader('authorization', `Basic ${Buffer.from(data).toString('base64')}`);
+        //         if (req.body && Object.keys(req.body).length) {
+        //             const contentType = preq.getHeader('Content-Type');
+        //             preq.setHeader('origin', _this.config.aeEndpoint);
+        //             const writeBody = (bodyData: string) => {
+        //                 preq.setHeader('Content-Length', Buffer.byteLength(bodyData));
+        //                 preq.write(bodyData);
+        //                 preq.end();
+        //             };
 
-                    if (contentType === 'application/json') {  // contentType.includes('application/json')
-                        writeBody(JSON.stringify(req.body));
-                    }
+        //             if (contentType === 'application/json') {  // contentType.includes('application/json')
+        //                 writeBody(JSON.stringify(req.body));
+        //             }
 
-                    if (contentType === 'application/x-www-form-urlencoded') {
-                        writeBody(qs.stringify(req.body));
-                    }
+        //             if (contentType === 'application/x-www-form-urlencoded') {
+        //                 writeBody(qs.stringify(req.body));
+        //             }
 
-                }
-            },
-            onProxyReqWs: function (preq) {
-                const data = 'username:token';
-                preq.setHeader('authorization', `Basic ${Buffer.from(data).toString('base64')}`);
-            },
-            onError: function (err, req, res, target) {
-                console.error(err, target);
-            }
+        //         }
+        //     },
+        //     onProxyReqWs: function (preq) {
+        //         const data = 'username:token';
+        //         preq.setHeader('authorization', `Basic ${Buffer.from(data).toString('base64')}`);
+        //     },
+        //     onError: function (err, req, res, target) {
+        //         console.error(err, target);
+        //     }
+        // });
+
+        // this.proxies.push(ae_proxy);
+
+        // const proxy_routers = ['/pun', '/node', '/rnode', '/public'];
+
+        // proxy_routers.forEach(router => {
+        //     this.app.use(router, ae_proxy);
+        // });
+
+        /* Containered Service Routes */
+
+        // Top level Websocket server Object
+        const containerWsServer = new WebSocketServer({
+            // This is the `httpServer` returned by createServer(app);
+            server: this.server,
+            // Pass a different path here if your ApolloServer serves at
+            // a different path.
+            path: '/rtc'
         });
 
-        this.proxies.push(ae_proxy);
+        registerContainSocketServer(containerWsServer);
 
-        const proxy_routers = ['/pun', '/node', '/rnode', '/public'];
-
-        proxy_routers.forEach(router => {
-            this.app.use(router, ae_proxy);
-        });
+        // REST-API
+        this.app.use('/lxd', lxdRouter);
 
         await gqlServer.start();
 
@@ -335,17 +378,17 @@ export class Router {
 
         /* register the graphql subscription functionalities */
         // Creating the WebSocket subscription server
-        const wsServer = new WebSocketServer({
-            // This is the `httpServer` returned by createServer(app);
-            server: this.server,
-            // Pass a different path here if your ApolloServer serves at
-            // a different path.
-            path: '/graphql'
-        });
+        // const wsServer = new WebSocketServer({
+        //     // This is the `httpServer` returned by createServer(app);
+        //     server: this.server,
+        //     // Pass a different path here if your ApolloServer serves at
+        //     // a different path.
+        //     path: '/graphql'
+        // });
 
         // Passing in an instance of a GraphQLSchema and
         // telling the WebSocketServer to start listening
-        const serverCleanup = useServer({ schema: schema, execute: execute, subscribe: subscribe }, wsServer);
+        // const serverCleanup = useServer({ schema: schema, execute: execute, subscribe: subscribe }, wsServer);
 
         this.app.get('/file/:fileId', fileDownloadController);
 

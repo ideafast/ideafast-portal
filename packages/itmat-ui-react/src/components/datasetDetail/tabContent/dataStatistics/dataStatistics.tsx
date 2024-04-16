@@ -62,7 +62,8 @@ export const BlockRendering: FunctionComponent<{ studyId: string, blockConfig: a
             blockSize={blockConfig.blockSize}
             blockPos={blockConfig.blockPos}
             basicBlockSize={blockConfig.basicBlockSize}
-            blockConfig={...blockConfig}
+            // blockConfig={...blockConfig}
+            {...blockConfig}
         />;
     }
     return null;

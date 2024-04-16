@@ -90,7 +90,8 @@ export const JobSection: FunctionComponent = () => {
         dataIndex: 'createdBy',
         key: 'createdBy',
         render: (__unused__value, record) => {
-            const user = getUsers.data.filter(el => el === record.life?.createdUser)[0];
+            // const user = getUsers.data.filter(el => el === record.life?.createdUser)[0];
+            const user = getUsers.data.find(el => el.id === record.life?.createdUser);
             return user ? `${user.firstname} ${user.lastname}` : 'NA';
         }
     }, {

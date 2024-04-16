@@ -24,7 +24,9 @@
             "cache_collection": "CACHE_COLLECTION",
             "drives_collection": "DRIVE_COLLECTION",
             "groups_collection": "GROUP_COLLECTION",
-            "hashnode_collection": "HASHNODE_COLLECTION"
+            "hashnode_collection": "HASHNODE_COLLECTION",
+            "webauthn_collection": "WEBAUTHN_COLLECTION",
+            "instance_collection": "INSTANCE_COLLECTION"
         }
     },
     "server": {
@@ -41,5 +43,7 @@
         "bucketRegion": "region",
         "useSSL": false
     },
-    "pollingInterval": 10000
+    "pollingInterval": 10000,
+
+    "dmpEndpoint": "http://localhost:3333"
 }
