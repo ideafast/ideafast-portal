@@ -37,6 +37,7 @@ import path from 'path';
 import { inferAsyncReturnType, initTRPC } from '@trpc/server';
 import * as trpcExpress from '@trpc/server/adapters/express';
 import multer from 'multer';
+import { MerkleTreeLog } from '../log/merkleTree';
 import lxdRouter, { registerContainSocketServer } from '../lxd';
 // local test
 import cors from 'cors';
@@ -70,17 +71,28 @@ export const createContext = async ({
         }
         req.user = associatedUser;
     }
+
+    const requestContext = {
+        headers: req.headers,
+        body: req.body,
+        query: req.query,
+        params: req.params,
+        url: req.url,
+        method: req.method
+    };
+    merkleTreeLog.updateLog(JSON.stringify(requestContext));
+
     return ({ req, res });
 }; // no context
 type Context = inferAsyncReturnType<typeof createContext>;
 const t = initTRPC.context<Context>().create();
 const appRouter = t.router(routers);
+const merkleTreeLog = new MerkleTreeLog(null);
 
 export type AppRouter = typeof appRouter;
 interface ApolloServerContext {
     token?: string;
 }
-
 
 export class Router {
     private readonly app: Express;
@@ -130,6 +142,29 @@ export class Router {
 
         this.app.use(express.json({ limit: '50mb' }));
         this.app.use(express.urlencoded({ extended: true }));
+
+        // redirection for multiple endpoints
+        this.app.use(async (req, res, next) => {
+            // let systemConfig: any = await db.collections!.configs_collection.findOne({
+            //     type: enumConfigType.SYSTEMCONFIG
+            // });
+            // if (!systemConfig) {
+            // const systemConfig = defaultSettings.systemConfig;
+            // }
+            // const availablePaths: string[] = systemConfig.properties.domainMeta.map((el: { domain: any; }) => el.domain);
+            // Use a regular expression to match the first path segment after the initial '/'
+            // const pathMatch = req.url.match(/^\/([^/]+)/);
+            // If there's a match and it's one of the known base paths, remove it from req.url
+            // if (pathMatch && availablePaths.includes(pathMatch[1])) {
+            //     // Remove the matched segment from req.url
+            //     req.url = req.url.substring(pathMatch[0].length);
+            //     // Handle the special case where req.url becomes empty, which should default to '/'
+            //     if (req.url === '') {
+            //         req.url = '/';
+            //     }
+            // }
+            next();
+        });
 
 
         /* save persistent sessions in mongo */
@@ -184,6 +219,7 @@ export class Router {
             socket.setTimeout(0);
             (socket as any).timeout = 0;
         });
+
     }
 
     async init() {
@@ -209,6 +245,7 @@ export class Router {
                 {
                     async serverWillStart() {
                         logPlugin.serverWillStartLogPlugin();
+                        merkleTreeLog.initLog();
                         return {
                             async drainServer() {
                                 // serverCleanup.dispose();
@@ -224,7 +261,8 @@ export class Router {
                                 (requestContext as any).request.variables = spaceFixing(operation as any, actionData);
                             },
                             async willSendResponse(requestContext) {
-                                logPlugin.requestDidStartLogPlugin(requestContext, Date.now() - startTime);
+                                logPlugin.requestDidStartLogPlugin(requestContext, startTime);
+                                merkleTreeLog.updateLog(requestContext);
                             }
                         };
                     }
@@ -367,16 +405,15 @@ export class Router {
                 webServer.start(() => console.log('READY'));
             });
 
-            webServer.setFileSystem('/Physical', new webdav.PhysicalFileSystem('/Users/jwang12/Documents/DMP'), (success) => {
+            // To be removed in further
+            webServer.setFileSystem('/Physical', new webdav.PhysicalFileSystem('/Users/siyao/Documents/DMP'), (success) => {
                 console.log('Physical webdav started:', success);
             });
 
             console.log('Webdav is starting...');
             this.app.use('/dav', (req, res, next) => {
-                // webServer.requestListener(req, res, next);
                 next();
             });
-            // this.app.listen(this.config.webdavPort);
         }
 
         const uploadDir = 'uploads'; // Make sure this directory exists
@@ -393,7 +430,11 @@ export class Router {
         });
         const upload = multer({ storage: storage });
         const fileNames = ['file', 'profile', 'attachments', 'fileUpload'];
-        fileNames.forEach(el => this.app.post('/upload', upload.single(el), (req, res) => {
+        fileNames.forEach(el => this.app.post('/upload', upload.single(el), async (req, res) => {
+            const user = await db.collections!.users_collection.findOne({ id: (req?.user as any).id });
+            if (!user) {
+                res.status(400).send('Permission denied.');
+            }
             if (req.file) {
                 res.json({ filePath: req.file.path });
             } else {

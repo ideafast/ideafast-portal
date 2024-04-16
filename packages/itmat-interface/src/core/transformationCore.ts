@@ -539,6 +539,9 @@ export class DataTransformationCore {
         if (!transformationsAgg || Object.keys(transformationsAgg).length === 0) {
             return data;
         }
+        if (data.every((el: { fieldId: string; }) => el.fieldId.startsWith('reserved'))) {
+            return { version: data };
+        }
         const aggregation: any = {};
         for (const key of Object.keys(transformationsAgg)) {
             aggregation[key] = this.transformationCompose(data, transformationsAgg[key]);

@@ -5,8 +5,8 @@ import { LoginBox } from './components/login/login';
 import { MainMenuBar } from './components/scaffold/mainMenuBar';
 import { MainPanel } from './components/scaffold/mainPanel';
 import css from './components/scaffold/scaffold.module.css';
-// import { ResetPasswordPage } from './components/login/resetPasswordPage';
-// import { RequestResetPassword } from './components/login/requestResetPasswordPage';
+import { ResetPasswordPage } from './components/login/resetPasswordPage';
+import { RequestResetPassword } from './components/login/requestResetPasswordPage';
 import { RegisterNewUser } from './components/login/register';
 import LoadSpinner from './components/reusable/loadSpinner';
 import { StatusBar } from './components/scaffold/statusBar';
@@ -32,8 +32,8 @@ export const Fence: FunctionComponent = () => {
     } else
         component = <LoginBox />;
     return <Routes>
-        {/* <Route path='/reset/:encryptedEmail/:token' element={<ResetPasswordPage />} /> */}
-        {/* <Route path='/reset' element={<RequestResetPassword />} /> */}
+        <Route path='/reset/:encryptedEmail/:token' element={<ResetPasswordPage />} />
+        <Route path='/reset' element={<RequestResetPassword />} />
         <Route path='/register' element={<RegisterNewUser />} />
         <Route path='*' element={component} />
     </Routes>;

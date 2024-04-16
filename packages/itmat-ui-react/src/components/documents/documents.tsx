@@ -1,10 +1,8 @@
 import { FunctionComponent, useEffect } from 'react';
-// import { useQuery, useMutation, useApolloClient } from '@apollo/client/react/hooks';
 import { QueryClient, useQueryClient } from '@tanstack/react-query';
-import { enumDocTypes, IDoc } from '@itmat-broker/itmat-types';
+import { enumDocTypes, enumUserTypes, IDoc } from '@itmat-broker/itmat-types';
 import LoadSpinner from '../reusable/loadSpinner';
-// import { ProjectSection } from '../users/projectSection';
-import { Form, Input, Select, Button, Typography, Row, Col, Upload, message, notification, Card, Popconfirm, List } from 'antd';
+import { Form, Input, Select, Button, Row, Col, Upload, message, notification, Card, Popconfirm, List } from 'antd';
 import { UploadOutlined, LinkOutlined, CloudDownloadOutlined } from '@ant-design/icons';
 import css from './document.module.css';
 import React from 'react';
@@ -12,7 +10,6 @@ import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 
 import { trpc } from '../../utils/trpc';
-const { Paragraph } = Typography;
 const { Option } = Select;
 
 export const DocumentSection: FunctionComponent = () => {
@@ -60,30 +57,38 @@ export const DocumentSection: FunctionComponent = () => {
                                     <div>Documents</div>
                                 </div>
                             </div>
-                            <div>
-                                <Button onClick={() => {
-                                    setDocValue(null);
-                                    setMode('CREATE');
-                                }}>New Document</Button>
-                                <Popconfirm
-                                    title={`Delete file ${docValue?.title ?? 'NA'}`}
-                                    description={`Are you sure to delete file ${docValue?.title ?? 'NA'}?`}
-                                    onConfirm={() => deleteDoc.mutate({ docId: docValue?.id ?? '' })}
-                                    okText="Yes"
-                                    cancelText="No"
-                                >
-                                    <Button danger>Delete</Button>
-                                </Popconfirm>
-                                <Button onClick={() => {
-                                    setMode('VIEW');
-                                    setDocValue(null);
-                                }}>Cancel</Button>
-                                <Button onClick={() => {
-                                    setMode('EDIT');
-                                }}>Edit</Button>
-                            </div>
+                            {
+                                whoAmI.data.type === enumUserTypes.ADMIN ?
+                                    <div>
+                                        <Button onClick={() => {
+                                            setDocValue(null);
+                                            setMode('CREATE');
+                                        }}>New Document</Button>
+                                        <Popconfirm
+                                            title={`Delete file ${docValue?.title ?? 'NA'}`}
+                                            description={`Are you sure to delete file ${docValue?.title ?? 'NA'}?`}
+                                            onConfirm={() => {
+                                                deleteDoc.mutate({ docId: docValue?.id ?? '' });
+                                            }}
+                                            okText="Yes"
+                                            cancelText="No"
+                                        >
+                                            <Button danger>Delete</Button>
+                                        </Popconfirm>
+                                        <Button onClick={() => {
+                                            setMode('VIEW');
+                                            setDocValue(null);
+                                        }}>Cancel</Button>
+                                        <Button onClick={() => {
+                                            setMode('EDIT');
+                                        }}>Edit</Button>
+                                    </div> : null
+                            }
                         </div>
                     }
+                    locale={{
+                        emptyText: <></>
+                    }}
                 >
                 </List>
             </div>
@@ -110,7 +115,7 @@ export const DocumentList: FunctionComponent<{ docList: Partial<IDoc>[], setValu
                         <div style={{ float: 'right' }}>{el.attachmentFileIds?.length ? <LinkOutlined /> : null}</div>
                     </div><br />
                     <div>
-                        <div style={{ float: 'left' }}>{el.description}</div>
+                        <div style={{ float: 'left' }}>{el.tag}</div>
                         <div style={{ float: 'right' }}>{el.life?.createdTime ? (new Date(el.life?.createdTime)).toLocaleDateString('en-GB') : 'NA'}</div>
                     </div>
                 </Card.Grid>)
@@ -171,8 +176,8 @@ export const EditDocument: FunctionComponent<{ value: any, setValue: any, mode: 
                     className={css.qleditor}
                     theme="snow"
                     value={form.getFieldValue('contents') || ''}
-                    onChange={(content, delta, source, editor) => {
-                        form.setFieldsValue({ contents: editor.getHTML() });
+                    onChange={(content) => {
+                        form.setFieldsValue({ contents: content });
                     }}
                     modules={{
                         toolbar: [
@@ -210,8 +215,18 @@ export const EditDocument: FunctionComponent<{ value: any, setValue: any, mode: 
             </Form.Item>
         </Form>
         <Button onClick={async () => {
-            const attachments = form.getFieldValue('attachments');
+            const attachments = form.getFieldValue('attachments') ?? [];
             const paths: any[] = [];
+            console.log({
+                title: form.getFieldValue('title'),
+                type: form.getFieldValue('type'),
+                description: form.getFieldValue('description') ?? null,
+                tag: form.getFieldValue('tag') ?? null,
+                studyId: undefined,
+                priority: form.getFieldValue('priority') ?? 0,
+                attachments: paths,
+                contents: form.getFieldValue('contents')
+            });
             for (const attachment of attachments) {
                 const fileData = attachment;
                 const formData = new FormData();
@@ -287,9 +302,12 @@ export const DocumentViewer: FunctionComponent<{ doc: Partial<IDoc> | null, setV
                         </Card>
                     </Col>
                 </Row>
-                <Paragraph style={{ textAlign: 'center' }}>{doc_.description}</Paragraph>
+                <br />
                 <div dangerouslySetInnerHTML={{ __html: doc_.contents ?? '' }}></div>
-                <span>Attachments:</span>
+                {
+                    doc_.attachmentFileIds.length ?
+                        <span>Attachments:</span> : null
+                }
                 {
                     doc_.attachmentFileIds ? doc_.attachmentFileIds.map(el => {
                         if (!doc_.metadata || !doc_.metadata.docs) {

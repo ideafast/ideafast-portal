@@ -180,7 +180,13 @@ export const docRouter = t.router({
     deleteDoc: baseProcedure.input(z.object({
         docId: z.string()
     })).mutation(async (opts: any) => {
-        const user = opts.ctc.req.user;
-        return await docCore.deleteDoc(user.id, opts.input.docId);
+        const requester = opts.ctx.req?.user ?? opts.ctx.user;
+        if (requester.type !== enumUserTypes.ADMIN) {
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: errorCodes.NO_PERMISSION_ERROR
+            });
+        }
+        return await docCore.deleteDoc(requester.id, opts.input.docId);
     })
 });

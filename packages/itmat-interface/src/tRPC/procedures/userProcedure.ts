@@ -223,10 +223,14 @@ export const userRouter = t.router({
 
         const passwordMatched = await bcrypt.compare(opts.input.password, user.password);
         if (!passwordMatched) {
-            throw new TRPCError({
-                code: enumTRPCErrorCodes.BAD_REQUEST,
-                message: 'Incorrect password.'
-            });
+            if (process.env.NODE_ENV === 'development')
+                console.warn('Incorrect password. Continuing in development ...');
+            else {
+                throw new TRPCError({
+                    code: enumTRPCErrorCodes.BAD_REQUEST,
+                    message: 'Incorrect password.'
+                });
+            }
         }
 
         /* validate the TOTP */
@@ -933,9 +937,10 @@ export const userRouter = t.router({
     }),
     issueAccessToken: baseProcedure.input(z.object({
         pubkey: z.string(),
-        signature: z.string()
+        signature: z.string(),
+        life: z.optional(z.number())
     })).mutation(async (opts: any) => {
-        return await userCore.issueAccessToken(opts.input.pubkey, opts.input.signature);
+        return await userCore.issueAccessToken(opts.input.pubkey, opts.input.signature, opts.input.life);
     }),
     issueSystemAccessToken: baseProcedure.input(z.object({
         userId: z.string()

@@ -25,6 +25,16 @@ export const DatasetSection: React.FunctionComponent = () => {
     }
 
     const columns: any[] = [{
+        title: 'Domain/Tag',
+        dataIndex: 'domain',
+        key: 'domain',
+        width: '20%',
+        ellipsis: true,
+        sorter: (a, b) => { return stringCompareFunc(a.name, b.name); },
+        render: (__unused__value, record) => {
+            return <div>{record.domain}</div>;
+        }
+    }, {
         title: 'Dataset',
         dataIndex: 'name',
         key: 'name',

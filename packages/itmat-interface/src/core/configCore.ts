@@ -5,16 +5,16 @@ import { errorCodes } from '../graphql/errors';
 import { v4 as uuid } from 'uuid';
 
 export class ConfigCore {
+    /**
+     * Get the config.
+     *
+     * @param configType - The type of the config..
+     * @param key - The key of the config. studyid, userid, or null for system.
+     * @param useDefault - Whether to use the default config if not found.
+     *
+     * @return IConfig
+     */
     public async getConfig(configType: enumConfigType, key: string | null, useDefault: boolean): Promise<IConfig> {
-        /**
-         * Get the config.
-         *
-         * @param configType - The type of the config..
-         * @param key - The key of the config. studyid, userid, or null for system.
-         * @param useDefault - Whether to use the default config if not found.
-         *
-         * @return IConfig
-         */
         const config = await db.collections!.configs_collection.findOne({ 'type': configType, 'key': key, 'life.deletedTime': null });
         if (!config) {
             if (useDefault) {

@@ -189,14 +189,13 @@ export const dataRouter = t.router({
     }),
     getFiles: baseProcedure.input(z.object({
         studyId: z.string(),
-        versionId: z.union([z.string(), z.null()]),
+        versionId: z.optional(z.string()),
         fieldIds: z.optional(z.array(z.string())),
         aggregation: z.optional(z.any()),
-        useCache: z.boolean(),
-        forceUpdate: z.boolean(),
+        useCache: z.optional(z.boolean()),
+        forceUpdate: z.optional(z.boolean()),
         readable: z.optional(z.boolean())
     })).query(async (opts: any) => {
-        const time1 = Date.now();
         const user = opts.ctx.req?.user ?? opts.ctx.user;
         const study = (await studyCore.getStudies(opts.input.studyId))[0];
         // get the versions
@@ -206,16 +205,15 @@ export const dataRouter = t.router({
             availableDataVersions.push(null);
         }
         const fields = await dataCore.getStudyFields(user.id, opts.input.studyId, availableDataVersions, null);
-        let filteredFieldIds = fields.filter(el => el.dataType === enumDataTypes.FILE).map(el => el.fieldId);
+        let filteredFieldIds = fields.filter(el => el.dataType === enumDataTypes.FILE).map(el => el.fieldId).filter(el => !el.startsWith('reserved'));
         if (opts.input.fieldIds) {
             filteredFieldIds = filteredFieldIds.filter(el => opts.input.fieldIds.includes(el));
         }
-        const fileDataClips = await dataCore.getData(user.id, opts.input.studyId, filteredFieldIds, availableDataVersions, opts.input.aggregation, opts.input.useCache, opts.input.forceUpdate);
-        const time2 = Date.now();
-        const res = await fileCore.findFiles(fileDataClips.map((el: { value: any; }) => el.value), opts.input.readable);
-        const time3 = Date.now();
-        console.log(time2 - time1, time3 - time2);
-        return res;
+        const unversionedFileDataClips = await dataCore.getData(user.id, opts.input.studyId, filteredFieldIds, [null], opts.input.aggregation, opts.input.useCache, opts.input.forceUpdate);
+        const versionedFileDataClips = await dataCore.getDataLatest(user.id, study.id, filteredFieldIds);
+        const unversioned = await fileCore.findFiles(unversionedFileDataClips.map((el: { value: any; }) => el.value), opts.input.readable);
+        const versioned = await fileCore.findFiles(versionedFileDataClips.map((el: { value: any; }) => el.value), opts.input.readable);
+        return [...unversioned, ...versioned];
     }),
     /**
      * Get the data of a study.

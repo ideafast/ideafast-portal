@@ -134,6 +134,12 @@ export class FileCore {
                             }
                         }
                     }
+                    const eProperties = properties ?? {};
+                    eProperties['FileName'] = fileUpload.filename;
+                    eProperties['FileSize'] = fileSize;
+                    eProperties['Hash'] = hashString;
+                    const fileParts: string[] = fileUpload.filename.split('.');
+                    eProperties['File Type'] = fileParts.length === 1 ? 'UNKNOWN' : fileParts[fileParts.length - 1];
                     const fileEntry: IFile = {
                         id: uuid(),
                         studyId: studyId,
@@ -146,7 +152,7 @@ export class FileCore {
                         hash: hashString,
                         fileType: fileType,
                         fileCategory: fileCategory,
-                        properties: properties,
+                        properties: eProperties,
                         sharedUsers: [],
                         life: {
                             createdTime: Date.now(),

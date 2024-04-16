@@ -24,7 +24,10 @@
             "cache_collection": "CACHE_COLLECTION",
             "drives_collection": "DRIVE_COLLECTION",
             "groups_collection": "GROUP_COLLECTION",
-            "colddata_collection": "COLDDATA_COLLECTION"
+            "colddata_collection": "COLDDATA_COLLECTION",
+            "hashnode_collection": "HASHNODE_COLLECTION",
+            "webauthn_collection": "WEBAUTHN_COLLECTION",
+            "instance_collection": "INSTANCE_COLLECTION"
         }
     },
     "server": {
@@ -47,7 +50,12 @@
     "sessionsSecret": "Change_Me",
     "aesSecret": "change_this",
     "nodemailer": {
-        "auth": {}
+        "host": "localhost",
+        "port": 1025,
+        "auth": {
+            "user": "project.1@thelife.com",
+            "pass": "secret.1"
+        }
     },
     "adminEmail": "admin@example.com",
     "aeEndpoint": "http://localhost:9090",

@@ -1,4 +1,4 @@
-import type { IData, IField, IFile, IJob, ILog, IOrganisation, IProject, IPubkey, IQueryEntry, IRole, IStudy, IUser, IStandardization, IConfig, IOntologyTree, IDoc, IDriveNode, IGroupNode, IInstance } from '@itmat-broker/itmat-types';
+import type { IData, IField, IFile, IJob, ILog, IOrganisation, IProject, IPubkey, IQueryEntry, IRole, IStudy, IUser, IStandardization, IConfig, IOntologyTree, IDoc, IDriveNode, IGroupNode, IHashNode, IInstance } from '@itmat-broker/itmat-types';
 import { Database as DatabaseBase, IDatabaseBaseConfig } from '@itmat-broker/itmat-commons';
 import type { Collection } from 'mongodb';
 import { ICache } from 'packages/itmat-types/src/types/cache';
@@ -23,7 +23,8 @@ export interface IDatabaseConfig extends IDatabaseBaseConfig {
         cache_collection: string,
         drives_collection: string,
         groups_collection: string,
-        colddata_collection: string
+        colddata_collection: string,
+        hashnode_collection: string
         instance_collection: string
     };
 }
@@ -49,6 +50,7 @@ export interface IDatabaseCollectionConfig {
     drives_collection: Collection<IDriveNode>,
     groups_collection: Collection<IGroupNode>,
     colddata_collection: Collection<IData>,
+    hashnode_collection: Collection<IHashNode>
     instance_collection: Collection<IInstance>
 }
 

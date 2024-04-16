@@ -17,8 +17,8 @@ export const FileRepositoryTabContent: FunctionComponent<{ studyId: string }> = 
     const whoAmI = trpc.user.whoAmI.useQuery();
     const getStudy = trpc.study.getStudies.useQuery({ studyId: studyId });
     const studyConfig = trpc.config.getConfig.useQuery({ configType: enumConfigType.STUDYCONFIG, key: studyId, useDefault: true });
-    const getFiles = trpc.data.getFiles.useQuery({ studyId: studyId, versionId: null, fieldIds: selectedFileCat, useCache: false, forceUpdate: false, aggregation: {}, readable: true });
-    const getStudyLevelFiles = trpc.data.getFiles.useQuery({ studyId: studyId, versionId: null, fieldIds: ['reserved_study_level_data'], useCache: false, forceUpdate: false, aggregation: {}, readable: true });
+    const getFiles = trpc.data.getFiles.useQuery({ studyId: studyId, fieldIds: selectedFileCat, useCache: false, forceUpdate: false, aggregation: {}, readable: true });
+    const getStudyLevelFiles = trpc.data.getFiles.useQuery({ studyId: studyId, fieldIds: ['reserved_study_level_data'], useCache: false, forceUpdate: false, aggregation: {}, readable: true });
 
     const getStudyFields = trpc.data.getStudyFields.useQuery({ studyId: studyId });
 

@@ -87,6 +87,8 @@ export interface IDefaultSettings extends IBase {
 
 export interface IDomainMeta {
     profile?: string;
+    domain: string;
+    color?: string;
 }
 
 // default settings
@@ -126,7 +128,7 @@ export class DefaultSettings implements IDefaultSettings {
         },
         defaultUserExpireDays: 90,
         domainMeta: [],
-        systemKeyId: 'fdb467f2-987d-45ee-945f-049715b6c9b4' // set the system public key id to generate the system token, which should be the admin token
+        systemKeyId: 'fdb467f2-987d-45ee-945f-049715b6c9b4' //TODO: set the system public key id to generate the system token, which should be the admin token
     };
 
     public readonly studyConfig: IStudyConfig = {

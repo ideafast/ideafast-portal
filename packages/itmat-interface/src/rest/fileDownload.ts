@@ -17,53 +17,55 @@ export const fileDownloadController = async (req: Request, res: Response): Promi
     // if the file is HOMEPAGE file, skip permission check
     const doc = await db.collections!.docs_collection.findOne({ 'attachmentFileIds': requestedFile, 'life.deletedTime': null, 'type': enumDocTypes.HOMEPAGE });
     if (!doc) {
-        if ((token !== '') && (req.user === undefined)) {
-            // get the decoded payload ignoring signature, no symmetric secret or asymmetric key needed
-            const decodedPayload = jwt.decode(token);
-            // obtain the public-key of the robot user in the JWT payload
-            const pubkey = (decodedPayload as any).publicKey;
-            // verify the JWT
-            jwt.verify(token, pubkey, function (error: any) {
-                if (error) {
-                    throw new TRPCError({
-                        code: enumTRPCErrorCodes.BAD_REQUEST,
-                        message: 'JWT verification failed.'
-                    });
-                }
-            });
-        } else if (!requester) {
-            res.status(403).json({ error: 'Please log in.' });
-            return;
-        }
-        // check data permission
         file = await db.collections!.files_collection.findOne({ 'id': requestedFile, 'life.deletedTime': null })!;
-        if (!file) {
-            res.status(200).json({ error: 'File not found or you do not have the necessary permission.' });
-            return;
-        }
-        if (file.fileCategory === enumFileCategories.STUDY_DATA_FILE) {
-            const data = await db.collections!.data_collection.findOne({ 'studyId': file.studyId ?? '', 'value': file.id, 'life.deletedTime': null });
-            if (!data) {
-                res.status(200).json({ error: errorCodes.NO_PERMISSION_ERROR });
+        if (file.fileCategory !== enumFileCategories.DOMAIN_PROFILE_FILE) {
+            if ((token !== '') && (req.user === undefined)) {
+                // get the decoded payload ignoring signature, no symmetric secret or asymmetric key needed
+                const decodedPayload = jwt.decode(token);
+                // obtain the public-key of the robot user in the JWT payload
+                const pubkey = (decodedPayload as any).publicKey;
+                // verify the JWT
+                jwt.verify(token, pubkey, function (error: any) {
+                    if (error) {
+                        throw new TRPCError({
+                            code: enumTRPCErrorCodes.BAD_REQUEST,
+                            message: 'JWT verification failed.'
+                        });
+                    }
+                });
+            } else if (!requester) {
+                res.status(403).json({ error: 'Please log in.' });
                 return;
             }
-
-            try {
-                const permission = await permissionCore.checkDataPermissionByUser(
-                    requester.id,
-                    {
-                        fieldId: data.fieldId,
-                        properties: data.properties
-                    },
-                    data.studyId
-                );
-                if (!permission) {
+            // check data permission
+            if (!file) {
+                res.status(200).json({ error: 'File not found or you do not have the necessary permission.' });
+                return;
+            }
+            if (file.fileCategory === enumFileCategories.STUDY_DATA_FILE) {
+                const data = await db.collections!.data_collection.findOne({ 'studyId': file.studyId ?? '', 'value': file.id, 'life.deletedTime': null });
+                if (!data) {
                     res.status(200).json({ error: errorCodes.NO_PERMISSION_ERROR });
                     return;
                 }
-            } catch (e) {
-                res.status(200).json({ error: errorCodes.NO_PERMISSION_ERROR });
-                return;
+
+                try {
+                    const permission = await permissionCore.checkDataPermissionByUser(
+                        requester.id,
+                        {
+                            fieldId: data.fieldId,
+                            properties: data.properties
+                        },
+                        data.studyId
+                    );
+                    if (!permission) {
+                        res.status(200).json({ error: errorCodes.NO_PERMISSION_ERROR });
+                        return;
+                    }
+                } catch (e) {
+                    res.status(200).json({ error: errorCodes.NO_PERMISSION_ERROR });
+                    return;
+                }
             }
         }
     }
@@ -77,7 +79,10 @@ export const fileDownloadController = async (req: Request, res: Response): Promi
             bucket = 'user';
         } else if (file.fileCategory === enumFileCategories.ORGANISATION_PROFILE_FILE) {
             bucket = 'organisation';
+        } else if (file.fileCategory === enumFileCategories.DOMAIN_PROFILE_FILE) {
+            bucket = 'domain';
         }
+        console.log(bucket, file.uri);
         const stream = await objStore.downloadFile(bucket, file.uri);
         res.set('Content-Type', 'application/octet-stream');
         res.set('Content-Type', 'application/download');

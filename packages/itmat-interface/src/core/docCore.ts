@@ -179,7 +179,6 @@ export class DocCore {
          * @param requeser - The id of the requester.
          * @param docId - The id of the doc.
          */
-
         await db.collections!.docs_collection.findOneAndUpdate({ id: docId }, {
             $set: {
                 'life.deletedTime': Date.now(),
