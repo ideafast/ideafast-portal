@@ -35,7 +35,7 @@
         "@nx/node": "18.2.4",
         "@nx/react": "18.2.4",
         "@nx/web": "18.2.4",
-        "@nx/webpack": "18.2.4",
+        "@nx/webpack": "18.3.0",
         "@nx/workspace": "18.2.4",
         "@pmmmwh/react-refresh-webpack-plugin": "^0.5.11",
         "@svgr/webpack": "8.1.0",
