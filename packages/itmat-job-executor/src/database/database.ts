@@ -15,7 +15,7 @@ export interface IDatabaseConfig extends IDatabaseBaseConfig {
 }
 
 export interface IDatabaseCollectionConfig {
-    jobs_collection: Collection<IJobEntry<any>>,
+    jobs_collection: Collection<IJobEntry>,
     UKB_coding_collection: Collection,
     field_dictionary_collection: Collection,
     files_collection: Collection<IFile>,

@@ -31,7 +31,7 @@ const STATUSES: { [status: string]: any } = {
 //     FIELD_INFO_UPLOAD: <span>Field annotation upload</span>
 // };
 
-export const JobSection: FunctionComponent<{ studyId: string; jobs: Array<IJobEntry<any>> }> = ({ studyId, jobs }) => {
+export const JobSection: FunctionComponent<{ studyId: string; jobs: Array<IJobEntry> }> = ({ studyId, jobs }) => {
     useSubscription(
         SUBSCRIBE_TO_JOB_STATUS,
         {

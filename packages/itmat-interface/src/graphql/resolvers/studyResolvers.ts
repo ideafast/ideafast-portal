@@ -530,7 +530,7 @@ export const studyResolvers = {
         projects: async (study: IStudy): Promise<Array<IProject>> => {
             return await db.collections!.projects_collection.find({ studyId: study.id, deleted: null }).toArray();
         },
-        jobs: async (study: IStudy): Promise<Array<IJobEntry<any>>> => {
+        jobs: async (study: IStudy): Promise<Array<IJobEntry>> => {
             return await db.collections!.jobs_collection.find({ studyId: study.id }).toArray();
         },
         roles: async (study: IStudy): Promise<Array<IRole>> => {
@@ -784,7 +784,7 @@ export const studyResolvers = {
             }
             return fieldRecords;
         },
-        jobs: async (project: Omit<IProject, 'patientMapping'>): Promise<Array<IJobEntry<any>>> => {
+        jobs: async (project: Omit<IProject, 'patientMapping'>): Promise<Array<IJobEntry>> => {
             return await db.collections!.jobs_collection.find({ studyId: project.studyId, projectId: project.id }).toArray();
         },
         files: async (project: Omit<IProject, 'patientMapping'>, __unused__args: never, context: any): Promise<Array<IFile>> => {

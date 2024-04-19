@@ -58,16 +58,17 @@ export class QueryHandler extends JobHandler {
                     status: 'FINISHED'
                 }
             });
-            await db.collections!.jobs_collection.updateOne({ id: job.id }, { $set: { status: 'finished' } });
+            await db.collections!.jobs_collection.updateOne({ id: job.id }, { $set: { status: 'FINISHED' } });
             return;
-        } catch (e: any) {
+        } catch (e: unknown) {
+
             /* log */
-            Logger.error(e.toString());
+            Logger.error(e);
 
             /* update query status */
             await db.collections!.queries_collection.findOneAndUpdate({ queryId }, {
                 $set: {
-                    error: e.toString(),
+                    error: e?.toString?.(),
                     status: 'FINISHED WITH ERROR'
                 }
             });

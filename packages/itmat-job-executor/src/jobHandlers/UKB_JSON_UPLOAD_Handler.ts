@@ -16,7 +16,7 @@ export class UKB_JSON_UPLOAD_Handler extends JobHandler {
         return this._instance;
     }
 
-    public async execute(job: IJobEntry<never>) {
+    public async execute(job: IJobEntry<unknown>) {
         const errorsList: Array<{
             fileId: string;
             fileName?: string;
@@ -46,9 +46,9 @@ export class UKB_JSON_UPLOAD_Handler extends JobHandler {
                 const errors = await jsoncurator.processIncomingStreamAndUploadToMongo();
                 if (errors.length !== 0) {
                     errorsList.push({ fileId: file.id, fileName: file.fileName, error: errors });
-                    await db.collections!.jobs_collection.updateOne({ id: job.id }, { $set: { status: 'error', error: errorsList as any } });
+                    await db.collections!.jobs_collection.updateOne({ id: job.id }, { $set: { status: 'ERROR', error: errorsList } });
                 } else {
-                    await db.collections!.jobs_collection.updateOne({ id: job.id }, { $set: { status: 'finished' } });
+                    await db.collections!.jobs_collection.updateOne({ id: job.id }, { $set: { status: 'FINISHED' } });
                 }
             } catch (e) {
                 throw new Error();

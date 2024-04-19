@@ -80,7 +80,7 @@ beforeAll(async () => { // eslint-disable-line no-undef
 });
 
 describe('STUDY API', () => {
-    let adminId: any;
+    let adminId: string;
 
     beforeAll(async () => {
         /* setup: first retrieve the generated user id */
@@ -90,7 +90,7 @@ describe('STUDY API', () => {
 
     describe('MINI END-TO-END API TEST, NO UI, NO DATA', () => {
         let createdProject;
-        let createdStudy: { id: any; name: any; };
+        let createdStudy;
         let createdRole_study;
         let createdRole_study_manageProject;
         let createdRole_project;
