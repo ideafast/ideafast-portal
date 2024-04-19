@@ -3,7 +3,7 @@ import { NavLink, Route, Routes, useParams } from 'react-router-dom';
 import LoadSpinner from '../reusable/loadSpinner';
 import css from './projectPage.module.css';
 import { enumUserTypes } from '@itmat-broker/itmat-types';
-import { FileRepositoryTabContent } from './tabContent';
+import { AdminTabContent, FileRepositoryTabContent } from './tabContent';
 import { DashboardTabContent } from './tabContent/dashboard/dashboardTab';
 import { StatisticsTabContent } from './tabContent/dataStatistics/dataStatistics';
 import { trpc } from '../../utils/trpc';
@@ -55,7 +55,7 @@ export const DatasetDetailPage: FunctionComponent = () => {
                 <Route path='data_statistics' element={<StatisticsTabContent studyId={studyId} />} />
                 <Route path='files' element={<FileRepositoryTabContent studyId={studyId} />} />
                 {/* <Route path='projects/*' element={<ProjectsTabContent projectList={data.getStudy.projects} />} /> */}
-                {/* <Route path='admin' element={<AdminTabContent />} /> */}
+                <Route path='admin' element={<AdminTabContent studyId={studyId} />} />
                 {/* <Route path='*' element={<Navigate to='dashboard' />} /> */}
             </Routes>
         </div >

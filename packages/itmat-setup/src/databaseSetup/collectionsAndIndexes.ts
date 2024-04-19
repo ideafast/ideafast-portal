@@ -142,6 +142,12 @@ const collections = {
         indexes: [
             { key: { rootHash: 1 }, unique: true }
         ]
+    },
+    domains_collection: {
+        name: 'DOMAIN_COLLECTION',
+        indexes: [
+            { key: { id: 1 }, unique: true }
+        ]
     }
 };
 

@@ -326,7 +326,3 @@ export function convertMillisecondsToPeriod(ms) {
 
     return { days, hours, minutes, seconds: secs };
 }
-export function getRedirectPath() {
-    const pathSegments = window.location.pathname.split('/');
-    return pathSegments.length > 1 ? `${pathSegments[1]}` : '';
-}

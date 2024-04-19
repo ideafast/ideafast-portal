@@ -6,7 +6,7 @@ import { IJobSchedulerConfig, enumJobSchedulerStrategy } from './job';
 export interface IConfig extends IBase {
     type: enumConfigType;
     key: string | null; // studyid for study; userid for user; null for system
-    properties: ISystemConfig | IStudyConfig | IUserConfig | IDocConfig | ICacheConfig;
+    properties: ISystemConfig | IStudyConfig | IUserConfig | IDocConfig | ICacheConfig | IDomainConfig;
 }
 
 export enum enumConfigType {
@@ -16,7 +16,8 @@ export enum enumConfigType {
     FILECONFIG = 'FILECONFIG',
     ORGANISATIONCONFIG = 'ORGANISATIONCONFIG',
     DOCCONFIG = 'DOCCONFIG',
-    CACHECONFIG = 'CACHECONFIG'
+    CACHECONFIG = 'CACHECONFIG',
+    DOMAINCONFIG = 'DOMAINCONFIG'
 }
 
 export interface ISystemConfig extends IBase {
@@ -78,6 +79,9 @@ export interface IDocConfig extends IBase {
     defaultFileBucketId: string;
 }
 
+export interface IDomainConfig extends IBase {
+    defaultFileBucketId: string
+}
 export interface IDefaultSettings extends IBase {
     systemConfig: ISystemConfig;
     studyConfig: IStudyConfig;
@@ -216,6 +220,18 @@ export class DefaultSettings implements IDefaultSettings {
         },
         metadata: {},
         defaultFileBucketId: 'cache'
+    };
+
+    public readonly domainConfig: IDomainConfig = {
+        id: uuid(),
+        life: {
+            createdTime: Date.now(),
+            createdUser: enumReservedDefs.SYSTEMAGENT,
+            deletedTime: null,
+            deletedUser: null
+        },
+        metadata: {},
+        defaultFileBucketId: 'domain'
     };
 }
 

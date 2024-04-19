@@ -12,6 +12,7 @@ import { driveRouter } from 'packages/itmat-interface/src/tRPC/procedures/driveP
 import { permissionRouter } from 'packages/itmat-interface/src/tRPC/procedures/permissionProcedure';
 import { logRouter } from 'packages/itmat-interface/src/tRPC/procedures/logProcedure';
 import { jobRouter } from 'packages/itmat-interface/src/tRPC/procedures/jobProcedure';
+import { domainRouter } from 'packages/itmat-interface/src/tRPC/procedures/domainProcedure';
 
 type ProcedureCaller = {
     [key: string]: (input: any) => Promise<any>;
@@ -47,7 +48,8 @@ export class APIHandler extends JobHandler {
             drive: driveRouter,
             permission: permissionRouter,
             log: logRouter,
-            job: jobRouter
+            job: jobRouter,
+            domain: domainRouter
         });
         this.caller = this.router.createCaller({});
     }

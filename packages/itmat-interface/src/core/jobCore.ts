@@ -1,9 +1,7 @@
-import { IJob, enumJobStatus, enumJobType, enumUserTypes } from '@itmat-broker/itmat-types';
+import { IJob, enumJobStatus, enumJobType, enumUserTypes, enumTRPCErrorCodes } from '@itmat-broker/itmat-types';
 import { v4 as uuid } from 'uuid';
 import { db } from '../database/database';
 import { TRPCError } from '@trpc/server';
-// eslint-disable-next-line @nx/enforce-module-boundaries
-import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
 import { errorCodes } from '../graphql/errors';
 
 export class JobCore {

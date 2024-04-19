@@ -1,12 +1,10 @@
 import { db } from '../database/database';
 import { GraphQLError } from 'graphql';
-import { enumUserTypes, enumFileTypes, enumFileCategories, IDriveNode, enumDriveNodeTypes, IFile, IDrivePermission, FileUpload } from '@itmat-broker/itmat-types';
+import { enumUserTypes, enumFileTypes, enumFileCategories, IDriveNode, enumDriveNodeTypes, IFile, IDrivePermission, FileUpload, enumTRPCErrorCodes } from '@itmat-broker/itmat-types';
 import { v4 as uuid } from 'uuid';
 import { errorCodes } from '../graphql/errors';
 import { fileCore } from './fileCore';
 import { TRPCError } from '@trpc/server';
-// eslint-disable-next-line @nx/enforce-module-boundaries
-import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
 
 export class DriveCore {
     /**

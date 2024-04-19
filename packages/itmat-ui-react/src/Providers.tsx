@@ -3,18 +3,23 @@ import { ApolloProvider } from '@apollo/client';
 import { BrowserRouter as Router } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
 import { client } from './components/apolloClient';
+import { trpc } from './utils/trpc';
+import LoadSpinner from './components/reusable/loadSpinner';
 
 const Providers: FunctionComponent<PropsWithChildren<unknown>> = ({ children }) => {
-    const determineBasePath = () => {
-        // Example logic to determine the base path
-        const pathSegments = window.location.pathname.split('/');
-        // Assuming your base path is always immediately after the host
-        const basePath = pathSegments.length > 1 ? `/${pathSegments[1]}` : '/';
-        return basePath;
-    };
+    const getSubPath = trpc.tool.getCurrentSubPath.useQuery();
+
+    if (getSubPath.isLoading) {
+        return <LoadSpinner />;
+    }
+    if (getSubPath.isError) {
+        return <p>
+            An error occured, please contact your administrator
+        </p>;
+    }
     return <ApolloProvider client={client}>
         <HelmetProvider>
-            <Router basename={determineBasePath() ?? '/'}>
+            <Router basename={getSubPath.data ?? '/'}>
                 {children}
             </Router>
         </HelmetProvider>

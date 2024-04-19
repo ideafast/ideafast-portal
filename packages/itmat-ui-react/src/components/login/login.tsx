@@ -10,92 +10,95 @@ import { trpc } from '../../utils/trpc';
 import logo from '../../assets/logo.png';
 import dsi from '../../assets/datascienceinstitute.png';
 import mainPageImage from '../../assets/mainPageImage.png';
-import { getRedirectPath } from '../../utils/tools';
 export const LoginBox: FunctionComponent = () => {
     const getSystemConfig = trpc.config.getConfig.useQuery({ configType: enumConfigType.SYSTEMCONFIG, key: null, useDefault: true });
+    const getSubPath = trpc.tool.getCurrentSubPath.useQuery();
+    const getDomains = trpc.domain.getDomains.useQuery({ domainPath: getSubPath.data }, {
+        enabled: !!getSubPath.data
+    });
     const login = trpc.user.login.useMutation({
         onSuccess: () => {
             window.location.reload();
         }
     });
-
-    if (getSystemConfig.isLoading) {
+    if (getSystemConfig.isLoading || getSubPath.isLoading || getDomains.isLoading) {
         return <LoadSpinner />;
     }
-    if (getSystemConfig.isError) {
+    if (getSystemConfig.isError || getSubPath.isError || getDomains.isError) {
         return <p>
             An error occured, please contact your administrator
         </p>;
     }
 
-    if (!getSystemConfig.data) {
+    if (!getSystemConfig.data || getDomains.data.length === 0) {
         return <p>
             An error occured, please contact your administrator
         </p>;
     }
     const systemConfig = (getSystemConfig.data as IConfig).properties as ISystemConfig;
-    const endpointName = getRedirectPath();
-    const domainProfile = systemConfig.domainMeta.filter(el => el.domain === endpointName)[0]?.profile;
-    return (<div className={css.login_wrapper}>
-        <div className={css.login_left}>
-            <img
-                src={domainProfile ? `${window.location.origin}/file/${domainProfile}` : mainPageImage}
-                alt=''
-            />
-        </div>
-        <div className={css.login_right}>
-            <ParticleEffect />
-            <div className={css.login_logo}>
-                <a href={systemConfig.logoLink ?? '/'}>
-                    <img
-                        src={dsi}
-                        alt="Main Logo"
-                        height={systemConfig.logoSize[1]}
-                        width={'45px'}
-                    />
-                </a>
+    const domainProfile = getDomains.data[0] ? (getDomains.data[0].logo ?? '') : null;
+    return (
+        <div className={css.login_wrapper}>
+            <div className={css.login_left}>
+                <img
+                    src={domainProfile ? `${window.location.origin}/file/${domainProfile}` : mainPageImage}
+                    alt=''
+                />
             </div>
-            <div className={css.login_logo} style={{ right: (parseInt(systemConfig.logoSize[1].replace(/\D/g, '')) * 1 + 10) + 'px' }}>
-                <a href={systemConfig.logoLink ?? '/'}>
-                    <img
-                        src={logo}
-                        alt="Main Logo"
-                        height={systemConfig.logoSize[1]}
-                        width={systemConfig.logoSize[0]}
-                    />
-                </a>
-            </div>
-            <div className={css.login_logo} style={{ right: (parseInt(systemConfig.logoSize[1].replace(/\D/g, '')) * 2 + 20) + 'px' }}>
-                <a href={systemConfig.archiveAddress} target="_blank" rel="noopener noreferrer"> {/* Replace with your second logo link, e.g., GitHub link */}
-                    <GithubOutlined style={{ fontSize: systemConfig.logoSize[1] }} />
-                </a>
-            </div>
-            <div className={css.login_author}>
-                Designed by Data Science Institute
-            </div>
-            <div className={css.login_box}>
-                <div className={css.hello_text}>
-                    Hello again.
+            <div className={css.login_right}>
+                <ParticleEffect />
+                <div className={css.login_logo}>
+                    <a href={systemConfig.logoLink ?? '/'}>
+                        <img
+                            src={dsi}
+                            alt="Main Logo"
+                            height={systemConfig.logoSize[1]}
+                            width={'45px'}
+                        />
+                    </a>
                 </div>
-                <Form onFinish={(variables) => login.mutate({ ...variables, requestexpirydate: false })}>
-                    <Form.Item name='username' hasFeedback rules={[{ required: true, message: ' ' }]}>
-                        <Input className={css.login_box_input} placeholder='Username' />
-                    </Form.Item>
-                    <Form.Item name='password' hasFeedback rules={[{ required: true, message: ' ' }]}>
-                        <Input.Password className={css.login_box_input} placeholder='Password' />
-                    </Form.Item>
-                    <Form.Item name='totp' hasFeedback rules={[{ required: true, len: 6, message: ' ' }]}>
-                        <Input.Password className={css.login_box_input} placeholder='One-Time Passcode' />
-                    </Form.Item>
-                    <Button className={css.login_box_input} type='primary' disabled={false} loading={false} htmlType='submit'>
-                        Login
-                    </Button><br /><br />
-                    <NavLink className={css.navlink} to='/reset'>Forgot password</NavLink><br /><br />
-                    <NavLink className={css.navlink} to='/register'>Please register</NavLink><br />
-                </Form>
+                <div className={css.login_logo} style={{ right: (parseInt(systemConfig.logoSize[1].replace(/\D/g, '')) * 1 + 10) + 'px' }}>
+                    <a href={systemConfig.logoLink ?? '/'}>
+                        <img
+                            src={logo}
+                            alt="Main Logo"
+                            height={systemConfig.logoSize[1]}
+                            width={systemConfig.logoSize[0]}
+                        />
+                    </a>
+                </div>
+                <div className={css.login_logo} style={{ right: (parseInt(systemConfig.logoSize[1].replace(/\D/g, '')) * 2 + 20) + 'px' }}>
+                    <a href={systemConfig.archiveAddress} target="_blank" rel="noopener noreferrer">
+                        <GithubOutlined style={{ fontSize: systemConfig.logoSize[1] }} />
+                    </a>
+                </div>
+                <div className={css.login_author}>
+                    Designed by Data Science Institute
+                </div>
+                <div className={css.login_box}>
+                    <div className={css.hello_text}>
+                        Hello again.
+                    </div>
+                    <Form onFinish={(variables) => login.mutate({ ...variables, requestexpirydate: false })}>
+                        <Form.Item name='username' hasFeedback rules={[{ required: true, message: ' ' }]}>
+                            <Input className={css.login_box_input} placeholder='Username' />
+                        </Form.Item>
+                        <Form.Item name='password' hasFeedback rules={[{ required: true, message: ' ' }]}>
+                            <Input.Password className={css.login_box_input} placeholder='Password' />
+                        </Form.Item>
+                        <Form.Item name='totp' hasFeedback rules={[{ required: true, len: 6, message: ' ' }]}>
+                            <Input.Password className={css.login_box_input} placeholder='One-Time Passcode' />
+                        </Form.Item>
+                        <Button className={css.login_box_input} type='primary' disabled={false} loading={false} htmlType='submit'>
+                            Login
+                        </Button><br /><br />
+                        <NavLink className={css.navlink} to='/reset'>Forgot password</NavLink><br /><br />
+                        <NavLink className={css.navlink} to='/register'>Please register</NavLink><br />
+                    </Form>
+                </div>
             </div>
-        </div>
-    </div >);
+        </div >
+    );
 };
 
 const ParticleEffect: React.FunctionComponent = () => {

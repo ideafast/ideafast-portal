@@ -1,11 +1,9 @@
-import { ZBase, enumDocTypes, enumUserTypes } from '@itmat-broker/itmat-types';
+import { ZBase, enumDocTypes, enumUserTypes, enumTRPCErrorCodes } from '@itmat-broker/itmat-types';
 import { TRPCError, inferAsyncReturnType, initTRPC } from '@trpc/server';
 import { z } from 'zod';
 import { docCore } from '../../core/docCore';
 import { baseProcedure } from '../../log/trpcLogHelper';
 import fs from 'fs';
-// eslint-disable-next-line @nx/enforce-module-boundaries
-import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
 import { errorCodes } from '../../graphql/errors';
 const createContext = () => ({}); // no context
 type Context = inferAsyncReturnType<typeof createContext>;

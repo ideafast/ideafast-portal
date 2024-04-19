@@ -18,6 +18,8 @@ import * as Drive from './drive';
 import * as Group from './group';
 import * as Permission from './permission';
 import * as HashNode from './hashnode';
+import * as Domain from './domain';
+import * as Error from './errors';
 
 export * from './file';
 export * from './job';
@@ -38,5 +40,7 @@ export * from './drive';
 export * from './group';
 export * from './permission';
 export * from './hashnode';
+export * from './domain';
+export * from './errors';
 
-export const Types = { File, Job, Log, User, Pubkey, Study, Query, Data, Standardization, Base, Config, Reserved, Response, Doc, Utils, Cache, Drive, Group, Permission, HashNode };
+export const Types = { File, Job, Log, User, Pubkey, Study, Query, Data, Standardization, Base, Config, Reserved, Response, Doc, Utils, Cache, Drive, Group, Permission, HashNode, Domain, Error };

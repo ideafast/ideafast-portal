@@ -1,12 +1,10 @@
 import { GraphQLError } from 'graphql';
-import { IRole, IGenericResponse, enumStudyRoles, IDataPermission, IGroupNode, enumUserTypes } from '@itmat-broker/itmat-types';
+import { IRole, IGenericResponse, enumStudyRoles, IDataPermission, IGroupNode, enumUserTypes, enumTRPCErrorCodes } from '@itmat-broker/itmat-types';
 import { v4 as uuid } from 'uuid';
 import { db } from '../database/database';
 import { errorCodes } from '../graphql/errors';
 import { makeGenericReponse } from '../graphql/responses';
 import { TRPCError } from '@trpc/server';
-// eslint-disable-next-line @nx/enforce-module-boundaries
-import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
 
 export class PermissionCore {
     // public async getAllRolesOfStudyOrProject(studyId: string, projectId?: string): Promise<IRole[]> {

@@ -2,7 +2,7 @@ import bcrypt from 'bcrypt';
 import { db } from '../database/database';
 import config from '../utils/configManager';
 import { GraphQLError } from 'graphql';
-import { IUser, enumUserTypes, IPubkey, defaultSettings, IGenericResponse, enumFileTypes, enumFileCategories, IResetPasswordRequest, enumGroupNodeTypes, IGroupNode, AccessToken } from '@itmat-broker/itmat-types';
+import { IUser, enumUserTypes, IPubkey, defaultSettings, IGenericResponse, enumFileTypes, enumFileCategories, IResetPasswordRequest, enumGroupNodeTypes, IGroupNode, AccessToken, enumTRPCErrorCodes } from '@itmat-broker/itmat-types';
 import { makeGenericReponse } from '../graphql/responses';
 import { v4 as uuid } from 'uuid';
 import { errorCodes } from '../graphql/errors';
@@ -10,8 +10,6 @@ import { FileUpload } from 'graphql-upload-minimal';
 import { fileCore } from './fileCore';
 import * as mfa from '../utils/mfa';
 import { TRPCError } from '@trpc/server';
-// eslint-disable-next-line @nx/enforce-module-boundaries
-import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
 import { rsakeygen, rsaverifier, tokengen } from '../utils/pubkeycrypto';
 import { mailer } from '../emailer/emailer';
 import { decryptEmail, makeAESIv, makeAESKeySalt } from '../encryption/aes';

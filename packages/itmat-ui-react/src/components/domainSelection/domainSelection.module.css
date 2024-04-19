@@ -1,0 +1,50 @@
+.wrapper {
+    display: flex;
+    height: 100vh;
+}
+
+.left {
+    flex: 5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.left img {
+    width: 100%;
+    /* This will make the image take up 100% of the width of its parent */
+    height: 100%;
+    /* This will make the image take up 100% of the height of its parent */
+    object-fit: contain;
+    /* Change to 'cover' if you want the image to cover the entire container */
+}
+
+.right {
+    flex: 5;
+    /* width: 40%; */
+    min-width: 0;
+    background-color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    /* added this line */
+}
+
+.card {
+    width: 100%;
+    max-width: 300px;
+    border: 1px solid #d9d9d9;
+    /* This will make a light grey border */
+    /* Add more styles if needed */
+}
+
+.cardHead {
+    text-align: center;
+    /* Add more styles if needed */
+}
+
+.cardImageContainer {
+    cursor: 'pointer';
+    /* Add more styles if needed */
+}

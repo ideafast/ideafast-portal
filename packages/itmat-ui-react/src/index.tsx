@@ -16,7 +16,6 @@ const AppWithTRPC = () => {
                     url: `${window.location.origin}/trpc`,
                     async headers() {
                         return {
-                            // Add any headers if necessary
                             authorization: document.cookie
                         };
                     }

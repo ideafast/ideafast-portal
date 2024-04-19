@@ -1,8 +1,6 @@
-/* eslint-disable @nx/enforce-module-boundaries */
-import { IJob } from '@itmat-broker/itmat-types';
+import { IJob, enumTRPCErrorCodes } from '@itmat-broker/itmat-types';
 import { JobHandler } from './jobHandlerInterface';
 import { TRPCError } from '@trpc/server';
-import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
 
 /**
  * For creating lxd containers.

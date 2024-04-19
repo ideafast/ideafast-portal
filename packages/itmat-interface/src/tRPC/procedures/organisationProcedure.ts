@@ -1,10 +1,8 @@
-import { IUser, enumUserTypes } from '@itmat-broker/itmat-types';
+import { IUser, enumUserTypes, enumTRPCErrorCodes } from '@itmat-broker/itmat-types';
 import { TRPCError, inferAsyncReturnType, initTRPC } from '@trpc/server';
 import { z } from 'zod';
 import { organisationCore } from '../../core/organisationCore';
 import { baseProcedure } from '../../log/trpcLogHelper';
-// eslint-disable-next-line @nx/enforce-module-boundaries
-import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
 import { errorCodes } from '../../graphql/errors';
 import fs from 'fs';
 const createContext = () => ({}); // no context

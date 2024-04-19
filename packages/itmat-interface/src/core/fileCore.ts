@@ -1,6 +1,6 @@
 import { db } from '../database/database';
 import { GraphQLError } from 'graphql';
-import { enumConfigType, IFile, defaultSettings, enumFileTypes, enumFileCategories, IGenericResponse } from '@itmat-broker/itmat-types';
+import { enumConfigType, IFile, defaultSettings, enumFileTypes, enumFileCategories, IGenericResponse, enumTRPCErrorCodes } from '@itmat-broker/itmat-types';
 import { v4 as uuid } from 'uuid';
 import { errorCodes } from '../graphql/errors';
 import crypto, { BinaryLike } from 'crypto';
@@ -8,8 +8,6 @@ import { objStore } from '../objStore/objStore';
 import { makeGenericReponse } from '../graphql/responses';
 import { studyCore } from './studyCore';
 import { TRPCError } from '@trpc/server';
-// eslint-disable-next-line @nx/enforce-module-boundaries
-import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
 import fs from 'fs';
 
 export class FileCore {
@@ -84,6 +82,11 @@ export class FileCore {
             fileConfig = await db.collections!.configs_collection.findOne({ type: enumConfigType.CACHECONFIG, key: null });
             if (!fileConfig) {
                 fileConfig = defaultSettings.cacheConfig;
+            }
+        } if (fileCategory === enumFileCategories.DOMAIN_PROFILE_FILE) {
+            fileConfig = await db.collections!.configs_collection.findOne({ type: enumConfigType.DOMAINCONFIG, key: null });
+            if (!fileConfig) {
+                fileConfig = defaultSettings.domainConfig;
             }
         } else {
             throw new GraphQLError('Config file missing.', { extensions: { code: errorCodes.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY } });

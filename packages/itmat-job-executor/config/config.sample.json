@@ -24,7 +24,8 @@
             "cache_collection": "CACHE_COLLECTION",
             "drives_collection": "DRIVE_COLLECTION",
             "groups_collection": "GROUP_COLLECTION",
-            "hashnode_collection": "HASHNODE_COLLECTION"
+            "hashnode_collection": "HASHNODE_COLLECTION",
+            "domains_collection": "DOMAIN_COLLECTION"
         }
     },
     "server": {

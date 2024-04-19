@@ -2,9 +2,9 @@ import { FunctionComponent } from 'react';
 import { Mutation } from '@apollo/client/react/components';
 import { NavLink } from 'react-router-dom';
 import { LOGOUT, WHO_AM_I } from '@itmat-broker/itmat-models';
-import { IProject, enumUserTypes } from '@itmat-broker/itmat-types';
+import { IProject, ISystemConfig, enumConfigType, enumUserTypes } from '@itmat-broker/itmat-types';
 import css from './scaffold.module.css';
-import { DatabaseOutlined, TeamOutlined, PoweroffOutlined, HistoryOutlined, SettingOutlined, DesktopOutlined, WarningTwoTone, CloudOutlined, FileOutlined, GlobalOutlined, CodeSandboxOutlined } from '@ant-design/icons';
+import { DatabaseOutlined, TeamOutlined, PoweroffOutlined, HistoryOutlined, SettingOutlined, DesktopOutlined, WarningTwoTone, CloudOutlined, FileOutlined, GlobalOutlined, CodeSandboxOutlined, RadiusSettingOutlined, ApartmentOutlined } from '@ant-design/icons';
 import LoadSpinner from '../reusable/loadSpinner';
 import dayjs from 'dayjs';
 import { Tooltip } from 'antd';
@@ -15,16 +15,18 @@ type MainMenuBarProps = {
     projects: IProject[];
 }
 export const MainMenuBar: FunctionComponent<MainMenuBarProps> = () => {
+    const getSystemConfig = trpc.config.getConfig.useQuery({ configType: enumConfigType.SYSTEMCONFIG, key: null, useDefault: true });
+
     const whoAmI = trpc.user.whoAmI.useQuery();
-    if (whoAmI.isLoading) {
+    if (whoAmI.isLoading || getSystemConfig.isLoading) {
         return <LoadSpinner />;
     }
-    if (whoAmI.isError) {
+    if (whoAmI.isError || getSystemConfig.isError) {
         return <p>
             An error occured, please contact your administrator
         </p>;
     }
-    return <div className={css.main_menubar}>
+    return <div className={css.main_menubar} style={{ backgroundColor: (getSystemConfig.data.properties as ISystemConfig).defaultBackgroundColor ?? 'grey' }}>
         <div>
             <NavLink to='/datasets' title='Datasets' className={({ isActive }) => isActive ? css.clickedButton : undefined}>
                 <div className={css.button}><DatabaseOutlined /> Datasets</div>
@@ -87,6 +89,21 @@ export const MainMenuBar: FunctionComponent<MainMenuBarProps> = () => {
                 </NavLink>
             </div>
             : null
+        }
+
+        {(whoAmI.data.type === enumUserTypes.ADMIN) ?
+            <div>
+                <NavLink to='/configs' title='Configs' className={({ isActive }) => isActive ? css.clickedButton : undefined}>
+                    <div className={css.button}><RadiusSettingOutlined /> Configs</div>
+                </NavLink>
+            </div> : null
+        }
+        {(whoAmI.data.type === enumUserTypes.ADMIN) ?
+            <div>
+                <NavLink to='/domains' title='Configs' className={({ isActive }) => isActive ? css.clickedButton : undefined}>
+                    <div className={css.button}><ApartmentOutlined /> Domains</div>
+                </NavLink>
+            </div> : null
         }
         <div>
             <NavLink title='Logout' to='/'>

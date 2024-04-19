@@ -1,4 +1,4 @@
-import { IResetPasswordRequest, IUser, enumFileCategories, enumFileTypes, enumGroupNodeTypes, enumUserTypes } from '@itmat-broker/itmat-types';
+import { IResetPasswordRequest, IUser, enumFileCategories, enumFileTypes, enumGroupNodeTypes, enumUserTypes, enumTRPCErrorCodes } from '@itmat-broker/itmat-types';
 import { TRPCError, inferAsyncReturnType, initTRPC } from '@trpc/server';
 import { z } from 'zod';
 import { userCore } from '../../core/userCore';
@@ -17,8 +17,6 @@ import tmp from 'tmp';
 import { fileCore } from '../../core/fileCore';
 import { baseProcedure } from '../../log/trpcLogHelper';
 import fs from 'fs';
-// eslint-disable-next-line @nx/enforce-module-boundaries
-import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
 const createContext = () => ({}); // no context
 type Context = inferAsyncReturnType<typeof createContext>;
 

@@ -1,8 +1,10 @@
 import { GraphQLError } from 'graphql';
-import { defaultSettings, enumConfigType, enumReservedDefs, IConfig } from '@itmat-broker/itmat-types';
+import { defaultSettings, enumConfigType, enumReservedDefs, IConfig, IGenericResponse, enumTRPCErrorCodes } from '@itmat-broker/itmat-types';
 import { db } from '../database/database';
 import { errorCodes } from '../graphql/errors';
 import { v4 as uuid } from 'uuid';
+import { TRPCError } from '@trpc/server';
+import { makeGenericReponse } from '../graphql/responses';
 
 export class ConfigCore {
     /**
@@ -48,6 +50,26 @@ export class ConfigCore {
             }
         }
         return config;
+    }
+
+    public async editConfig(configId: string, configOptions: any): Promise<IGenericResponse> {
+        const config = await db.collections!.configs_collection.findOne({
+            'id': configId, 'life.deletedTime': null
+        });
+        if (!config) {
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'Config does not exist.'
+            });
+        }
+        await db.collections!.configs_collection.findOneAndUpdate({ id: configId }, {
+            $set: {
+                properties: configOptions
+            }
+        }, {
+            returnDocument: 'after'
+        });
+        return makeGenericReponse(configId, true, undefined, undefined);
     }
 }
 

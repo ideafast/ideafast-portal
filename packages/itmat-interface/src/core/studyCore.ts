@@ -1,12 +1,10 @@
-import { IFile, IStudy, IStudyDataVersion, IGenericResponse, enumFileTypes, enumFileCategories, enumConfigType, enumUserTypes } from '@itmat-broker/itmat-types';
+import { IFile, IStudy, IStudyDataVersion, IGenericResponse, enumFileTypes, enumFileCategories, enumConfigType, enumUserTypes, enumTRPCErrorCodes } from '@itmat-broker/itmat-types';
 import { v4 as uuid } from 'uuid';
 import { db } from '../database/database';
 import { FileUpload } from 'graphql-upload-minimal';
 import { makeGenericReponse } from '../graphql/responses';
 import { fileCore } from './fileCore';
 import { TRPCError } from '@trpc/server';
-// eslint-disable-next-line @nx/enforce-module-boundaries
-import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
 import { enumCacheStatus } from 'packages/itmat-types/src/types/cache';
 
 export class StudyCore {

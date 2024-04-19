@@ -4,30 +4,37 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { REQUEST_USERNAME_OR_RESET_PASSWORD } from '@itmat-broker/itmat-models';
 import css from './login.module.css';
 import { Input, Form, Button, Alert } from 'antd';
-import { getRedirectPath } from '../../utils/tools';
 import LoadSpinner from '../reusable/loadSpinner';
-import { IConfig, ISystemConfig, enumConfigType } from '@itmat-broker/itmat-types';
+import { enumConfigType } from '@itmat-broker/itmat-types';
 import { trpc } from '../../utils/trpc';
 
 export const RequestResetPassword: FunctionComponent = () => {
 
     const navigate = useNavigate();
     const getSystemConfig = trpc.config.getConfig.useQuery({ configType: enumConfigType.SYSTEMCONFIG, key: null, useDefault: true });
-
+    const getSubPath = trpc.tool.getCurrentSubPath.useQuery();
+    const getDomains = trpc.domain.getDomains.useQuery({ domainPath: getSubPath.data }, {
+        enabled: !!getSubPath.data
+    });
     const [forgotUsername, setForgotUsername] = useState(false);
     const [requestCompleted, setRequestCompleted] = useState(false);
 
-    if (getSystemConfig.isLoading) {
+    if (getSystemConfig.isLoading || getSubPath.isLoading || getDomains.isLoading) {
         return <LoadSpinner />;
     }
-    if (getSystemConfig.isError) {
+    if (getSystemConfig.isError || getSubPath.isError || getDomains.isError) {
         return <p>
             An error occured, please contact your administrator
         </p>;
     }
-    const systemConfig = (getSystemConfig.data as IConfig).properties as ISystemConfig;
-    const endpointName = getRedirectPath();
-    const domainProfile = systemConfig.domainMeta.filter(el => el.domain === endpointName)[0]?.profile;
+
+    if (!getSystemConfig.data || getDomains.data.length === 0) {
+        return <p>
+            An error occured, please contact your administrator
+        </p>;
+    }
+    const domainProfile = getDomains.data[0] ? (getDomains.data[0].logo ?? '') : null;
+
 
     if (requestCompleted) {
         return (

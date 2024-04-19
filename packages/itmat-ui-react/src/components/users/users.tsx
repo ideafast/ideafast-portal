@@ -180,7 +180,6 @@ export const UserSection: FunctionComponent = () => {
                         onOk={() => {
                             setIsModalOn(false);
                             const values = form.getFieldsValue();
-                            console.log(values);
                             editUser.mutate({
                                 userId: values.id,
                                 username: values.username,
@@ -296,6 +295,5 @@ const getProgressStatusAndPercent = (maximumDays, expiredAt) => {
     } else {
         status = 'success'; // Safe
     }
-    console.log((new Date(expiredAt).toDateString()), timeLeft, percent);
     return { percent, status };
 };

@@ -6,7 +6,7 @@ import { DatasetPage } from '../dataset';
 // import { ProjectListPage } from '../projectList';
 import { UserPage } from '../users';
 // import { LogPage } from '../log';
-// import { MyFilePage } from '../files';
+import { ConfigPage } from '../config';
 import { ProfilePage } from '../profile';
 import { OrganisationPage } from '../organisations';
 import css from './scaffold.module.css';
@@ -14,6 +14,7 @@ import { LogPage } from '../logger';
 import { DocumentPage } from '../documents';
 import { JobPage } from '../job';
 import { DrivePage } from '../drive';
+import { DomainPage } from '../domain';
 
 
 export const MainPanel: FunctionComponent = () => {
@@ -30,7 +31,8 @@ export const MainPanel: FunctionComponent = () => {
                 <Route path='/documents' element={<DocumentPage />} />
                 <Route path='/organisations' element={<OrganisationPage />} />
                 <Route path='/jobs' element={<JobPage />} />
-                {/* <Route path='/myfiles' element={<MyFilePage />} /> */}
+                <Route path='/configs' element={<ConfigPage />} />
+                <Route path='/domains' element={<DomainPage />} />
                 {/* <Route path='/pun/sys/dashboard' /> */}
                 {/* <Route path='*' element={<Navigate to='/datasets' />} /> */}
             </Routes>

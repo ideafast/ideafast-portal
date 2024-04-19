@@ -2,11 +2,9 @@ import { Request, Response } from 'express';
 import { db } from '../database/database';
 import { objStore } from '../objStore/objStore';
 import { permissionCore } from '../core/permissionCore';
-import { enumDocTypes, enumFileCategories, IUser } from '@itmat-broker/itmat-types';
+import { enumDocTypes, enumFileCategories, enumTRPCErrorCodes, IUser } from '@itmat-broker/itmat-types';
 import jwt from 'jsonwebtoken';
 import { TRPCError } from '@trpc/server';
-// eslint-disable-next-line @nx/enforce-module-boundaries
-import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
 import { errorCodes } from '../graphql/errors';
 
 export const fileDownloadController = async (req: Request, res: Response): Promise<void> => {
@@ -82,7 +80,6 @@ export const fileDownloadController = async (req: Request, res: Response): Promi
         } else if (file.fileCategory === enumFileCategories.DOMAIN_PROFILE_FILE) {
             bucket = 'domain';
         }
-        console.log(bucket, file.uri);
         const stream = await objStore.downloadFile(bucket, file.uri);
         res.set('Content-Type', 'application/octet-stream');
         res.set('Content-Type', 'application/download');

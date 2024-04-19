@@ -2,31 +2,37 @@ import { FunctionComponent, useState } from 'react';
 import { useMutation } from '@apollo/client/react/hooks';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { CREATE_USER } from '@itmat-broker/itmat-models';
-import { IConfig, IOrganisation, ISystemConfig, enumConfigType } from '@itmat-broker/itmat-types';
+import { IOrganisation, enumConfigType } from '@itmat-broker/itmat-types';
 import { Input, Form, Button, Alert, Checkbox, Select } from 'antd';
 import css from './login.module.css';
 import { trpc } from '../../utils/trpc';
 import LoadSpinner from '../reusable/loadSpinner';
-import { getRedirectPath } from '../../utils/tools';
-
 export const RegisterNewUser: FunctionComponent = () => {
     const navigate = useNavigate();
     const getSystemConfig = trpc.config.getConfig.useQuery({ configType: enumConfigType.SYSTEMCONFIG, key: null, useDefault: true });
+    const getSubPath = trpc.tool.getCurrentSubPath.useQuery();
+    const getDomains = trpc.domain.getDomains.useQuery({ domainPath: getSubPath.data }, {
+        enabled: !!getSubPath.data
+    });
     const [completedCreation, setCompletedCreation] = useState(false);
     const [createUser, { loading, error }] = useMutation(CREATE_USER,
         { onCompleted: () => setCompletedCreation(true) }
     );
-    if (getSystemConfig.isLoading) {
+    if (getSystemConfig.isLoading || getSubPath.isLoading || getDomains.isLoading) {
         return <LoadSpinner />;
     }
-    if (getSystemConfig.isError) {
+    if (getSystemConfig.isError || getSubPath.isError || getDomains.isError) {
         return <p>
             An error occured, please contact your administrator
         </p>;
     }
-    const systemConfig = (getSystemConfig.data as IConfig).properties as ISystemConfig;
-    const endpointName = getRedirectPath();
-    const domainProfile = systemConfig.domainMeta.filter(el => el.domain === endpointName)[0]?.profile;
+
+    if (!getSystemConfig.data || getDomains.data.length === 0) {
+        return <p>
+            An error occured, please contact your administrator
+        </p>;
+    }
+    const domainProfile = getDomains.data[0] ? (getDomains.data[0].logo ?? '') : null;
 
     // Get list of organisations from server
     const getOrgs = trpc.org.getOrganisations.useQuery({});

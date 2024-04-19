@@ -1,5 +1,5 @@
 import { GraphQLError } from 'graphql';
-import { IFile, IOrganisation, IUser, IGenericResponse } from '@itmat-broker/itmat-types';
+import { IFile, IOrganisation, IUser, IGenericResponse, enumTRPCErrorCodes } from '@itmat-broker/itmat-types';
 import { FileUpload } from 'graphql-upload-minimal';
 import { db } from '../../database/database';
 import { errorCodes } from '../errors';
@@ -7,8 +7,6 @@ import { makeGenericReponse } from '../responses';
 import { validate } from '@ideafast/idgen';
 import { deviceTypes } from '@itmat-broker/itmat-types';
 import { TRPCError } from '@trpc/server';
-// eslint-disable-next-line @nx/enforce-module-boundaries
-import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
 import { dataCore } from '../../core/dataCore';
 import fs from 'fs';
 import path from 'path';

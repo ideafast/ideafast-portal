@@ -1,14 +1,12 @@
 import { db } from '../database/database';
 import { GraphQLError } from 'graphql';
-import { IOrganisation, IGenericResponse, enumFileTypes, enumFileCategories } from '@itmat-broker/itmat-types';
+import { IOrganisation, IGenericResponse, enumFileTypes, enumFileCategories, enumTRPCErrorCodes } from '@itmat-broker/itmat-types';
 import { makeGenericReponse } from '../graphql/responses';
 import { v4 as uuid } from 'uuid';
 import { errorCodes } from '../graphql/errors';
 import { FileUpload } from 'graphql-upload-minimal';
 import { fileCore } from './fileCore';
 import { TRPCError } from '@trpc/server';
-// eslint-disable-next-line @nx/enforce-module-boundaries
-import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
 
 export class OrganisationCore {
 

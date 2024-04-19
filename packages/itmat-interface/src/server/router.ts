@@ -29,17 +29,15 @@ import jwt from 'jsonwebtoken';
 import { userRetrieval } from '../authentication/pubkeyAuthentication';
 import { createProxyMiddleware, RequestHandler } from 'http-proxy-middleware';
 import qs from 'qs';
-import { defaultSettings, enumConfigType, IUser, IUserConfig } from '@itmat-broker/itmat-types';
+import { defaultSettings, enumConfigType, enumTRPCErrorCodes, IUser, IUserConfig } from '@itmat-broker/itmat-types';
 import { v2 as webdav } from 'webdav-server';
 import { DMPFileSystem, DMPWebDAVAuthentication } from '../webdav/dmpWebDAV';
 import { routers } from '../tRPC/procedures/index';
 import path from 'path';
-import { inferAsyncReturnType, initTRPC } from '@trpc/server';
+import { inferAsyncReturnType, initTRPC, TRPCError } from '@trpc/server';
 import * as trpcExpress from '@trpc/server/adapters/express';
 import multer from 'multer';
 import { MerkleTreeLog } from '../log/merkleTree';
-
-// created for each request
 
 export const createContext = async ({
     req,
@@ -48,11 +46,13 @@ export const createContext = async ({
     const token: string = req.headers.authorization || '';
     if ((token !== '') && (req.user === undefined)) {
         const decodedPayload = jwt.decode(token);
-        const pubkey = (decodedPayload as any).publicKey;
-        // verify the JWT
+        const pubkey = (decodedPayload as any)?.publicKey;
         jwt.verify(token, pubkey, function (error: any) {
             if (error) {
-                throw new GraphQLError('JWT verification failed. ' + error, { extensions: { code: ApolloServerErrorCode.BAD_USER_INPUT, error } });
+                throw new TRPCError({
+                    code: enumTRPCErrorCodes.BAD_REQUEST,
+                    message: 'JWT verification failed. ' + error
+                });
             }
         });
         const associatedUser = await userRetrieval(pubkey);
@@ -70,7 +70,7 @@ export const createContext = async ({
     merkleTreeLog.updateLog(JSON.stringify(requestContext));
 
     return ({ req, res });
-}; // no context
+};
 type Context = inferAsyncReturnType<typeof createContext>;
 const t = initTRPC.context<Context>().create();
 const appRouter = t.router(routers);
@@ -105,7 +105,10 @@ export class Router {
                     // verify the JWT
                     jwt.verify(token, pubkey, function (error: any) {
                         if (error) {
-                            throw new GraphQLError('JWT verification failed. ' + error, { extensions: { code: ApolloServerErrorCode.BAD_USER_INPUT, error } });
+                            throw new TRPCError({
+                                code: enumTRPCErrorCodes.BAD_REQUEST,
+                                message: 'JWT verification failed. ' + error
+                            });
                         }
                     });
                     // store the associated user with the JWT to context
@@ -419,6 +422,8 @@ export class Router {
                     });
                 });
             }
+            const referer = req.headers['referer'] || req.headers['Referer'];
+            req.body.referer = referer;
             next();
         });
 

@@ -1,5 +1,5 @@
 import { GraphQLError } from 'graphql';
-import { IField, enumDataTypes, ICategoricalOption, IValueVerifier, IGenericResponse, enumConfigType, defaultSettings, IOntologyTree, IOntologyRoute, IAST, enumConditionOps, enumFileTypes, enumFileCategories, IFieldProperty, IFile, IStudyDataVersion, IData, enumASTNodeTypes, IRole, IStudyConfig, enumUserTypes, IStudy } from '@itmat-broker/itmat-types';
+import { IField, enumDataTypes, ICategoricalOption, IValueVerifier, IGenericResponse, enumConfigType, defaultSettings, IOntologyTree, IOntologyRoute, IAST, enumConditionOps, enumFileTypes, enumFileCategories, IFieldProperty, IFile, IStudyDataVersion, IData, enumASTNodeTypes, IRole, IStudyConfig, enumUserTypes, IStudy, enumTRPCErrorCodes } from '@itmat-broker/itmat-types';
 import { v4 as uuid } from 'uuid';
 import { db } from '../database/database';
 import { errorCodes } from '../graphql/errors';
@@ -12,8 +12,6 @@ import { z } from 'zod';
 import { dataTransformationCore } from './transformationCore';
 import { enumCacheStatus } from 'packages/itmat-types/src/types/cache';
 import { TRPCError } from '@trpc/server';
-// eslint-disable-next-line @nx/enforce-module-boundaries
-import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
 import fs from 'fs';
 import path from 'path';
 

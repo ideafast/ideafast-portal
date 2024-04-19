@@ -32,7 +32,7 @@ const modules = [
 
 const bounceNotLoggedInDecorator = (reducerFunction: any) => {
     return async (parent: any, args: any, context: any, info: any) => {
-        const uncheckedFunctionWhitelist = ['getDocs', 'login', 'rsaSigner', 'keyPairGenwSignature', 'issueAccessToken', 'whoAmI', 'getOrganisations', 'requestUsernameOrResetPassword', 'resetPassword', 'createUser', 'writeLog', 'validateResetPassword', 'getConfig'];
+        const uncheckedFunctionWhitelist = ['getDocs', 'login', 'rsaSigner', 'keyPairGenwSignature', 'issueAccessToken', 'whoAmI', 'getOrganisations', 'requestUsernameOrResetPassword', 'resetPassword', 'createUser', 'writeLog', 'validateResetPassword', 'getConfig', 'getDomains'];
         const requester: IUser = context.req.user;
 
         if (!requester) {
