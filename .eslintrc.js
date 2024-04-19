@@ -37,15 +37,24 @@ const javascriptRules = {
 const typescriptRules = {
     ...javascriptRules,
     'no-unused-vars': 'off',
-    '@typescript-eslint/no-unused-vars': ['error', { args: 'after-used', varsIgnorePattern: '^__unused' }],
-    '@typescript-eslint/no-this-alias': 'off',
-    '@typescript-eslint/no-explicit-any': 'warn'
+    '@typescript-eslint/no-explicit-any': 'error',
+    '@typescript-eslint/no-unused-vars': [
+        'error',
+        { args: 'after-used', varsIgnorePattern: '^__unused' }
+    ],
+    '@typescript-eslint/no-floating-promises': 'error',
+    '@typescript-eslint/promise-function-async': 'error',
+    '@typescript-eslint/no-misused-promises': 'error'
 };
 
 module.exports = {
     root: true,
+    env: { es6: true },
     parserOptions: {
+        ecmaVersion: 2022,
         tsconfigRootDir: __dirname,
+        EXPERIMENTAL_useProjectService: true,
+        warnOnUnsupportedTypeScriptVersion: false,
         project: [
             './tsconfig.eslint.json',
             './packages/*-e2e/tsconfig.json',
@@ -55,12 +64,17 @@ module.exports = {
         ]
     },
     ignorePatterns: ['**/*', '!**/*.json', '!**/*.js', '!**/*.ts', '!scripts', '!tools', '!.vscode'],
-    plugins: ['@nx', 'json', 'import'],
+    plugins: ['@nx'],
     overrides: [
         {
-            files: ['*.ts', '*.tsx'],
+            files: ['*.ts', '*.tsx', '*.mts'],
             extends: ['plugin:@nx/typescript'],
-            rules: typescriptRules
+            rules: typescriptRules,
+            parserOptions: {
+                project: [
+                    './tsconfig.eslint.json'
+                ]
+            }
         },
         {
             files: ['*.js', '*.jsx'],
@@ -68,15 +82,17 @@ module.exports = {
             rules: javascriptRules
         },
         {
-            files: ['*.spec.ts', '*.spec.tsx', '*.spec.js', '*.spec.jsx'],
-            env: {
-                jest: true
-            },
-            rules: {}
+            files: ['*.mjs'],
+            extends: ['plugin:@nx/javascript'],
+            rules: javascriptRules,
+            parserOptions: {
+                sourceType: 'module'
+            }
         },
         {
             files: ['*.json'],
-            extends: ['plugin:json/recommended'],
+            parser: 'jsonc-eslint-parser',
+            extends: ['plugin:jsonc/recommended-with-json'],
             rules: jsonRules
         }
     ]

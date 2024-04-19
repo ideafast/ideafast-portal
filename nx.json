@@ -61,5 +61,6 @@
     },
     "defaultProject": "itmat-ui-react",
     "$schema": "./node_modules/nx/schemas/nx-schema.json",
-    "defaultBase": "master"
+    "defaultBase": "master",
+    "useInferencePlugins": false
 }
