@@ -31,7 +31,7 @@
         "@babel/core": "^7.24.4",
         "@babel/preset-react": "^7.24.1",
         "@nx/esbuild": "18.3.3",
-        "@nx/eslint": "18.3.3",
+        "@nx/eslint": "18.3.4",
         "@nx/eslint-plugin": "18.3.3",
         "@nx/express": "18.3.3",
         "@nx/jest": "18.3.3",
