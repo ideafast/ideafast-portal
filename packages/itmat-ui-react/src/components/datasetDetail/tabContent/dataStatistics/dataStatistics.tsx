@@ -36,7 +36,6 @@ export const StatisticsTabContent: FunctionComponent<{ studyId: string }> = ({ s
 
 export const BlockRendering: FunctionComponent<{ studyId: string, blockConfig: any }> = ({ studyId, blockConfig }) => {
     const [selectedField, __unused__setSelectedField] = React.useState<string | undefined>(undefined);
-
     const getData = trpc.data.getData.useQuery({ studyId: studyId, fieldIds: blockConfig.fieldIds.length === 1 ? blockConfig.fieldIds : [selectedField], aggregation: blockConfig.aggregation });
     if (getData.isLoading) {
         return <>
@@ -53,17 +52,14 @@ export const BlockRendering: FunctionComponent<{ studyId: string, blockConfig: a
     if (!getData.data) {
         return <Empty />;
     }
-    if (blockConfig.graphType === 'Column') {
-        console.log(getData.data);
-    }
     if (blockConfig.graphType === 'Pie') {
-        return <BasicPieChart
+        return (<BasicPieChart
             data={getData.data}
             blockSize={blockConfig.blockSize}
             blockPos={blockConfig.blockPos}
             basicBlockSize={blockConfig.basicBlockSize}
-            blockConfig={...blockConfig}
-        />;
+            blockConfig={blockConfig}
+        />);
     }
     return null;
 };

@@ -3,13 +3,6 @@ import { ILog, enumAPIResolver, enumEventStatus, enumEventType } from '@itmat-br
 import { v4 as uuid } from 'uuid';
 import { db } from '../database/database';
 
-// export const baseProcedure = publicProcedure.use(async (opts: any) => {
-//     const url = opts.ctx.req.url;
-//     const listCalls = parseBatchedUrl(url);
-//     console.log(listCalls);
-//     return opts.next();
-// });
-
 export const baseProcedure = t.procedure.use(async (opts: any) => {
     const startTime = Date.now();
 

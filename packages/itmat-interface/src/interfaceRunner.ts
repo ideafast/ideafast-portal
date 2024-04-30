@@ -19,7 +19,6 @@ class ITMATInterfaceRunner extends Runner {
     public start(): Promise<Router> {
         const _this = this;
         return new Promise((resolve, reject) => {
-            console.log(33);
             // Operate database migration if necessary
             db.connect(this.config.database, MongoClient)
                 .then(() => objStore.connect(this.config.objectStore))

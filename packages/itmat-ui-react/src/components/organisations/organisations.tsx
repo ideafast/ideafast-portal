@@ -140,7 +140,6 @@ export const OrganisationSection: FunctionComponent = () => {
                         });
                     }}
                     onOk={async () => {
-                        console.log(form.getFieldsValue());
                         const values = form.getFieldsValue();
                         let profile: any = undefined;
                         if (values.profile) {

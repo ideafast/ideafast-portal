@@ -92,9 +92,6 @@ if (global.hasMinio) {
             //         signature: signature,
             //         associatedUserId: userProfile.id
             //     });
-            // console.log(exportedKeyPair);
-            // console.log(signature);
-            // console.log(response.body);
             // expect(response.status).toBe(200);
             // expect(response.body.result.data.pubkey).toBe(exportedKeyPair.pubkey);
         });

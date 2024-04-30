@@ -212,7 +212,6 @@ export class DriveCore {
             }
         }
 
-        console.log('length', createdDrives.length);
         return createdDrives;
     }
 

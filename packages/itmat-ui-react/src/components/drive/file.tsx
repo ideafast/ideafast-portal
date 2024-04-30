@@ -891,7 +891,6 @@ export const ShareFileModal: FunctionComponent<{ isModalShown: boolean, setIsMod
                 </Form.List>
                 <Form.Item>
                     <Button type="primary" htmlType="submit" onClick={() => {
-                        console.log(form.getFieldsValue());
                         for (const user of form.getFieldValue('sharedUsers')) {
                             shareFunc.mutate({
                                 userEmails: [user.email],

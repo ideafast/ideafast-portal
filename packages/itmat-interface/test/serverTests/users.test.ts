@@ -1369,7 +1369,6 @@ describe('USERS API', () => {
                 query: print(GET_USERS),
                 variables: { userId: 'new_user', fetchDetailsAdminOnly: false, fetchAccessPrivileges: false }
             });
-            console.log(getUserResAfter.body);
             expect(getUserResAfter.body.data.getUsers[0]).toMatchObject({
                 id: 'new_user'
             });

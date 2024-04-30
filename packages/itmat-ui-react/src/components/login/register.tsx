@@ -1,9 +1,7 @@
 import { FunctionComponent, useState } from 'react';
-import { useMutation } from '@apollo/client/react/hooks';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { CREATE_USER } from '@itmat-broker/itmat-models';
 import { IOrganisation, enumConfigType } from '@itmat-broker/itmat-types';
-import { Input, Form, Button, Alert, Checkbox, Select } from 'antd';
+import { Input, Form, Button, Alert, Checkbox, Select, message } from 'antd';
 import css from './login.module.css';
 import { trpc } from '../../utils/trpc';
 import LoadSpinner from '../reusable/loadSpinner';
@@ -15,9 +13,15 @@ export const RegisterNewUser: FunctionComponent = () => {
         enabled: !!getSubPath.data
     });
     const [completedCreation, setCompletedCreation] = useState(false);
-    const [createUser, { loading, error }] = useMutation(CREATE_USER,
-        { onCompleted: () => setCompletedCreation(true) }
-    );
+    const createUser = trpc.user.createUser.useMutation({
+        onSuccess: () => {
+            message.success('User created.');
+            setCompletedCreation(true);
+        },
+        onError: () => {
+            message.error('Failed to create this user.');
+        }
+    });
     if (getSystemConfig.isLoading || getSubPath.isLoading || getDomains.isLoading) {
         return <LoadSpinner />;
     }
@@ -78,7 +82,7 @@ export const RegisterNewUser: FunctionComponent = () => {
                     <h1>Register an Account</h1>
                     <br />
                     <div>
-                        <Form layout='vertical' onFinish={(variables) => createUser({ variables })}>
+                        <Form layout='vertical' onFinish={(variables) => createUser.mutate({ ...variables })}>
                             <Form.Item name='username' hasFeedback rules={[{ required: true, message: 'Please enter a username' }]}>
                                 <Input placeholder='Username' />
                             </Form.Item>
@@ -120,10 +124,9 @@ export const RegisterNewUser: FunctionComponent = () => {
                             <Form.Item name='emailNotificationsActivated' valuePropName='checked'>
                                 Subscribe to email notifications <Checkbox />
                             </Form.Item>
-                            {error ? (
+                            {createUser.isError ? (
                                 <>
-                                    <Alert type='error' message={error.graphQLErrors.map(error => error.message).join()} />
-                                    <Alert type='error' message={error.networkError?.message} />
+                                    <Alert type='error' message={createUser.isError.valueOf()} />
                                     <br />
                                 </>
                             ) : null}
@@ -134,7 +137,7 @@ export const RegisterNewUser: FunctionComponent = () => {
                                     Cancel
                                 </Button>
                                 &nbsp;&nbsp;&nbsp;
-                                <Button type='primary' disabled={loading} loading={loading} htmlType='submit'>
+                                <Button type='primary' disabled={createUser.isLoading} loading={createUser.isLoading} htmlType='submit'>
                                     Create
                                 </Button>
                             </Form.Item>

@@ -83,7 +83,7 @@ export class FileCore {
             if (!fileConfig) {
                 fileConfig = defaultSettings.cacheConfig;
             }
-        } if (fileCategory === enumFileCategories.DOMAIN_PROFILE_FILE) {
+        } else if (fileCategory === enumFileCategories.DOMAIN_PROFILE_FILE) {
             fileConfig = await db.collections!.configs_collection.findOne({ type: enumConfigType.DOMAINCONFIG, key: null });
             if (!fileConfig) {
                 fileConfig = defaultSettings.domainConfig;
@@ -201,79 +201,6 @@ export class FileCore {
                 }));
             });
         });
-
-        // return new Promise<IFile>((resolve, reject) => {
-        //     (async () => {
-        //         try {
-        //             const buffer = fileUpload.fileBuffer; // Directly access the buffer from your fileUpload object.
-        //             const fileUri = uuid();
-        //             const hash = crypto.createHash('sha256');
-
-        //             // Validate against the file size limit
-        //             if (buffer.length > fileSizeLimit) {
-        //                 reject(new GraphQLError('File should not be larger than 8GB', { extensions: { code: errorCodes.CLIENT_MALFORMED_INPUT } }));
-        //                 return;
-        //             }
-
-        //             hash.update(buffer); // Update the hash directly using the buffer.
-
-        //             // Assuming objStore.uploadFile can accept a buffer.
-        //             await objStore.uploadFile(buffer, studyId ? studyId : fileConfig.defaultFileBucketId, fileUri);
-
-        //             const hashString = hash.digest('hex');
-        //             const path: any[] = [];
-        //             if (studyId) {
-        //                 const pathLabels = fileConfig.defaultFileDirectoryStructure.pathLabels;
-        //                 path.push(study.name);
-        //                 if (properties) {
-        //                     for (let i = 0; i < pathLabels.length; i++) {
-        //                         if (properties[pathLabels[i]]) {
-        //                             path.push(properties[pathLabels[i]]);
-        //                         }
-        //                     }
-        //                 }
-        //             }
-        //             const fileEntry: IFile = {
-        //                 id: uuid(),
-        //                 studyId: studyId,
-        //                 userId: userId,
-        //                 fileName: fileUpload.filename, // Access filename directly from the fileUpload object.
-        //                 fileSize: buffer.length, // Use buffer's length for file size.
-        //                 description: description,
-        //                 uri: fileUri,
-        //                 path: path,
-        //                 hash: hashString,
-        //                 fileType: fileType,
-        //                 fileCategory: fileCategory,
-        //                 properties: properties,
-        //                 sharedUsers: [],
-        //                 life: {
-        //                     createdTime: Date.now(),
-        //                     createdUser: requester,
-        //                     deletedTime: null,
-        //                     deletedUser: null
-        //                 },
-        //                 metadata: {}
-        //             };
-        //             const insertResult = await db.collections!.files_collection.insertOne(fileEntry as IFile);
-        //             if (insertResult.acknowledged) {
-        //                 resolve(fileEntry as IFile);
-        //             } else {
-        //                 throw new TRPCError({
-        //                     code: enumTRPCErrorCodes.BAD_REQUEST,
-        //                     message: errorCodes.DATABASE_ERROR
-        //                 });
-        //             }
-
-        //         } catch (error) {
-        //             console.log(error);
-        //             reject(new TRPCError({
-        //                 code: enumTRPCErrorCodes.BAD_REQUEST,
-        //                 message: errorCodes.UNQUALIFIED_ERROR
-        //             }));
-        //         }
-        //     })();
-        // });
     }
 
     public async deleteFile(requester: string, fileId: string): Promise<IGenericResponse> {

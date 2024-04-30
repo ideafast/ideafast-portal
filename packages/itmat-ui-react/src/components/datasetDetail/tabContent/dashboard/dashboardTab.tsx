@@ -39,7 +39,6 @@ export const DashboardTabContent: FunctionComponent<{ studyId: string }> = ({ st
     }
     const study = getStudies.data[0];
     const studyConfig = getStudyConfig.data.properties as IStudyConfig;
-    console.log(studyConfig.defaultFileColumns);
     return (
         <div className={css.page_container}>
             <List
@@ -153,7 +152,6 @@ export const DashboardTabContent: FunctionComponent<{ studyId: string }> = ({ st
                     </Form.Item>
                     <Form.List name="defaultFileColumns">
                         {(defaultFileColumns, { add, remove }) => {
-                            console.log(defaultFileColumns);
                             return (
                                 <FilePropertyBlock fileProperties={defaultFileColumns} add={add} remove={remove} />
                             );

@@ -217,16 +217,6 @@ export const EditDocument: FunctionComponent<{ value: any, setValue: any, mode: 
         <Button onClick={async () => {
             const attachments = form.getFieldValue('attachments') ?? [];
             const paths: any[] = [];
-            console.log({
-                title: form.getFieldValue('title'),
-                type: form.getFieldValue('type'),
-                description: form.getFieldValue('description') ?? null,
-                tag: form.getFieldValue('tag') ?? null,
-                studyId: undefined,
-                priority: form.getFieldValue('priority') ?? 0,
-                attachments: paths,
-                contents: form.getFieldValue('contents')
-            });
             for (const attachment of attachments) {
                 const fileData = attachment;
                 const formData = new FormData();

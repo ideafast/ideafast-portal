@@ -79,7 +79,7 @@ export class StudyCore {
      */
     public async createStudy(requester: string, studyName: string, description?: string, profile?: FileUpload): Promise<Partial<IStudy>> {
         const studyId = uuid();
-        const existing = await db.collections!.studies_collection.findOne({ 'name': { $regex: studyName, $options: 'i' }, 'life.deletedTime': null });
+        const existing = await db.collections!.studies_collection.findOne({ 'name': studyName, 'life.deletedTime': null });
         if (existing) {
             throw new TRPCError({
                 code: enumTRPCErrorCodes.BAD_REQUEST,

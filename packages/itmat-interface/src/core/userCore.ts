@@ -2,7 +2,7 @@ import bcrypt from 'bcrypt';
 import { db } from '../database/database';
 import config from '../utils/configManager';
 import { GraphQLError } from 'graphql';
-import { IUser, enumUserTypes, IPubkey, defaultSettings, IGenericResponse, enumFileTypes, enumFileCategories, IResetPasswordRequest, enumGroupNodeTypes, IGroupNode, AccessToken, enumTRPCErrorCodes } from '@itmat-broker/itmat-types';
+import { IUser, enumUserTypes, IPubkey, defaultSettings, IGenericResponse, enumFileTypes, enumFileCategories, IResetPasswordRequest, enumGroupNodeTypes, IGroupNode, AccessToken, enumTRPCErrorCodes, enumDriveNodeTypes } from '@itmat-broker/itmat-types';
 import { makeGenericReponse } from '../graphql/responses';
 import { v4 as uuid } from 'uuid';
 import { errorCodes } from '../graphql/errors';
@@ -193,6 +193,38 @@ export class UserCore {
             metadata: {}
         };
         await db.collections!.users_collection.insertOne(entry);
+
+        // insert a drive
+        const driveId = uuid();
+        await db.collections!.drives_collection.insertOne({
+            id: driveId,
+            path: [driveId],
+            restricted: true,
+            name: 'My Drive',
+            description: 'This is your own drive.',
+            fileId: null,
+            type: enumDriveNodeTypes.FOLDER,
+            parent: null,
+            children: [
+
+            ],
+            sharedUsers: [
+
+            ],
+            sharedGroups: [
+
+            ],
+            life: {
+                createdTime: Date.now(),
+                createdUser: userId,
+                deletedTime: null,
+                deletedUser: null
+            },
+            metadata: {
+
+            },
+            managerId: userId
+        });
         return entry;
     }
 

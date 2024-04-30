@@ -147,14 +147,12 @@ export const JobSection: FunctionComponent = () => {
         render: (__unused__value, record) => {
             return <Button onClick={() => {
                 setIsModalOn(true);
-                console.log(record);
                 form.setFieldsValue({
                     jobId: record.id,
                     priority: record.priority,
                     period: convertMillisecondsToPeriod(record.period),
                     nextExecutionTime: record.nextExecutionTime ? dayjs(record.nextExecutionTime) : undefined
                 });
-                console.log(form.getFieldsValue());
             }}>Edit</Button>;
         }
     }];
