@@ -1576,12 +1576,12 @@
     resolve-global "1.0.0"
     yargs "^17.0.0"
 
-"@commitlint/config-conventional@^18.6.2":
-  version "18.6.3"
-  resolved "https://registry.npmjs.org/@commitlint/config-conventional/-/config-conventional-18.6.3.tgz"
-  integrity sha512-8ZrRHqF6je+TRaFoJVwszwnOXb/VeYrPmTwPhf0WxpzpGTcYy1p0SPyZ2eRn/sRi/obnWAcobtDAq6+gJQQNhQ==
+"@commitlint/config-conventional@^19.2.2":
+  version "19.2.2"
+  resolved "https://registry.yarnpkg.com/@commitlint/config-conventional/-/config-conventional-19.2.2.tgz#1f4e6975d428985deacf2b3ff6547e02c9302054"
+  integrity sha512-mLXjsxUVLYEGgzbxbxicGPggDuyWNkf25Ht23owXIH+zV2pv1eJuzLK3t1gDY5Gp6pxdE60jZnWUY5cvgL3ufw==
   dependencies:
-    "@commitlint/types" "^18.6.1"
+    "@commitlint/types" "^19.0.3"
     conventional-changelog-conventionalcommits "^7.0.2"
 
 "@commitlint/config-nx-scopes@^18.6.1":
@@ -1722,6 +1722,14 @@
   integrity sha512-gwRLBLra/Dozj2OywopeuHj2ac26gjGkz2cZ+86cTJOdtWfiRRr4+e77ZDAGc6MDWxaWheI+mAV5TLWWRwqrFg==
   dependencies:
     chalk "^4.1.0"
+
+"@commitlint/types@^19.0.3":
+  version "19.0.3"
+  resolved "https://registry.yarnpkg.com/@commitlint/types/-/types-19.0.3.tgz#feff4ecac2b5c359f2a57f9ab094b2ac80ef0266"
+  integrity sha512-tpyc+7i6bPG9mvaBbtKUeghfyZSDgWquIDfMgqYtTbmZ9Y9VzEm2je9EYcQ0aoz5o7NvGS+rcDec93yO08MHYA==
+  dependencies:
+    "@types/conventional-commits-parser" "^5.0.0"
+    chalk "^5.3.0"
 
 "@cspotcode/source-map-support@^0.8.0":
   version "0.8.1"
@@ -3196,6 +3204,13 @@
   version "3.4.38"
   resolved "https://registry.npmjs.org/@types/connect/-/connect-3.4.38.tgz"
   integrity sha512-K6uROf1LD88uDQqJCktA4yzL1YYAK6NgfsI0v/mTgyPKWsX1CnJ0XPSDhViejru1GcRkLWb8RlzFYJRqGUbaug==
+  dependencies:
+    "@types/node" "*"
+
+"@types/conventional-commits-parser@^5.0.0":
+  version "5.0.0"
+  resolved "https://registry.yarnpkg.com/@types/conventional-commits-parser/-/conventional-commits-parser-5.0.0.tgz#8c9d23e0b415b24b91626d07017303755d542dc8"
+  integrity sha512-loB369iXNmAZglwWATL+WRe+CRMmmBPtpolYzIebFaX4YA3x+BEfLqhUAV9WanycKI3TG1IMr5bMJDajDKLlUQ==
   dependencies:
     "@types/node" "*"
 
@@ -4915,7 +4930,7 @@ center-align@^0.1.1:
     align-text "^0.1.3"
     lazy-cache "^1.0.3"
 
-chalk@5.3.0:
+chalk@5.3.0, chalk@^5.3.0:
   version "5.3.0"
   resolved "https://registry.npmjs.org/chalk/-/chalk-5.3.0.tgz"
   integrity sha512-dLitG79d+GV1Nb/VYcCDFivJeK1hiukt9QjRNVOsUtTy1rR1YJsmpGGTZ3qJos+uw7WmWF4wUwBd9jxjocFC2w==
