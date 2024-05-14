@@ -10,7 +10,7 @@ export interface IPubkey extends IBase {
 }
 
 export type AccessToken = {
-    accessToken?: string;
+    accessToken: string;
 }
 
 export type KeyPairwSignature = {

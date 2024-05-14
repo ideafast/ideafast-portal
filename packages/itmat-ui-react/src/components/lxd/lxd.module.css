@@ -112,3 +112,18 @@
     color: white; 
     box-sizing: border-box; 
   }
+
+ 
+.pTerminalFullscreen {
+    width: 100%;
+    height: calc(100vh - 108px); /* Adjust based on your header/footer sizes */
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.p_terminal {
+    height: 100%;
+    width: 100%;
+    flex-grow: 1; /* Allow terminal to fill the space */
+}

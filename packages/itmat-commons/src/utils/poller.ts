@@ -47,15 +47,12 @@ export class JobPoller {
             return;
         }
         if (job) {
-            Logger.log('Find job');
             // update log status
             const setObj: any = {};
             try {
-                // let result: any;
-                console.log('[JobPoller -> checkForJobs] start the action', this.action);
 
                 const result = await this.action(job);
-                console.log('Job Execution finished: ', new Date((Date.now())).toISOString(), result?.error, result);
+                Logger.log(`[JOB] Job Execution finished: ${new Date((Date.now())).toISOString()}, ${JSON.stringify(result?.error)}, ${JSON.stringify(result)}`);
 
                 if (job.period) {
                     setObj.status = enumJobStatus.PENDING;

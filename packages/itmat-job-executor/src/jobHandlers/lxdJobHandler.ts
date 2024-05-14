@@ -1,19 +1,22 @@
 /* eslint-disable @nx/enforce-module-boundaries */
+
 import { IJob, IInstance, enumOpeType, enumInstanceStatus} from '@itmat-broker/itmat-types';
 import { JobHandler } from './jobHandlerInterface';
 import { TRPCError } from '@trpc/server';
 import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
 
-import axios from 'axios';
 import type * as mongodb from 'mongodb';
 import { error } from 'console';
-import config from '../utils/configManager';
+import  {createClientWithHeaders} from '../utils/trpc';
+import { Logger } from '@itmat-broker/itmat-commons';
 
-const lxdInstance = axios.create({
-    baseURL: config.dmpEndpoint
-});
-
-const pollOperation = async (operationUrl: string, instanceToken: string | undefined): Promise<void> => {
+const pollOperation = async (
+    trpcClient: ReturnType<typeof createClientWithHeaders>,
+    operationUrl: string,
+    instanceToken: string | undefined, maxTry = 100
+): Promise<void> => {
+    // couting the try
+    let tryCount = 0;
     return new Promise<void>((resolve, reject) => {
         // Extract the operation ID from the operation URL
         const operationIdMatch = operationUrl.match(/\/1\.0\/operations\/([^/]+)/);
@@ -23,34 +26,42 @@ const pollOperation = async (operationUrl: string, instanceToken: string | undef
         }
         const operationId = operationIdMatch[1];
 
-        const dmpOperationEndpoint = `/lxd/operation/${operationId}`;
-
         const interval = setInterval(async () => {
+            tryCount++;
+            if (tryCount > maxTry) {
+                clearInterval(interval);
+                reject(new Error(`Operation polling timed out:${operationUrl} -> ${operationId}`));
+                return;
+            }
             try {
-                // Adjust the request to call the DMP backend endpoint for the operation status
-                const opResponse = await lxdInstance.get(dmpOperationEndpoint, {
-                    headers: {
-                        'Authorization': instanceToken,
-                        'Content-Type': 'application/json'
-                    }
-                });
-                const opData = opResponse.data;
+                const opData = await trpcClient.lxd.getOperationStatus.query({operationId: operationId});
+                console.log(`Operation status: ${JSON.stringify(opData.metadata)}`);
 
+                // if get response like this'Success' then just exit the interval
                 if (opData.metadata.status === 'Success') {
                     clearInterval(interval);
                     resolve(); // Operation succeeded
                 } else if (opData.metadata.status === 'Failure') {
-                    clearInterval(interval);
-                    reject(new Error('Operation failed'));
+                    // if get response like err: 'Failed creating instance record: Instance is busy running a "create" operation', then just skip and continue interval
+                    if (opData.metadata.err.includes('Instance is busy running')) {
+                        return;
+                    } else {
+                        clearInterval(interval);
+                        reject(new Error(`Operation failed for ${opData.metadata.err}`));
+                    }
                 }
-                // Add more conditions as necessary based on your application's logic
-            } catch (error) {
-                clearInterval(interval);
-                reject(error);
+            } catch (error: TRPCError | unknown) {
+                Logger.error(`Error polling operation: ${error}`);
+                if (error instanceof TRPCError  && error?.code) { // Adetermine fatal errors
+                    clearInterval(interval);
+                    reject(new Error(`Fatal error polling operation: ${error?.message}`));
+                }
             }
-        }, 2000); // Poll every 2 seconds. Adjust timing as needed.
+
+        }, 4000); // Poll every 3 seconds. Adjust timing as needed.
     });
 };
+
 /**
  * For creating lxd containers.
  */
@@ -81,7 +92,6 @@ export class LXDJobHandler extends JobHandler {
     }
 
     public async execute(document: IJob): Promise<any> {
-        console.log('instance job execute: ', document.id);
 
         const { operation, instanceId } = document.metadata ?? {};
 
@@ -111,12 +121,10 @@ export class LXDJobHandler extends JobHandler {
         }
     }
     /**
-     * lxd rest api
+     * execute the create instance job
      */
     private async create(document: IJob): Promise<any> {
-        console.log(`Executing job ${document.id} for creating LXD instance.`);
 
-        // Ensure metadata and payload are correctly extracted
         const metadata = document.metadata ?? {};
         const payload = metadata.payload ?? {};
         const instanceId = metadata.instanceId ?? '';
@@ -129,36 +137,26 @@ export class LXDJobHandler extends JobHandler {
 
         // Retrieve the instanceToken from the instanceData
         const instanceToken = instanceData.instanceToken;
-        if (!instanceToken) {
-            throw new Error('Instance token not found.');
-        }
+
         try {
-            console.log('execute lxd job payload', payload);
-            const response = await lxdInstance.post('/lxd/instances/create', payload,
-                {headers: {
-                    'Authorization': instanceToken,
-                    'Content-Type': 'application/json'
-                }}
-            );
+            // Create a client with the instance token
+            const trpcClient = createClientWithHeaders(instanceToken);
+            // Make a tRPC call using the client with the token in the header
+            const data = await trpcClient.lxd.createInstance.mutate(payload);
 
             // Assuming the operation URL is provided in the response
-            if (response.data.operation) {
-                console.log('Operation URL:', response.data.operation);
-                await pollOperation(response.data.operation, instanceToken);
-                // get the update information of this instance
+            if (data.operation) {
+                await pollOperation(trpcClient, data.operation, instanceToken);
 
                 // Operation succeeded, update instance status to RUNNING
-                await this.updateInstanceMetadata(instanceId, response.data, enumInstanceStatus.STOPPED);
-                console.log('Instance created successfully:', response.data);
+                await this.updateInstanceMetadata(instanceId, data, enumInstanceStatus.STOPPED);
             } else {
                 // No operation URL, direct success without polling
-                await this.updateInstanceMetadata(instanceId, response.data, enumInstanceStatus.STOPPED);
-                console.log('Instance created successfully without polling:', response.data);
+                await this.updateInstanceMetadata(instanceId, data, enumInstanceStatus.STOPPED);
             }
-            return response.data;
+            return data;
         } catch (error) {
-            console.error('Failed to create LXD instance:', error);
-
+            Logger.error(`Error creating instance: ${instanceId}, ${error}`);
             // Operation failed, update instance status to FAILED
             await this.updateInstanceMetadata(instanceId, {}, enumInstanceStatus.FAILED);
             return {error: error};
@@ -168,29 +166,22 @@ export class LXDJobHandler extends JobHandler {
     private async update(document: IJob): Promise<any> {
         //update the instance
         const { instanceId, updates} = document.metadata ?? {};
-        console.log(`Updating instance configuration: ${instanceId}`);
 
         // Retrieve instance details to get the instance name
         const instance = await this.instanceCollection.findOne({ id: instanceId });
         if (!instance) {
-            console.error('LXD update: Instance not found.:', instanceId, updates);
+            Logger.error(`LXD update: Instance not found.: ${instanceId} ${updates}`);
             return {error: 'LXD update: Instance not found'};
         }
 
         const payload = updates;
+        const instanceToken = instance.instanceToken;
 
         try {
-        // Perform the PATCH request to update the instance
-            const response = await lxdInstance.patch(`/lxd/instances/${instance.name}/update`, payload, {
-                headers: {
-                    'Authorization': instance.instanceToken,
-                    'Content-Type': 'application/json' }
-                // setup the user by the requester
-            });
+            const trpcClient = createClientWithHeaders(instanceToken);
+            const data = await trpcClient.lxd.updateInstance.mutate({ instanceName: instance.name, payload });
 
-            console.log(`Instance configuration updated successfully: ${response.data}`);
-
-            return response.data;
+            return data;
         } catch (error) {
             console.error(`Error updating instance configuration: ${instanceId}`, error);
             return {error: error};
@@ -198,43 +189,44 @@ export class LXDJobHandler extends JobHandler {
     }
 
     private async startStopInstance(instanceId: string, action: 'start' | 'stop'): Promise<any> {
-        console.log(`Instance operation: ${action}, Instance ID: ${instanceId}`);
-        // Retrieve instance data from the database using instanceId
+
         const instanceData = await this.instanceCollection.findOne({ id: instanceId });
         if (!instanceData) {
             throw new Error('Instance not found.');
         }
 
-        const instanceName = instanceData.name;
         const instanceToken = instanceData.instanceToken;
-        try {
-            const response = await lxdInstance.put(`/lxd/instances/${instanceName}/action`, { action }, {
-                headers: {
-                    'Authorization': instanceToken,
-                    'Content-Type': 'application/json'
-                }
-            });
 
-            console.log(`Instance ${action} response:`, response.data);
-            // Check for an operation URL and poll if present
-            if (response.data.operation) {
-                console.log('Operation URL:', response.data.operation);
-                await pollOperation(response.data.operation, instanceToken);
+        try {
+            const trpcClient = createClientWithHeaders(instanceToken);
+            const data = await trpcClient.lxd.startStopInstance.mutate({ instanceName: instanceData.name, action});
+
+            if (data.operation) {
+                await pollOperation(trpcClient, data.operation, instanceToken);
             }
 
             // Update instance status in the database
             const newStatus = action === 'start' ? enumInstanceStatus.RUNNING : enumInstanceStatus.STOPPED;
             await this.updateInstanceMetadata(instanceId, null, newStatus);
-        } catch (error) {
-            console.error(`Failed to ${action} instance:`, error);
+        } catch (error: Error | unknown) {
+            // if action is stop or start, and the error message has like 'The instance is already stopped', set the status to STOPPED or RUNNING
+            // the error message which may be err: 'The instance is already stopped',
+            Logger.log(`startStopInstance error: ${error}`);
+            if (error instanceof Error && error.message.includes('The instance is already stopped')) {
+                await this.updateInstanceMetadata(instanceId, null, enumInstanceStatus.STOPPED);
+            } else if (error instanceof Error && error.message.includes('The instance is already running')) {
+                await this.updateInstanceMetadata(instanceId, null, enumInstanceStatus.RUNNING);
+            } else {
+                await this.updateInstanceMetadata(instanceId, null, enumInstanceStatus.FAILED);
+            }
             throw new Error(`[JOB] start or stop Instance  failed: ${error}`);
         }
     }
 
 
     private async deleteInstance(instanceId: string): Promise<any> {
-        console.log(`Deleting instance, Instance ID: ${instanceId}`);
-        // Retrieve instance data from the database
+
+        Logger.log(`Deleting instance, Instance ID: ${instanceId}`);
         const instanceData = await this.instanceCollection.findOne({ id: instanceId });
         if (!instanceData) {
             throw new Error('Instance not found.');
@@ -244,24 +236,18 @@ export class LXDJobHandler extends JobHandler {
         const instanceToken = instanceData.instanceToken;
 
         try {
-            const response = await lxdInstance.delete(`/lxd/instances/${instanceName}`,{
-                headers: {
-                    'Authorization': instanceToken,
-                    'Content-Type': 'application/json'
-                }
-            });
-            console.log('Delete instance response:', response.data);
-            // Check for an operation URL and poll if present
-            if (response.data.operation) {
-                console.log('Operation URL:', response.data.operation);
-                await pollOperation(response.data.operation, instanceToken);
+            const trpcClient = createClientWithHeaders(instanceToken);
+            const data = await trpcClient.lxd.deleteInstance.mutate({ instanceName: instanceName});
+
+            Logger.log(`Delete instance response: ${data} `);
+            if (data.operation) {
+                await pollOperation(trpcClient, data.operation, instanceToken);
             }
 
-            // Remove instance from the database or mark it as deleted
+            // Remove instance from the database
             await this.instanceCollection.deleteOne({ id: instanceId });
         } catch (error) {
-            console.error('[JOB] Failed to delete instance:', error);
-            // throw error;
+            Logger.error(`[JOB] Failed to delete instance: ${error}`);
             throw new Error(`[JOB] delete Instance  failed: ${error}`);
         }
     }
@@ -269,7 +255,7 @@ export class LXDJobHandler extends JobHandler {
 
         const updateObject:Record<string, any> = {
             $set: {
-                status: status // Assuming 'status' is always set
+                status: status
             }
         };
         if (metadata !== null) {
@@ -281,13 +267,11 @@ export class LXDJobHandler extends JobHandler {
                 { id: instanceId },
                 updateObject
             );
-            console.log(`Instance ${instanceId} updated with status ${status}.`);
             if (!updateResult.ok) {
-                // throw new Error('Database update failed');
-                console.error(`Failed to update instance ${instanceId}:`, updateResult);
+                Logger.error(`Failed to update instance ${instanceId}: ${updateResult}`);
             }
         } catch (error) {
-            console.error(`Failed to update instance ${instanceId} error:`, error);
+            Logger.error(`Failed to update instance ${instanceId} error: ${error}`);
             throw new Error(`Failed to update instance metadata: ${error}`);
         }
     }
@@ -307,7 +291,7 @@ export class LXDControlHandler extends JobHandler {
     }
 
     public async execute(document: IJob): Promise<any> {
-        console.log(document.id);
+        Logger.log(document.id);
         throw new TRPCError({
             code: enumTRPCErrorCodes.UNAUTHORIZED,
             message: 'Not implemented.'
@@ -317,6 +301,10 @@ export class LXDControlHandler extends JobHandler {
 
 /**
  * For monitoring lxd containers, including updating intermediate status.
+ * TODO: interval for monitoring, like every 5 minutes.
+ * TODO: update the status of the instance.
+ * TODO: update the status of the instance job.
+ * TODO: permenant delete the instance if the status is deleted from both side.
  */
 export class LXDMonitorHandler extends JobHandler {
     constructor() {
@@ -327,15 +315,18 @@ export class LXDMonitorHandler extends JobHandler {
         return new LXDMonitorHandler();
     }
 
-    public async execute(document: IJob): Promise<any> {
-        console.log(document.id);
+    public async execute(document: IJob): Promise<unknown> {
+        Logger.log(document.id);
         throw new TRPCError({
             code: enumTRPCErrorCodes.UNAUTHORIZED,
             message: 'Not implemented.'
         });
     }
 
+    // delete the instance from the database
+    // once the instance is deleted from the lxd server, or if it has been deleted for more than 10 days .
+
     private async lxdResources(document: IJob): Promise<any> {
-        console.log('instance exec:', document);
+        Logger.log(`instance exec: ${document.id}`);
     }
 }

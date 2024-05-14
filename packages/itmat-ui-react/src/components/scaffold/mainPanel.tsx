@@ -32,8 +32,8 @@ export const MainPanel: FunctionComponent = () => {
                 <Route path='/documents' element={<DocumentPage />} />
                 <Route path='/organisations' element={<OrganisationPage />} />
                 <Route path='/jobs' element={<JobPage />} />
-                <Route path='/ae' element={<InstancePage />} />
-                <Route path='/instances' element={<LXDPage />} />
+                <Route path='/instances' element={<InstancePage />} />
+                <Route path='/lxd' element={<LXDPage />} />
                 {/* <Route path='/myfiles' element={<MyFilePage />} /> */}
                 {/* <Route path='/pun/sys/dashboard' /> */}
                 {/* <Route path='*' element={<Navigate to='/datasets' />} /> */}

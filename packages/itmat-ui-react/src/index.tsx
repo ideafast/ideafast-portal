@@ -40,7 +40,6 @@ const mountApp = () => {
 
     const root = createRoot(container);
     root.render(
-        // TODO: Local Test.
         // <StrictMode>
         <AppWithTRPC />
         // </StrictMode>

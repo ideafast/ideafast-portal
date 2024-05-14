@@ -1,44 +1,27 @@
-import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import React, { useEffect, useState, useRef} from 'react';
 import { Table, Button, message, Spin, Modal, Space, Form, InputNumber, Input } from 'antd';
 import {  CloseOutlined, DeleteOutlined } from '@ant-design/icons';
 // Additional imports
 import { PoweroffOutlined, PlayCircleOutlined } from '@ant-design/icons';
+import { LXDInstanceType } from '@itmat-broker/itmat-types';
 
 // import { instanceCreationTypes } from './instanceOptions';
 import InstanceStatusIcon from '././lxd.Instance.statusIcon';
-import CreateInstance from './lxd.instance.create';
 import { LXDConsole } from './lxd.instance.console';
 import LXDTextConsole from './lxd.instance.text.console';
 import { trpc } from '../../utils/trpc';
 import css from './lxd.module.css';
+import { formatCPUInfo, formatMemoryInfo, formatStorageInfo, formatGPUInfo, formatNetworkInfo, formatPCIInfo } from './util/formatUtils';
 
-interface LXDInstanceType {
-    name: string;
-    description: string;
-    status: string;
-    statusCode: number;
-    profiles: string[];
-    type: 'container' | 'virtual-machine';
-    architecture: string;
-    creationDate: string;
-    lastUsedDate: string;
-    username: string;
-    cpuLimit: string;
-    memoryLimit: string;
-    key: string;
-}
+
 
 const LXDInstanceList = () => {
     const [instances, setInstances] = useState<LXDInstanceType[]>([]);
     const [loading, setLoading] = useState(true);
-    const [creatingInstance, setCreatingInstance] = useState(false); // New state to toggle views
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [selectedInstance, setSelectedInstance] = useState<LXDInstanceType | null>(null);
     const [selectedTab, setSelectedTab] = useState('overview'); // new state for tab selection
     const [isInstanceDetailsModalVisible, setIsInstanceDetailsModalVisible] = useState(false);
-    // state for console connection
-    const [connectSignal, setConnectSignal] = useState(false);
 
     const [isUpdateConfigModalOpen, setIsUpdateConfigModalOpen] = useState(false);
     const [editingInstance, setEditingInstance] = useState<LXDInstanceType | null>(null);
@@ -52,6 +35,37 @@ const LXDInstanceList = () => {
             message.error(`Failed to update instance configuration: ${error.message}`);
         }
     });
+
+    const getInstances = trpc.lxd.getInstances.useQuery();
+    const getResources = trpc.lxd.getResources.useQuery();
+
+    const startStopInstance = trpc.lxd.startStopInstance.useMutation({
+        onSuccess: () => {
+            message.success('Operation successful');
+            refreshInstancesList();
+        },
+        onError: (error) => {
+            message.error(`Failed operation: ${error.message}`);
+        }
+    });
+
+    const deleteInstance = trpc.lxd.deleteInstance.useMutation({
+        onSuccess: () => {
+            message.success('Instance deleted successfully');
+            refreshInstancesList();
+        },
+        onError: (error) => {
+            message.error(`Failed to delete instance: ${error.message}`);
+        }
+    });
+    const handleStartStop = (instanceName: string , action: 'start' | 'stop') => {
+        startStopInstance.mutate({ instanceName, action });
+    };
+
+    const handleDelete = (instanceName: string) => {
+        deleteInstance.mutate({ instanceName });
+    };
+
 
     const [systemStats, setSystemStats] = useState({
         cpu: '',
@@ -73,74 +87,45 @@ const LXDInstanceList = () => {
         setIsInstanceDetailsModalVisible(true);
     };
 
+    const handleFullScreenRef = useRef(undefined);
+
 
     useEffect(() => {
-        axios.get('/lxd')
-            .then(async response => {
-                const instances = response.data.data;
+        if (!getInstances.isLoading && getInstances.data) {
+            const instancesList = getInstances.data.data as LXDInstanceType[];
+            const formattedInstances = instancesList.map(instance => ({
+                ...instance, // Spread all existing properties to cover all required fields
+                key: instance.name // Add 'key' if it's additional and not already included in the instance object
+            }));
+            setInstances(formattedInstances);
+            setLoading(false);
+        }
 
-                setInstances(instances.map((instance) => ({
-                    ...instance,
-                    key: instance.name
-                })));
-                setLoading(false);
-            })
-            .catch(error => {
-                const messageText = error instanceof Error ? error.message : 'An unknown error occurred';
-                message.error('Failed to load instance state: ' + messageText);
-                setLoading(false);
-            });
-    }, []);
+        if (getInstances.isError) {
+            message.error('Failed to load instance state: ' + getInstances.error.message);
+            setLoading(false);
+        }
+    }, [getInstances.isLoading, getInstances.data, getInstances.isError, getInstances.error?.message]);
+
 
     useEffect(() => {
-        axios.get('/lxd/resources')
-            .then(response => {
-                const { data } = response.data; // Adjust according to the actual response structure
-                setSystemStats({
-                    cpu: data.cpu,
-                    memory: data.memory,
-                    storage: data.storage,
-                    gpu: data.gpu,
-                    network: data.network,
-                    pci: data.pci
-                });
-            })
-            .catch(error => {
-                console.error('Error fetching system information:', error);
+        if (!getResources.isLoading && getResources.data && getResources.data.data) {
+
+            const data = getResources.data.data;
+            setSystemStats({
+                cpu: formatCPUInfo(data.cpu),
+                memory: formatMemoryInfo(data.memory),
+                storage: formatStorageInfo(data.storage),
+                gpu: formatGPUInfo(data.gpu),
+                network: formatNetworkInfo(data.network),
+                pci: formatPCIInfo(data.pci)
             });
-    }, []);
-
-
-    if (creatingInstance) {
-        // Pass a callback function to toggle back to the list view
-        return <CreateInstance onInstanceCreated={() => setCreatingInstance(false)} />;
-    }
-
-    // Function to start or stop an instance
-    const startOrStopInstance = async (instanceName, action) => {
-        try {
-            await axios.put(`/lxd/instances/${instanceName}/action`, {
-                action: action // 'start' or 'stop'
-            });
-            message.success(`Instance ${instanceName} ${action}ed`);
-            refreshInstancesList(); // Refresh the instances list after the action
-        } catch (error) {
-            const messageText = error instanceof Error ? error.message : 'An unknown error occurred';
-            message.error(`Failed to ${action} instance ${instanceName}: ${messageText}`);
         }
-    };
 
-    const deleteInstance = async (instanceName) => {
-        try {
-            await axios.delete(`/lxd/instances/${instanceName}`);
-            message.success(`Instance ${instanceName} deleted`);
-            refreshInstancesList(); // Refresh the instances list after the action
-        } catch (error) {
-            const messageText = error instanceof Error ? error.message : 'An unknown error occurred';
-            message.error(`Failed to delete instance ${instanceName}: ${messageText}`);
+        if (getResources.isError) {
+            message.error('Error fetching system information'); // getResources?.error?.message
         }
-    };
-
+    }, [getResources.isLoading, getResources.data, getResources.isError]);
 
     // Function to refresh the list of instances
     const refreshInstancesList = async () => {
@@ -165,9 +150,9 @@ const LXDInstanceList = () => {
         // username
         {
             title: 'Username',
-            dataIndex: 'username', // Use the dataIndex that matches what you set in the state
+            dataIndex: 'username',
             key: 'username',
-            render: text => <span>{text}</span> // Basic rendering, can be customized
+            render: text => <span>{text}</span>
         },
         {
             title: 'Status',
@@ -192,7 +177,7 @@ const LXDInstanceList = () => {
                     >Update Config</Button>
                     <Button
                         type="link"
-                        onClick={() => startOrStopInstance(record.name, 'start')}
+                        onClick={() => handleStartStop(record.name, 'start')}
                         icon={<PlayCircleOutlined />}
                         disabled={record.status === 'Running'}
                     >
@@ -200,7 +185,7 @@ const LXDInstanceList = () => {
                     </Button>
                     <Button
                         type="link"
-                        onClick={() => startOrStopInstance(record.name, 'stop')}
+                        onClick={() => handleStartStop(record.name, 'stop')}
                         icon={<PoweroffOutlined />}
                         disabled={record.status !== 'Running'}
                     >
@@ -208,7 +193,7 @@ const LXDInstanceList = () => {
                     </Button>
                     <Button
                         type="link"
-                        onClick={() => deleteInstance(record.name)}
+                        onClick={() => handleDelete(record.name)}
                         icon={<DeleteOutlined />}
                         danger
                     >
@@ -222,66 +207,57 @@ const LXDInstanceList = () => {
     ];
 
     const handleOpenConsole = (instance: LXDInstanceType) => {
-        console.log('handleOpenConsole', instance.name);
         setSelectedInstance(instance);
         setSelectedTab('console');
         setIsModalVisible(true);
-        // setConnectSignal(prevSignal => !prevSignal);
-        setConnectSignal(true);
     };
 
-    // Reset the connect signal when the modal is closed
+    // TDDO:  Reset the connect signal when the modal is closed
     const handleCloseModal = () => {
         setIsModalVisible(false);
-        setConnectSignal(false);
-        // TODO !!!
-        // Should be removed and use proper async traps
-        (window as any).hasSpice = false;
     };
 
     const handleUpdateInstanceConfig = async (values: { cpuLimit: number; memoryLimit: number; }) => {
         if (!editingInstance) return; // Guard clause in case no instance is selected
 
         try {
-            // Assuming your tRPC hook is named `updateInstanceConfig`
             await updateInstanceConfig.mutateAsync({
-                instanceName: editingInstance.key, // Make sure this matches the actual ID field of your instance object
+                instanceName: editingInstance.key,
                 updates: {
                     cpuLimit: values.cpuLimit,
                     memoryLimit: `${values.memoryLimit}GB`
                 }
             });
 
-            setIsUpdateConfigModalOpen(false); // Close modal on success
-            // Optionally refresh instance list or update local state
+            setIsUpdateConfigModalOpen(false);
+
         } catch (error) {
             message.error(`Failed to update instance configuration: ${error instanceof Error ? error.message : String(error)}`);
         }
     };
 
+    // onChildMount function to pass the handleFullScreen function to the child component
+    const onChildMount = (childHandleFullScreen) => {
+        handleFullScreenRef.current = childHandleFullScreen;
+    };
 
     return (
         <div>
-            {/* <Button type="primary" icon={<ContainerOutlined />} onClick={handleCreateInstance}>
-                Create Instance
-            </Button> */}
+
             <div className="system-stats">
                 <h2>System Resources</h2>
                 <p><strong>CPU:</strong> {systemStats.cpu}</p>
                 <p><strong>Memory:</strong> {systemStats.memory}</p>
                 <p><strong>Storage:</strong> {systemStats.storage}</p>
                 <p><strong>GPU:</strong> {systemStats.gpu}</p>
-                {/* <p><strong>Network:</strong> {systemStats.network}</p> */}
-                {/* <p><strong>PCI:</strong> {systemStats.pci}</p> */}
             </div>
             {loading ? <Spin /> : <Table dataSource={instances} columns={columns} rowKey="key" />}
             <Modal
                 title="Instance Details"
                 open={isInstanceDetailsModalVisible}
                 onCancel={() => setIsInstanceDetailsModalVisible(false)}
-                footer={null} // If you don't need a footer
+                footer={null}
             >
-                {/* Render the details of the selectedInstance here */}
                 {selectedInstance && (
                     <div>
                         <p><strong>Name:</strong> {selectedInstance.name}</p>
@@ -299,20 +275,18 @@ const LXDInstanceList = () => {
             </Modal>
 
             <Modal
-                // className='console-modal'
                 title={`Instance ${selectedTab.charAt(0).toUpperCase() + selectedTab.slice(1) +': '+ selectedInstance?.name}`}
                 open={isModalVisible}
                 onOk={handleCloseModal}
                 onCancel={handleCloseModal}
-                // style={selectedTab !== 'overview' ? fullScreenModalStyle : { width: '800px' }}
                 style={{
                     width: 'auto !important',
                     height: 'auto !important'
                 }}
                 bodyStyle={{ height: 'calc(100vh - 110px)', overflowY: 'auto' }}
                 className={css.modalOverrides}
-                footer={null} // Hide footer when terminal is displayed
-                closable={true} // Always allow closing the modal
+                footer={null}
+                closable={true}
                 closeIcon={selectedTab !== 'overview' ? <CloseOutlined /> : undefined}
                 destroyOnClose={true} // Destroy Terminal on close
                 forceRender // Pre-render Modal for immediate open
@@ -322,10 +296,12 @@ const LXDInstanceList = () => {
                         {selectedInstance.type === 'container' ?
                             <LXDTextConsole
                                 instanceName={selectedInstance.name}
-                                connectSignal={connectSignal}
-                                onConnectionClose={() => setConnectSignal(false)}
+                                // onMount={onChildMount}
                             /> : // Render LXDTextConsole for containers
-                            <LXDConsole instanceName={selectedInstance.name} /> // Render LXDConsole for virtual machines
+                            <LXDConsole
+                                instanceName={selectedInstance.name}
+                                onMount={onChildMount}
+                            /> // Render LXDConsole for virtual machines
                         }
                     </div>
                 )}

@@ -444,7 +444,7 @@ export class DMPWebDAVAuthentication implements HTTPAuthentication {
 
             // Decide the retrieval method based on whether a userId is present
             const userRetrievalPromise = userId
-                ? userRetrievalByUserId(pubkey, userId)
+                ? userRetrievalByUserId(userId)
                 : userRetrieval(pubkey);
 
             // Now that the token is verified, retrieve the associated user.

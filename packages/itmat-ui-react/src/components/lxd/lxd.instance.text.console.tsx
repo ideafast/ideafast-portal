@@ -1,234 +1,179 @@
-import React, { useState, useEffect, useRef, useCallback, useLayoutEffect , useReducer} from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect} from 'react';
 import { XTerm } from 'xterm-for-react';
 import { FitAddon } from 'xterm-addon-fit';
 import 'xterm/css/xterm.css';
-import axios from 'axios';
 import css from './lxd.module.css';
+// import { useWebSocket } from 'react-use-websocket';  // Import the hook
+import { trpc } from '../../utils/trpc';
+import { message } from 'antd';
+import {updateMaxHeight} from './util/updateMaxHeight';
 
 interface LXDTextConsoleProps {
   instanceName: string;
-  connectSignal: boolean; // Add a new prop to receive the signal
-  onConnectionClose: () => void; // Callback to reset the signal in the parent
 }
 
-const ActionTypes = {
-    CONNECTING: 'CONNECTING',
-    OPEN: 'OPEN',
-    CLOSED: 'CLOSED'
-};
-
-const textDecoder = new TextDecoder('utf-8');
-
-const updateMaxHeight = (targetElement, additionalOffset = 0) => {
-    const above = targetElement.getBoundingClientRect().top;
-    const offset = Math.ceil(above + additionalOffset);
-    const height = `calc(100vh - ${offset}px)`;
-    targetElement.style.height = height;
-};
-
-
-const connectionReducer = (state, action) => {
-    switch (action.type) {
-        case ActionTypes.CONNECTING:
-            return { ...state, status: WebSocket.CONNECTING };
-        case ActionTypes.OPEN:
-            return { ...state, status: WebSocket.OPEN, socket: action.socket };
-        case ActionTypes.CLOSED:
-            return { ...state, status: WebSocket.CLOSED, socket: null };
-        default:
-            throw new Error();
-    }
-};
-
-// const LXDTextConsole: React.FC<LXDTextConsoleProps> = React.memo(({ instanceName,connectSignal, onConnectionClose }) => {
-const LXDTextConsole: React.FC<LXDTextConsoleProps> = ({ instanceName,connectSignal, onConnectionClose }) => {
-
-    const [{ status, socket }, dispatch] = useReducer(connectionReducer, { status: WebSocket.CLOSED, socket: null });
-
-    console.log('Test accessing the text console component >>>');
+const LXDTextConsole: React.FC<LXDTextConsoleProps> = ({ instanceName}) => {
+    console.log('Rendering LXDTextConsole');
     const xtermRef = useRef<XTerm>(null);
-    const [isLoading, setLoading] = useState<boolean>(true);
+    const textEncoder = new TextEncoder();
+    const [isLoading, setLoading] = useState<boolean>(false);
 
-    const fitAddon = useRef(new FitAddon()).current;
     const [consoleBuffer, setConsoleBuffer] = useState('');
-
     const [dataWs, setDataWs] = useState<WebSocket | null>(null);
-    const [wsStatus, setWsStatus] = useState(WebSocket.CLOSED);
+    const [fitAddon] = useState<FitAddon>(new FitAddon());
 
-    console.log('11 status', status);
+    const getInstanceConsole = trpc.lxd.getInstanceConsole.useMutation();
+    const getInstanceConsolelog = trpc.lxd.getInstanceConsoleLog.useMutation();
+
 
     // New function to fetch console log buffer
-    const fetchConsoleLogBuffer = useCallback(async () => {
+    const fetchConsoleLogBuffer = async () => {
         try {
-            const response = await axios.get(`/lxd/instances/${instanceName}/console`);
-            if (response.status === 200 && response.data) {
-                setConsoleBuffer(response.data);
-            } else {
-                throw new Error('Failed to fetch console log buffer.');
+            // use trpc to get the console log buffer
+            const result: any = await getInstanceConsolelog.mutateAsync({
+                container: instanceName
+            });
+            if (result && result.data) {
+                setConsoleBuffer(result.data);
             }
         } catch (error) {
-            console.error('Failed to load console buffer:', error);
+            message.error(`Failed to load console buffer: ${error}`);
         }
-    }, [instanceName]);
+    };
 
-
-    const initiateConnection = useCallback(async () => {
-
-        if (status !== WebSocket.CLOSED || !connectSignal) return;
-
-        dispatch({ type: ActionTypes.CONNECTING });
+    const initiateConnection = async (width = 100, height = 100) => {
         setLoading(true);
         fetchConsoleLogBuffer();
 
+        // use trpc to get the console log buffer
+        const result: any = await getInstanceConsole.mutateAsync({
+            container: instanceName,
+            options: { height, width, type: 'console' } // Ensure these options match your backend's expected input
+        }).catch((error) => {   setLoading(false); throw new Error(`Failed to initiate console session: ${error}`); });
 
-        onConnectionClose();
-        try {
-            // exec
-            console.log('Attempting to fetch the LXD console WebSocket for:', instanceName);
-            console.log('status:', status);
-
-            const response = await fetch(`/lxd/console?c=${instanceName}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 'wait-for-websocket': true, 'type': 'console' })
-            });
-
-            if (!response.ok) throw new Error('Failed to initiate console session');
-
-            const result = await response.json();
-            const baseUrl = new URL(window.location.href);
-            baseUrl.protocol = baseUrl.protocol === 'https:' ? 'wss:' : 'ws:';
-            baseUrl.pathname = '/rtc';
-            const dataUrl = `${baseUrl.href}?t=d&o=${result.operationId}&s=${result.operationSecrets['0']}`;
-
-            const ws = new WebSocket(dataUrl);
-
-            ws.onopen = () => {
-                console.log('Data WebSocket connection established');
-                setLoading(false);
-                dispatch({ type: ActionTypes.OPEN, socket: ws });
-            };
-
-            ws.binaryType = 'arraybuffer';
-
-            ws.onmessage = (message) => {
-                console.log('message from backend:', message.data);
-                const decodedMessage = textDecoder.decode(new Uint8Array(message.data));
-                xtermRef.current?.terminal.write(decodedMessage);
-            };
-
-            ws.onclose = () => {
-                console.log('WebSocket connection closed');
-                setLoading(false);
-                dispatch({ type: ActionTypes.CLOSED });
-                onConnectionClose();
-            };
-
-            ws.onerror = (error) => {
-                console.error('WebSocket error:', error);
-                setLoading(false);
-                dispatch({ type: ActionTypes.CLOSED });
-                onConnectionClose();
-            };
-        } catch (error) {
-            console.error('Connection initiation failed:', error);
+        if (result.error) {
             setLoading(false);
-            dispatch({ type: ActionTypes.CLOSED });
-            onConnectionClose();
+            throw new Error(`Failed to initiate console session: ${result.error}`);
         }
-    }, [instanceName, connectSignal, status, onConnectionClose, fetchConsoleLogBuffer]);
 
-    const handleResize = useCallback(() => {
-        if (xtermRef.current) {
-            const terminalElement = xtermRef.current.terminal.element;
-            updateMaxHeight(terminalElement, 10); // You might need to adjust the offset value
-            fitAddon.fit(); // This will fit the terminal within the new dimensions
-            xtermRef.current?.terminal.focus();
-        }
-    }, [xtermRef, fitAddon]);
+        const baseUrl = new URL(window.location.href);  //TODO import  from the common module
+        baseUrl.protocol = baseUrl.protocol === 'https:' ? 'wss:' : 'ws:';
+        baseUrl.pathname = '/rtc';
+        const dataUrl = `${baseUrl.href}?t=d&o=${result.operationId}&s=${result.operationSecrets['0']}`;
+        const controlUrl = `${baseUrl.href}?t=c&o=${result.operationId}&s=${result.operationSecrets.control}`;
 
+        const data_ws = new WebSocket(dataUrl);
+        const control_ws = new WebSocket(controlUrl);
+
+        control_ws.onopen = () => {
+            setLoading(false);
+        };
+        control_ws.onclose = () => {
+            console.log('Control websocket closed');
+        };
+        control_ws.onerror = (error) => {
+            console.error('Control WebSocket error:', error);
+        };
+        control_ws.onmessage = (message) => {
+            console.log('Control message:', message);
+        };
+
+
+        data_ws.onopen = () => {
+            setDataWs(data_ws);
+        };
+        data_ws.onerror = (error) => {
+            // show the message notification no more than 5 seconds
+            message.error(`Console connection error: ${JSON.stringify(error)}`, 5);
+        };
+
+        data_ws.binaryType = 'arraybuffer';
+        data_ws.onmessage =  (message: MessageEvent<ArrayBuffer>) => {
+            xtermRef.current?.terminal.writeUtf8(new Uint8Array(message.data));
+        };
+        data_ws.onclose = () => {
+            setDataWs(null);
+        };
+
+        return [data_ws, control_ws];
+    };
 
     useEffect(() => {
-        if (connectSignal && status === WebSocket.CLOSED) {
-            initiateConnection();
-        }
+        xtermRef.current?.terminal.focus();
+    }, [xtermRef.current, instanceName]);
+
+    useEffect(() => {
+
+        if (dataWs) return;
+        let isActive = true;
+        const container = document.querySelector('.console-modal .ant-modal-body');
+        const { clientWidth, clientHeight } = container || document.documentElement;
+        const width = Math.floor(clientWidth / 9);
+        const height = Math.floor(clientHeight / 17);
+
+        const websocketPromise = initiateConnection(width, height);
 
         return () => {
-            if (socket) {
-                console.log('Cleaning up WebSocket connection');
-                socket?.close();
-                dispatch({ type: ActionTypes.CLOSED });
-                onConnectionClose();
+            isActive = false;
+            void websocketPromise.then((websockets) => {
+                if(!isActive) websockets?.map((ws) => ws.close());
+            });
+        };
+
+    }, [xtermRef, fitAddon, instanceName]);
+
+    useEffect(() => {
+        if (!consoleBuffer || !xtermRef.current || isLoading) {
+            return;
+        }
+        xtermRef.current.terminal.write(consoleBuffer);
+        setConsoleBuffer('');
+    }   , [consoleBuffer, xtermRef, isLoading]);
+
+    // Make sure to apply the fit only when the terminal is rendered and visible
+    useLayoutEffect(() => {
+        const handleResize = () => {
+
+            if (xtermRef.current) {
+
+                updateMaxHeight('p_terminal', undefined, 20);
+
+                try {
+                    fitAddon.fit();
+                } catch (error) {
+                    console.error('Error fitting terminal:', error);
+                }
             }
         };
-    }, [connectSignal, status, socket, initiateConnection, onConnectionClose]);
 
-
-    useEffect(() => {
-        handleResize();
-        // Other initialization code if necessary
-    }, [handleResize]);
-
-    // useEffect(() => {
-    //     fitAddon.fit();
-    //     xtermRef.current?.terminal.focus();
-    // }, []);
-
-    // useEffect(() => {
-    //     handleResize();
-
-    //     window.addEventListener('resize', handleResize);
-    //     return () => {
-    //         window.removeEventListener('resize', handleResize);
-    //     };
-    // }, []);
-
-    useLayoutEffect(() => {
+        // Listen to resize event
         window.addEventListener('resize', handleResize);
+        handleResize();  // Also apply on mount
+        setTimeout(handleResize, 500);
 
+        // Cleanup
         return () => {
             window.removeEventListener('resize', handleResize);
         };
-    }, [handleResize]);
+    }, []);  // Empty dependency array ensures it runs once on mount and cleanup on unmount
 
-    useLayoutEffect(() => {
-        window.addEventListener('resize', handleResize);
-
-        return () => {
-            window.removeEventListener('resize', handleResize);
-        };
-    }, [handleResize]);
-
-    // Write the console buffer to the XTerm component when it's available
-    useEffect(() => {
-        if (consoleBuffer && xtermRef.current && !isLoading) {
-            xtermRef.current.terminal.write(consoleBuffer);
-            // Optionally, clear the buffer state if you don't need it anymore
-            setConsoleBuffer('');
-        }
-    }, [consoleBuffer, isLoading]);
 
     return (
-        <div className={css.pTerminalFullscreen}>
-            {isLoading ? (
-                <p>Loading text console...</p>
-            ) : (
+
+        isLoading ? (
+            <p>Loading text console...</p>
+        ) : (
+            <div className={css.consoleContainer}>
                 <XTerm
                     ref={xtermRef}
                     addons={[fitAddon]}
-                    options={{ cursorBlink: true }}
-                    className="p-terminal"
+                    className={css.p_terminal}
                     onData={(data) => {
-                        if (socket && socket.readyState === WebSocket.OPEN) {
-                            const encodedData = new TextEncoder().encode(data);
-                            socket.send(encodedData);
-                        } else {
-                            console.error('WebSocket is not open');
-                        }
+                        dataWs?.send(textEncoder.encode(data));
                     }}
                 />
-            )}
-        </div>
+            </div>
+        )
     );
 };
 

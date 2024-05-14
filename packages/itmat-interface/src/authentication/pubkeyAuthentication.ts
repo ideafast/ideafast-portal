@@ -21,21 +21,10 @@ export async function userRetrieval(pubkey: string): Promise<IUser> {
     return associatedUser;
 }
 
-export async function userRetrievalByUserId(pubkey: string, userId: string): Promise<IUser> {
-
-    // retrieve userId associated with the token
-    const pubkeyrec = await db.collections!.pubkeys_collection.findOne({ jwtPubkey: pubkey, deleted: null });
-
-    if (pubkeyrec === null || pubkeyrec === undefined) {
-        throw new GraphQLError('The public-key embedded in the JWT is not valid!', { extensions: { code: ApolloServerErrorCode.BAD_USER_INPUT } });
-    }
-    // judge if it is the system user
-    if (pubkeyrec.associatedUserId !== 'admin') {
-        throw new GraphQLError('The public-key embedded in the JWT is not associated with any system user!', { extensions: { code: ApolloServerErrorCode.BAD_USER_INPUT } });
-    }
+export async function userRetrievalByUserId(userId: string): Promise<IUser> {
     const associatedUser: IUser | null = await db.collections!.users_collection.findOne({ deleted: null, id: userId }, { projection: { _id: 0 } });
     if (!associatedUser) {
-        throw new GraphQLError('The user assciated with the public-key embedded in the JWT is not existed or already deleted!', { extensions: { code: ApolloServerErrorCode.BAD_USER_INPUT } });
+        throw new GraphQLError('The user assciated with the System public-key embedded in the JWT is not existed or already deleted!', { extensions: { code: ApolloServerErrorCode.BAD_USER_INPUT } });
     }
     return associatedUser;
 }

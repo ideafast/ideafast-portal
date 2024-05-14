@@ -15,9 +15,14 @@ export interface IConfiguration extends IServerConfig {
     sessionsSecret: string;
     adminEmail: string;
     aeEndpoint: string;
+    webdavServer: string;
+    webdavMountPath: string;
     webdavPort: number;
     useWebdav: boolean;
     lxdEndpoint: string;
+    SystemKey: Record<string, string>;
+    lxdCertFile: Record<string, string>;
+    lxdRejectUnauthorized: boolean;
 }
 
 class ConfigurationManager {

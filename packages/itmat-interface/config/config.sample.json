@@ -60,6 +60,17 @@
     "adminEmail": "admin@example.com",
     "aeEndpoint": "http://localhost:9090",
     "lxdEndpoint": "https://localhost:8443",
+    "webdavServer": "http://localhost",
+    "webdavMountPath": "/mnt/webdav",
     "webdavPort": 1900,
-    "useWebdav": false
+    "useWebdav": false,
+    "SystemKey": {
+        "pubkeyFile": "/Users/jwang12/Dev-plus/ideafast-portal/packages/itmat-interface/config/system.key.pub",
+        "privkeyFile": "/Users/jwang12/Dev-plus/ideafast-portal/packages/itmat-interface/config/system.key"
+    },
+    "lxdCertFile": {
+        "cert": "/Users/jwang12/mylxd.crt",
+        "key": "/Users/jwang12/mylxd.key"
+    },
+    "lxdRejectUnauthorized": false
 }

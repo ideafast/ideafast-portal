@@ -1,12 +1,10 @@
-import React, { FunctionComponent, useState} from 'react';
-// import { Button, Table, message, Modal, Form, Select, InputNumber, Input } from 'antd';
-import { Button, message, Modal, Form, Select, InputNumber, Card, Tag, Space } from 'antd';
+import React, { FunctionComponent, useState,useRef} from 'react';
+import { Button, message, Modal, Form, Select,  Card, Tag, Space } from 'antd';
 import { trpc } from '../../utils/trpc';
 import css from './instance.module.css';
 import { enumAppType,enumInstanceType, enumInstanceStatus, IInstance } from '@itmat-broker/itmat-types';
 import { LXDConsole } from '../lxd/lxd.instance.console';
 import LXDTextConsole from '../lxd/lxd.instance.text.console';
-
 
 
 const { Option } = Select;
@@ -18,38 +16,34 @@ type CreateInstanceFormValues = {
     instanceType: enumInstanceType;
     lifeSpan: number;
     project: string;
-    cpuLimit: number; // Added field for CPU limit
-    memoryLimit: string; // Added field for memory limit (e.g., '3GB')
+    cpuLimit: number;
+    memoryLimit: string;
     token: string;
 };
 
 
 const instanceTypeConfig = {
-    [enumInstanceType.SMALL]: { cpuLimit: 2, memoryLimit: '4GB' },
-    [enumInstanceType.MIDDLE]: { cpuLimit: 4, memoryLimit: '8GB' },
-    [enumInstanceType.LARGE]: { cpuLimit: 6, memoryLimit: '12GB' }
+    [enumInstanceType.SMALL]: { cpuLimit: 4, memoryLimit: '8GB' },
+    [enumInstanceType.MIDDLE]: { cpuLimit: 8, memoryLimit: '16GB' },
+    [enumInstanceType.LARGE]: { cpuLimit: 12, memoryLimit: '24GB' }
 };
 
 
 
 export const InstanceSection: FunctionComponent = () => {
 
-    const [editForm] = Form.useForm();
-
     // Console
     const [consoleModalOpen, setConsoleModalOpen] = useState(false);
     const [selectedInstance, setSelectedInstance] = useState<IInstance | null>(null);
 
-    const [connectSignal, setConnectSignal] = useState(false);
-
     const [selectedInstanceTypeDetails, setSelectedInstanceTypeDetails] = useState('');
-    const [isConnectingToJupyter, setIsConnectingToJupyter] = useState(false); // New state for managing Jupyter connection attempts
+    const [isConnectingToJupyter, setIsConnectingToJupyter] = useState(false);
 
+    const handleFullScreenRef = useRef(()=> { console.log('1111 handleFullScreenRef not set yet!'); });
 
     const handleConsoleConnect = (instance) => {
         setSelectedInstance(instance);
         setConsoleModalOpen(true);
-        setConnectSignal(true);
     };
 
     const getInstances = trpc.instance.getInstances.useQuery(undefined, {
@@ -73,15 +67,6 @@ export const InstanceSection: FunctionComponent = () => {
             message.error(`Failed to delete instance: ${error.message}`);
         }
     });
-    const editInstance = trpc.instance.editInstance.useMutation({
-        onSuccess: () => {
-            message.success('Instance updated successfully.');
-            getInstances.refetch();
-        },
-        onError: (error) => {
-            message.error(`Failed to update instance: ${error.message}`);
-        }
-    });
     const startStopInstance = trpc.instance.startStopInstance.useMutation({
         onSuccess: () => {
             message.success('Instance state changed successfully.');
@@ -91,20 +76,16 @@ export const InstanceSection: FunctionComponent = () => {
             message.error(`Failed to change instance state: ${error.message}`);
         }
     });
-
-
-    // const getInstanceJupyterUrl = trpc.instance.getInstanceJupyterUrl.useMutation();
-    // const getInstanceJupyterUrl = trpc.instance.getInstanceJupyterUrl.useMutation<JupyterUrlResponse>();
-
-    // instance edit state
-    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-    const [currentInstance, setCurrentInstance] = useState<Partial<IInstance| null>>(null);
-
-    const openEditModal = (instance: Partial<IInstance>) => {
-        console.log('Opening edit modal with instance:', instance); // update the instance life span
-        setCurrentInstance(instance);
-        setIsEditModalOpen(true);
-    };
+    const restartInstance = trpc.instance.restartInstance.useMutation({
+        onSuccess: () => {
+            message.success('Instance restarted successfully.');
+            getInstances.refetch(); // Optionally refetch the instances to update the list
+        },
+        onError: (error) => {
+            message.error(`Failed to restart instance: ${error.message}`);
+        }
+    });
+    const instanceJupyter = trpc.lxd.getInstanceJupyterUrl.useMutation();
 
     const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -112,7 +93,8 @@ export const InstanceSection: FunctionComponent = () => {
 
     // Define the initial form values including the default instanceType
     const initialFormValues: Partial<CreateInstanceFormValues> = {
-        instanceType: enumInstanceType.SMALL
+        instanceType: enumInstanceType.SMALL,
+        lifeSpan: 360
     };
 
     // Update the form on component mount to include the default instance type details
@@ -123,6 +105,8 @@ export const InstanceSection: FunctionComponent = () => {
 
 
     const handleCreateInstance = (values: CreateInstanceFormValues) => {
+
+        const effectiveLifeSpan = values.lifeSpan || 360;
         const generatedName = `${values.appType}-${Date.now()}`;
         const determinedType = values.appType === enumAppType.MATLAB ? 'virtual-machine' : 'container';
         const { cpuLimit, memoryLimit } = instanceTypeConfig[values.instanceType];
@@ -131,38 +115,34 @@ export const InstanceSection: FunctionComponent = () => {
             name: generatedName,
             type: determinedType,
             appType: values.appType,
-            lifeSpan: values.lifeSpan,
+            lifeSpan: effectiveLifeSpan,
             project: defaultProject,
             cpuLimit: cpuLimit,
             memoryLimit: memoryLimit
-
         });
         setIsModalOpen(false);
         createForm.resetFields();
     };
 
+    const handleRestartInstance = async (values: { instance_id: string, lifeSpan: number }) => {
+        restartInstance.mutate({
+            instanceId:values.instance_id,
+            lifeSpan: values.lifeSpan
+        });
+
+    };
+
     const connectToJupyterHandler = async (instanceName: string) => {
-        console.log('Connecting to Jupyter...', instanceName);
         setIsConnectingToJupyter(true); // Indicate that connection attempt is in progress
 
         try {
-            const encodedInstanceName = encodeURIComponent(instanceName);
-            const response = await fetch(`/lxd/instances/${encodedInstanceName}/jupyter`, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
+            // get the jupyter url by call tRPC procedure
+            const data = await instanceJupyter.mutateAsync({ instanceName });
 
-            if (!response.ok) {
-                throw new Error('Failed to connect to Jupyter. Please try again.');
-            }
+            if (data && data?.jupyterUrl) {
 
-            const data = await response.json(); // Assuming the server responds with JSON containing the Jupyter URL
-
-            if (data && data.jupyterUrl) {
-                console.log('Successfully connected to Jupyter:', data.jupyterUrl);
                 window.open(data.jupyterUrl, '_blank');
+
             } else {
                 console.error('Jupyter URL not found.');
                 message.error('Jupyter URL not found.');
@@ -213,35 +193,14 @@ export const InstanceSection: FunctionComponent = () => {
         }
     };
 
-
-    const handleEditInstance = (values: { name?: string; lifeSpan?: number }) => {
-        if (currentInstance && currentInstance.id) {
-            const updates = {
-                ...(values.lifeSpan && { lifeSpan: values.lifeSpan })
-                // cpu and memory
-            };
-
-            editInstance.mutate({
-                instanceId: currentInstance.id,
-                updates
-            });
-
-            // Close the modal and reset the form after mutation
-            setIsEditModalOpen(false);
-            editForm.resetFields();
-        } else {
-            // Handle the undefined case, e.g., show an error message
-            message.error('No instance selected for editing or instance ID is missing.');
-        }
+    const onChildMount = (childHandleFullScreen) => {
+        handleFullScreenRef.current = childHandleFullScreen;
     };
 
     // Reset the connect signal when the modal is closed
     const handleCloseModal = () => {
         setConsoleModalOpen(false);
-        setConnectSignal(false);
-        // TODO !!!
-        // Should be removed and use proper async traps
-        (window as any).hasSpice = false;
+        // TODO, onClose, close the websocket connection
     };
 
     // sorting function
@@ -270,7 +229,6 @@ export const InstanceSection: FunctionComponent = () => {
             Create New Instance
                 </Button>
             </div>
-            {/* <Table dataSource={getInstances.data} columns={columns} rowKey="id" /> */}
             {sortedInstances.map((instance) => (
                 <Card
                     key={instance.id}
@@ -280,10 +238,12 @@ export const InstanceSection: FunctionComponent = () => {
                     extra={<Tag color={getStatusTagColor(instance.status)}>{instance.status}</Tag>}
                     className={css.cardContainer}
                 >
-                    <p>Username: {instance.username}</p>
+                    {/* <p>Username: {instance.username}</p> */}
                     <p>Application Type: {instance.appType}</p>
                     <p>Created At: {new Date(instance.createAt).toLocaleString()}</p>
-                    <p>Life Span (hours): {Number(instance.lifeSpan).toFixed(2)}</p>
+                    <p>Life Span: <strong> {Number(instance.lifeSpan).toFixed(2)} </strong> (hours)</p>
+                    {/*Display the cpu and memory   at the same line*/}
+                    <p>CPU: {instance.config && instance.config['limits.cpu']} Cores, Memory: {instance.config && instance.config['limits.memory']}</p>
                     {/* Conditionally render Launch/Stop button based on status */}
                     <Space>
                         {instance.status === enumInstanceStatus.STOPPED && instance.lifeSpan > 0 && (
@@ -296,13 +256,14 @@ export const InstanceSection: FunctionComponent = () => {
                         {(instance.status === enumInstanceStatus.STOPPED || instance.status === enumInstanceStatus.FAILED) && (
                             <Button danger style={{ marginRight: '8px' }} onClick={() => handleDeleteInstance(instance)}>Delete</Button>
                         )}
-                        {/* Modify button only for statuses where it makes sense */}
-                        {/* {instance.status === enumInstanceStatus.RUNNING && (
-                        <Button onClick={() => openEditModal(instance)}>Modify</Button>
-                    )} */}
+                        {/*Restart button to reset the instance with new lifespan */}
+                        {instance.status === enumInstanceStatus.STOPPED && instance.lifeSpan <= 0 && (
+                            <Button type="primary" onClick={() => handleRestartInstance({instance_id: instance.id, lifeSpan: 360})}>Restart</Button>
+                        )}
                         {/** console connection button, only show for RUNNING status */}
                         {instance.status === enumInstanceStatus.RUNNING && (
-                            <Button style={{ marginRight: '8px' }} onClick={() => handleConsoleConnect(instance)}>Open Console</Button>
+                            // set the button color to green
+                            <Button type="primary" style={{ marginRight: '8px' }} onClick={() => handleConsoleConnect(instance)}>Open Console</Button>
                         )}
                         {instance.appType === enumAppType.JUPYTER && instance.status === enumInstanceStatus.RUNNING && (
                             <Button
@@ -328,13 +289,6 @@ export const InstanceSection: FunctionComponent = () => {
                         </Select>
                     </Form.Item>
                     <Form.Item
-                        name="lifeSpan"
-                        label="Life Span (hours)"
-                        initialValue={10} // Set the default value for lifeSpan
-                        rules={[{ required: true, message: 'Please input the life span!' }]}>
-                        <InputNumber min={1} max={100}/>
-                    </Form.Item>
-                    <Form.Item
                         name="instanceType"
                         label="Instance Type"
                         rules={[{ required: true, message: 'Please select the instance type!' }]}>
@@ -356,51 +310,36 @@ export const InstanceSection: FunctionComponent = () => {
                 </Form>
             </Modal>
             <Modal
-                title="Edit Instance"
-                open={isEditModalOpen}
-                onCancel={() => setIsEditModalOpen(false)}
-                onOk={() => editForm.submit()}
-            >
-                <Form
-                    form={editForm}
-                    layout="vertical"
-                    initialValues={{ ...currentInstance }}
-                    onFinish={handleEditInstance}
-                >
-                    <Form.Item
-                        name="lifeSpan"
-                        label="Life Span (hours)"
-                        rules={[{ required: true, message: 'Please input the life span!' }]}
-                    >
-                        <InputNumber min={1} />
-                    </Form.Item>
-                </Form>
-            </Modal>
-            <Modal
                 className='console-modal'
                 title={`Console - ${selectedInstance?.name}`}
                 open={consoleModalOpen}
-                onOk={handleCloseModal}
                 onCancel={handleCloseModal}
                 width="100%"
-                // height="100%"
-                // style={{ top: 0, paddingBottom: 0, height: '100vh' }}
                 style={{
                     width: 'auto !important',
                     height: 'auto !important'
                 }}
                 bodyStyle={{ height: 'calc(100vh - 110px)', overflowY: 'auto' }}
+                footer={[
+                    <Button key="back" onClick={handleCloseModal}>
+                        Cancel
+                    </Button>,
+                    <Button key="fullScreen" type="primary" onClick={handleFullScreenRef.current}>
+                        Fullscreen
+                    </Button>
+                ]}
             >
                 {selectedInstance && selectedInstance.name && (selectedInstance.type === 'container' ? (
                     <LXDTextConsole
                         instanceName={selectedInstance.name}
-                        connectSignal={connectSignal}
-                        onConnectionClose={() => setConnectSignal(false)}
+                        // onMount={onChildMount}
                     />
                 ) : (
                     <LXDConsole
                         instanceName={selectedInstance.name}
-                    /> ))}
+                        onMount={onChildMount}
+                    />
+                ))}
             </Modal>
 
         </div>

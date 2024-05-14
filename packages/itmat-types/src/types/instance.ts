@@ -12,7 +12,7 @@ export interface IInstance extends IBase{
     appType: enumAppType; // the application type, jupyter or matlab
     createAt: number; // instance creation time
     lifeSpan: number; // instance's life span, exp. 10 hours
-    instanceToken?: string; // instance cert token
+    instanceToken: string; // instance cert token
     notebookToken?: string; // cert token for notebook service
     project?: string |'default'; // the lxd project of the this instance
     webDavToken?: string; // webDav cert token

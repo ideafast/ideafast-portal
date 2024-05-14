@@ -4,9 +4,7 @@ import { expressMiddleware } from '@apollo/server/express4';
 import { ApolloServerPluginDrainHttpServer } from '@apollo/server/plugin/drainHttpServer';
 import { GraphQLError } from 'graphql';
 import { graphqlUploadExpress, GraphQLUpload } from 'graphql-upload-minimal';
-import { execute, subscribe } from 'graphql';
 import { WebSocketServer } from 'ws';
-import { useServer } from 'graphql-ws/lib/use/ws';
 import { makeExecutableSchema } from '@graphql-tools/schema';
 import MongoStore from 'connect-mongo';
 // import cors from 'cors';
@@ -27,9 +25,8 @@ import { spaceFixing } from '../utils/regrex';
 import { BigIntResolver as scalarResolvers } from 'graphql-scalars';
 import jwt from 'jsonwebtoken';
 import { userRetrieval, userRetrievalByUserId } from '../authentication/pubkeyAuthentication';
-import { createProxyMiddleware, RequestHandler } from 'http-proxy-middleware';
-import qs from 'qs';
-import { defaultSettings, enumConfigType, IUser, IUserConfig } from '@itmat-broker/itmat-types';
+import { RequestHandler } from 'http-proxy-middleware';
+import { defaultSettings, enumConfigType, IUserConfig } from '@itmat-broker/itmat-types';
 import { v2 as webdav } from 'webdav-server';
 import { DMPFileSystem, DMPWebDAVAuthentication } from '../webdav/dmpWebDAV';
 import { routers } from '../tRPC/procedures/index';
@@ -38,24 +35,30 @@ import { inferAsyncReturnType, initTRPC } from '@trpc/server';
 import * as trpcExpress from '@trpc/server/adapters/express';
 import multer from 'multer';
 import { MerkleTreeLog } from '../log/merkleTree';
-import lxdRouter, { registerContainSocketServer } from '../lxd';
+import { registerContainSocketServer } from '../lxd';
 // local test
 import cors from 'cors';
+import { Logger } from '@itmat-broker/itmat-commons';
 
 // created for each request
+
 
 export const createContext = async ({
     req,
     res
 }: trpcExpress.CreateExpressContextOptions) => {
+
     const token: string = req.headers.authorization || '';
+
     if ((token !== '') && (req.user === undefined)) {
         // skip the token that start with '_xsrf'
         if (token.startsWith('_xsrf')) {
             return ({ req, res });
         }
+
         const decodedPayload = jwt.decode(token);
         const pubkey = (decodedPayload as any).publicKey;
+
         // verify the JWT
         jwt.verify(token, pubkey, function (error: any) {
             if (error) {
@@ -65,10 +68,12 @@ export const createContext = async ({
         const userId = (decodedPayload as any).userId;
         let associatedUser;
         if (userId){
-            associatedUser = await userRetrievalByUserId(pubkey, userId);
+            // system publics
+            associatedUser = await userRetrievalByUserId(userId);
         } else {
             associatedUser = await userRetrieval(pubkey);
         }
+
         req.user = associatedUser;
     }
 
@@ -104,41 +109,42 @@ export class Router {
         this.config = config;
         this.app = express();
 
-        this.app.use(rateLimit({
-            windowMs: 1 * 60 * 1000,
-            max: async function (req) {
-                // TODO: Queries do not use token
-                const token: string = req.headers.authorization || '';
-                if ((token !== '') && (token !== undefined) && (req.user === undefined)) {
-                    // skip the token that start with '_xsrf'
-                    if (token.startsWith('_xsrf')) {
-                        return defaultSettings.userConfig.defaultMaximumQPS;
-                    }
-                    // get the decoded payload ignoring signature, no symmetric secret or asymmetric key needed
-                    const decodedPayload = jwt.decode(token);
-                    // obtain the public-key of the robot user in the JWT payload
-                    const pubkey = (decodedPayload as any).publicKey;
+        // this.app.use(rateLimit({
+        //     windowMs: 1 * 60 * 1000
+        // max: async function (req) {
+        //     // TODO: Queries do not use token
+        //     const token: string = req.headers.authorization || '';
+        //     if ((token !== '') && (token !== undefined) && (req.user === undefined)) {
+        //         // skip the token that start with '_xsrf'
+        //         if (token.startsWith('_xsrf')) {
+        //             return defaultSettings.userConfig.defaultMaximumQPS;
+        //         }
+        //         // get the decoded payload ignoring signature, no symmetric secret or asymmetric key needed
+        //         const decodedPayload = jwt.decode(token);
+        //         // obtain the public-key of the robot user in the JWT payload
+        //         const pubkey = (decodedPayload as any).publicKey;
 
-                    // verify the JWT
-                    jwt.verify(token, pubkey, function (error: any) {
-                        if (error) {
-                            throw new GraphQLError('JWT verification failed. ' + error, { extensions: { code: ApolloServerErrorCode.BAD_USER_INPUT, error } });
-                        }
-                    });
-                    // store the associated user with the JWT to context
-                    const associatedUser = await userRetrieval(pubkey);
-                    const config = await db.collections!.configs_collection.findOne({
-                        type: enumConfigType.USERCONFIG,
-                        key: associatedUser.id
-                    });
-                    if (config) {
-                        return (config.properties as IUserConfig).defaultMaximumQPS;
-                    }
-                    return defaultSettings.userConfig.defaultMaximumQPS;
-                }
-                return defaultSettings.userConfig.defaultMaximumQPS;
-            }
-        }));
+        //         // verify the JWT
+        //         jwt.verify(token, pubkey, function (error: any) {
+        //             if (error) {
+        //                 Logger.error('JWT verification failed. ' + error);
+        //                 throw new GraphQLError('JWT verification failed. ' + error, { extensions: { code: ApolloServerErrorCode.BAD_USER_INPUT, error } });
+        //             }
+        //         });
+        //         // store the associated user with the JWT to context
+        //         const associatedUser = await userRetrieval(pubkey);
+        //         const config = await db.collections!.configs_collection.findOne({
+        //             type: enumConfigType.USERCONFIG,
+        //             key: associatedUser.id
+        //         });
+        //         if (config) {
+        //             return (config.properties as IUserConfig).defaultMaximumQPS;
+        //         }
+        //         return defaultSettings.userConfig.defaultMaximumQPS;
+        //     }
+        //     return defaultSettings.userConfig.defaultMaximumQPS;
+        // }
+        // }));
 
         this.app.use(express.json({ limit: '50mb' }));
         this.app.use(express.urlencoded({ extended: true }));
@@ -185,10 +191,7 @@ export class Router {
             })
         );
 
-        // webauthn local test
-        // this.app.use(cors({ origin: 'http://localhost:4200'}));
-        // Enable CORS for your React frontend
-        // this.app.use(cors({ origin: 'http://localhost:4200', credentials: true }));
+        //TODO: remove cors in production
         this.app.use(cors({
             origin: '*', // Be cautious with this in production
             credentials: true
@@ -274,57 +277,6 @@ export class Router {
             }
         });
 
-        /* AE proxy middleware */
-        // initial this before graphqlUploadExpress middleware
-        // const ae_proxy = createProxyMiddleware({
-        //     target: _this.config.aeEndpoint,
-        //     ws: true,
-        //     xfwd: true,
-        //     // logLevel: 'debug',
-        //     autoRewrite: true,
-        //     changeOrigin: true,
-        //     onProxyReq: function (preq, req, res) {
-        //         if (!req.user)
-        //             return res.status(403).redirect('/');
-        //         res.cookie('ae_proxy', req.headers['host']);
-        //         const data = (req.user as IUser).username + ':token';
-        //         preq.setHeader('authorization', `Basic ${Buffer.from(data).toString('base64')}`);
-        //         if (req.body && Object.keys(req.body).length) {
-        //             const contentType = preq.getHeader('Content-Type');
-        //             preq.setHeader('origin', _this.config.aeEndpoint);
-        //             const writeBody = (bodyData: string) => {
-        //                 preq.setHeader('Content-Length', Buffer.byteLength(bodyData));
-        //                 preq.write(bodyData);
-        //                 preq.end();
-        //             };
-
-        //             if (contentType === 'application/json') {  // contentType.includes('application/json')
-        //                 writeBody(JSON.stringify(req.body));
-        //             }
-
-        //             if (contentType === 'application/x-www-form-urlencoded') {
-        //                 writeBody(qs.stringify(req.body));
-        //             }
-
-        //         }
-        //     },
-        //     onProxyReqWs: function (preq) {
-        //         const data = 'username:token';
-        //         preq.setHeader('authorization', `Basic ${Buffer.from(data).toString('base64')}`);
-        //     },
-        //     onError: function (err, req, res, target) {
-        //         console.error(err, target);
-        //     }
-        // });
-
-        // this.proxies.push(ae_proxy);
-
-        // const proxy_routers = ['/pun', '/node', '/rnode', '/public'];
-
-        // proxy_routers.forEach(router => {
-        //     this.app.use(router, ae_proxy);
-        // });
-
         /* Containered Service Routes */
 
         // Top level Websocket server Object
@@ -337,9 +289,6 @@ export class Router {
         });
 
         registerContainSocketServer(containerWsServer);
-
-        // REST-API
-        this.app.use('/lxd', lxdRouter);
 
         await gqlServer.start();
 
@@ -405,11 +354,6 @@ export class Router {
                 webServer.start(() => console.log('READY'));
             });
 
-            // To be removed in further
-            webServer.setFileSystem('/Physical', new webdav.PhysicalFileSystem('/Users/siyao/Documents/DMP'), (success) => {
-                console.log('Physical webdav started:', success);
-            });
-
             console.log('Webdav is starting...');
             this.app.use('/dav', (req, res, next) => {
                 next();
@@ -472,7 +416,6 @@ export class Router {
                 createContext
             })
         );
-
 
         // this.app.listen(4200);
     }

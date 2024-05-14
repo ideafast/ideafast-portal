@@ -82,15 +82,15 @@ export const MainMenuBar: FunctionComponent<MainMenuBarProps> = () => {
         } */}
         {
             <div>
-                <NavLink to='/ae' title='Analytical Environment' className={({ isActive }) => isActive ? css.clickedButton : undefined}>
+                <NavLink to='/instances' title='Analytical Environment' className={({ isActive }) => isActive ? css.clickedButton : undefined}>
                     <div className={css.button}><DesktopOutlined /> Analytical Environment</div>
                 </NavLink>
             </div>
         }
         {(whoAmI.data.type === enumUserTypes.ADMIN) ?
             <div>
-                <NavLink to='/instances' title='instances' className={({ isActive }) => isActive ? css.clickedButton : undefined}>
-                    <div className={css.button}><DesktopOutlined /> Instances</div>
+                <NavLink to='/lxd' title='instances' className={({ isActive }) => isActive ? css.clickedButton : undefined}>
+                    <div className={css.button}><DesktopOutlined /> LXDManagement</div>
                 </NavLink>
             </div> : null
         }

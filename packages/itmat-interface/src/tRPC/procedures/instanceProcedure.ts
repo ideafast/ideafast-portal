@@ -56,6 +56,23 @@ export const instanceRouter = t.router({
             return await instanceCore.startStopInstance(userId, instanceId, action);
         }),
 
+    /**
+     * restart instance with new lifespan, and update the instance's create time
+     */
+    restartInstance: baseProcedure.input(z.object({
+        instanceId: z.string(),
+        lifeSpan: z.number()
+    })).mutation(async (opts: any) => {
+        const userId = opts.ctx.req.user.id;
+        if (!userId) {
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.UNAUTHORIZED,
+                message: 'User must be authenticated.'
+            });
+        }
+        return await instanceCore.restartInstance(userId, opts.input.instanceId, opts.input.lifeSpan);
+    }),
+
     getInstances: baseProcedure.query(async (opts: any) => {
         const requester: IUser = opts.ctx.req?.user;
         if (requester.type !== 'ADMIN') {
@@ -90,7 +107,6 @@ export const instanceRouter = t.router({
             });
         }
         const requester: IUser = opts.ctx.req.user;
-        console.log(requester);
         const { instanceId, instanceName, updates } = opts.input;
         return await instanceCore.editInstance(requester, instanceId, instanceName, updates);
     }),
@@ -99,7 +115,8 @@ export const instanceRouter = t.router({
         instanceId: z.string()
     })).mutation(async (opts: any) => {
         const requester: IUser = opts.ctx.req?.user;
-        if (requester.type !== 'ADMIN') {
+        const instance = await instanceCore.getInstanceById(opts.input.instanceId);
+        if (requester.type !== 'ADMIN' || requester.id !== instance.userId) {
             throw new TRPCError({
                 code: enumTRPCErrorCodes.FORBIDDEN,
                 message: 'Insufficient permissions.'
