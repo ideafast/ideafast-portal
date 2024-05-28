@@ -88,8 +88,10 @@ export class JobPoller {
                 const jobUpdate = await this.jobCollection.findOne({ id: job.id });
                 if (jobUpdate) {
                     const currentHistory = jobUpdate.history || [];
-                    setObj.history = [...currentHistory, newHistoryEntry];
-
+                    setObj.history = [...currentHistory];
+                    if (newHistoryEntry) {
+                        setObj.history.push(newHistoryEntry);
+                    }
                     await this.jobCollection.findOneAndUpdate({ id: job.id }, {
                         $set: setObj
                     });

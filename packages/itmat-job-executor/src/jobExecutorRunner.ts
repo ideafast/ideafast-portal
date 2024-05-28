@@ -9,8 +9,8 @@ import { JobPoller } from '@itmat-broker/itmat-commons';
 import { JobDispatcher } from './jobDispatch/dispatcher';
 import { MongoClient } from 'mongodb';
 import { APIHandler } from './jobHandlers/apiJobHandler';
-import { defaultSettings } from '@itmat-broker/itmat-types';
-import { LXDJobHandler } from './jobHandlers/lxdJobHandler';
+import { defaultSettings} from '@itmat-broker/itmat-types';
+import { LXDJobHandler, LXDMonitorHandler } from './jobHandlers/lxdJobHandler';
 
 class ITMATJobExecutorRunner extends Runner {
 
@@ -43,6 +43,12 @@ class ITMATJobExecutorRunner extends Runner {
                         'LXD',
                         async () => await LXDJobHandler.getHandler(db.collections!.instance_collection)
                     );
+                    // Register the LXD monitor handler
+                    jobDispatcher.registerJobType(
+                        'LXD_MONITOR',
+                        async () => new LXDMonitorHandler(db.collections!.instance_collection)
+                    );
+
                     const poller = new JobPoller({
                         identity: uuid(),
                         jobCollection: db.collections!.jobs_collection,

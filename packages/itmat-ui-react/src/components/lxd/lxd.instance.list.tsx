@@ -11,7 +11,7 @@ import { LXDConsole } from './lxd.instance.console';
 import LXDTextConsole from './lxd.instance.text.console';
 import { trpc } from '../../utils/trpc';
 import css from './lxd.module.css';
-import { formatCPUInfo, formatMemoryInfo, formatStorageInfo, formatGPUInfo, formatNetworkInfo, formatPCIInfo } from './util/formatUtils';
+import { formatCPUInfo, formatMemoryInfo, formatStorageInfo, formatGPUInfo} from './util/formatUtils';
 
 
 
@@ -71,9 +71,8 @@ const LXDInstanceList = () => {
         cpu: '',
         memory: '',
         storage: '',
-        gpu: '',
-        network: '',
-        pci: ''
+        gpu: ''
+
     });
 
     const openUpdateConfigModal = (instance: LXDInstanceType) => {
@@ -116,9 +115,7 @@ const LXDInstanceList = () => {
                 cpu: formatCPUInfo(data.cpu),
                 memory: formatMemoryInfo(data.memory),
                 storage: formatStorageInfo(data.storage),
-                gpu: formatGPUInfo(data.gpu),
-                network: formatNetworkInfo(data.network),
-                pci: formatPCIInfo(data.pci)
+                gpu: formatGPUInfo(data.gpu)
             });
         }
 

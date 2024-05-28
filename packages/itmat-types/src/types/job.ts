@@ -24,7 +24,8 @@ export enum enumJobType {
     DMPAPI = 'DMPAPI',
     AE = 'AE',
     SYSTEMPROCESS = 'SYSTEMPROCESS',
-    LXD = 'LXD'
+    LXD = 'LXD',
+    LXD_MONITOR = 'LXD_MONITOR'
 }
 
 export enum enumJobStatus {

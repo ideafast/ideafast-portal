@@ -3,11 +3,10 @@ import * as fs from 'fs';
 import { WebSocket } from 'ws';
 import axios, { isAxiosError } from 'axios';
 import config from '../utils/configManager';
-import { db } from '../database/database';
 import { LXDInstanceState } from '@itmat-broker/itmat-types';
 import { Logger } from '@itmat-broker/itmat-commons';
 import { sanitizeUpdatePayload}  from './lxd.util';
-import { Cpu, Memory, Storage, Gpu, Network, Pci } from '@itmat-broker/itmat-types';
+import { Cpu, Memory, Storage, Gpu} from '@itmat-broker/itmat-types';
 
 
 // Load the SSL certificate and key
@@ -41,9 +40,7 @@ export default {
                     cpu: data.cpu as Cpu,
                     memory: data.memory as Memory,
                     storage: data.storage as Storage,
-                    gpu: data.gpu as Gpu,
-                    network: data.network as Network,
-                    pci: data.pci as Pci
+                    gpu: data.gpu as Gpu
                 }
             };
 
@@ -119,6 +116,7 @@ export default {
                     memoryLimit: metadata.config['limits.memory'] || 'N/A'
                 };
             });
+
             return {
                 data: sanitizedIntances
             };
@@ -150,7 +148,7 @@ export default {
                 data: instanceState
             };
         } catch (error) {
-            Logger.error('Error fetching Jupyter service URL from LXD:' +  error);
+            Logger.error('Error fetching Instance state from LXD:' +  error);
             return {
                 error: true,
                 data: error
@@ -167,7 +165,6 @@ export default {
         try {
             instanceName = encodeURIComponent(instanceName);
             const consoleInfo = await lxdInstance.post(`/1.0/instances/${instanceName}/console?project=default&wait=10`, options);
-            console.log('consoleInfo', consoleInfo.data.metadata.metadata.fds);
             return {
                 operationId: consoleInfo.data.metadata.id,
                 operationSecrets: consoleInfo.data.metadata.metadata.fds
@@ -240,14 +237,11 @@ export default {
         }
     },
     getOperationStatus: async (operationUrl: string) => {
-        console.log('operationUrl', operationUrl);
         try {
             const opResponse = await lxdInstance.get(operationUrl);
             return opResponse.data;
-            console.log('operationUrl opResponse', opResponse);
         } catch (error) {
             Logger.error('Error fetching operation status from LXD:' + error);
-            console.log('Error fetching operation status from LXD: ' + error);
             throw error;
         }
     },
@@ -262,16 +256,13 @@ export default {
         return containerConsoleSocket;
     },
     createInstance:  async (payload: any) => {
-        console.log('payload', payload);
         try {
             const lxdResponse = await lxdInstance.post('/1.0/instances', payload, {
                 headers: { 'Content-Type': 'application/json' },
                 httpsAgent: lxdAgent
             });
-            console.log('lxdResponse', lxdResponse);
             return lxdResponse.data;
         } catch (error) {
-            console.log('Error creating instance on LXD:' + error);
             Logger.error(`Error creating instance on LXD: ${error}`);
             throw new Error('Error creating instance on LXD');
         }

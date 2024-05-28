@@ -1,8 +1,8 @@
 import React, { FunctionComponent, useState,useRef} from 'react';
-import { Button, message, Modal, Form, Select,  Card, Tag, Space } from 'antd';
+import { Button, message, Modal, Form, Select,  Card, Tag, Progress,  Space, Row, Col } from 'antd';
 import { trpc } from '../../utils/trpc';
 import css from './instance.module.css';
-import { enumAppType,enumInstanceType, enumInstanceStatus, IInstance } from '@itmat-broker/itmat-types';
+import { enumAppType,enumInstanceType, enumInstanceStatus, IInstance} from '@itmat-broker/itmat-types';
 import { LXDConsole } from '../lxd/lxd.instance.console';
 import LXDTextConsole from '../lxd/lxd.instance.text.console';
 
@@ -32,7 +32,6 @@ const instanceTypeConfig = {
 
 export const InstanceSection: FunctionComponent = () => {
 
-    // Console
     const [consoleModalOpen, setConsoleModalOpen] = useState(false);
     const [selectedInstance, setSelectedInstance] = useState<IInstance | null>(null);
 
@@ -144,11 +143,9 @@ export const InstanceSection: FunctionComponent = () => {
                 window.open(data.jupyterUrl, '_blank');
 
             } else {
-                console.error('Jupyter URL not found.');
                 message.error('Jupyter URL not found.');
             }
         } catch (error: any) {
-            console.error('Failed to connect to Jupyter:', error);
             message.error(error?.message || 'Failed to connect to Jupyter. Please try again.');
         } finally {
             setIsConnectingToJupyter(false); // Reset the connection attempt status
@@ -179,15 +176,15 @@ export const InstanceSection: FunctionComponent = () => {
     const getStatusTagColor = (status: enumInstanceStatus) => {
         switch (status) {
             case enumInstanceStatus.PENDING:
-                return 'gold';
+                return '#ffecb3';
             case enumInstanceStatus.RUNNING:
-                return 'green';
+                return '#87d068';
             case enumInstanceStatus.STOPPING:
-                return 'volcano';
+                return '#ffd8bf';
             case enumInstanceStatus.STOPPED:
-                return 'gray';
+                return '#d9d9d9';
             case enumInstanceStatus.DELETED:
-                return 'red';
+                return '#f50';
             default:
                 return 'default';
         }
@@ -200,7 +197,6 @@ export const InstanceSection: FunctionComponent = () => {
     // Reset the connect signal when the modal is closed
     const handleCloseModal = () => {
         setConsoleModalOpen(false);
-        // TODO, onClose, close the websocket connection
     };
 
     // sorting function
@@ -225,7 +221,7 @@ export const InstanceSection: FunctionComponent = () => {
     return (
         <div className={css.page_container}>
             <div className={css.marginBottom}>
-                <Button type="primary" onClick={() => setIsModalOpen(true)}>
+                <Button type="primary" style={{ backgroundColor: '#108ee9', borderColor: '#108ee9', marginRight: '8px' }} onClick={() => setIsModalOpen(true)}>
             Create New Instance
                 </Button>
             </div>
@@ -238,36 +234,66 @@ export const InstanceSection: FunctionComponent = () => {
                     extra={<Tag color={getStatusTagColor(instance.status)}>{instance.status}</Tag>}
                     className={css.cardContainer}
                 >
-                    {/* <p>Username: {instance.username}</p> */}
-                    <p>Application Type: {instance.appType}</p>
-                    <p>Created At: {new Date(instance.createAt).toLocaleString()}</p>
-                    <p>Life Span: <strong> {Number(instance.lifeSpan).toFixed(2)} </strong> (hours)</p>
-                    {/*Display the cpu and memory   at the same line*/}
-                    <p>CPU: {instance.config && instance.config['limits.cpu']} Cores, Memory: {instance.config && instance.config['limits.memory']}</p>
+                    <Row>
+                        <Col span={16}>
+                            <p>Application Type: {instance.appType}</p>
+                            <p>Created At: {new Date(instance.createAt).toLocaleString()}</p>
+                            <p>Life Span: <strong>{Number(instance.lifeSpan).toFixed(2)}</strong> (hours)</p>
+                            <p>CPU: {instance.config && instance.config['limits.cpu']} Cores, Memory: {instance.config && instance.config['limits.memory']}</p>
+                        </Col>
+                        <Col span={8}>
+                            {instance.status === enumInstanceStatus.RUNNING && (
+                                <Space direction="vertical" style={{ width: '100%' }}>
+                                    <Progress
+                                        percent={('cpuUsage' in instance.metadata) ? instance.metadata.cpuUsage as number : 0}
+                                        status="active"
+                                        format={() => (
+                                            <span style={{ fontSize: '12px' }}>
+                                            CPU: {('cpuUsage' in instance.metadata) ? instance.metadata.cpuUsage as number : 0}%
+                                            </span>
+                                        )}
+                                        strokeWidth={15} // Adjust thickness
+                                        style={{ width: '150px' }} // Adjust width
+                                    />
+                                    <Progress
+                                        percent={('memoryUsage' in instance.metadata) ? instance.metadata.memoryUsage as number : 0}
+                                        status="active"
+                                        format={() => (
+                                            <span style={{ fontSize: '12px' }}>
+                                            Memory: {('memoryUsage' in instance.metadata) ? Math.round(instance.metadata.memoryUsage as number) : 0}%
+                                            </span>
+                                        )}
+                                        strokeWidth={15} // Adjust thickness
+                                        style={{ width: '150px' }} // Adjust width
+                                    />
+                                </Space>
+                            )}
+                        </Col>
+                    </Row>
                     {/* Conditionally render Launch/Stop button based on status */}
                     <Space>
                         {instance.status === enumInstanceStatus.STOPPED && instance.lifeSpan > 0 && (
-                            <Button type="primary" style={{ marginRight: '8px' }} onClick={() => startStopInstance.mutate({ instanceId: instance.id, action: 'start' })}>Launch</Button>
+                            <Button type="primary" style={{ backgroundColor: '#87d068', borderColor: '#87d068', marginRight: '8px' }} onClick={() => startStopInstance.mutate({ instanceId: instance.id, action: 'start' })}>Launch</Button>
                         )}
                         {instance.status === enumInstanceStatus.RUNNING && (
                             <Button type="primary" danger style={{ marginRight: '8px' }} onClick={() => startStopInstance.mutate({ instanceId: instance.id, action: 'stop' })}>Stop</Button>
                         )}
                         {/* Only show Delete button for STOPPED status */}
                         {(instance.status === enumInstanceStatus.STOPPED || instance.status === enumInstanceStatus.FAILED) && (
-                            <Button danger style={{ marginRight: '8px' }} onClick={() => handleDeleteInstance(instance)}>Delete</Button>
+                            <Button type="primary" danger style={{ backgroundColor: '#ff4d4f', borderColor: '#ff4d4f', marginRight: '8px' }} onClick={() => handleDeleteInstance(instance)}>Delete</Button>
                         )}
                         {/*Restart button to reset the instance with new lifespan */}
                         {instance.status === enumInstanceStatus.STOPPED && instance.lifeSpan <= 0 && (
-                            <Button type="primary" onClick={() => handleRestartInstance({instance_id: instance.id, lifeSpan: 360})}>Restart</Button>
+                            <Button type="primary" style={{ backgroundColor: '#2db7f5', borderColor: '#2db7f5', marginRight: '8px' }} onClick={() => handleRestartInstance({instance_id: instance.id, lifeSpan: 360})}>Restart</Button>
                         )}
                         {/** console connection button, only show for RUNNING status */}
                         {instance.status === enumInstanceStatus.RUNNING && (
                             // set the button color to green
-                            <Button type="primary" style={{ marginRight: '8px' }} onClick={() => handleConsoleConnect(instance)}>Open Console</Button>
+                            <Button type="primary" style={{ backgroundColor: '#108ee9', borderColor: '#108ee9', marginRight: '8px' }} onClick={() => handleConsoleConnect(instance)}>Open Console</Button>
                         )}
                         {instance.appType === enumAppType.JUPYTER && instance.status === enumInstanceStatus.RUNNING && (
                             <Button
-                                style={{ marginRight: '8px' }}
+                                style={{ backgroundColor: '#108ee9', borderColor: '#108ee9', marginRight: '8px' }}
                                 onClick={() => connectToJupyterHandler(instance.name)}
                                 disabled={isConnectingToJupyter} // Disable button during connection attempt
                             >

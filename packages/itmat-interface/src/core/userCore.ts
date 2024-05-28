@@ -15,14 +15,13 @@ import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
 import { rsakeygen, rsaverifier, tokengen } from '../utils/pubkeycrypto';
 import { mailer } from '../emailer/emailer';
 import { decryptEmail, makeAESIv, makeAESKeySalt } from '../encryption/aes';
-import * as fs from 'fs';
+
 
 // System secret key pairs
 const systemSecret = {
-    publickey: fs.readFileSync(config.SystemKey.pubkeyFile, 'utf-8'),
-    privatekey: fs.readFileSync(config.SystemKey.privkeyFile, 'utf-8')
+    publickey: config.SystemKey.pubkey,
+    privatekey: config.SystemKey.privkey
 };
-
 
 export class UserCore {
     /**
@@ -822,7 +821,7 @@ export class UserCore {
         if (updateResult === null) {
             throw new GraphQLError('Server error; cannot fulfil the JWT request.');
         }
-        // return the acccess tokenb
+        // return the acccess token
         const accessToken = {
             accessToken: tokengen(payload, pubkeyrec.jwtSeckey, undefined, undefined, life)
         };

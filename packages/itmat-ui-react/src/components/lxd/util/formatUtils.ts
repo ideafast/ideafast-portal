@@ -1,5 +1,5 @@
 // src/utils/formatUtils.ts
-import { Cpu, Memory, Storage, Gpu, Network, Pci } from '@itmat-broker/itmat-types';
+import { Cpu, Memory, Storage, Gpu} from '@itmat-broker/itmat-types';
 
 // Format CPU information
 export const formatCPUInfo = (cpu: Cpu) => {
@@ -24,13 +24,6 @@ export const formatGPUInfo = (gpu: Gpu) => {
     return `GPU: ${gpu.total} Card(s)`;
 };
 
-export const formatNetworkInfo = (network: Network) => {
-    return `Network: ${network.total} Card(s)`;
-};
-
-export const formatPCIInfo = (pci: Pci) => {
-    return `PCI: ${pci.total} Device(s)`;
-};
 
 // Helper function to format bytes into a more readable format
 export function formatBytes(bytes: number, decimals = 2) {

@@ -1,6 +1,6 @@
 /* eslint-disable @nx/enforce-module-boundaries */
 
-import { IJob, IInstance, enumOpeType, enumInstanceStatus} from '@itmat-broker/itmat-types';
+import { IJob, IInstance, enumOpeType, enumInstanceStatus, enumMonitorType, LXDInstanceState} from '@itmat-broker/itmat-types';
 import { JobHandler } from './jobHandlerInterface';
 import { TRPCError } from '@trpc/server';
 import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
@@ -35,7 +35,6 @@ const pollOperation = async (
             }
             try {
                 const opData = await trpcClient.lxd.getOperationStatus.query({operationId: operationId});
-                console.log(`Operation status: ${JSON.stringify(opData.metadata)}`);
 
                 // if get response like this'Success' then just exit the interval
                 if (opData.metadata.status === 'Success') {
@@ -49,6 +48,12 @@ const pollOperation = async (
                         clearInterval(interval);
                         reject(new Error(`Operation failed for ${opData.metadata.err}`));
                     }
+                } else if (opData.metadata.status === 'Running') {
+                    // Operation is still running, continue polling
+                    return;
+                } else {
+                    clearInterval(interval);
+                    reject(new Error(`Unknown operation status: ${opData.metadata.status}`));
                 }
             } catch (error: TRPCError | unknown) {
                 Logger.error(`Error polling operation: ${error}`);
@@ -183,7 +188,7 @@ export class LXDJobHandler extends JobHandler {
 
             return data;
         } catch (error) {
-            console.error(`Error updating instance configuration: ${instanceId}`, error);
+            Logger.error(`Error updating instance configuration: ${instanceId} - ${JSON.stringify(error)}`);
             return {error: error};
         }
     }
@@ -301,26 +306,43 @@ export class LXDControlHandler extends JobHandler {
 
 /**
  * For monitoring lxd containers, including updating intermediate status.
- * TODO: interval for monitoring, like every 5 minutes.
+ * bulk operation for monitoring the lxd instances of users.
+
  * TODO: update the status of the instance.
  * TODO: update the status of the instance job.
  * TODO: permenant delete the instance if the status is deleted from both side.
  */
 export class LXDMonitorHandler extends JobHandler {
-    constructor() {
+    private readonly instanceCollection: mongodb.Collection<IInstance>;
+    constructor(instanceCollection: mongodb.Collection<IInstance>) {
         super();
+        this.instanceCollection = instanceCollection;
     }
+
 
     public async getInstance(): Promise<JobHandler> {
-        return new LXDMonitorHandler();
+        return new LXDMonitorHandler(this.instanceCollection);
     }
-
     public async execute(document: IJob): Promise<unknown> {
-        Logger.log(document.id);
-        throw new TRPCError({
-            code: enumTRPCErrorCodes.UNAUTHORIZED,
-            message: 'Not implemented.'
-        });
+
+        const { operation, userId } = document.metadata ?? {};
+
+        if (!operation || !userId) {
+            throw new TRPCError({
+                code: enumTRPCErrorCodes.BAD_REQUEST,
+                message: 'Missing required metadata: operation or userId.'
+            });
+        }
+
+        switch (operation) {
+            case enumMonitorType.STATE:
+                return this.updateInstanceState(userId);
+            default:
+                throw new TRPCError({
+                    code: enumTRPCErrorCodes.UNAUTHORIZED,
+                    message: 'Unsupported operation.'
+                });
+        }
     }
 
     // delete the instance from the database
@@ -328,5 +350,53 @@ export class LXDMonitorHandler extends JobHandler {
 
     private async lxdResources(document: IJob): Promise<any> {
         Logger.log(`instance exec: ${document.id}`);
+    }
+
+    // update the instance status
+    private async updateInstanceState(userId: string): Promise<void> {
+        Logger.log(`Updating instance state for user: ${userId}`);
+
+        // Retrieve all instances belonging to the user
+        const instances = await this.instanceCollection.find({ userId }).toArray();
+
+        for (const instance of instances) {
+            try {
+                const trpcClient = createClientWithHeaders(instance.instanceToken);
+                const response = await trpcClient.lxd.getInstanceState.query({ container: instance.name });
+
+                if (response.data) {
+                    const instanceState = response.data as LXDInstanceState;
+
+
+                    // Update the instance state in the database
+                    await this.instanceCollection.updateOne(
+                        { id: instance.id },
+                        {
+                            $set: {
+                                lxdState: instanceState,
+                                status: this.determineInstanceStatus(instanceState)
+                            }
+                        }
+                    );
+                } else {
+                    Logger.error(`Failed to retrieve state for instance: ${instance.name}`);
+                }
+            } catch (error) {
+                Logger.error(`Error updating state for instance ${instance.name}: ${error}`);
+            }
+        }
+    }
+
+    private determineInstanceStatus(state: any): enumInstanceStatus {
+        // Determine the instance status based on the state
+        if (state.status === 'Running') {
+            return enumInstanceStatus.RUNNING;
+        } else if (state.status === 'Stopped') {
+            return enumInstanceStatus.STOPPED;
+        } else if (state.status === 'Error') {
+            return enumInstanceStatus.FAILED;
+        } else {
+            return enumInstanceStatus.DELETED;
+        }
     }
 }

@@ -51,6 +51,10 @@ export class JobCore {
     public async getJobs(): Promise<IJob[]> {
         return await db.collections!.jobs_collection.find({}).toArray();
     }
+    // getJob by optional filter, like name, type, status
+    public async getJob(filter: Partial<IJob>): Promise<IJob[]> {
+        return await db.collections!.jobs_collection.find(filter).toArray();
+    }
 
     public async editJob(requester: string, jobId: string, priority?: number | null, nextExecutionTime?: number | null, period?: number | null): Promise<IJob> {
         const job = await db.collections!.jobs_collection.findOne({ id: jobId });

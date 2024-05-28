@@ -44,6 +44,11 @@ export enum enumOpeType {
     DELETE = 'delete'
 }
 
+//monitor operation for instances
+export enum enumMonitorType {
+    STATE = 'state',
+}
+
 export enum enumInstanceType {
     SMALL = 'small',
     MIDDLE ='middle',

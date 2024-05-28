@@ -1,20 +1,44 @@
-import { IInstance,enumInstanceStatus, enumAppType, enumOpeType, IUser, enumUserTypes} from '@itmat-broker/itmat-types';
+import { IInstance,enumInstanceStatus, enumAppType, IUser, enumUserTypes} from '@itmat-broker/itmat-types';
 import { v4 as uuid } from 'uuid';
 import { db } from '../database/database';
 import { TRPCError } from '@trpc/server';
 // eslint-disable-next-line @nx/enforce-module-boundaries
 import { enumTRPCErrorCodes } from 'packages/itmat-interface/test/utils/trpc';
-import { jobCore } from './jobCore'; // Ensure you have the correct import path
+import { jobCore} from './jobCore'; // Ensure you have the correct import path
 import { userCore } from './userCore';
-import { enumJobType} from '@itmat-broker/itmat-types'; // Ensure you have the correct import path
+import { enumJobType, enumOpeType,enumMonitorType, enumJobStatus } from '@itmat-broker/itmat-types'; // Ensure you have the correct import path
 import * as mfa from '../utils/mfa';
 // import the config and rename to dmpConfig
 import config  from '../utils/configManager';
-import lxdManager from '../lxd/lxdManager';
 import { Logger } from '@itmat-broker/itmat-commons';
 
 export class InstanceCore {
+    private previousCpuUsage: Record<string, number> = {};
+    private previousCpuTimestamp: Record<string, number> = {};
 
+    /**
+     * Get the memory value from the memory string.
+     * @param memoryStr - The memory string to parse. like '4GB'
+     * @returns number
+     */
+    private parseMemory(memoryStr: string): number {
+        const units: Record<string, number> = {
+            B: 1,
+            KB: 1024,
+            MB: 1024 * 1024,
+            GB: 1024 * 1024 * 1024
+        };
+
+        const match = memoryStr.match(/^(\d+(?:\.\d+)?)([KMGT]?B)$/);
+        if (!match) {
+            throw new Error(`Invalid memory string: ${memoryStr}`);
+        }
+
+        const value = parseFloat(match[1]);
+        const unit = match[2];
+
+        return value * (units[unit] || 1);
+    }
     /**
      * Get an instance by ID.
      *
@@ -364,6 +388,7 @@ runcmd:
         // Call the createJob method of JobCore to create a new job for restarting the instance
         await jobCore.createJob(userId, jobName, jobType, undefined, undefined, { path: executorPath }, null, null, 1, lxd_metadata);
 
+
         return instance;
     }
 
@@ -427,6 +452,27 @@ runcmd:
             userId: userId  // Ensure to only fetch instances related to the userId if necessary
         }).toArray();
 
+        //  create a LXD_MONITOR job to update the status of the instances
+        const jobName = `Update Instance Status of User: ${userId}`;
+        const jobType = enumJobType.LXD_MONITOR;
+        const executorPath = '/lxd/monitor';
+        const period = 60 * 1000; // 1 minute
+        // Check if there is a pending job for the user instances update
+        // Check if a pending job already exists
+        const existingJobs = await jobCore.getJob({ name: jobName, type: jobType, status: enumJobStatus.PENDING });
+
+        if (existingJobs.length === 0) {
+            console.log('Creating job for instance monitoring', userId);
+            const metadata = {
+                operation: enumMonitorType.STATE,
+                userId: userId
+            };
+            await jobCore.createJob(userId, jobName, jobType, undefined, period, { path: executorPath }, null, null, 1, metadata);
+        } else {
+            console.log('Pending job already exists for instance monitoring', userId);
+        }
+
+
         const now = Date.now();
 
         // Create a series of promises to handle lifespan and status updates
@@ -444,21 +490,68 @@ runcmd:
                     await this.startStopInstance(userId, instance.id, 'stop');
                 }
 
-                return await db.collections!.instance_collection.updateOne(
+                await db.collections!.instance_collection.updateOne(
                     { id: instance.id },
                     {
                         $set: {
                             lifeSpan: 0  // Reset lifespan to zero as it's now considered ended
-                            // status: enumInstanceStatus.STOPPED  // Ensure the status is set to STOPPED
                         }
                     }
                 );
 
-            } else {
-                // resolve the promise with the instance object
-                return instance;
+            }
+
+            // Ensure instance config and limits exist
+            const cpuLimit = instance.config?.['limits.cpu'] ? parseInt(instance.config['limits.cpu']) : 1;
+            const memoryLimit = instance.config?.['limits.memory'] ? this.parseMemory(instance.config['limits.memory']) : 4 * 1024 * 1024 * 1024; // Default to 4GB
+
+            let cpuUsage = 0;
+            let memoryUsage = 0;
+
+            if (instance.status === enumInstanceStatus.RUNNING && instance.lxdState) {
+                const cpuUsageRaw = instance.lxdState.cpu.usage;
+                const memoryUsageRaw = instance.lxdState.memory.usage;
+
+
+                // Retrieve previous values from metadata or initialize them if not present
+                // Retrieve previous values from local storage
+                // Retrieve previous values from local storage (or instance metadata if necessary)
+                const previousCpuUsageRaw = this.previousCpuUsage[instance.id] || 0;
+                const previousTimestamp = this.previousCpuTimestamp[instance.id] || now;
+
+
+                // Calculate the time interval in seconds
+                const intervalSeconds = (now - previousTimestamp) / 1000;
+
+                // Calculate the difference in CPU usage
+                const cpuUsageDelta = cpuUsageRaw - previousCpuUsageRaw;
+
+                // Convert CPU usage delta to seconds
+                const cpuUsageDeltaSeconds = cpuUsageDelta / 1e9;
+
+                // Calculate CPU usage percentage
+                if (intervalSeconds > 0) {
+                    cpuUsage = (cpuUsageDeltaSeconds / (cpuLimit * intervalSeconds)) * 100;
+                }
+
+                // Calculate memory usage percentage
+                memoryUsage = (memoryUsageRaw / memoryLimit) * 100;
+
+                // Store the current values for the next calculation
+                this.previousCpuUsage[instance.id] = cpuUsageRaw;
+                this.previousCpuTimestamp[instance.id] = now;
 
             }
+
+            // Assign CPU and memory usage to instance metadata
+            instance.metadata = {
+                ...instance.metadata,
+                cpuUsage: cpuUsage > 100 ? 100 : (cpuUsage < 0 ? 0 : Math.round(cpuUsage)), // Clamp values between 0 and 100
+                memoryUsage: memoryUsage > 100 ? 100 : (memoryUsage < 0 ? 0 : Math.round(memoryUsage)) // Clamp values between 0 and 100
+            };
+
+            // resolve the promise with the instance object
+            return instance;
         });
 
         // Wait for all updates to complete
@@ -466,6 +559,9 @@ runcmd:
 
         // Fetch and return the updated list of instances
         return instances.map(instance => {
+            // calculate the cpu and memory usage percentage, only for running instances
+            //  TODO, {cpuUsage: 0, memoryUsage: 0}
+
             // This will provide the updated remaining life span without persisting it
             const lifeDuration = now - instance.createAt;
             const remainingLifeHours = (instance.lifeSpan * 3600000 - lifeDuration) / 3600000;
@@ -475,6 +571,7 @@ runcmd:
             };
         });
     }
+
     /**
      * Edit an instance.
      *
