@@ -34,7 +34,7 @@
         "@nx/eslint": "18.3.3",
         "@nx/eslint-plugin": "18.3.3",
         "@nx/express": "18.3.3",
-        "@nx/jest": "18.3.3",
+        "@nx/jest": "19.1.1",
         "@nx/js": "18.3.3",
         "@nx/node": "18.3.3",
         "@nx/react": "18.3.3",
