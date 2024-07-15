@@ -43,7 +43,7 @@
         "@nx/workspace": "19.4.3",
         "@pmmmwh/react-refresh-webpack-plugin": "^0.5.15",
         "@svgr/webpack": "8.1.0",
-        "@swc/cli": "0.3.14",
+        "@swc/cli": "0.4.0",
         "@swc/core": "1.5.7",
         "@swc/jest": "0.2.36",
         "@testing-library/react": "15.0.6",
