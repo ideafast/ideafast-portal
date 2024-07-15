@@ -46,7 +46,7 @@
         "@swc/cli": "0.3.14",
         "@swc/core": "1.5.7",
         "@swc/jest": "0.2.36",
-        "@testing-library/react": "15.0.6",
+        "@testing-library/react": "15.0.7",
         "@types/bcrypt": "5.0.2",
         "@types/connect-timeout": "0.0.39",
         "@types/cors": "2.8.17",
