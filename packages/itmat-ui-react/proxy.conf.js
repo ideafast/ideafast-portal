@@ -67,5 +67,11 @@ module.exports = {
         changeOrigin: true,
         autoRewrite: true,
         ws: true
+    },
+    '/jupyter': {
+        target: API_SERVER,
+        changeOrigin: true,
+        autoRewrite: true,
+        ws: true
     }
 };

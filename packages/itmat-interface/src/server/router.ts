@@ -35,13 +35,11 @@ import { inferAsyncReturnType, initTRPC } from '@trpc/server';
 import * as trpcExpress from '@trpc/server/adapters/express';
 import multer from 'multer';
 import { MerkleTreeLog } from '../log/merkleTree';
-import { registerContainSocketServer } from '../lxd';
+import { registerContainSocketServer, applyProxyMiddleware} from '../lxd';
 // local test
 import cors from 'cors';
-import { Logger } from '@itmat-broker/itmat-commons';
 
 // created for each request
-
 
 export const createContext = async ({
     req,
@@ -98,6 +96,7 @@ export type AppRouter = typeof appRouter;
 interface ApolloServerContext {
     token?: string;
 }
+
 
 export class Router {
     private readonly app: Express;
@@ -417,6 +416,7 @@ export class Router {
             })
         );
 
+        applyProxyMiddleware(this.app);
         // this.app.listen(4200);
     }
 

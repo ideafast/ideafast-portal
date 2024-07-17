@@ -354,7 +354,6 @@ export class LXDMonitorHandler extends JobHandler {
 
     // update the instance status
     private async updateInstanceState(userId: string): Promise<void> {
-        Logger.log(`Updating instance state for user: ${userId}`);
 
         // Retrieve all instances belonging to the user
         const instances = await this.instanceCollection.find({ userId }).toArray();
@@ -382,7 +381,7 @@ export class LXDMonitorHandler extends JobHandler {
                     Logger.error(`Failed to retrieve state for instance: ${instance.name}`);
                 }
             } catch (error) {
-                Logger.error(`Error updating state for instance ${instance.name}: ${error}`);
+                // Logger.error(`Error updating state for instance ${instance.name}: ${error}`);
             }
         }
     }
@@ -396,7 +395,8 @@ export class LXDMonitorHandler extends JobHandler {
         } else if (state.status === 'Error') {
             return enumInstanceStatus.FAILED;
         } else {
-            return enumInstanceStatus.DELETED;
+            return enumInstanceStatus.FAILED;
+            Logger.error(`Unknown instance state: ${state.status}`);
         }
     }
 }

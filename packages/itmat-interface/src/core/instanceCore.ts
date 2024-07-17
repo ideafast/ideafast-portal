@@ -85,7 +85,7 @@ export class InstanceCore {
         const webdavServer = `${config.webdavServer}:${config.webdavPort}`;
         const webdavMountPath = config.webdavMountPath;
 
-        const instanceProfile = type==='virtual-machine'? 'matlab-profile' : 'jupyter-profile'; // Assuming 'default' profile, adjust as necessary
+        const instanceProfile = type==='virtual-machine'? 'matlab-profile' : 'jupyter-profile';
 
         // Prepare user-data for cloud-init to initialize the instance
         const cloudInitUserDataContainer = `

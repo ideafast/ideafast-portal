@@ -104,14 +104,35 @@
     max-height: 100%;
 }
 
-.consoleContainer {
+/* .consoleContainer {
     width: 100%;
     height: 100%;
     padding: 16px;
     background-color: #1e1e1e; 
     color: white; 
     box-sizing: border-box; 
+  } */
+
+  html, body, #root {
+    height: 100%;
+    margin: 0;
+    padding: 0;
   }
+  
+  .consoleContainer {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    background-color: #000;
+  }
+  
+  .p_terminal {
+    flex-grow: 1;
+    width: 100%;
+    height: 100%;
+  }
+  
 
  
 .pTerminalFullscreen {

@@ -277,10 +277,8 @@ const LXDInstanceList = () => {
                 onOk={handleCloseModal}
                 onCancel={handleCloseModal}
                 style={{
-                    width: 'auto !important',
-                    height: 'auto !important'
+                    width: 'auto !important'
                 }}
-                bodyStyle={{ height: 'calc(100vh - 110px)', overflowY: 'auto' }}
                 className={css.modalOverrides}
                 footer={null}
                 closable={true}
@@ -290,16 +288,14 @@ const LXDInstanceList = () => {
             >
                 {selectedInstance && selectedTab === 'console' && (
                     <div className={css.consoleContainer}>
-                        {selectedInstance.type === 'container' ?
+                        {/* {selectedInstance.type === 'container' ?
                             <LXDTextConsole
                                 instanceName={selectedInstance.name}
-                                // onMount={onChildMount}
                             /> : // Render LXDTextConsole for containers
                             <LXDConsole
                                 instanceName={selectedInstance.name}
-                                onMount={onChildMount}
                             /> // Render LXDConsole for virtual machines
-                        }
+                        } */}
                     </div>
                 )}
 

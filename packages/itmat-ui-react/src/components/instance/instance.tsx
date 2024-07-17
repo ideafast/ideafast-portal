@@ -3,7 +3,7 @@ import { Button, message, Modal, Form, Select,  Card, Tag, Progress,  Space, Row
 import { trpc } from '../../utils/trpc';
 import css from './instance.module.css';
 import { enumAppType,enumInstanceType, enumInstanceStatus, IInstance} from '@itmat-broker/itmat-types';
-import { LXDConsole } from '../lxd/lxd.instance.console';
+import { LXDConsole , LXDConsoleRef} from '../lxd/lxd.instance.console';
 import LXDTextConsole from '../lxd/lxd.instance.text.console';
 
 
@@ -38,7 +38,7 @@ export const InstanceSection: FunctionComponent = () => {
     const [selectedInstanceTypeDetails, setSelectedInstanceTypeDetails] = useState('');
     const [isConnectingToJupyter, setIsConnectingToJupyter] = useState(false);
 
-    const handleFullScreenRef = useRef(()=> { console.log('1111 handleFullScreenRef not set yet!'); });
+    const handleFullScreenRef = useRef<LXDConsoleRef>(null);
 
     const handleConsoleConnect = (instance) => {
         setSelectedInstance(instance);
@@ -84,7 +84,6 @@ export const InstanceSection: FunctionComponent = () => {
             message.error(`Failed to restart instance: ${error.message}`);
         }
     });
-    const instanceJupyter = trpc.lxd.getInstanceJupyterUrl.useMutation();
 
     const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -135,16 +134,17 @@ export const InstanceSection: FunctionComponent = () => {
         setIsConnectingToJupyter(true); // Indicate that connection attempt is in progress
 
         try {
-            // get the jupyter url by call tRPC procedure
-            const data = await instanceJupyter.mutateAsync({ instanceName });
+            // Construct the Jupyter proxy URL directly
+            const baseUrl = new URL(window.location.href);
+            console.log('baseUrl', baseUrl.href);
+            // const jupyterProxyUrl = `${baseUrl.origin}/jupyter/${instanceName}`;
+            baseUrl.pathname = '/jupyter';
+            const jupyterProxyUrl = `http://localhost:3333/jupyter/${instanceName}`;
+            // const jupyterProxyUrl = `${baseUrl.href}/${instanceName}`;
+            console.log(jupyterProxyUrl);
 
-            if (data && data?.jupyterUrl) {
-
-                window.open(data.jupyterUrl, '_blank');
-
-            } else {
-                message.error('Jupyter URL not found.');
-            }
+            // Open the Jupyter service in a new tab
+            window.open(jupyterProxyUrl, '_blank');
         } catch (error: any) {
             message.error(error?.message || 'Failed to connect to Jupyter. Please try again.');
         } finally {
@@ -189,9 +189,10 @@ export const InstanceSection: FunctionComponent = () => {
                 return 'default';
         }
     };
-
-    const onChildMount = (childHandleFullScreen) => {
-        handleFullScreenRef.current = childHandleFullScreen;
+    const enterFullScreen = () => {
+        if (handleFullScreenRef.current) {
+            handleFullScreenRef.current.handleFullScreen();
+        }
     };
 
     // Reset the connect signal when the modal is closed
@@ -276,7 +277,9 @@ export const InstanceSection: FunctionComponent = () => {
                             <Button type="primary" style={{ backgroundColor: '#87d068', borderColor: '#87d068', marginRight: '8px' }} onClick={() => startStopInstance.mutate({ instanceId: instance.id, action: 'start' })}>Launch</Button>
                         )}
                         {instance.status === enumInstanceStatus.RUNNING && (
-                            <Button type="primary" danger style={{ marginRight: '8px' }} onClick={() => startStopInstance.mutate({ instanceId: instance.id, action: 'stop' })}>Stop</Button>
+                            // change the danger to warning color
+                            <Button type="primary" danger style={{ backgroundColor: '#ffe7ba', borderColor: '#ffd591', color: '#fa8c16', marginRight: '8px' }}  onClick={() => startStopInstance.mutate({ instanceId: instance.id, action: 'stop' })}>Stop</Button>
+                            // <Button type="primary" danger style={{ marginRight: '8px' }} onClick={() => startStopInstance.mutate({ instanceId: instance.id, action: 'stop' })}>Stop</Button>
                         )}
                         {/* Only show Delete button for STOPPED status */}
                         {(instance.status === enumInstanceStatus.STOPPED || instance.status === enumInstanceStatus.FAILED) && (
@@ -287,7 +290,7 @@ export const InstanceSection: FunctionComponent = () => {
                             <Button type="primary" style={{ backgroundColor: '#2db7f5', borderColor: '#2db7f5', marginRight: '8px' }} onClick={() => handleRestartInstance({instance_id: instance.id, lifeSpan: 360})}>Restart</Button>
                         )}
                         {/** console connection button, only show for RUNNING status */}
-                        {instance.status === enumInstanceStatus.RUNNING && (
+                        {instance.appType !== enumAppType.JUPYTER && instance.status === enumInstanceStatus.RUNNING &&  (
                             // set the button color to green
                             <Button type="primary" style={{ backgroundColor: '#108ee9', borderColor: '#108ee9', marginRight: '8px' }} onClick={() => handleConsoleConnect(instance)}>Open Console</Button>
                         )}
@@ -350,7 +353,7 @@ export const InstanceSection: FunctionComponent = () => {
                     <Button key="back" onClick={handleCloseModal}>
                         Cancel
                     </Button>,
-                    <Button key="fullScreen" type="primary" onClick={handleFullScreenRef.current}>
+                    <Button key="fullScreen" type="primary" onClick={enterFullScreen}>
                         Fullscreen
                     </Button>
                 ]}
@@ -358,15 +361,14 @@ export const InstanceSection: FunctionComponent = () => {
                 {selectedInstance && selectedInstance.name && (selectedInstance.type === 'container' ? (
                     <LXDTextConsole
                         instanceName={selectedInstance.name}
-                        // onMount={onChildMount}
                     />
                 ) : (
                     <LXDConsole
+                        ref={handleFullScreenRef}
                         instanceName={selectedInstance.name}
-                        onMount={onChildMount}
                     />
                 ))}
-            </Modal>
+            </Modal>›
 
         </div>
     );

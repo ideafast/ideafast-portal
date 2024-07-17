@@ -195,15 +195,15 @@ export default {
                 Logger.error(`Failed to fetch Logger log data. ${response.data}`);
                 return {
                     error: true,
-                    data: `Failed to fetch Logger log data. ${response.data}`
+                    data: `Failed to fetch Logger log data. ${JSON.stringify(response.data)}`
                 };
             }
         } catch (error: any) {
             if (error.response && error.response.status === 404) {
-                Logger.error(`Logger log file not found.${JSON.stringify(error.response)}`);
+                Logger.error(`Logger log file not found.${error.response}`);
                 return {
                     error: true,
-                    data: `Logger log file not found.${JSON.stringify(error.response)}`
+                    data: `Logger log file not found.${error.response}`
                 };
             } else {
                 Logger.error(`Error fetching instance Logger log from LXD:${error}`);

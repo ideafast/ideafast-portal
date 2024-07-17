@@ -52,7 +52,7 @@ export class JobPoller {
             try {
 
                 const result = await this.action(job);
-                Logger.log(`[JOB] Job Execution finished: ${new Date((Date.now())).toISOString()}, ${JSON.stringify(result?.error)}, ${JSON.stringify(result)}`);
+                // Logger.log(`[JOB] Job Execution finished: ${new Date((Date.now())).toISOString()}, ${JSON.stringify(result?.error)}, ${JSON.stringify(result)}`);
 
                 if (job.period) {
                     setObj.status = enumJobStatus.PENDING;
@@ -97,7 +97,6 @@ export class JobPoller {
                     });
                 }
             } catch (error) {
-                console.error('[JOB poller]Job execution Error', new Date((Date.now())).toISOString(),  error);
                 const currentHistory = job.history || [];
                 setObj.history = [...currentHistory, {
                     time: Date.now(),

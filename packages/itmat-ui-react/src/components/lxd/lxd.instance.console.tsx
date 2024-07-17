@@ -1,6 +1,5 @@
-import React, { useState, useEffect, useRef} from 'react';
+import React, { useState, useEffect, useRef, useImperativeHandle, forwardRef} from 'react';
 import { SpiceMainConn, handle_resize } from './spice/src/main';
-import 'xterm/css/xterm.css';
 import {message} from 'antd';
 
 import css from './lxd.module.css';
@@ -14,8 +13,11 @@ declare global {
 
 interface LXDConsoleProps {
     instanceName: string;
-    onMount: (handler: () => void) => void;
   }
+
+export interface LXDConsoleRef {
+    handleFullScreen: () => void
+}
 
 const updateVgaConsoleSize = () => {
     const spiceScreen = document.getElementById('spice-screen');
@@ -35,9 +37,7 @@ const updateVgaConsoleSize = () => {
 };
 
 
-export const LXDConsole: React.FC<LXDConsoleProps> = ({ instanceName, onMount}) => {
-
-    console.log('Rendering LXDConsole');
+export const LXDConsole = forwardRef<LXDConsoleRef, LXDConsoleProps>(({ instanceName }, ref) => {
 
     const spiceRef = useRef<HTMLDivElement>(null);
     const [isVgaLoading, setIsVgaLoading] = useState<boolean>(false);
@@ -60,6 +60,7 @@ export const LXDConsole: React.FC<LXDConsoleProps> = ({ instanceName, onMount}) 
         const height = spiceScreen ? spiceScreen.clientHeight : 768;
 
         // use trpc to get the console console
+
         const res: any = await getInstanceConsole.mutateAsync({
             container: instanceName,
             options: {
@@ -108,7 +109,6 @@ export const LXDConsole: React.FC<LXDConsoleProps> = ({ instanceName, onMount}) 
     };
 
     const handleFullScreen = () => {
-        console.log('2222 Entering full-screen mode');
         const container = spiceRef.current;
         if (!container) {
             return;
@@ -120,8 +120,13 @@ export const LXDConsole: React.FC<LXDConsoleProps> = ({ instanceName, onMount}) 
                 message.error(`Failed to enter full-screen mode: ${JSON.stringify(e)}`);
             });
         handleResize();
+
+
     };
 
+    useImperativeHandle(ref, () => ({
+        handleFullScreen
+    }));
 
     useEffect(() => {
 
@@ -131,7 +136,6 @@ export const LXDConsole: React.FC<LXDConsoleProps> = ({ instanceName, onMount}) 
             controlWebsocketPromise.then((controlWebsocket) => {
                 if (controlWebsocket && controlWebsocket.readyState === WebSocket.OPEN) {
                     controlWebsocket.close();
-                    console.log('WebSocket connection closed.');
                 }
             }).catch(e => {
                 message.error(`Error closing WebSocket: ${JSON.stringify(e)}`);
@@ -158,12 +162,6 @@ export const LXDConsole: React.FC<LXDConsoleProps> = ({ instanceName, onMount}) 
         };
     }, [instanceName]);
 
-    useEffect(() => {
-        console.log('222222 attached the  full-screen function to the onMount event.');
-        onMount(handleFullScreen);
-    }, [instanceName, onMount]);
-
-
     return isVgaLoading ? (
         <div className={css.loading}>Loading VGA console...</div>
     ) : (
@@ -171,4 +169,4 @@ export const LXDConsole: React.FC<LXDConsoleProps> = ({ instanceName, onMount}) 
             <div id="spice-screen" className={css.spiceScreen} />
         </div>
     );
-};
+});
