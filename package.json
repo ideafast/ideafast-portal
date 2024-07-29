@@ -40,7 +40,7 @@
         "@nx/react": "19.4.4",
         "@nx/web": "19.4.4",
         "@nx/webpack": "19.4.4",
-        "@nx/workspace": "19.4.4",
+        "@nx/workspace": "19.5.3",
         "@pmmmwh/react-refresh-webpack-plugin": "^0.5.15",
         "@svgr/webpack": "8.1.0",
         "@swc/cli": "0.4.0",
