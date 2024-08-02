@@ -32,6 +32,7 @@ export enum enumFileTypes {
     JPEG = 'JPEG',
     PNG = 'PNG',
     WEBP = 'WEBP',
+    GIF = 'GIF',
     // videos
     MP4 = 'MP4',
     AVI = 'AVI'

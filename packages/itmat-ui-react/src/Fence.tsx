@@ -1,5 +1,4 @@
 import { FunctionComponent } from 'react';
-import { Query } from '@apollo/client/react/components';
 import { Routes, Route } from 'react-router-dom';
 import { LoginBox } from './components/login/login';
 import { MainMenuBar } from './components/scaffold/mainMenuBar';
@@ -8,42 +7,48 @@ import css from './components/scaffold/scaffold.module.css';
 import { ResetPasswordPage } from './components/login/resetPasswordPage';
 import { RequestResetPassword } from './components/login/requestResetPasswordPage';
 import { RegisterNewUser } from './components/login/register';
-import { WHO_AM_I, RECOVER_SESSION_EXPIRE_TIME } from '@itmat-broker/itmat-models';
 import LoadSpinner from './components/reusable/loadSpinner';
 import { StatusBar } from './components/scaffold/statusBar';
-import { useQuery } from '@apollo/client/react/hooks';
+import { trpc } from './utils/trpc';
 
 export const Fence: FunctionComponent = () => {
-
-    const { loading, error, data } = useQuery(WHO_AM_I);
+    const whoAmI = trpc.user.whoAmI.useQuery();
+    const recoverSession = trpc.user.recoverSessionExpireTime.useQuery(undefined, {
+        refetchInterval: 60 * 60 * 1000
+    });
     let component: JSX.Element | null = null;
-    if (loading)
+    // Assume isLoading states are only true if the query is actively fetching data
+    const isAnyLoading = whoAmI.isLoading;
+
+    // Adjusted error handling to show errors immediately
+    const hasError = whoAmI.isError || recoverSession.isError;
+    const errorMessage = whoAmI.error?.message ?? '';
+
+    // Decide what to display based on the loading and error states
+    if (isAnyLoading) {
         component = <LoadSpinner />;
-    else if (error)
-        component = <p>
-            Error
-            {' '}
-            {error.message}
-        </p>;
-    else if (data.whoAmI !== null && data.whoAmI !== undefined && data.whoAmI.username !== null) {
+    } else if (hasError) {
+        component = <p>Error {errorMessage}</p>;
+    } else if (whoAmI.data) {
+        // Render main content if user data is available
         component = <div className={css.app + ' dark_theme'}>
-            <Query<never, never> query={RECOVER_SESSION_EXPIRE_TIME} pollInterval={30 * 60 * 1000 /* 30 minutes */}>
-                {() => {
-                    return null;
-                }}
-            </Query>
-            <MainMenuBar projects={data.whoAmI.access.projects} />
+            <MainMenuBar />
             <MainPanel />
             <StatusBar />
         </div>;
-    } else
+    } else {
         component = <LoginBox />;
-    return <Routes>
-        <Route path='/reset/:encryptedEmail/:token' element={<ResetPasswordPage />} />
-        <Route path='/reset' element={<RequestResetPassword />} />
-        <Route path='/register' element={<RegisterNewUser />} />
-        <Route path='*' element={component} />
-    </Routes>;
+    }
+
+    return (
+        <Routes>
+            <Route path='/reset/:encryptedEmail/:token' element={<ResetPasswordPage />} />
+            <Route path='/reset' element={<RequestResetPassword />} />
+            <Route path='/register' element={<RegisterNewUser />} />
+            <Route path='*' element={component} />
+        </Routes>
+    );
+
 };
 
 export default Fence;

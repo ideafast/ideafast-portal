@@ -49,4 +49,4 @@ export class TRPCAggRouter {
 }
 
 
-export type APPTRPCRouter = typeof TRPCAggRouter.prototype._routers;
+export type APPTRPCRouter = ReturnType<TRPCAggRouter['_routers']>;

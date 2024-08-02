@@ -5,7 +5,7 @@ import { Filter, UpdateFilter } from 'mongodb';
 import { PermissionCore } from './permissionCore';
 import { v4 as uuid } from 'uuid';
 import { FileCore } from './fileCore';
-import { makeGenericReponse } from '../utils';
+import { makeGenericResponse } from '../utils';
 
 export class StudyCore {
     db: DBType;
@@ -141,12 +141,7 @@ export class StudyCore {
                     defaultStudyProfile: null,
                     defaultMaximumFileSize: 8 * 1024 * 1024 * 1024, // 8 GB,
                     defaultRepresentationForMissingValue: '99999',
-                    defaultFileColumns: [],
-                    defaultFileColumnsPropertyColor: 'black',
-                    defaultFileDirectoryStructure: {
-                        pathLabels: [],
-                        description: null
-                    },
+                    defaultFileBlocks: [],
                     defaultVersioningKeys: []
                 },
                 life: {
@@ -291,7 +286,7 @@ export class StudyCore {
         /* delete all config belong to the study*/
         await this.db.collections.configs_collection.updateMany({ 'type': enumConfigType.STUDYCONFIG, 'key': studyId, 'life.deletedTime': null }, { $set: { 'life.deletedTime': timestamp, 'life.deletedUser': requester } });
 
-        return makeGenericReponse(studyId, true, undefined, `Study ${study.name} has been deleted.`);
+        return makeGenericResponse(studyId, true, undefined, `Study ${study.name} has been deleted.`);
     }
     /**
      * Create a new data version of the study.
@@ -485,6 +480,6 @@ export class StudyCore {
             returnDocument: 'after'
         });
 
-        return makeGenericReponse(studyId, true, undefined, `Data version ${dataVersionId} has been set as the current version of study ${study.name}.`);
+        return makeGenericResponse(studyId, true, undefined, `Data version ${dataVersionId} has been set as the current version of study ${study.name}.`);
     }
 }

@@ -3,7 +3,7 @@ import { v4 as uuid } from 'uuid';
 import crypto from 'crypto';
 import { DBType } from '../database/database';
 import { ObjectStore } from '@itmat-broker/itmat-commons';
-import { makeGenericReponse } from '../utils';
+import { makeGenericResponse } from '../utils';
 import { PassThrough } from 'stream';
 
 /**
@@ -228,7 +228,7 @@ export class FileCore {
         }
         try {
             await this.db.collections.files_collection.findOneAndUpdate({ id: fileId }, { $set: { 'life.deletedTime': Date.now().valueOf(), 'life.deletedUser': requester } });
-            return makeGenericReponse(fileId, undefined, undefined, 'File has been deleted.');
+            return makeGenericResponse(fileId, undefined, undefined, 'File has been deleted.');
         } catch {
             throw new CoreError(
                 enumCoreErrors.DATABASE_ERROR,

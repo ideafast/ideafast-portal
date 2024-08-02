@@ -1,7 +1,7 @@
 import { CoreError, FileUpload, IFile, IPubkey, IResetPasswordRequest, IUser, IUserWithoutToken, defaultSettings, enumConfigType, enumCoreErrors, enumDriveNodeTypes, enumFileCategories, enumFileTypes, enumUserTypes } from '@itmat-broker/itmat-types';
 import { DBType } from '../database/database';
 import { Logger, Mailer, ObjectStore } from '@itmat-broker/itmat-commons';
-import { IConfiguration, makeGenericReponse, rsakeygen, rsaverifier, tokengen } from '../utils';
+import { IConfiguration, makeGenericResponse, rsakeygen, rsaverifier, tokengen } from '../utils';
 import { FileCore } from './fileCore';
 import { ConfigCore } from './configCore';
 import { v4 as uuid } from 'uuid';
@@ -81,13 +81,20 @@ export class UserCore {
      * @return IUserWithoutToken[] - The list of users.
      */
     public async getUsers(requester: IUserWithoutToken | undefined, includeDeleted?: boolean): Promise<IUserWithoutToken[]> {
-        if (!requester || requester.type !== enumUserTypes.ADMIN) {
+        if (!requester) {
             throw new CoreError(
-                enumCoreErrors.NO_PERMISSION_ERROR,
-                enumCoreErrors.NO_PERMISSION_ERROR
+                enumCoreErrors.NOT_LOGGED_IN,
+                enumCoreErrors.NOT_LOGGED_IN
             );
         }
-        return includeDeleted ? await this.db.collections.users_collection.find({}).toArray() : await this.db.collections.users_collection.find({ 'life.deletedTime': null }).toArray();
+
+        if (requester?.type === enumUserTypes.ADMIN) {
+            return includeDeleted ? await this.db.collections.users_collection.find({}).toArray() : await this.db.collections.users_collection.find({ 'life.deletedTime': null }).toArray();
+        } else {
+            // we return users who share files to this user
+            const userIds = Array.from(new Set((await this.db.collections.drives_collection.find({ 'sharedUsers.iid': requester?.id }).toArray()).map(el => el.managerId)));
+            return await this.db.collections.users_collection.find({ id: { $in: userIds } }).toArray();
+        }
     }
 
     /**
@@ -132,7 +139,7 @@ export class UserCore {
                 'User does not exist.'
             );
         }
-        return makeGenericReponse(user.id, true);
+        return makeGenericResponse(user.id, true);
     }
 
     /**
@@ -576,7 +583,7 @@ export class UserCore {
 
             await session.commitTransaction();
             await session.endSession();
-            return makeGenericReponse(userId, true, undefined, `User ${user.username} has been deleted.`);
+            return makeGenericResponse(userId, true, undefined, `User ${user.username} has been deleted.`);
         } catch (error) {
             // If an error occurred, abort the whole transaction and
             // undo any changes that might have happened
@@ -804,7 +811,7 @@ export class UserCore {
             }
         });
 
-        return makeGenericReponse(keyId, true, undefined, undefined);
+        return makeGenericResponse(keyId, true, undefined, undefined);
     }
 
     /**
@@ -844,7 +851,7 @@ export class UserCore {
             );
         }
 
-        return makeGenericReponse(resetPasswordRequest.id, true, undefined, undefined);
+        return makeGenericResponse(resetPasswordRequest.id, true, undefined, undefined);
     }
 
     public async processResetPasswordRequest(token: string, email: string, password: string) {
@@ -971,7 +978,7 @@ export class UserCore {
         if (!user || !user.email || !user.username) {
             /* even user is null. send successful response: they should know that a user doesn't exist */
             await new Promise(resolve => setTimeout(resolve, Math.random() * 6000));
-            return makeGenericReponse(email, false, undefined, 'User information is not correct.');
+            return makeGenericResponse(email, false, undefined, 'User information is not correct.');
         }
         /* send email to the DMP admin mailing-list */
         await this.mailer.sendMail(formatEmailRequestExpiryDatetoAdmin({
@@ -987,7 +994,7 @@ export class UserCore {
             username: user.username
         }));
 
-        return makeGenericReponse(email, true, undefined, 'Request successfully sent.');
+        return makeGenericResponse(email, true, undefined, 'Request successfully sent.');
     }
 
     /**
@@ -1021,7 +1028,7 @@ export class UserCore {
         if (!user) {
             /* even user is null. send successful response: they should know that a user doesn't exist */
             await new Promise(resolve => setTimeout(resolve, Math.random() * 6000));
-            return makeGenericReponse(undefined, true, undefined, enumCoreErrors.UNQUALIFIED_ERROR);
+            return makeGenericResponse(undefined, true, undefined, enumCoreErrors.UNQUALIFIED_ERROR);
         }
 
         if (forgotPassword) {
@@ -1051,7 +1058,7 @@ export class UserCore {
                 username: user.username ?? ''
             }));
         }
-        return makeGenericReponse(user.id, true, undefined, 'Request of resetting password successfully sent.');
+        return makeGenericResponse(user.id, true, undefined, 'Request of resetting password successfully sent.');
     }
 
     /**
@@ -1140,7 +1147,7 @@ export class UserCore {
 
     public async logout(requester: IUserWithoutToken | undefined, req: Express.Request) {
         if (!requester) {
-            return makeGenericReponse(undefined, false, undefined, 'Requester not known.');
+            return makeGenericResponse(undefined, false, undefined, 'Requester not known.');
         }
         return new Promise((resolve) => {
             req.logout((err) => {
@@ -1151,7 +1158,7 @@ export class UserCore {
                         'Cannot log out. Please try again later.'
                     );
                 } else {
-                    resolve(makeGenericReponse(requester.id));
+                    resolve(makeGenericResponse(requester.id));
                 }
             });
         });
@@ -1245,7 +1252,7 @@ export class UserCore {
             attachments: attachments
         });
         tmpobj.removeCallback();
-        return makeGenericReponse();
+        return makeGenericResponse();
     }
 
     /**
@@ -1254,7 +1261,7 @@ export class UserCore {
      * @returns - IGenericResponse
      */
     public async recoverSessionExpireTime() {
-        return makeGenericReponse();
+        return makeGenericResponse();
     }
 
 

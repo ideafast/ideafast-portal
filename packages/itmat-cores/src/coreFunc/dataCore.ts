@@ -1,13 +1,14 @@
-import { IField, enumDataTypes, ICategoricalOption, IValueVerifier, IGenericResponse, enumConfigType, defaultSettings, IAST, enumConditionOps, enumFileTypes, enumFileCategories, IFieldProperty, IFile, IData, enumASTNodeTypes, IRole, IStudyConfig, enumUserTypes, enumCoreErrors, IUserWithoutToken, CoreError, enumDataAtomicPermissions, enumDataTransformationOperation, enumCacheStatus, enumCacheType, FileUpload, enumStudyRoles } from '@itmat-broker/itmat-types';
+import { IField, enumDataTypes, ICategoricalOption, IValueVerifier, IGenericResponse, enumConfigType, defaultSettings, IAST, enumConditionOps, enumFileTypes, enumFileCategories, IFieldProperty, IFile, IData, enumASTNodeTypes, IRole, IStudyConfig, enumUserTypes, enumCoreErrors, IUserWithoutToken, CoreError, enumDataAtomicPermissions, enumDataTransformationOperation, enumCacheStatus, enumCacheType, FileUpload, enumStudyRoles, IDataSetSummary } from '@itmat-broker/itmat-types';
 import { v4 as uuid } from 'uuid';
 import { DBType } from '../database/database';
 import { FileCore } from './fileCore';
 import { PermissionCore } from './permissionCore';
-import { makeGenericReponse } from '../utils';
+import { makeGenericResponse, convertToBufferAndUpload, getJsonFileContents } from '../utils';
 import { UtilsCore } from './utilsCore';
 import { Filter } from 'mongodb';
 import { DataTransformationCore } from './transformationCore';
 import { Readable } from 'stream';
+import { ObjectStore } from '@itmat-broker/itmat-commons';
 
 type IDataTransformationClip = Record<string, unknown>;
 
@@ -48,12 +49,14 @@ type EditFieldInput = CreateFieldInput;
 
 export class DataCore {
     db: DBType;
+    objStore: ObjectStore;
     fileCore: FileCore;
     permissionCore: PermissionCore;
     utilsCore: UtilsCore;
     dataTransformationCore: DataTransformationCore;
-    constructor(db: DBType, fileCore: FileCore, permissionCore: PermissionCore, utilsCore: UtilsCore, dataTransformationCore: DataTransformationCore) {
+    constructor(db: DBType, objStore: ObjectStore, fileCore: FileCore, permissionCore: PermissionCore, utilsCore: UtilsCore, dataTransformationCore: DataTransformationCore) {
         this.db = db;
+        this.objStore = objStore;
         this.fileCore = fileCore;
         this.permissionCore = permissionCore;
         this.utilsCore = utilsCore;
@@ -374,7 +377,7 @@ export class DataCore {
             metadata: {}
         });
 
-        return makeGenericReponse(fieldInput.fieldId, true, undefined, `Field ${fieldInput.fieldId} has been edited.`);
+        return makeGenericResponse(fieldInput.fieldId, true, undefined, `Field ${fieldInput.fieldId} has been edited.`);
     }
 
     /**
@@ -449,7 +452,7 @@ export class DataCore {
             },
             metadata: {}
         });
-        return makeGenericReponse(fieldId, true, undefined, `Field ${fieldId} has been deleted.`);
+        return makeGenericResponse(fieldId, true, undefined, `Field ${fieldId} has been deleted.`);
     }
 
     /**
@@ -545,12 +548,12 @@ export class DataCore {
             counter++;
             const hasPermission = await this.permissionCore.checkFieldOrDataPermission(requester, studyId, dataClip, enumDataAtomicPermissions.WRITE);
             if (!hasPermission) {
-                response.push(makeGenericReponse(counter.toString(), false, enumCoreErrors.NO_PERMISSION_ERROR, enumCoreErrors.NO_PERMISSION_ERROR));
+                response.push(makeGenericResponse(counter.toString(), false, enumCoreErrors.NO_PERMISSION_ERROR, enumCoreErrors.NO_PERMISSION_ERROR));
                 continue;
             }
 
             if (!(dataClip.fieldId in availableFieldsMapping)) {
-                response.push(makeGenericReponse(counter.toString(), false, enumCoreErrors.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY, `Field ${dataClip.fieldId}: Field not found`));
+                response.push(makeGenericResponse(counter.toString(), false, enumCoreErrors.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY, `Field ${dataClip.fieldId}: Field not found`));
                 continue;
             }
 
@@ -561,7 +564,7 @@ export class DataCore {
                 parsedValue = studyConfig.defaultRepresentationForMissingValue;
             } else {
                 if (!(dataClip.fieldId in availableFieldsMapping)) {
-                    error = makeGenericReponse(counter.toString(), false, enumCoreErrors.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY, `Field ${dataClip.fieldId}: Field not found`);
+                    error = makeGenericResponse(counter.toString(), false, enumCoreErrors.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY, `Field ${dataClip.fieldId}: Field not found`);
                     response.push(error);
                     continue;
                 }
@@ -569,11 +572,11 @@ export class DataCore {
                 switch (field.dataType) {
                     case enumDataTypes.DECIMAL: {// decimal
                         if (typeof (dataClip.value) !== 'string') {
-                            error = makeGenericReponse(counter.toString(), false, enumCoreErrors.CLIENT_MALFORMED_INPUT, `Field ${dataClip.fieldId}: Cannot parse as decimal.`);
+                            error = makeGenericResponse(counter.toString(), false, enumCoreErrors.CLIENT_MALFORMED_INPUT, `Field ${dataClip.fieldId}: Cannot parse as decimal.`);
                             break;
                         }
                         if (!/^-?\d+(\.\d+)?$/.test(dataClip.value)) {
-                            error = makeGenericReponse(counter.toString(), false, enumCoreErrors.CLIENT_MALFORMED_INPUT, `Field ${dataClip.fieldId}: Cannot parse as decimal.`);
+                            error = makeGenericResponse(counter.toString(), false, enumCoreErrors.CLIENT_MALFORMED_INPUT, `Field ${dataClip.fieldId}: Cannot parse as decimal.`);
                             break;
                         }
                         parsedValue = parseFloat(dataClip.value);
@@ -581,11 +584,11 @@ export class DataCore {
                     }
                     case enumDataTypes.INTEGER: {// integer
                         if (typeof (dataClip.value) !== 'string') {
-                            error = makeGenericReponse(counter.toString(), false, enumCoreErrors.CLIENT_MALFORMED_INPUT, `Field ${dataClip.fieldId}: Cannot parse as integer.`);
+                            error = makeGenericResponse(counter.toString(), false, enumCoreErrors.CLIENT_MALFORMED_INPUT, `Field ${dataClip.fieldId}: Cannot parse as integer.`);
                             break;
                         }
                         if (!/^-?\d+$/.test(dataClip.value)) {
-                            error = makeGenericReponse(counter.toString(), false, enumCoreErrors.CLIENT_MALFORMED_INPUT, `Field ${dataClip.fieldId}: Cannot parse as integer.`);
+                            error = makeGenericResponse(counter.toString(), false, enumCoreErrors.CLIENT_MALFORMED_INPUT, `Field ${dataClip.fieldId}: Cannot parse as integer.`);
                             break;
                         }
                         parsedValue = parseInt(dataClip.value, 10);
@@ -593,20 +596,20 @@ export class DataCore {
                     }
                     case enumDataTypes.BOOLEAN: {// boolean
                         if (typeof (dataClip.value) !== 'string') {
-                            error = makeGenericReponse(counter.toString(), false, enumCoreErrors.CLIENT_MALFORMED_INPUT, `Field ${dataClip.fieldId}: Cannot parse as boolean.`);
+                            error = makeGenericResponse(counter.toString(), false, enumCoreErrors.CLIENT_MALFORMED_INPUT, `Field ${dataClip.fieldId}: Cannot parse as boolean.`);
                             break;
                         }
                         if (dataClip.value.toString().toLowerCase() === 'true' || dataClip.value.toString().toLowerCase() === 'false') {
                             parsedValue = dataClip.value.toLowerCase() === 'true';
                         } else {
-                            error = makeGenericReponse(counter.toString(), false, enumCoreErrors.CLIENT_MALFORMED_INPUT, `Field ${dataClip.fieldId}: Cannot parse as boolean.`);
+                            error = makeGenericResponse(counter.toString(), false, enumCoreErrors.CLIENT_MALFORMED_INPUT, `Field ${dataClip.fieldId}: Cannot parse as boolean.`);
                             break;
                         }
                         break;
                     }
                     case enumDataTypes.STRING: {
                         if (typeof (dataClip.value) !== 'string') {
-                            error = makeGenericReponse(counter.toString(), false, enumCoreErrors.CLIENT_MALFORMED_INPUT, `Field ${dataClip.fieldId}: Cannot parse as string.`);
+                            error = makeGenericResponse(counter.toString(), false, enumCoreErrors.CLIENT_MALFORMED_INPUT, `Field ${dataClip.fieldId}: Cannot parse as string.`);
                             break;
                         }
                         parsedValue = dataClip.value.toString();
@@ -614,12 +617,12 @@ export class DataCore {
                     }
                     case enumDataTypes.DATETIME: {
                         if (typeof (dataClip.value) !== 'string') {
-                            error = makeGenericReponse(counter.toString(), false, enumCoreErrors.CLIENT_MALFORMED_INPUT, `Field ${dataClip.fieldId}: Cannot parse as date. Value for date type must be in ISO format.`);
+                            error = makeGenericResponse(counter.toString(), false, enumCoreErrors.CLIENT_MALFORMED_INPUT, `Field ${dataClip.fieldId}: Cannot parse as date. Value for date type must be in ISO format.`);
                             break;
                         }
                         const matcher = /^(-?(?:[1-9][0-9]*)?[0-9]{4})-(1[0-2]|0[1-9])-(3[01]|0[1-9]|[12][0-9])T(2[0-3]|[01][0-9]):([0-5][0-9]):([0-5][0-9])(.[0-9]+)?(Z)?/;
                         if (!dataClip.value.match(matcher)) {
-                            error = makeGenericReponse(counter.toString(), false, enumCoreErrors.CLIENT_MALFORMED_INPUT, `Field ${dataClip.fieldId}: Cannot parse as date. Value for date type must be in ISO format.`);
+                            error = makeGenericResponse(counter.toString(), false, enumCoreErrors.CLIENT_MALFORMED_INPUT, `Field ${dataClip.fieldId}: Cannot parse as date. Value for date type must be in ISO format.`);
                             break;
                         }
                         parsedValue = dataClip.value.toString();
@@ -635,11 +638,11 @@ export class DataCore {
                     }
                     case enumDataTypes.CATEGORICAL: {
                         if (!(availableFieldsMapping[dataClip.fieldId].categoricalOptions)) {
-                            error = makeGenericReponse(counter.toString(), false, enumCoreErrors.CLIENT_MALFORMED_INPUT, `Field ${dataClip.fieldId}: Cannot parse as categorical, possible values not defined.`);
+                            error = makeGenericResponse(counter.toString(), false, enumCoreErrors.CLIENT_MALFORMED_INPUT, `Field ${dataClip.fieldId}: Cannot parse as categorical, possible values not defined.`);
                             break;
                         }
                         if (!((availableFieldsMapping[dataClip.fieldId].categoricalOptions as ICategoricalOption[]).map((el) => el.code).includes(dataClip.value?.toString()))) {
-                            error = makeGenericReponse(counter.toString(), false, enumCoreErrors.CLIENT_MALFORMED_INPUT, `Field ${dataClip.fieldId}: Cannot parse as categorical, value not in value list.`);
+                            error = makeGenericResponse(counter.toString(), false, enumCoreErrors.CLIENT_MALFORMED_INPUT, `Field ${dataClip.fieldId}: Cannot parse as categorical, value not in value list.`);
                             break;
                         } else {
                             parsedValue = dataClip.value?.toString();
@@ -647,7 +650,7 @@ export class DataCore {
                         break;
                     }
                     default: {
-                        error = makeGenericReponse(counter.toString(), false, enumCoreErrors.CLIENT_MALFORMED_INPUT, `Field ${dataClip.fieldId}: Invalid data Type.`);
+                        error = makeGenericResponse(counter.toString(), false, enumCoreErrors.CLIENT_MALFORMED_INPUT, `Field ${dataClip.fieldId}: Invalid data Type.`);
                         break;
                     }
                 }
@@ -664,13 +667,13 @@ export class DataCore {
                         }
                     }
                     if (resEach.every(el => !el)) {
-                        error = makeGenericReponse(counter.toString(), false, enumCoreErrors.CLIENT_MALFORMED_INPUT, `Field ${dataClip.fieldId} value ${parsedValue}: Failed to pass the verifier.`);
+                        error = makeGenericResponse(counter.toString(), false, enumCoreErrors.CLIENT_MALFORMED_INPUT, `Field ${dataClip.fieldId} value ${parsedValue}: Failed to pass the verifier.`);
                     }
                 }
                 if (field.properties) {
                     for (const property of field.properties) {
                         if (property.required && (!dataClip.properties || !dataClip.properties[property.name])) {
-                            error = makeGenericReponse(counter.toString(), false, enumCoreErrors.CLIENT_MALFORMED_INPUT, `Field ${dataClip.fieldId}: Property ${property.name} is required.`);
+                            error = makeGenericResponse(counter.toString(), false, enumCoreErrors.CLIENT_MALFORMED_INPUT, `Field ${dataClip.fieldId}: Property ${property.name} is required.`);
                             break;
                         }
                         if (property.verifier && dataClip.properties) {
@@ -686,7 +689,7 @@ export class DataCore {
                                 }
                             }
                             if (resEach.every(el => !el)) {
-                                error = makeGenericReponse(counter.toString(), false, enumCoreErrors.CLIENT_MALFORMED_INPUT, `Field ${dataClip.fieldId} value ${dataClip.properties[property.name]}: Property ${property.name} failed to pass the verifier.`);
+                                error = makeGenericResponse(counter.toString(), false, enumCoreErrors.CLIENT_MALFORMED_INPUT, `Field ${dataClip.fieldId} value ${dataClip.properties[property.name]}: Property ${property.name} failed to pass the verifier.`);
                             }
                         }
                     }
@@ -696,7 +699,7 @@ export class DataCore {
                 response.push(error);
                 continue;
             } else {
-                response.push(makeGenericReponse(counter.toString(), true, undefined, `Field ${dataClip.fieldId} value ${dataClip.value} successfully uploaded.`));
+                response.push(makeGenericResponse(counter.toString(), true, undefined, `Field ${dataClip.fieldId} value ${dataClip.value} successfully uploaded.`));
             }
 
             bulk.insert({
@@ -778,6 +781,7 @@ export class DataCore {
             availableDataVersions.push(...dataVersion);
         } else {
             availableDataVersions = (study.currentDataVersion === -1 ? [] : study.dataVersions.filter((__unused__el, index) => index <= study.currentDataVersion)).map(el => el.id);
+            availableDataVersions.push(null);
         }
         if (!fieldIds) {
             fieldIds = (await this.getStudyFields(requester, studyId, availableDataVersions)).map(el => el.fieldId);
@@ -796,7 +800,7 @@ export class DataCore {
             });
             const hashedInfo = await this.db.collections.cache_collection.find({ 'keyHash': hash, 'life.deletedTime': null, 'status': enumCacheStatus.INUSE }).sort({ 'life.createdTime': -1 }).limit(1).toArray();
             if (hashedInfo.length === 1 && !forceUpdate) {
-                return hashedInfo[0];
+                return getJsonFileContents(this.objStore, 'cache', hashedInfo[0].uri);
             } else {
                 // raw data by the permission
                 const data = await this.getDataByRoles(roles, studyId, availableDataVersions, fieldIds);
@@ -808,7 +812,7 @@ export class DataCore {
                 // data transformation if aggregation is provided
                 const transformed = aggregation ? this.dataTransformationCore.transformationAggregate(filteredData['raw'] as IDataTransformationClipArray, aggregation) : filteredData;
                 // write to minio and cache collection
-                const info = await this.convertToBufferAndUpload(transformed, uuid() + '.json', requester);
+                const info = await convertToBufferAndUpload(this.fileCore, requester, transformed);
                 const newHashInfo = {
                     id: uuid(),
                     keyHash: hash,
@@ -949,7 +953,7 @@ export class DataCore {
      * @param dataVersion - The list of data versions to return.
      * @returns IFile[] - The list of objects of IFile
      */
-    public async getStudyFiles(requester: IUserWithoutToken | undefined, studyId: string, selectedFieldIds?: string[], dataVersion?: string | null | Array<string | null>) {
+    public async getStudyFiles(requester: IUserWithoutToken | undefined, studyId: string, selectedFieldIds?: string[], dataVersion?: string | null | Array<string | null>, readable?: boolean, useCache?: boolean, forceUpdate?: boolean) {
         if (!requester) {
             throw new CoreError(
                 enumCoreErrors.NOT_LOGGED_IN,
@@ -979,35 +983,94 @@ export class DataCore {
                 'Study config not found.'
             );
         }
-        let fieldIds: string[] | undefined = selectedFieldIds;
-        let availableDataVersions: Array<string | null> = [];
-        if (dataVersion === null) {
-            availableDataVersions.push(null);
-        } else if (typeof dataVersion === 'string') {
-            availableDataVersions.push(dataVersion);
-        } else if (Array.isArray(dataVersion)) {
-            availableDataVersions.push(...dataVersion);
+
+        const readFiles = async () => {
+            let fieldIds: string[] | undefined = selectedFieldIds;
+            let availableDataVersions: Array<string | null> = [];
+            if (dataVersion === null) {
+                availableDataVersions.push(null);
+            } else if (typeof dataVersion === 'string') {
+                availableDataVersions.push(dataVersion);
+            } else if (Array.isArray(dataVersion)) {
+                availableDataVersions.push(...dataVersion);
+            } else {
+                availableDataVersions = (study.currentDataVersion === -1 ? [] : study.dataVersions.filter((__unused__el, index) => index <= study.currentDataVersion)).map(el => el.id);
+                availableDataVersions.push(null);
+            }
+            if (!fieldIds) {
+                fieldIds = (await this.getStudyFields(requester, studyId, availableDataVersions)).filter(el => el.dataType === enumDataTypes.FILE).map(el => el.fieldId);
+            } else {
+                const fields = await this.db.collections.field_dictionary_collection.find({ studyId: studyId, fieldId: { $in: fieldIds } }).toArray();
+                fieldIds = fields.filter(el => el.dataType === enumDataTypes.FILE).map(el => el.fieldId);
+            }
+            if (fieldIds.length === 0) {
+                return [];
+            }
+            const fileDataRecords = (await this.getData(
+                requester,
+                studyId,
+                fieldIds,
+                availableDataVersions,
+                undefined,
+                false
+            ))['raw'];
+            if (!Array.isArray(fileDataRecords)) {
+                return [];
+            }
+            const files = await this.db.collections.files_collection.find({ id: { $in: fileDataRecords.map(el => el.value) } }).toArray();
+            if (readable) {
+                const users = await this.db.collections.users_collection.find({}).toArray();
+                const edited = [...files];
+                for (const file of edited) {
+                    const user = users.find(el => el.id === file.life.createdUser);
+                    file.life.createdUser = user ? `${user.firstname} ${user.lastname}` : file.life.createdUser;
+                }
+                return edited;
+            } else {
+                return files;
+            }
+        };
+
+        if (useCache) {
+            const hash = this.utilsCore.computeHash({
+                query: 'getStudyFiles',
+                studyId: studyId,
+                roles: roles,
+                fieldIds: selectedFieldIds
+            });
+            const hashedInfo = await this.db.collections.cache_collection.find({ 'keyHash': hash, 'life.deletedTime': null, 'status': enumCacheStatus.INUSE }).sort({ 'life.createdTime': -1 }).limit(1).toArray();
+            // if hash is not found, generate the new summary and cache it
+            if (forceUpdate || !hashedInfo || hashedInfo.length === 0) {
+                const newFiles = await readFiles();
+                const info = await convertToBufferAndUpload(this.fileCore, requester, newFiles);
+                await this.db.collections.cache_collection.insertOne({
+                    id: uuid(),
+                    keyHash: hash,
+                    uri: info.uri,
+                    status: enumCacheStatus.INUSE,
+                    keys: {
+                        query: 'getStudyFiles',
+                        studyId: studyId,
+                        roles: roles,
+                        fieldIds: selectedFieldIds
+                    },
+                    type: enumCacheType.API,
+                    life: {
+                        createdTime: Date.now(),
+                        createdUser: requester.id,
+                        deletedTime: null,
+                        deletedUser: null
+                    },
+                    metadata: {}
+                });
+                return newFiles;
+            } else {
+                return (await getJsonFileContents(this.objStore, 'cache', hashedInfo[0].uri)) as unknown as IFile[];
+            }
         } else {
-            availableDataVersions = (study.currentDataVersion === -1 ? [] : study.dataVersions.filter((__unused__el, index) => index <= study.currentDataVersion)).map(el => el.id);
+            return await readFiles();
         }
-        if (!fieldIds) {
-            fieldIds = (await this.getStudyFields(requester, studyId, availableDataVersions)).filter(el => el.dataType === enumDataTypes.FILE).map(el => el.fieldId);
-        } else {
-            const fields = await this.db.collections.field_dictionary_collection.find({ studyId: studyId, fieldId: { $in: fieldIds } }).toArray();
-            fieldIds = fields.filter(el => el.dataType === enumDataTypes.FILE).map(el => el.fieldId);
-        }
-        const fileDataRecords = (await this.getData(
-            requester,
-            studyId,
-            fieldIds,
-            availableDataVersions,
-            undefined,
-            false
-        ))['raw'];
-        if (!Array.isArray(fileDataRecords)) {
-            return [];
-        }
-        return await this.db.collections.files_collection.find({ id: { $in: fileDataRecords.map(el => el.value) } }).toArray();
+
     }
 
 
@@ -1154,7 +1217,7 @@ export class DataCore {
             },
             metadata: {}
         });
-        return makeGenericReponse(undefined, undefined, undefined, 'Data deleted.');
+        return makeGenericResponse(undefined, undefined, undefined, 'Data deleted.');
     }
 
     /**
@@ -1213,6 +1276,10 @@ export class DataCore {
                 res[0].description ?? 'Failed to upload file.'
             );
         }
+
+        // invalidate the cache
+        await this.db.collections.cache_collection.updateMany({ 'keys.studyId': studyId, 'keys.query': 'getStudyFiles' }, { $set: { status: enumCacheStatus.OUTDATED } });
+
         return fileEntry;
     }
 
@@ -1221,10 +1288,12 @@ export class DataCore {
      * Admins can study managers can access this function.
      *
      * @param studyId - The id of the study.
+     * @param useCache - Whether to use the cached data.
+     * @param forceUpdate - Whether to force update the cache.
      *
      * @return Record<string, any> - The object of Record<string, any>
      */
-    public async getStudySummary(requester: IUserWithoutToken | undefined, studyId: string) {
+    public async getStudySummary(requester: IUserWithoutToken | undefined, studyId: string, useCache?: boolean, forceUpdate?: boolean) {
         if (!requester) {
             throw new CoreError(
                 enumCoreErrors.NOT_LOGGED_IN,
@@ -1233,39 +1302,141 @@ export class DataCore {
         }
 
         const roles = await this.permissionCore.getRolesOfUser(requester, requester.id, studyId);
-        if (requester.type !== enumUserTypes.ADMIN && roles.length === 0) {
+        if (requester.type !== enumUserTypes.ADMIN && roles.every(el => el.studyRole !== enumStudyRoles.STUDY_MANAGER)) {
             throw new CoreError(
                 enumCoreErrors.NO_PERMISSION_ERROR,
                 enumCoreErrors.NO_PERMISSION_ERROR
             );
         }
 
-        const numberOfDataLogs: number = await this.db.collections.data_collection.countDocuments({ studyId: studyId, dataVersion: { $ne: null } });
-        const numberOfAdds: number = await this.db.collections.data_collection.countDocuments({ studyId: studyId, value: { $ne: null }, dataVersion: { $ne: null } });
-        const numberOfDeletes: number = await this.db.collections.data_collection.countDocuments({ studyId: studyId, value: null, dataVersion: { $ne: null } });
+        const study = await this.db.collections.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null });
+        if (!study) {
+            throw new CoreError(
+                enumCoreErrors.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY,
+                'Study does not exist.'
+            );
+        }
 
-        const numberOfVersionedLogs: number = await this.db.collections.data_collection.countDocuments({ studyId: studyId, dataVersion: { $ne: null } });
-        const numberOfUnversionedLogs: number = await this.db.collections.data_collection.countDocuments({ studyId: studyId, dataVersion: null });
+        const generatedSummary = async () => {
+            const numberOfDataRecords: number = await this.db.collections.data_collection.countDocuments({ studyId: studyId });
+            const numberOfDataAdds: number = await this.db.collections.data_collection.countDocuments({ studyId: studyId, value: { $ne: null } });
+            const numberOfDataDeletes: number = await this.db.collections.data_collection.countDocuments({ studyId: studyId, value: null });
 
-        const numberOfUnversionedAdds: number = await this.db.collections.data_collection.countDocuments({ studyId: studyId, dataVersion: null, value: { $ne: null } });
-        const numberOfUnversionedDeletes: number = await this.db.collections.data_collection.countDocuments({ studyId: studyId, dataVersion: null, value: null });
+            const numberOfVersionedRecords: number = await this.db.collections.data_collection.countDocuments({ studyId: studyId, dataVersion: { $ne: null } });
+            const numberOfVersionedAdds: number = await this.db.collections.data_collection.countDocuments({ studyId: studyId, dataVersion: { $ne: null }, value: { $ne: null } });
+            const numberOfVersionedDeletes: number = await this.db.collections.data_collection.countDocuments({ studyId: studyId, dataVersion: { $ne: null }, value: null });
 
-        const numberOfSubjects: number = (await this.db.collections.data_collection.distinct('subjectId', { stuyId: studyId, dataVersion: { $ne: null } })).length;
-        const numberOfVisits: number = (await this.db.collections.data_collection.distinct('visitId', { stuyId: studyId, dataVersion: { $ne: null } })).length;
-        const numberOfFields: number = (await this.db.collections.field_dictionary_collection.distinct('fieldId', { studyId: studyId })).length;
+            const numberOfUnversionedRecords: number = await this.db.collections.data_collection.countDocuments({ studyId: studyId, dataVersion: null });
+            const numberOfUnversionedAdds: number = await this.db.collections.data_collection.countDocuments({ studyId: studyId, dataVersion: null, value: { $ne: null } });
+            const numberOfUnversionedDeletes: number = await this.db.collections.data_collection.countDocuments({ studyId: studyId, dataVersion: null, value: null });
 
-        return {
-            numberOfDataLogs: numberOfDataLogs,
-            numberOfAdds: numberOfAdds,
-            numberOfDeletes: numberOfDeletes,
-            numberOfVersionedLogs: numberOfVersionedLogs,
-            numberOfUnversionedLogs: numberOfUnversionedLogs,
-            numberOfUnversionedAdds: numberOfUnversionedAdds,
-            numberOfUnversionedDeletes: numberOfUnversionedDeletes,
-            numberOfSubjects: numberOfSubjects,
-            numberOfVisits: numberOfVisits,
-            numberOfFields: numberOfFields
+            const numberOfFields: number = (await this.db.collections.field_dictionary_collection.distinct('fieldId', { studyId: studyId })).length;
+            const numberOfVersionedFields: number = (await this.db.collections.field_dictionary_collection.distinct('fieldId', { studyId: studyId, dataVersion: { $ne: null } })).length;
+            const numberOfUnversionedFields: number = (await this.db.collections.field_dictionary_collection.distinct('fieldId', { studyId: studyId, dataVersion: null })).length;
+
+            const dataByUploaders = await this.db.collections.data_collection.aggregate<{ userId: string, count: number }>([
+                { $match: { studyId: studyId } },
+                {
+                    $group: {
+                        _id: '$life.createdUser',
+                        count: { $sum: 1 }
+                    }
+                },
+                {
+                    $project: {
+                        _id: 0,
+                        userId: '$_id',
+                        count: 1
+                    }
+                }
+            ]).toArray();
+
+            const events = ['GET_DATA_RECORDS', 'GET_STUDY_FIELDS', 'GET_STUDY', 'data.getStudyFields',
+                'data.getStudyData', 'data.getStudyDataLatest', 'data.getFiles'
+            ];
+
+            const dataByUsers = await this.db.collections.log_collection.aggregate<{ userId: string, count: number }>([
+                {
+                    $match: {
+                        'parameters.studyId': studyId,
+                        'event': {
+                            $in: events
+                        }
+                    }
+                },
+                {
+                    $group: {
+                        _id: '$requester',
+                        count: { $sum: 1 }
+                    }
+                },
+                {
+                    $project: {
+                        _id: 0,
+                        userId: '$_id',
+                        count: 1
+                    }
+                }
+            ]).toArray();
+
+            return {
+                numberOfDataRecords: numberOfDataRecords,
+                numberOfDataAdds: numberOfDataAdds,
+                numberOfDataDeletes: numberOfDataDeletes,
+
+                numberOfVersionedRecords: numberOfVersionedRecords,
+                numberOfVersionedAdds: numberOfVersionedAdds,
+                numberOfVersionedDeletes: numberOfVersionedDeletes,
+
+                numberOfUnversionedRecords: numberOfUnversionedRecords,
+                numberOfUnversionedAdds: numberOfUnversionedAdds,
+                numberOfUnversionedDeletes: numberOfUnversionedDeletes,
+
+                numberOfFields: numberOfFields,
+                numberOfVersionedFields: numberOfVersionedFields,
+                numberOfUnversionedFields: numberOfUnversionedFields,
+
+                dataByUploaders: dataByUploaders,
+                dataByUsers: dataByUsers
+            };
         };
+
+        if (useCache) {
+            const hash = this.utilsCore.computeHash({
+                query: 'getStudySummary',
+                dataVersion: study.currentDataVersion,
+                studyId: studyId
+            });
+            const hashedInfo = await this.db.collections.cache_collection.find({ 'keyHash': hash, 'life.deletedTime': null, 'status': enumCacheStatus.INUSE }).sort({ 'life.createdTime': -1 }).limit(1).toArray();
+            // if hash is not found, generate the new summary and cache it
+            if (forceUpdate || !hashedInfo || hashedInfo.length === 0) {
+                const newStudySummary = await generatedSummary();
+                const info = await convertToBufferAndUpload(this.fileCore, requester, newStudySummary);
+                await this.db.collections.cache_collection.insertOne({
+                    id: uuid(),
+                    keyHash: hash,
+                    uri: info.uri,
+                    status: enumCacheStatus.INUSE,
+                    keys: {
+                        query: 'getStudySummary',
+                        studyId: studyId
+                    },
+                    type: enumCacheType.API,
+                    life: {
+                        createdTime: Date.now(),
+                        createdUser: requester.id,
+                        deletedTime: null,
+                        deletedUser: null
+                    },
+                    metadata: {}
+                });
+                return newStudySummary;
+            } else {
+                return (await getJsonFileContents(this.objStore, 'cache', hashedInfo[0].uri)) as unknown as IDataSetSummary;
+            }
+        } else {
+            return await generatedSummary() as IDataSetSummary;
+        }
     }
 
     /* TODO: Data Transformation */

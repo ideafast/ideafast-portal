@@ -467,8 +467,8 @@ if (global.hasMinio) {
             const response = await user.get('/trpc/user.getUsers?input=' + encodeQueryParams(paramteres))
                 .query({
                 });
-            expect(response.status).toBe(400);
-            expect(response.body.error.message).toBe(errorCodes.NO_PERMISSION_ERROR);
+            expect(response.status).toBe(200);
+            expect(response.body.result.data).toHaveLength(0);
         });
     });
 } else {

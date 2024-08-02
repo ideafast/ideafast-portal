@@ -54,7 +54,7 @@ export class UserRouter {
              * @return IGenericResponse - The obejct of IGenericResponse.
              */
             recoverSessionExpireTime: this.baseProcedure.query(() => {
-                return;
+                return null;
             }),
             /**
              * Validate the token from the reset password request.

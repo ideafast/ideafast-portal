@@ -1,16 +1,16 @@
 import { FunctionComponent } from 'react';
-import { LogSection } from './logList';
-import css from './logList.module.css';
+import { DomainSection } from './domains';
+import css from './domains.module.css';
 
-export const LogPage: FunctionComponent = () => {
+export const DomainPage: FunctionComponent = () => {
     return (
         <div className={css.page_container}>
-            <div className={css.user_list_section + ' page_section'}>
+            <div className={css.domain_list_section + ' page_section'}>
                 <div className='page_ariane'>
-                    Log History
+                    Domains
                 </div>
                 <div className='page_content'>
-                    <LogSection />
+                    <DomainSection />
                 </div>
             </div>
         </div>

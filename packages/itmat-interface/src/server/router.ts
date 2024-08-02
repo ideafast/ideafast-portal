@@ -265,25 +265,27 @@ export class Router {
                         if (associatedUser) {
                             req.user = associatedUser;
                         }
-                        const files = req.files || [];
-                        const transformedFiles: Record<string, z.infer<typeof FileUploadSchema>[]> = {};
+                        if (req.files && req.files.length > 0) {
+                            const files = req.files || [];
+                            const transformedFiles: Record<string, z.infer<typeof FileUploadSchema>[]> = {};
 
-                        for (const file of files) {
-                            if (!transformedFiles[file.fieldname]) {
-                                transformedFiles[file.fieldname] = [];
+                            for (const file of files) {
+                                if (!transformedFiles[file.fieldname]) {
+                                    transformedFiles[file.fieldname] = [];
+                                }
+                                const fileStream = new PassThrough();
+                                fileStream.end(file.buffer);
+
+                                transformedFiles[file.fieldname].push({
+                                    createReadStream: () => fileStream,
+                                    filename: file.originalname,
+                                    mimetype: file.mimetype,
+                                    encoding: file.encoding,
+                                    fieldName: file.fieldname
+                                });
                             }
-                            const fileStream = new PassThrough();
-                            fileStream.end(file.buffer);
-
-                            transformedFiles[file.fieldname].push({
-                                createReadStream: () => fileStream,
-                                filename: file.originalname,
-                                mimetype: file.mimetype,
-                                encoding: file.encoding,
-                                fieldName: file.fieldname
-                            });
+                            req.body.files = transformedFiles; // Attach the transformed files to the request body for later use
                         }
-                        req.body.files = transformedFiles; // Attach the transformed files to the request body for later use
                         next();
                     } catch (error) {
                         next(error);

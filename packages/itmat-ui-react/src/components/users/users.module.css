@@ -3,19 +3,57 @@
     grid-template-rows: 100%;
     display: grid;
     height: 100%;
+    grid-template-areas: "userList";
 }
 
-.timeBar {
-    height: 10px;
-    border-radius: 5px;
-    transition: width 0.3s;
+.col-item {
+    margin-bottom: 16px;
 }
 
-.chartWrapper {
-    width: 100%;
-    height: 100px;
+.card-container {
     position: relative;
+    display: flex;
+    max-width: 100%;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px;
+}
+
+.card-image {
+    object-fit: contain;
+    width: 100%;
+    height: 70%;
+}
+
+.card-meta {
+    position: absolute;
+    bottom: 20px;
+    width: 100%;
+    text-align: center;
     overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.card-meta:hover {
+    cursor: pointer;
+}
+
+.row-container {
+    width: 100%;
+    /* Add this line */
+    box-sizing: border-box;
+    /* Add this line */
+}
+
+.col-item {
+    padding: 0 8px;
+    /* Half of gutter width */
+    margin-bottom: 16px;
+    box-sizing: border-box;
+    /* Add this line */
 }
 
 .overview-header {

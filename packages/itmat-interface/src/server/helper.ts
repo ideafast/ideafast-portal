@@ -28,7 +28,7 @@ export class APICalls {
         this.utilsCore = new UtilsCore();
         this.dataTransformationCore = new DataTransformationCore(this.utilsCore);
         this.studyCore = new StudyCore(db, objStore, this.permissionCore, this.fileCore);
-        this.dataCore = new DataCore(db, this.fileCore, this.permissionCore, this.utilsCore, this.dataTransformationCore);
+        this.dataCore = new DataCore(db, objStore, this.fileCore, this.permissionCore, this.utilsCore, this.dataTransformationCore);
         this.userCore = new UserCore(db, mailer, configManager, objStore);
         this.organisationCore = new OrganisationCore(db, this.fileCore);
         this.logCore = new LogCore(db);
