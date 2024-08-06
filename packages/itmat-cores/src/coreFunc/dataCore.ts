@@ -800,7 +800,7 @@ export class DataCore {
             });
             const hashedInfo = await this.db.collections.cache_collection.find({ 'keyHash': hash, 'life.deletedTime': null, 'status': enumCacheStatus.INUSE }).sort({ 'life.createdTime': -1 }).limit(1).toArray();
             if (hashedInfo.length === 1 && !forceUpdate) {
-                return getJsonFileContents(this.objStore, 'cache', hashedInfo[0].uri);
+                return await getJsonFileContents(this.objStore, 'cache', hashedInfo[0].uri);
             } else {
                 // raw data by the permission
                 const data = await this.getDataByRoles(roles, studyId, availableDataVersions, fieldIds);
@@ -836,7 +836,7 @@ export class DataCore {
                     metadata: {}
                 };
                 await this.db.collections.cache_collection.insertOne(newHashInfo);
-                return newHashInfo;
+                return transformed;
             }
         } else {
             // raw data by the permission

@@ -825,7 +825,6 @@ if (global.hasMinio) {
                 await db.collections.field_dictionary_collection.deleteMany({});
                 await db.collections.files_collection.deleteMany({});
                 await db.collections.roles_collection.deleteMany({});
-                await db.collections.projects_collection.deleteMany({});
                 await db.collections.configs_collection.deleteMany({});
             });
 
@@ -1694,7 +1693,9 @@ if (global.hasMinio) {
                         }]
                     }
                 });
+
                 await db.collections.configs_collection.insertOne({
+                    id: uuid(),
                     type: enumConfigType.STUDYCONFIG,
                     key: createdStudy.id,
                     properties: {
@@ -1709,14 +1710,16 @@ if (global.hasMinio) {
                         defaultStudyProfile: null,
                         defaultMaximumFileSize: 8 * 1024 * 1024 * 1024, // 8 GB,
                         defaultRepresentationForMissingValue: '99999',
-                        defaultFileColumns: [],
-                        defaultFileColumnsPropertyColor: 'black',
-                        defaultFileDirectoryStructure: {
-                            pathLabels: [],
-                            description: null
-                        },
+                        defaultFileBlocks: [],
                         defaultVersioningKeys: []
-                    }
+                    },
+                    life: {
+                        createdTime: Date.now(),
+                        createdUser: enumReservedUsers.SYSTEM,
+                        deletedTime: null,
+                        deletedUser: null
+                    },
+                    metadata: {}
                 });
             });
 
@@ -1728,7 +1731,6 @@ if (global.hasMinio) {
                 await db.collections.users_collection.deleteMany({});
                 await db.collections.files_collection.deleteMany({});
                 await db.collections.roles_collection.deleteMany({});
-                await db.collections.projects_collection.deleteMany({});
             });
 
             beforeEach(async () => {

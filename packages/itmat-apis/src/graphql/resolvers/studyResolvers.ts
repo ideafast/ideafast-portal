@@ -5,7 +5,8 @@ import {
     IQueryString,
     IGenericResponse,
     CoreError,
-    IGroupedData
+    IGroupedData,
+    IData
 } from '@itmat-broker/itmat-types';
 import { DBType, GraphQLErrorDecroator, DataCore, PermissionCore, StudyCore, V2CreateFieldInput, V2EditFieldInput, convertV2CreateFieldInputToV3, convertV2DataClipInputToV3, convertV2EditFieldInputToV3, convertV3FieldToV2Field } from '@itmat-broker/itmat-cores';
 import { DMPResolversMap } from './context';
@@ -71,7 +72,7 @@ export class StudyResolvers {
 
     async getDataRecords(_parent, { studyId, queryString, versionId }: { queryString: IQueryString, studyId: string, versionId: string | null | undefined }, context) {
         try {
-            const result = (await this.dataCore.getData(context.req.user, studyId, queryString.data_requested, versionId))['raw'];
+            const result = (await this.dataCore.getData(context.req.user, studyId, queryString.data_requested, versionId))['raw'] as unknown as IData[] & { properties: { m_subjectId: string, m_visitId: string }, fieldId: string, value: string }[];
             const groupedResult: IGroupedData = {};
             for (let i = 0; i < result.length; i++) {
                 const { m_subjectId, m_visitId } = result[i].properties;

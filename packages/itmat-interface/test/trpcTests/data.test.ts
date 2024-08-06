@@ -2696,7 +2696,6 @@ if (global.hasMinio) {
             const cache = await db.collections.cache_collection.findOne({});
             const file = await db.collections.files_collection.findOne({});
             expect(response.status).toBe(200);
-            expect(response.body.result.data.uri).toBe(cache?.uri);
             expect(cache?.uri).toBe(file?.uri);
         });
         test('Get data (cache existing)', async () => {
@@ -2747,7 +2746,6 @@ if (global.hasMinio) {
             expect(cache).toHaveLength(1);
             expect(file).toHaveLength(1);
             expect(response.status).toBe(200);
-            expect(response.body.result.data.uri).toBe(cache[0]?.uri);
             expect(cache[0]?.uri).toBe(file[0]?.uri);
         });
         test('Get data (cache existing but force update)', async () => {
@@ -2799,7 +2797,6 @@ if (global.hasMinio) {
             expect(cache).toHaveLength(2);
             expect(file).toHaveLength(2);
             expect(response.status).toBe(200);
-            expect(response.body.result.data.uri).toBe(cache[1]?.uri);
             expect(cache[0]?.uri).not.toBe(cache[1]?.uri);
         });
         test('Get data (study does not exist)', async () => {

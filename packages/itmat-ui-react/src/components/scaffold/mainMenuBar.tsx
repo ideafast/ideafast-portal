@@ -2,7 +2,7 @@ import { FunctionComponent } from 'react';
 import { NavLink } from 'react-router-dom';
 import { enumUserTypes } from '@itmat-broker/itmat-types';
 import css from './scaffold.module.css';
-import { DatabaseOutlined, TeamOutlined, PoweroffOutlined, HistoryOutlined, SettingOutlined, DesktopOutlined, WarningTwoTone, CloudOutlined, ApartmentOutlined } from '@ant-design/icons';
+import { DatabaseOutlined, TeamOutlined, PoweroffOutlined, HistoryOutlined, SettingOutlined, DesktopOutlined, WarningTwoTone, CloudOutlined, ApartmentOutlined, ClusterOutlined } from '@ant-design/icons';
 import LoadSpinner from '../reusable/loadSpinner';
 import dayjs from 'dayjs';
 import { Tooltip } from 'antd';
@@ -50,8 +50,15 @@ export const MainMenuBar: FunctionComponent = () => {
         }
         {(whoAmI.data.type === enumUserTypes.ADMIN) ?
             <div>
-                <NavLink to='/domains' title='Configs' className={({ isActive }) => isActive ? css.clickedButton : undefined}>
+                <NavLink to='/domains' title='Domains' className={({ isActive }) => isActive ? css.clickedButton : undefined}>
                     <div className={css.button}><ApartmentOutlined /> Domains</div>
+                </NavLink>
+            </div> : null
+        }
+        {(whoAmI.data.type === enumUserTypes.ADMIN) ?
+            <div>
+                <NavLink to='/organisations' title='Organisations' className={({ isActive }) => isActive ? css.clickedButton : undefined}>
+                    <div className={css.button}><ClusterOutlined /> Organisations</div>
                 </NavLink>
             </div> : null
         }

@@ -268,9 +268,6 @@ export class StudyCore {
         /* delete the study */
         await this.db.collections.studies_collection.findOneAndUpdate({ 'id': studyId, 'life.deletedTime': null }, { $set: { 'life.deletedTime': timestamp, 'life.deletedUser': requester } });
 
-        /* delete all projects related to the study */
-        await this.db.collections.projects_collection.updateMany({ 'studyId': studyId, 'life.deletedTime': null }, { $set: { 'life.deletedTime': timestamp, 'life.deletedUser': requester } });
-
         /* delete all roles related to the study */
         // await this.localPermissionCore.removeRoleFromStudyOrProject({ studyId });
 
