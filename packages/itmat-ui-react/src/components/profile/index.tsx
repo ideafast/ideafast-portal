@@ -3,6 +3,7 @@ import { ProfileManagementSection } from './profile';
 import css from './profile.module.css';
 import { Divider } from 'antd';
 import { MyKeys } from './keys';
+import {MyWebauthn} from './webauthn';
 
 export const ProfilePage: FunctionComponent = () => {
     return (
@@ -10,6 +11,8 @@ export const ProfilePage: FunctionComponent = () => {
             <ProfileManagementSection />
             <Divider />
             <MyKeys />
+            <Divider />
+            <MyWebauthn />
         </div>
     );
 };

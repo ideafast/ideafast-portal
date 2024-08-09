@@ -1323,7 +1323,7 @@ function formatEmailForFogettenUsername({ config, username, to }: { config: ICon
     });
 }
 
-function formatEmailRequestExpiryDatetoClient({ config, username, to }: { config: IConfiguration, username: string, to: string }) {
+export function formatEmailRequestExpiryDatetoClient({ config, username, to }: { config: IConfiguration, username: string, to: string }) {
     return ({
         from: `${config.appName} <${config.nodemailer.auth.user}>`,
         to,
@@ -1344,7 +1344,7 @@ function formatEmailRequestExpiryDatetoClient({ config, username, to }: { config
     });
 }
 
-function formatEmailRequestExpiryDatetoAdmin({ config, username, userEmail }: { config: IConfiguration, username: string, userEmail: string }) {
+export function formatEmailRequestExpiryDatetoAdmin({ config, username, userEmail }: { config: IConfiguration, username: string, userEmail: string }) {
     return ({
         from: `${config.appName} <${config.nodemailer.auth.user}>`,
         to: `${config.adminEmail}`,

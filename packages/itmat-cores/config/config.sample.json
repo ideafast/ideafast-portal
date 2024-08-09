@@ -51,5 +51,6 @@
     "adminEmail": "admin@example.com",
     "aeEndpoint": "http://localhost:9090",
     "useWebdav": true,
-    "webdavPort": 1900
+    "webdavPort": 1900,
+    "webauthnOrigin": "http://localhost:3333"
 }

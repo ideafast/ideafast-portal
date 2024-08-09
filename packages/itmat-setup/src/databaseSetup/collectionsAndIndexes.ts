@@ -134,6 +134,13 @@ const collections = {
         indexes: [
             { key: { id: 1 }, unique: true }
         ]
+    },
+    webauthn_collection: {
+        name: 'WEBAUTHN_COLLECTION',
+        indexes: [
+            { key: { id: 1 }, unique: true },
+            { key: { userId: 1 }, unique: false }
+        ]
     }
 };
 

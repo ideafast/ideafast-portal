@@ -18,6 +18,7 @@ export interface IConfiguration extends IServerConfig {
     aeEndpoint: string;
     useWebdav: boolean;
     webdavPort: number;
+    webauthnOrigin: string;
 }
 
 export class ConfigurationManager {

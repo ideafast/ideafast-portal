@@ -1,6 +1,6 @@
-import { ConfigRouter, DataRouter, DomainRouter, DriveRouter, FileResolvers, GraphQLResolvers, JobResolvers, LogResolvers, LogRouter, OrganisationResolvers, OrganisationRouter, PermissionResolvers, PubkeyResolvers, RoleRouter, StandardizationResolvers, StudyResolvers, StudyRouter, TRPCAggRouter, UserResolvers, UserRouter, tRPCBaseProcedureMilldeware } from '@itmat-broker/itmat-apis';
+import { ConfigRouter, DataRouter, DomainRouter, DriveRouter, FileResolvers, GraphQLResolvers, JobResolvers, LogResolvers, LogRouter, OrganisationResolvers, OrganisationRouter, PermissionResolvers, PubkeyResolvers, RoleRouter, StandardizationResolvers, StudyResolvers, StudyRouter, TRPCAggRouter, UserResolvers, UserRouter, tRPCBaseProcedureMilldeware, WebAuthnRouter} from '@itmat-broker/itmat-apis';
 import { db } from '../database/database';
-import { ConfigCore, DataCore, DataTransformationCore, DomainCore, DriveCore, FileCore, LogCore, OrganisationCore, PermissionCore, StandarizationCore, StudyCore, UserCore, UtilsCore } from '@itmat-broker/itmat-cores';
+import { ConfigCore, DataCore, DataTransformationCore, DomainCore, DriveCore, FileCore, LogCore, OrganisationCore, PermissionCore, StandarizationCore, StudyCore, UserCore, UtilsCore, WebauthnCore } from '@itmat-broker/itmat-cores';
 import { objStore } from '../objStore/objStore';
 import { mailer } from '../emailer/emailer';
 import configManager from '../utils/configManager';
@@ -22,6 +22,7 @@ export class APICalls {
     driveCore: DriveCore;
     configCore: ConfigCore;
     domainCore: DomainCore;
+    webauthnCore: WebauthnCore;
     constructor() {
         this.permissionCore = new PermissionCore(db);
         this.fileCore = new FileCore(db, objStore);
@@ -36,6 +37,7 @@ export class APICalls {
         this.driveCore = new DriveCore(db, this.fileCore, objStore);
         this.configCore = new ConfigCore(db);
         this.domainCore = new DomainCore(db, this.fileCore);
+        this.webauthnCore = new WebauthnCore(db, mailer, configManager, objStore);
     }
 
     _listOfGraphqlResolvers() {
@@ -77,7 +79,8 @@ export class APICalls {
             new ConfigRouter(baseProcedure, router, this.configCore),
             new LogRouter(baseProcedure, router, this.logCore),
             new DomainRouter(baseProcedure, router, this.domainCore),
-            new OrganisationRouter(baseProcedure, router, this.organisationCore)
+            new OrganisationRouter(baseProcedure, router, this.organisationCore),
+            new WebAuthnRouter(baseProcedure, router, this.webauthnCore)
         ))._routers();
     }
 }
