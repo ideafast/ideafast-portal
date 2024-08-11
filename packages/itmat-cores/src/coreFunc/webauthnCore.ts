@@ -63,14 +63,12 @@ export class WebauthnCore {
      * @param webauthn_ids
      * @returns
      */
-
     public async getWebauthn(webauthn_ids: string[]) {
         if (webauthn_ids.length === 0) return [];
         const queryObj = {id: { $in: webauthn_ids } };
         const cursor = this.db.collections.webauthn_collection.find(queryObj, { projection: { _id: 0 } });
         return cursor.toArray();
     }
-
     /**
      *  get the registered webauthn device for a user.
      * @param user - The user.
@@ -82,7 +80,11 @@ export class WebauthnCore {
 
         return webauthnCursor?.devices ?? [];
     }
-
+    /**
+     *  get the webauthn id for a user.
+     * @param user  - The user.
+     * @returns     - The webauthn object.
+     */
     public async getUserWebAuthnID(user: IUser) {
 
         const webauthnCursor = await this.db.collections.webauthn_collection.findOne({ userId: user.id });
@@ -104,7 +106,10 @@ export class WebauthnCore {
         if (webAuthnData){
             const deviceIndex = webAuthnData.devices.findIndex(device => device.id === device_id);
             if (deviceIndex === -1) {
-                throw new Error('Device not found for deletion');
+                throw new CoreError(
+                    enumCoreErrors.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY,
+                    'Device does not exist.'
+                );
             }
             webAuthnData.devices.splice(deviceIndex, 1);
             await this.db.collections.webauthn_collection.updateOne({ userId: user.id }, { $set: { devices: webAuthnData.devices } });
@@ -207,7 +212,7 @@ export class WebauthnCore {
             const {verified, registrationInfo} = await verifyRegistrationResponse({
                 response: attestationResponse,
                 expectedChallenge: decodedString,
-                expectedOrigin: origin,
+                expectedOrigin: this.origin,
                 expectedRPID: this.rpID,
                 requireUserVerification: true
             });
@@ -243,7 +248,7 @@ export class WebauthnCore {
             }
             return makeGenericResponse(undefined, false);
         } catch (_error) {
-            Logger.error(_error);
+            Logger.error(`Error for registeration verify ${JSON.stringify(_error)}`);
             return makeGenericResponse(undefined, false);
         }
     }
@@ -329,11 +334,10 @@ export class WebauthnCore {
         }
 
         try {
-
             const verification = await verifyAuthenticationResponse({
                 response: assertionResponse,
                 expectedChallenge: decodedChallengeString,
-                expectedOrigin: origin,
+                expectedOrigin: this.origin,
                 expectedRPID: this.rpID,
                 authenticator: {
                     credentialPublicKey: device.credentialPublicKey.buffer as Uint8Array,
@@ -361,10 +365,11 @@ export class WebauthnCore {
                         'Failed to update authenticators.'
                     );
                 }
+                return makeGenericResponse(undefined, true);
             }
-            return makeGenericResponse(undefined, true);
+            return makeGenericResponse(undefined, false);
         } catch (_error) {
-            Logger.error(_error);
+            Logger.error(JSON.stringify(_error));
             return makeGenericResponse(undefined, false) ;
         }
 

@@ -22,7 +22,8 @@
             "cache_collection": "CACHE_COLLECTION",
             "drives_collection": "DRIVE_COLLECTION",
             "colddata_collection": "COLDDATA_COLLECTION",
-            "domains_collection": "DOMAIN_COLLECTION"
+            "domains_collection": "DOMAIN_COLLECTION",
+            "webauthn_collection": "WEBAUTHN_COLLECTION"
         }
     },
     "server": {
