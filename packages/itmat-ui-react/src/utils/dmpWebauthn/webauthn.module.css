@@ -14,7 +14,7 @@
     padding-bottom: 4rem;
 }
 
-.login_box [class*=ant-select] {
+.login_box [class*="ant-select"] {
     text-align: left;
 }
 
@@ -75,19 +75,16 @@
     max-width: 400px; /* set a maximum width */
     margin: 10% auto;
     padding-bottom: 10px;
-    
 }
 
 .primaryButton {
     display: flex;
     justify-content: center;
-    gap: 80px; 
-    margin-top: 10px; 
+    gap: 80px;
+    margin-top: 10px;
     margin-bottom: 0px;
     padding: 0;
 }
-
-
 
 .auth_modalContent {
     text-align: center;
@@ -103,7 +100,7 @@
     display: flex;
     justify-content: center;
     width: 100%;
-    margin-bottom: 10px; 
+    margin-bottom: 10px;
 }
 
 .authenticateButton {
