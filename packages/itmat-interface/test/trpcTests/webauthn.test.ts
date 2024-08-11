@@ -190,7 +190,7 @@ if (global.hasMinio) { // eslint-disable-line no-undef
             const paramteres = {
                 webauthn_ids: [webauthnId]
             };
-            const getWebauthnResponse = await user.get('/trpc/webauthn.getWebauthn?input=' + encodeURIComponent(JSON.stringify(paramteres)))
+            const getWebauthnResponse = await user.get('/trpc/webauthn.getWebauthn?input=' + encodeQueryParams(paramteres))
                 .query({});
 
             // Step 6: Validate the response
