@@ -50,8 +50,8 @@ export const DeviceNicknameModal: FunctionComponent = () => {
             okText="Save"
             cancelText="Later"
         >
-            <p>Pick a nickname that will help you identify it later.</p>
-            <p>For example, the name of your webauthn manager or account provider.</p>
+            <p>Pick a nickname that will help you identify this registerd device later.</p>
+            <p>For example, the name of your device or laptop.</p>
             <Input
                 value={deviceName}
                 onChange={(e) => setDeviceName(e.target.value)}

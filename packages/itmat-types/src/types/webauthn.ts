@@ -7,6 +7,7 @@
 
 import type { AuthenticatorDevice as OriginalAuthenticatorDevice} from '@simplewebauthn/types';
 import { IUser } from './user';
+import { IBase } from './base';
 
 // overwrite the AuthenticatorDevice type in simplewebauthn
 export type AuthenticatorDevice = Omit<OriginalAuthenticatorDevice, 'id' | 'name'> & {
@@ -15,8 +16,7 @@ export type AuthenticatorDevice = Omit<OriginalAuthenticatorDevice, 'id' | 'name
 };
 
 // include the credential
-export interface IWebAuthn{
-    id: string;
+export interface IWebAuthn extends IBase {
     userId: IUser['id'];
     username: IUser['username'];
     devices: AuthenticatorDevice[];

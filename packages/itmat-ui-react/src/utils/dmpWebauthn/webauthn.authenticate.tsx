@@ -31,29 +31,43 @@ export const WebAuthnAuthenticationComponent: FunctionComponent = () => {
     const { data: webauthn_users, isLoading: webAuthnLoading, error: webAuthnError } = trpc.webauthn.getWebauthn.useQuery({ webauthn_ids: webauthn_ids || [] });
 
     useEffect(() => {
-        if (webauthn_users && webauthn_users.length > 0) {
-            const modifiedUsers = webauthn_users.map(user => ({
-                id: String(user.userId),
-                username: String(user.username)
-            }));
+        if (webAuthnLoading || webAuthnError) return;
 
-            if (JSON.stringify(modifiedUsers) !== JSON.stringify(userList)) {
-                setUserList(modifiedUsers);
-                if (modifiedUsers.length === 1) {
-                    setSelectedUser(modifiedUsers[0]);
-                    setIsSelectingUser(false);
-                } else {
-                    setIsSelectingUser(true);
+
+        if (webauthn_users && webauthn_users.length > 0) {
+        // Filter users that have registered devices
+            const usersWithDevices = webauthn_users.filter(user => user.devices && user.devices.length > 0);
+
+            if (usersWithDevices.length > 0) {
+                const modifiedUsers = usersWithDevices.map(user => ({
+                    id: String(user.userId),
+                    username: String(user.username)
+                }));
+
+                if (JSON.stringify(modifiedUsers) !== JSON.stringify(userList)) {
+                    setUserList(modifiedUsers);
+                    if (modifiedUsers.length === 1) {
+                        setSelectedUser(modifiedUsers[0]);
+                        setIsSelectingUser(false);
+                    } else {
+                        setIsSelectingUser(true);
+                    }
                 }
+            } else {
+            // If no users have devices, clear credentials and cancel the authentication dialog
+                setUserList([]);
+                setSelectedUser(null);
+                setIsSelectingUser(false);
+                setCredentials([]); // Clear the credentials if no users have devices
+                handleCancelRegistration();
             }
         } else {
+        // If there are no users at all, clear everything and cancel the dialog
             setUserList([]);
             setSelectedUser(null);
             setIsSelectingUser(false);
-            if (!webAuthnLoading && !webAuthnError && webauthn_users.length === 0) {
-                setCredentials([]); // Clear the credentials if there are no webauthn users
-                handleCancelRegistration();
-            }
+            setCredentials([]);
+            handleCancelRegistration();
         }
     }, [setCredentials, webAuthnError, webAuthnLoading, webauthn_users]);
 

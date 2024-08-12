@@ -181,20 +181,24 @@ export const MyWebauthn: FunctionComponent = () => {
             <List
                 header={
                     <div className={css['overview-header']} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ display: 'flex', alignItems: 'center' }}>
-                            <div className={css['overview-icon']}></div>
-                            <div>WebAuthn Devices</div>
+                        <div className={css['overview-header']} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center' }}>
+                                <div className={css['overview-icon']}></div>
+                                <div>WebAuthn Devices</div>
+                            </div>
                         </div>
-                        <Button type="primary" onClick={handleNavigateToRegister}>
+                        <div>
+                            <Button type="primary" onClick={handleNavigateToRegister}>
                             Register New Device
-                        </Button>
+                            </Button>
+                        </div>
                     </div>
                 }
             >
                 <List.Item>
                     <div className={css.shared_container}>
                         {devices.length > 0 ? (
-                            <Table dataSource={devices} columns={columns} rowKey={(record: AuthenticatorDevice) => record.credentialID} />
+                            <Table style={{width: '100%'}} dataSource={devices} columns={columns} rowKey={(record: AuthenticatorDevice) => record.credentialID} />
                         ) : (
                             <p>No WebAuthn devices found for this user.</p>
                         )}

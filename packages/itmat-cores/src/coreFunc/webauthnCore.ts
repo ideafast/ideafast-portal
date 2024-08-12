@@ -148,7 +148,14 @@ export class WebauthnCore {
                 username: user.username,
                 devices: [],
                 challenge,
-                challengeTimestamp: Date.now()
+                challengeTimestamp: Date.now(),
+                life: {
+                    createdTime: Date.now(),
+                    createdUser: user.id,
+                    deletedTime: null,
+                    deletedUser: null
+                },
+                metadata: {}
             });
         }
 
