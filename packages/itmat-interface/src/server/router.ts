@@ -19,7 +19,7 @@ import { fileDownloadControllerInstance } from '../rest/fileDownload';
 import { BigIntResolver as scalarResolvers } from 'graphql-scalars';
 import { createProxyMiddleware, RequestHandler } from 'http-proxy-middleware';
 import qs from 'qs';
-import { FileUploadSchema, IUser } from '@itmat-broker/itmat-types';
+import { FileUploadSchema, IUser, enumConfigType } from '@itmat-broker/itmat-types';
 import { logPluginInstance } from '../log/logPlugin';
 import { IConfiguration, spaceFixing } from '@itmat-broker/itmat-cores';
 import { userLoginUtils } from '../utils/userLoginUtils';
@@ -50,6 +50,29 @@ export class Router {
         this.app.use(express.json({ limit: '50mb' }));
         this.app.use(express.urlencoded({ extended: true }));
 
+        this.app.use((req, res, next) => {
+            db.collections.configs_collection.findOne({
+                type: enumConfigType.SYSTEMCONFIG
+            })
+                .then(async () => {
+                    const availablePaths: string[] = (await db.collections.domains_collection.find({ 'life.deletedTime': null }).toArray()).map(el => el.domainPath);
+                    // Use a regular expression to match the first path segment after the initial '/'
+                    const pathMatch = req.url.match(/^\/([^/]+)/);
+                    // If there's a match and it's one of the known base paths, remove it from req.url
+                    if (pathMatch && availablePaths.includes(pathMatch[1])) {
+                        // Remove the matched segment from req.url
+                        req.url = req.url.substring(pathMatch[0].length);
+                        // Handle the special case where req.url becomes empty, which should default to '/'
+                        if (req.url === '') {
+                            req.url = '/';
+                        }
+                    }
+                    next();
+                })
+                .catch(err => {
+                    next(err);
+                });
+        });
 
         /* save persistent sessions in mongo */
         this.app.use(

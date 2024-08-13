@@ -199,8 +199,8 @@ export function convertV2DataClipInputToV3(dataclip: IDataClip[]) {
             fieldId: el.fieldId,
             value: el.value,
             properties: {
-                m_subjectId: el.subjectId,
-                m_visitId: el.visitId
+                subjectId: el.subjectId,
+                visitId: el.visitId
             }
         };
     });

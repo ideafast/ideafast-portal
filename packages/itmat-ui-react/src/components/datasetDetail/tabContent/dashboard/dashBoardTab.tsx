@@ -1,11 +1,11 @@
 import { FunctionComponent } from 'react';
 import css from './tabContent.module.css';
 import { trpc } from '../../../../utils/trpc';
-import { Button, Calendar, CalendarProps, Card, Col, Divider, Form, Input, List, Row, Statistic, message } from 'antd';
-import type { Dayjs } from 'dayjs';
+import { Button, Card, Col, Divider, Form, Input, List, Row, Statistic, message } from 'antd';
 import dayjs from 'dayjs';
 import { IDataSetSummary, IStudy } from '@itmat-broker/itmat-types';
-import { Pie } from '@ant-design/plots';
+import { ResponsivePieCanvas } from '@nivo/pie';
+import { ResponsiveCalendar } from '@nivo/calendar';
 
 export const DashboardTabContent: FunctionComponent<{ study: IStudy }> = ({ study }) => {
     const getStudyDataSummary = trpc.data.getStudyDataSummary.useQuery({ studyId: study.id, useCache: true });
@@ -81,26 +81,29 @@ export const MetaBlock: FunctionComponent<{ study: IStudy, dataSummary: IDataSet
 
     const totalUploaders = dataSummary.dataByUploaders.reduce((a, c) => a + c.count, 0);
 
-    const dataByUploaders: { name: string, percentage: number }[] = [{
-        name: 'Others',
-        percentage: 0
+    const dataByUploaders: { id: string, label: string, value: number }[] = [{
+        id: 'Others',
+        label: 'Others',
+        value: 0
     }];
     dataSummary.dataByUploaders.sort((a, b) => b.count - a.count).forEach((el, index) => {
         if (index < 10) {
             const user = getUsers.data.find(user => user.id === el.userId);
             dataByUploaders.push({
-                name: user ? `${user.firstname} ${user.lastname}` : 'Unknown',
-                percentage: el.count / totalUploaders
+                id: user ? `${user.firstname} ${user.lastname}` : 'Unknown',
+                label: user ? `${user.firstname} ${user.lastname}` : 'Unknown',
+                value: el.count / totalUploaders
             });
         } else {
-            dataByUploaders[0].percentage += el.count / totalUploaders;
+            dataByUploaders[0].value += el.count / totalUploaders;
         }
     });
-    dataByUploaders.forEach(el => el.percentage = parseFloat((el.percentage * 100).toFixed(2)));
+    dataByUploaders.forEach(el => el.value = parseFloat((el.value * 100).toFixed(2)));
 
-    const dataByUsers: { name: string, percentage: number }[] = [{
-        name: 'Others',
-        percentage: 0
+    const dataByUsers: { id: string, label: string, value: number }[] = [{
+        id: 'Others',
+        label: 'Others',
+        value: 0
     }];
 
     const totalUsers = dataSummary.dataByUsers.reduce((a, c) => a + c.count, 0);
@@ -108,14 +111,15 @@ export const MetaBlock: FunctionComponent<{ study: IStudy, dataSummary: IDataSet
         if (index < 10) {
             const user = getUsers.data.find(user => user.id === el.userId);
             dataByUsers.push({
-                name: user ? `${user.firstname} ${user.lastname}` : 'Unknown',
-                percentage: el.count / totalUsers
+                id: user ? `${user.firstname} ${user.lastname}` : 'Unknown',
+                label: user ? `${user.firstname} ${user.lastname}` : 'Unknown',
+                value: el.count / totalUsers
             });
         } else {
-            dataByUsers[0].percentage += el.count / totalUsers;
+            dataByUsers[0].value += el.count / totalUsers;
         }
     });
-    dataByUsers.forEach(el => el.percentage = parseFloat((el.percentage * 100).toFixed(2)));
+    dataByUsers.forEach(el => el.value = parseFloat((el.value * 100).toFixed(2)));
 
 
     return <div style={{ width: '100%' }}>
@@ -142,71 +146,99 @@ export const MetaBlock: FunctionComponent<{ study: IStudy, dataSummary: IDataSet
         </Row><br />
         <Row gutter={16}><br />
             <Col span={12}>
-                <Pie
-                    data={dataByUploaders}
-                    angleField={'percentage'}
-                    colorField={'name'}
-                    forceFit={true}
-                    legend={false}
-                    tooltip={{
-                        title: 'name'
-                    }}
-                    radius={0.6}
-                    innerRadius={0.3}
-                    annotations={[{
-                        type: 'text',
-                        style: {
-                            text: 'Producers',
-                            x: '50%',
-                            y: '50%',
-                            textAlign: 'center',
-                            fontSize: 20,
-                            fontStyle: 'bold'
-                        }
-                    }]}
-                    label={{
-                        visible: true,
-                        position: 'spider',
-                        formatter: (text, item) => {
-                            return item.name;
-                        }
-                    }}
-                />
+                <div className={css['pie-chart-container']}>
+                    <ResponsivePieCanvas
+                        data={dataByUploaders}
+                        margin={{ top: 40, right: 200, bottom: 40, left: 80 }}
+                        innerRadius={0.5}
+                        padAngle={0.7}
+                        cornerRadius={3}
+                        activeOuterRadiusOffset={8}
+                        colors={{ scheme: 'paired' }}
+                        borderColor={{
+                            from: 'color',
+                            modifiers: [
+                                [
+                                    'darker',
+                                    0.6
+                                ]
+                            ]
+                        }}
+                        arcLinkLabelsSkipAngle={10}
+                        arcLinkLabelsTextColor="#333333"
+                        arcLinkLabelsThickness={2}
+                        arcLinkLabelsColor={{ from: 'color' }}
+                        arcLabelsSkipAngle={10}
+                        arcLabelsTextColor="#333333"
+                        legends={[
+                            {
+                                anchor: 'right',
+                                direction: 'column',
+                                justify: false,
+                                translateX: 140,
+                                translateY: 0,
+                                itemsSpacing: 2,
+                                itemWidth: 60,
+                                itemHeight: 14,
+                                itemTextColor: '#999',
+                                itemDirection: 'left-to-right',
+                                itemOpacity: 1,
+                                symbolSize: 14,
+                                symbolShape: 'circle'
+                            }
+                        ]}
+                    />
+                    <div className={css['pie-chart-title']}>Producers</div>
+                </div>
             </Col>
             <Col span={12}>
-                <Pie
-                    data={dataByUsers}
-                    angleField={'percentage'}
-                    colorField={'name'}
-                    forceFit={true}
-                    legend={false}
-                    tooltip={{
-                        title: 'name'
-                    }}
-                    radius={0.6}
-                    innerRadius={0.3}
-                    annotations={[{
-                        type: 'text',
-                        style: {
-                            text: 'Consumers',
-                            x: '50%',
-                            y: '50%',
-                            textAlign: 'center',
-                            fontSize: 20,
-                            fontStyle: 'bold'
-                        }
-                    }]}
-                    label={{
-                        visible: true,
-                        position: 'spider',
-                        formatter: (text, item) => {
-                            return item.name;
-                        }
-                    }}
-                />
+                <div className={css['pie-chart-container']}>
+                    <ResponsivePieCanvas
+                        data={dataByUsers}
+                        margin={{ top: 40, right: 200, bottom: 40, left: 80 }}
+                        innerRadius={0.5}
+                        padAngle={0.7}
+                        cornerRadius={3}
+                        activeOuterRadiusOffset={8}
+                        colors={{ scheme: 'paired' }}
+                        borderColor={{
+                            from: 'color',
+                            modifiers: [
+                                [
+                                    'darker',
+                                    0.6
+                                ]
+                            ]
+                        }}
+                        arcLinkLabelsSkipAngle={10}
+                        arcLinkLabelsTextColor="#333333"
+                        arcLinkLabelsThickness={2}
+                        arcLinkLabelsColor={{ from: 'color' }}
+                        arcLabelsSkipAngle={10}
+                        arcLabelsTextColor="#333333"
+                        legends={[
+                            {
+                                anchor: 'right',
+                                direction: 'column',
+                                justify: false,
+                                translateX: 140,
+                                translateY: 0,
+                                itemsSpacing: 2,
+                                itemWidth: 60,
+                                itemHeight: 14,
+                                itemTextColor: '#999',
+                                itemDirection: 'left-to-right',
+                                itemOpacity: 1,
+                                symbolSize: 14,
+                                symbolShape: 'circle'
+                            }
+                        ]}
+                    />
+                    <div className={css['pie-chart-title']}>Consumers</div>
+                </div>
             </Col>
         </Row><br />
-    </div>;
+    </div >;
 };
 
 
@@ -220,38 +252,39 @@ export const DataVersionBlock: FunctionComponent<{ study: IStudy, dataSummary: I
             void message.error('Failed to create data version: ');
         }
     });
-    const compareDates = (dayjsObj, unixTimestamp, checkDay) => {
-        const unixDayjs = dayjs.unix(unixTimestamp / 1000);
-        return dayjsObj.year() === unixDayjs.year() &&
-            dayjsObj.month() === unixDayjs.month() &&
-            (!checkDay || dayjsObj.date() === unixDayjs.date());
-    };
 
-    const cellRender: CalendarProps<Dayjs>['cellRender'] = (current, info) => {
-        if (info.type === 'month') {
-            const listData: { version: string, date: string }[] = [];
-            for (let i = 0; i < study.dataVersions.length; i++) {
-                const dataVersion = study.dataVersions[i];
-                if (compareDates(current, dataVersion.life.createdTime, false)) {
-                    listData.push({ version: dataVersion.version, date: (new Date(dataVersion.life.createdTime)).toLocaleDateString() });
-                }
-            }
-            return (
-                <ul className="events">
-                    {listData.map((item) => (
-                        <li key={item.version}>
-                            <div style={{ backgroundColor: '#e0ffe0' }}>{`${item.version}    ${item.date}`}</div>
-                        </li>
-                    ))}
-                </ul>
-            );
-        }
-        return info.originNode;
-    };
-
+    const calendarDate = study.dataVersions.map(el => {
+        return {
+            day: dayjs.unix(el.life.createdTime / 1000).format('YYYY-MM-DD'),
+            value: 1
+        };
+    });
     return <div style={{ width: '100%' }}>
-        <div style={{ width: '50%', float: 'left' }}>
-            <Calendar cellRender={cellRender} mode='year' />
+        <div style={{ width: '50%', float: 'left', height: '500px' }}>
+            <ResponsiveCalendar
+                data={calendarDate}
+                from="2022-01-01"
+                to={dayjs().format('YYYY-MM-DD')}
+                emptyColor="#eeeeee"
+                colors={['#61cdbb', '#97e3d5', '#e8c1a0', '#f47560']}
+                margin={{ top: 40, right: 40, bottom: 40, left: 40 }}
+                yearSpacing={40}
+                monthBorderColor="#ffffff"
+                dayBorderWidth={2}
+                dayBorderColor="#ffffff"
+                legends={[
+                    {
+                        anchor: 'bottom-right',
+                        direction: 'row',
+                        translateY: 36,
+                        itemCount: 4,
+                        itemWidth: 42,
+                        itemHeight: 36,
+                        itemsSpacing: 14,
+                        itemDirection: 'right-to-left'
+                    }
+                ]}
+            />
         </div>
         <div style={{ width: '45%', float: 'right' }}>
             <Divider>Data Summaries</Divider>

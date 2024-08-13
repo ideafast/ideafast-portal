@@ -5,7 +5,8 @@ import { trpc } from '../../utils/trpc';
 import LoadSpinner from '../reusable/loadSpinner';
 import { ISystemConfig, IUserWithoutToken, enumConfigType } from '@itmat-broker/itmat-types';
 import css from './logList.module.css';
-import { Area } from '@ant-design/plots';
+import { ResponsiveTimeRange } from '@nivo/calendar';
+import dayjs from 'dayjs';
 
 type DailyCount = {
     dayIndex: number;
@@ -34,7 +35,7 @@ type LogsSummary = {
 };
 
 export const LogSection: FunctionComponent = () => {
-    const getLogs = trpc.log.getLogs.useQuery({});
+    const getLogs = trpc.log.getLogs.useQuery({ indexRange: [0, 1000] });
     const getUsers = trpc.user.getUsers.useQuery({});
     const getSystemConfig = trpc.config.getConfig.useQuery({ configType: enumConfigType.SYSTEMCONFIG, key: null, useDefault: true });
     const getLogsSummary = trpc.log.getLogsSummary.useQuery();
@@ -111,6 +112,7 @@ const generateEventStatisticsColumns = (barThreshold: number[]) => {
         title: 'Event',
         dataIndex: 'event',
         key: 'event',
+        width: '20%',
         render: (__unused__value, record) => {
             return record.event;
         }
@@ -118,6 +120,7 @@ const generateEventStatisticsColumns = (barThreshold: number[]) => {
         title: 'Number Calls',
         dataIndex: 'count',
         key: 'count',
+        width: '20%',
         sorter: (a, b) => a.count - b.count,
         render: (__unused__value, record) => {
             return record.count;
@@ -126,6 +129,7 @@ const generateEventStatisticsColumns = (barThreshold: number[]) => {
         title: 'Avg Time Consuming/ms',
         dataIndex: 'avgTimeConsumed',
         key: 'avgTimeConsumed',
+        width: '20%',
         sorter: (a, b) => a.avgTimeConsumed - b.avgTimeConsumed,
         render: (__unused__value, record) => {
             const value = Math.round(record.avgTimeConsumed * 100) / 100;
@@ -141,26 +145,25 @@ const generateEventStatisticsColumns = (barThreshold: number[]) => {
         title: 'Activity',
         dataIndex: 'activity',
         key: 'activity',
+        width: '40%',
         render: (__unused__value, record) => {
-            return (
-                <div className={css.chartWrapper}>
-                    <Area
-                        data={record.dailyCounts.map(rel => {
-                            return {
-                                dayIndex: (() => {
-                                    const targetDate = new Date();
-                                    targetDate.setDate(targetDate.getDate() + Math.round(rel.dayIndex));
-                                    return targetDate.toLocaleString('en-En', { month: 'numeric', day: 'numeric' });
-                                })(), count: rel.count
-                            };
-                        })}
-                        xField={'dayIndex'}
-                        yField="count"
-                        height={100}
-                        width={400}
-                    />
-                </div>
-            );
+            return <div style={{ height: '200px' }}>
+                <ResponsiveTimeRange
+                    data={record.dailyCounts.map(rel => {
+                        return {
+                            day: dayjs().add(rel.dayIndex, 'day').format('YYYY-MM-DD'),
+                            value: rel.count
+                        };
+                    })}
+                    from={dayjs().subtract(40, 'day').format('YYYY-MM-DD')}
+                    to={dayjs().format('YYYY-MM-DD')}
+                    emptyColor="#eeeeee"
+                    colors={['#61cdbb', '#97e3d5', '#e8c1a0', '#f47560']}
+                    margin={{ top: 40, right: 40, bottom: 100, left: 40 }}
+                    dayBorderWidth={2}
+                    dayBorderColor="#ffffff"
+                />
+            </div>;
         }
     }];
 };
@@ -170,6 +173,7 @@ const generateRequesterStatisticsColumns = (barThreshold: number[], users: IUser
         title: 'Requester',
         dataIndex: 'requester',
         key: 'requester',
+        width: '20%',
         render: (__unused__value, record) => {
             const user = users.filter(el => el.id === record.requester)[0];
             if (user) {
@@ -182,6 +186,7 @@ const generateRequesterStatisticsColumns = (barThreshold: number[], users: IUser
         title: 'Number Calls',
         dataIndex: 'count',
         key: 'count',
+        width: '20%',
         sorter: (a, b) => a.count - b.count,
         render: (__unused__value, record) => {
             return record.count;
@@ -190,6 +195,7 @@ const generateRequesterStatisticsColumns = (barThreshold: number[], users: IUser
         title: 'Avg Time Consuming/ms',
         dataIndex: 'avgTimeConsumed',
         key: 'avgTimeConsumed',
+        width: '20%',
         sorter: (a, b) => a.avgTimeConsumed - b.avgTimeConsumed,
         render: (__unused__value, record) => {
             const value = Math.round(record.avgTimeConsumed * 100) / 100;
@@ -205,26 +211,25 @@ const generateRequesterStatisticsColumns = (barThreshold: number[], users: IUser
         title: 'Activity',
         dataIndex: 'activity',
         key: 'activity',
+        width: '40%',
         render: (__unused__value, record) => {
-            return (
-                <div className={css.chartWrapper}>
-                    <Area
-                        data={record.dailyCounts.map(rel => {
-                            return {
-                                dayIndex: (() => {
-                                    const targetDate = new Date();
-                                    targetDate.setDate(targetDate.getDate() + Math.round(rel.dayIndex));
-                                    return targetDate.toLocaleString('en-En', { month: 'numeric', day: 'numeric' });
-                                })(), count: rel.count
-                            };
-                        })}
-                        xField="dayIndex"
-                        yField="count"
-                        height={100}
-                        width={400}
-                    />
-                </div>
-            );
+            return <div style={{ height: '200px' }}>
+                <ResponsiveTimeRange
+                    data={record.dailyCounts.map(rel => {
+                        return {
+                            day: dayjs().add(rel.dayIndex, 'day').format('YYYY-MM-DD'),
+                            value: rel.count
+                        };
+                    })}
+                    from={dayjs().subtract(40, 'day').format('YYYY-MM-DD')}
+                    to={dayjs().format('YYYY-MM-DD')}
+                    emptyColor="#eeeeee"
+                    colors={['#61cdbb', '#97e3d5', '#e8c1a0', '#f47560']}
+                    margin={{ top: 40, right: 40, bottom: 100, left: 40 }}
+                    dayBorderWidth={2}
+                    dayBorderColor="#ffffff"
+                />
+            </div>;
         }
     }];
 };

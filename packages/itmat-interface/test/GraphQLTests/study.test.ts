@@ -520,8 +520,8 @@ if (global.hasMinio) {
                             dataVersion: mockDataVersion.id,
                             value: 'male',
                             properties: {
-                                m_subjectId: 'mock_patient1',
-                                m_visitId: 'mockvisitId'
+                                subjectId: 'mock_patient1',
+                                visitId: 'mockvisitId'
                             },
                             life: {
                                 createdTime: 10000,
@@ -538,8 +538,8 @@ if (global.hasMinio) {
                             dataVersion: mockDataVersion.id,
                             value: 'England',
                             properties: {
-                                m_subjectId: 'mock_patient1',
-                                m_visitId: 'mockvisitId'
+                                subjectId: 'mock_patient1',
+                                visitId: 'mockvisitId'
                             },
                             life: {
                                 createdTime: 10001,
@@ -556,8 +556,8 @@ if (global.hasMinio) {
                             dataVersion: mockDataVersion.id,
                             value: 'female',
                             properties: {
-                                m_subjectId: 'mock_patient2',
-                                m_visitId: 'mockvisitId'
+                                subjectId: 'mock_patient2',
+                                visitId: 'mockvisitId'
                             },
                             life: {
                                 createdTime: 10002,
@@ -574,8 +574,8 @@ if (global.hasMinio) {
                             dataVersion: mockDataVersion.id,
                             value: 'France',
                             properties: {
-                                m_subjectId: 'mock_patient2',
-                                m_visitId: 'mockvisitId'
+                                subjectId: 'mock_patient2',
+                                visitId: 'mockvisitId'
 
                             },
                             life: {
@@ -630,10 +630,10 @@ if (global.hasMinio) {
                             dataType: enumDataTypes.STRING,
                             categoricalOptions: [],
                             properties: [{
-                                name: 'm_subjectId',
+                                name: 'subjectId',
                                 required: true
                             }, {
-                                name: 'm_visitId',
+                                name: 'visitId',
                                 required: true
                             }],
                             unit: 'person',
@@ -655,10 +655,10 @@ if (global.hasMinio) {
                             dataType: enumDataTypes.STRING,
                             categoricalOptions: [],
                             properties: [{
-                                name: 'm_subjectId',
+                                name: 'subjectId',
                                 required: true
                             }, {
-                                name: 'm_visitId',
+                                name: 'visitId',
                                 required: true
                             }],
                             unit: 'person',
@@ -1588,10 +1588,10 @@ if (global.hasMinio) {
                         dataType: enumDataTypes.INTEGER,
                         categoricalOptions: [],
                         properties: [{
-                            name: 'm_subjectId',
+                            name: 'subjectId',
                             required: true
                         }, {
-                            name: 'm_visitId',
+                            name: 'visitId',
                             required: true
                         }],
                         unit: 'person',
@@ -1613,10 +1613,10 @@ if (global.hasMinio) {
                         dataType: enumDataTypes.STRING,
                         categoricalOptions: [],
                         properties: [{
-                            name: 'm_subjectId',
+                            name: 'subjectId',
                             required: true
                         }, {
-                            name: 'm_visitId',
+                            name: 'visitId',
                             required: true
                         }],
                         unit: 'person',
@@ -1638,10 +1638,10 @@ if (global.hasMinio) {
                         dataType: enumDataTypes.FILE,
                         categoricalOptions: [],
                         properties: [{
-                            name: 'm_subjectId',
+                            name: 'subjectId',
                             required: true
                         }, {
-                            name: 'm_visitId',
+                            name: 'visitId',
                             required: true
                         }],
                         unit: 'person',
@@ -1941,6 +1941,8 @@ if (global.hasMinio) {
                         }
                     }
                 });
+                console.log(await db.collections.data_collection.find({}).toArray());
+                console.log(getRes.body.data.getDataRecords.data);
                 expect(getRes.status).toBe(200);
                 expect(getRes.body.errors).toBeUndefined();
                 expect(Object.keys(getRes.body.data.getDataRecords.data)).toHaveLength(2);

@@ -72,19 +72,19 @@ export class StudyResolvers {
 
     async getDataRecords(_parent, { studyId, queryString, versionId }: { queryString: IQueryString, studyId: string, versionId: string | null | undefined }, context) {
         try {
-            const result = (await this.dataCore.getData(context.req.user, studyId, queryString.data_requested, versionId))['raw'] as unknown as IData[] & { properties: { m_subjectId: string, m_visitId: string }, fieldId: string, value: string }[];
+            const result = (await this.dataCore.getData(context.req.user, studyId, queryString.data_requested, versionId))['raw'] as unknown as IData[] & { properties: { subjectId: string, visitId: string }, fieldId: string, value: string }[];
             const groupedResult: IGroupedData = {};
             for (let i = 0; i < result.length; i++) {
-                const { m_subjectId, m_visitId } = result[i].properties;
-                const m_fieldId = result[i].fieldId;
+                const { subjectId, visitId } = result[i].properties;
+                const fieldId = result[i].fieldId;
                 const value = result[i].value;
-                if (!groupedResult[m_subjectId]) {
-                    groupedResult[m_subjectId] = {};
+                if (!groupedResult[subjectId]) {
+                    groupedResult[subjectId] = {};
                 }
-                if (!groupedResult[m_subjectId][m_visitId]) {
-                    groupedResult[m_subjectId][m_visitId] = {};
+                if (!groupedResult[subjectId][visitId]) {
+                    groupedResult[subjectId][visitId] = {};
                 }
-                groupedResult[m_subjectId][m_visitId][m_fieldId] = value;
+                groupedResult[subjectId][visitId][fieldId] = value;
             }
             return {
                 data: groupedResult

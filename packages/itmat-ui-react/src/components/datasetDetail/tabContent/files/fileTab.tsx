@@ -262,9 +262,6 @@ export const FileBlock: FunctionComponent<{ user: IUserWithoutToken, fields: IFi
                 <div style={{ display: 'flex', alignItems: 'center' }}>
                     <div className={css['overview-icon']}></div>
                     <div>{block.title}</div>
-                    <div>
-                        <Input value={searchedKeyword} placeholder='Search' onChange={(e) => setSearchedKeyword(e.target.value)} />
-                    </div>
                 </div>
                 <div>
                     <UploadFileComponent study={study} fields={fields.filter(el => el.dataType === enumDataTypes.FILE)} />
@@ -272,6 +269,11 @@ export const FileBlock: FunctionComponent<{ user: IUserWithoutToken, fields: IFi
             </div>
         }
     >
+        <List.Item>
+            <div style={{ width: '100%' }}>
+                <Input value={searchedKeyword} placeholder='Search' onChange={(e) => setSearchedKeyword(e.target.value)} />
+            </div>
+        </List.Item>
         <List.Item>
             <div style={{ fontSize: '20px', width: '100%' }}>
                 <Table

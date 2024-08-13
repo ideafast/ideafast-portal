@@ -86,7 +86,7 @@ export const OrganisationListSection: FunctionComponent = () => {
                     <div className={css['overview-header']} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div style={{ display: 'flex', alignItems: 'center' }}>
                             <div className={css['overview-icon']}></div>
-                            <div>List of Domains</div>
+                            <div>List of Organisations</div>
                         </div>
                     </div>
                     <div>

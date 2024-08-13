@@ -249,13 +249,6 @@ export class DomainCore {
 
     public async getCurrentSubPath(opts) {
         const req = opts.ctx.req;
-
-        const referer = req.headers.referer as string | undefined;
-        let domain: string | null = null;
-        if (referer) {
-            const url = new URL(referer);
-            domain = url.hostname;
-        }
-        return domain ?? null;
+        return req.hostname ?? null;
     }
 }

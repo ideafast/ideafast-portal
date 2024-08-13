@@ -672,7 +672,7 @@ export class DataCore {
                 }
                 if (field.properties) {
                     for (const property of field.properties) {
-                        if (property.required && (!dataClip.properties || !dataClip.properties[property.name])) {
+                        if (property.required && (!dataClip.properties || dataClip.properties[property.name] === undefined)) {
                             error = makeGenericResponse(counter.toString(), false, enumCoreErrors.CLIENT_MALFORMED_INPUT, `Field ${dataClip.fieldId}: Property ${property.name} is required.`);
                             break;
                         }

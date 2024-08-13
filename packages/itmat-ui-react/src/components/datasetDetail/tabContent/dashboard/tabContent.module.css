@@ -6,7 +6,7 @@
 
 .page_container {
     grid-template-columns: 100% 0%;
-    grid-template-rows: 80%;
+    grid-template-rows: 100%;
     display: grid;
     height: 100%;
 }
@@ -43,4 +43,24 @@
     /* Style for your content */
     text-indent: 30px;
     /* Adjust the indent as needed */
+}
+
+.pie-chart-container {
+    height: 400px;
+    /* or any other appropriate height */
+    width: 100%;
+    position: relative;
+    /* Ensure the canvas doesn't overflow its container */
+}
+
+.pie-chart-title {
+    position: absolute;
+    top: 50%;
+    left: 40%;
+    transform: translate(-50%, -50%);
+    font-size: 24px;
+    font-weight: bold;
+    color: #333;
+    pointer-events: none;
+    /* Ensure the title doesn't interfere with mouse events */
 }

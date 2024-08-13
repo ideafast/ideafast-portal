@@ -12,7 +12,6 @@ const { TextArea } = Input;
 export const MyKeys: FunctionComponent = () => {
     const whoAmI = trpc.user.whoAmI.useQuery();
     const getUserKeys = trpc.user.getUserKeys.useQuery({ userId: whoAmI.data.id });
-    const issueAccessToken = trpc.user.issueAccessToken.useMutation();
     const deletePubkey = trpc.user.deletePubkey.useMutation({
         onSuccess: () => {
             void message.success('Key deleted.');
@@ -81,7 +80,7 @@ export const MyKeys: FunctionComponent = () => {
         dataIndex: 'tokenGeneration',
         key: 'value',
         render: (_, record) => {
-            return <TokenGenerationForm pubkey={record.pubkey} issueAccessToken={issueAccessToken} />;
+            return <TokenGenerationForm pubkey={record.pubkey} />;
         }
     }, {
         title: '',
@@ -212,22 +211,26 @@ const KeyGeneration: React.FunctionComponent<{ userId: string }> = ({ userId }) 
     );
 };
 
-const TokenGenerationForm = ({ pubkey, issueAccessToken }) => {
+const TokenGenerationForm = ({ pubkey }) => {
     const [form] = Form.useForm();
-
-    const onFormFinish = async (values) => {
-        try {
-            const data = await issueAccessToken.mutateAsync({ pubkey, signature: values.signature, life: values.life * 60 * 60 });
+    const issueAccessToken = trpc.user.issueAccessToken.useMutation({
+        onSuccess: (data) => {
+            void message.success('Token generated.');
             copy(data.accessToken);
-            void message.success('Token copied to clipboard');
-        } catch (error) {
-            console.error('Error generating token:', error);
-            void message.error('Failed to generate token');
+        },
+        onError: () => {
+            void message.error('Failed to generate token.');
         }
+    });
+
+    const handleGenerateClick = async () => {
+        const values = await form.validateFields();
+        issueAccessToken.mutate({ pubkey, signature: values.signature, life: values.life * 60 * 60 });
+
     };
 
     return (
-        <Form form={form} onFinish={() => void onFormFinish} layout="inline">
+        <Form form={form} layout="inline">
             <Form.Item
                 name="signature"
                 rules={[{ required: true, message: 'Signature is required' }]}
@@ -241,7 +244,14 @@ const TokenGenerationForm = ({ pubkey, issueAccessToken }) => {
                 <Input placeholder="Enter life in hours" />
             </Form.Item>
             <Form.Item>
-                <Button type="primary" htmlType="submit">
+                <Button
+                    type="primary"
+                    onClick={() => {
+                        void (async () => {
+                            await handleGenerateClick();
+                        })();
+                    }}
+                >
                     Gen
                 </Button>
             </Form.Item>

@@ -5,7 +5,7 @@ import css from './scaffold.module.css';
 import { DatabaseOutlined, TeamOutlined, PoweroffOutlined, HistoryOutlined, SettingOutlined, DesktopOutlined, WarningTwoTone, CloudOutlined, ApartmentOutlined, ClusterOutlined } from '@ant-design/icons';
 import LoadSpinner from '../reusable/loadSpinner';
 import dayjs from 'dayjs';
-import { Tooltip } from 'antd';
+import { Collapse, Tooltip } from 'antd';
 import { trpc } from '../../utils/trpc';
 
 export const MainMenuBar: FunctionComponent = () => {
@@ -28,40 +28,11 @@ export const MainMenuBar: FunctionComponent = () => {
     }
 
     return <div className={css.main_menubar}>
-
         <div>
             <NavLink to='/datasets' title='Datasets' className={({ isActive }) => isActive ? css.clickedButton : undefined}>
                 <div className={css.button}><DatabaseOutlined /> Datasets</div>
             </NavLink>
         </div>
-        {whoAmI.data.type === enumUserTypes.ADMIN ?
-            <div>
-                <NavLink to='/users' title='Users' className={({ isActive }) => isActive ? css.clickedButton : undefined}>
-                    <div className={css.button}><TeamOutlined /> Users</div>
-                </NavLink>
-            </div> : null
-        }
-        {(whoAmI.data.type === enumUserTypes.ADMIN || whoAmI.data.metadata?.logPermission) ?
-            <div>
-                <NavLink to='/logs' title='Logs' className={({ isActive }) => isActive ? css.clickedButton : undefined}>
-                    <div className={css.button}><HistoryOutlined /> Logs</div>
-                </NavLink>
-            </div> : null
-        }
-        {(whoAmI.data.type === enumUserTypes.ADMIN) ?
-            <div>
-                <NavLink to='/domains' title='Domains' className={({ isActive }) => isActive ? css.clickedButton : undefined}>
-                    <div className={css.button}><ApartmentOutlined /> Domains</div>
-                </NavLink>
-            </div> : null
-        }
-        {(whoAmI.data.type === enumUserTypes.ADMIN) ?
-            <div>
-                <NavLink to='/organisations' title='Organisations' className={({ isActive }) => isActive ? css.clickedButton : undefined}>
-                    <div className={css.button}><ClusterOutlined /> Organisations</div>
-                </NavLink>
-            </div> : null
-        }
         <div>
             <NavLink to='/profile' title='My account' className={({ isActive }) => isActive ? css.clickedButton : undefined}>
                 <div className={css.button}>
@@ -78,15 +49,45 @@ export const MainMenuBar: FunctionComponent = () => {
                 <div className={css.button}><CloudOutlined /> My Drive</div>
             </NavLink>
         </div>
-        {(whoAmI.data.type === enumUserTypes.ADMIN || whoAmI.data.metadata?.aePermission === true)
-            ? <div>
-                <NavLink to='/pun/sys/dashboard' target='_blank' title='Analytical Environment' className={({ isActive }) => isActive ? css.clickedButton : undefined}>
-                    <div className={css.button}><DesktopOutlined /> Analytical Environment</div>
-                </NavLink>
-            </div>
-            : null
+        <div>
+            <NavLink to='/pun/sys/dashboard' target='_blank' title='Analytical Environment' className={({ isActive }) => isActive ? css.clickedButton : undefined}>
+                <div className={css.button}><DesktopOutlined /> Analytical Environment</div>
+            </NavLink>
+        </div>
+        {
+            (whoAmI.data.type === enumUserTypes.ADMIN) ?
+                <div>
+                    <Collapse
+                        items={[{
+                            key: 'admin_tab_list',
+                            label: 'Admin',
+                            children: <div>
+                                <div>
+                                    <NavLink to='/logs' title='Logs' className={({ isActive }) => isActive ? css.clickedButton : undefined}>
+                                        <div className={css.button} style={{ color: 'black' }}><HistoryOutlined /> Logs</div>
+                                    </NavLink>
+                                </div>
+                                <div>
+                                    <NavLink to='/users' title='Users' className={({ isActive }) => isActive ? css.clickedButton : undefined}>
+                                        <div className={css.button} style={{ color: 'black' }}><TeamOutlined /> Users</div>
+                                    </NavLink>
+                                </div>
+                                <div>
+                                    <NavLink to='/domains' title='Domains' className={({ isActive }) => isActive ? css.clickedButton : undefined}>
+                                        <div className={css.button} style={{ color: 'black' }}><ApartmentOutlined /> Domains</div>
+                                    </NavLink>
+                                </div>
+                                <div>
+                                    <NavLink to='/organisations' title='Organisations' className={({ isActive }) => isActive ? css.clickedButton : undefined}>
+                                        <div className={css.button} style={{ color: 'black' }}><ClusterOutlined /> Organisations</div>
+                                    </NavLink>
+                                </div>
+                            </div>
+                        }]}
+                    />
+                </div>
+                : null
         }
-
         <div>
             <NavLink title='Logout' to='/'>
                 <div className={css.button} onClick={() => { logout.mutate(); }}><PoweroffOutlined /> Logout</div>

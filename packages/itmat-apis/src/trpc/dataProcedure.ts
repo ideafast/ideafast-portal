@@ -40,8 +40,8 @@ const CreateFieldInputSchema = z.object({
     categoricalOptions: z.optional(z.array(ZCategoricalOption)),
     unit: z.optional(z.string()),
     comments: z.optional(z.string()),
-    verifier: z.optional(z.array(z.array(ZValueVerifier))), // Ensure this matches your interface
-    properties: z.optional(z.array(ZFieldProperty)) // Ensure this matches your interface
+    verifier: z.optional(z.array(z.array(ZValueVerifier))),
+    properties: z.optional(z.array(ZFieldProperty))
 });
 
 const EditFieldInputSchema = CreateFieldInputSchema;
