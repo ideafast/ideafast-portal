@@ -368,10 +368,10 @@ export class UserCore {
             );
         }
 
-        if (requester.type !== enumUserTypes.ADMIN && (type || expiredAt || organisation)) {
+        if (requester.type !== enumUserTypes.ADMIN && (type || expiredAt)) {
             throw new CoreError(
                 enumCoreErrors.NO_PERMISSION_ERROR,
-                'Standard user can not change their type, expiration time and organisation. Please contact admins for help.'
+                'Standard user can not change their type, expiration time. Please contact admins for help.'
             );
         }
 

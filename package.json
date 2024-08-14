@@ -163,6 +163,7 @@
         "react-highlight-words": "0.20.0",
         "react-quill": "2.0.0",
         "react-router-dom": "6.24.1",
+        "react-spinners": "0.14.1",
         "regenerator-runtime": "0.14.1",
         "sanitize-filename": "1.6.3",
         "stream-browserify": "3.0.0",

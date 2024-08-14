@@ -111,6 +111,7 @@ export const MyKeys: FunctionComponent = () => {
         >
             <List.Item>
                 <Table
+                    style={{ width: '100%' }}
                     dataSource={getUserKeys.data}
                     columns={columns}
                 />

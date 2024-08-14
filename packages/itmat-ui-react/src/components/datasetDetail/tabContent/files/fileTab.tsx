@@ -14,8 +14,10 @@ import { validate } from '@ideafast/idgen';
 import dayjs from 'dayjs';
 import { formatBytes } from '../../../../utils/tools';
 import Highlighter from 'react-highlight-words';
+import ClipLoader from 'react-spinners/ClipLoader';
 
 const { Option } = Select;
+
 export const FileRepositoryTabContent: FunctionComponent<{ study: IStudy }> = ({ study }) => {
     const whoAmI = trpc.user.whoAmI.useQuery();
     const getStudyConfig = trpc.config.getConfig.useQuery({ configType: enumConfigType.STUDYCONFIG, key: study.id, useDefault: true });
@@ -64,6 +66,7 @@ export const UploadFileComponent: FunctionComponent<{ study: IStudy, fields: IFi
     const [fileProperties, setFileProperties] = useState({
         fieldId: ''
     });
+    const [isUploading, setIsUploading] = useState(false);
     const getCurrentDomain = trpc.domain.getCurrentDomain.useQuery();
     const [form] = Form.useForm();
     let selectedField = fields.filter(el => el.fieldId === fileProperties.fieldId)[0];
@@ -78,6 +81,8 @@ export const UploadFileComponent: FunctionComponent<{ study: IStudy, fields: IFi
 
     const handleUploadFile = async (variables: Record<string, string>) => {
         try {
+            setIsShowPanel(false);
+            setIsUploading(true);
             const files = await convertFileListToApiFormat(fileList, 'file');
             const formData = new FormData();
             if (files.length > 0) {
@@ -99,13 +104,16 @@ export const UploadFileComponent: FunctionComponent<{ study: IStudy, fields: IFi
             });
 
             if (response?.data?.result?.data?.id) {
+                setIsUploading(false);
                 setIsShowPanel(false);
                 void message.success('File has been uploaded.');
             }
 
         } catch (error) {
-            setIsShowPanel(false);
             void message.error('Failed to upload file.');
+        }
+        finally {
+            setIsUploading(false);
         }
     };
 
@@ -146,7 +154,7 @@ export const UploadFileComponent: FunctionComponent<{ study: IStudy, fields: IFi
                             }
                             if (particules?.length === 8) {
                                 if (validate(particules[2].toUpperCase()))
-                                    properties.participantId = `${particules[1].toUpperCase()}${particules[2].toUpperCase()}`;
+                                    properties.subjectId = `${particules[1].toUpperCase()}${particules[2].toUpperCase()}`;
                                 if (validate(particules[4].toUpperCase()))
                                     properties.deviceId = `${particules[3].toUpperCase()}${particules[4].toUpperCase()}`;
                                 const startDate = dayjs(particules[5], 'YYYYMMDD');
@@ -161,7 +169,7 @@ export const UploadFileComponent: FunctionComponent<{ study: IStudy, fields: IFi
                             const fieldId = `Device_${deviceTypes[particules[3]].replace(/ /g, '_')}`;
                             form.setFieldsValue({
                                 fieldId: fieldId,
-                                participantId: properties.participantId,
+                                subjectId: properties.subjectId,
                                 deviceId: properties.deviceId,
                                 startDate: properties.startDate,
                                 endDate: properties.endDate
@@ -224,12 +232,29 @@ export const UploadFileComponent: FunctionComponent<{ study: IStudy, fields: IFi
                 }
             </Form>
         </Modal>
+        {
+            isUploading ? (
+                <div
+                    style={{
+                        position: 'absolute',
+                        top: '10%',
+                        right: '0%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        transform: 'translate(-50%, -50%)'
+                    }}
+                >
+                    <ClipLoader />
+                    <span style={{ marginLeft: '8px' }}>Uploading...Please wait</span>
+                </div>
+            ) : null
+        }
     </div >);
 };
 
 export const FileBlock: FunctionComponent<{ user: IUserWithoutToken, fields: IField[], study: IStudy, block: IStudyFileBlock }> = ({ user, fields, study, block }) => {
     const [searchedKeyword, setSearchedKeyword] = useState<string | undefined>(undefined);
-    const getFiles = trpc.data.getFiles.useQuery({ studyId: study.id, fieldIds: block.fieldIds, readable: true, useCache: true });
+    const getFiles = trpc.data.getFiles.useQuery({ studyId: study.id, fieldIds: block.fieldIds, readable: true, useCache: false });
     const deleteFile = trpc.data.deleteFile.useMutation({
         onSuccess: () => {
             void message.success('File has been deleted.');
@@ -297,8 +322,6 @@ export const FileBlock: FunctionComponent<{ user: IUserWithoutToken, fields: IFi
             </div>
         </List.Item>
     </List>;
-
-    return null;
 };
 
 type CustomColumnType = {

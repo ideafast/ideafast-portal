@@ -8,6 +8,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { convertFileListToApiFormat, formatBytes } from '../../utils/tools';
 import axios, { AxiosError } from 'axios';
 import { RcFile } from 'antd/es/upload';
+import ClipLoader from 'react-spinners/ClipLoader';
 
 const { Column } = Table;
 const { Option } = Select;
@@ -174,6 +175,7 @@ export const MyFile: FunctionComponent = () => {
 
     const shareDriveViaEmail = trpc.drive.shareDriveToUserViaEmail.useMutation({
         onSuccess: () => {
+            setIsSharingDrive(false);
             notification.success({
                 message: 'Drive shared successfully!',
                 description: '',
@@ -182,6 +184,7 @@ export const MyFile: FunctionComponent = () => {
             });
         },
         onError(error) {
+            setIsSharingDrive(false);
             notification.error({
                 message: 'Upload error!',
                 description: error.message || 'Unknown Error Occurred!',
@@ -322,7 +325,7 @@ export const MyFile: FunctionComponent = () => {
     const handleUploadFile = async (fileList: UploadFile[], variables: Record<string, string>) => {
         try {
             const files = await convertFileListToApiFormat(fileList, 'file');
-
+            setIsUploading(true);
             const formData = new FormData();
 
             if (files.length > 0) {
@@ -377,6 +380,8 @@ export const MyFile: FunctionComponent = () => {
                     duration: 0
                 });
             }
+            setIsUploading(false);
+        } finally {
             setIsUploading(false);
         }
     };
@@ -455,12 +460,35 @@ export const MyFile: FunctionComponent = () => {
                                     </Col>
                                 </Row>
                             </Col>
-
-                            <Col>
-                                <Button onClick={() => {
-                                    const t = [...currentLocationPath];
-                                    setCurrentLocationPath(t.length > 1 ? t.slice(0, -1) : t);
-                                }}>Back</Button>
+                            <Col
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    position: 'relative' // Ensure relative positioning if necessary
+                                }}
+                            >
+                                {
+                                    isUploading ? (
+                                        <div
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                marginRight: '16px' // Adjust the space as needed
+                                            }}
+                                        >
+                                            <ClipLoader />
+                                            <span style={{ marginLeft: '8px' }}>Uploading...Please wait</span>
+                                        </div>
+                                    ) : null
+                                }
+                                <Button
+                                    onClick={() => {
+                                        const t = [...currentLocationPath];
+                                        setCurrentLocationPath(t.length > 1 ? t.slice(0, -1) : t);
+                                    }}
+                                >
+                                    Back
+                                </Button>
                             </Col>
                         </Row>
                     </List.Item>
@@ -564,6 +592,7 @@ export const ShareFileModal: FunctionComponent<{ isModalShown: boolean, setIsMod
             title='Share to a user'
             open={isModalShown}
             onCancel={() => setIsModalShown(false)}
+            footer={null}
         >
             <Form name="dynamic_form_item" initialValues={reformattedSharedUsers} form={form}>
                 <Form.List name="sharedUsers">

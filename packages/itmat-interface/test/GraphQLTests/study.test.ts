@@ -1941,8 +1941,6 @@ if (global.hasMinio) {
                         }
                     }
                 });
-                console.log(await db.collections.data_collection.find({}).toArray());
-                console.log(getRes.body.data.getDataRecords.data);
                 expect(getRes.status).toBe(200);
                 expect(getRes.body.errors).toBeUndefined();
                 expect(Object.keys(getRes.body.data.getDataRecords.data)).toHaveLength(2);

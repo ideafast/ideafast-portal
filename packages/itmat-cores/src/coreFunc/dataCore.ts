@@ -1238,7 +1238,6 @@ export class DataCore {
                 enumCoreErrors.NOT_LOGGED_IN
             );
         }
-
         const roles = await this.permissionCore.getRolesOfUser(requester, requester.id, studyId);
         if (roles.length === 0) {
             throw new CoreError(
@@ -1246,7 +1245,6 @@ export class DataCore {
                 enumCoreErrors.NO_PERMISSION_ERROR
             );
         }
-
         const study = await this.db.collections.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null });
         if (!study) {
             throw new CoreError(
@@ -1254,7 +1252,6 @@ export class DataCore {
                 'Study does not exist.'
             );
         }
-
         const fileType = (file.filename.split('.').pop() as string).toUpperCase();
         if (!Object.keys(enumFileTypes).includes(fileType)) {
             throw new CoreError(
@@ -1262,25 +1259,30 @@ export class DataCore {
                 `File type ${fileType} not supported.`
             );
         }
-        const fileEntry = await this.fileCore.uploadFile(
-            requester, studyId, null, file, enumFileTypes[fileType], enumFileCategories.STUDY_DATA_FILE, undefined, properties ? JSON.parse(properties) : undefined);
-        const dataInput: IDataInput[] = [{
-            fieldId: fieldId,
-            value: fileEntry.id,
-            properties: properties ? JSON.parse(properties) : undefined
-        }];
-        const res = await this.uploadData(requester, studyId, dataInput);
-        if (!res[0].successful) {
+        try {
+            const fileEntry = await this.fileCore.uploadFile(
+                requester, studyId, null, file, enumFileTypes[fileType], enumFileCategories.STUDY_DATA_FILE, undefined, properties ? JSON.parse(properties) : undefined);
+            const dataInput: IDataInput[] = [{
+                fieldId: fieldId,
+                value: fileEntry.id,
+                properties: properties ? JSON.parse(properties) : undefined
+            }];
+            const res = await this.uploadData(requester, studyId, dataInput);
+            if (!res[0].successful) {
+                throw new CoreError(
+                    enumCoreErrors.CLIENT_MALFORMED_INPUT,
+                    res[0].description ?? 'Failed to upload file.'
+                );
+            }
+            // invalidate the cache
+            await this.db.collections.cache_collection.updateMany({ 'keys.studyId': studyId, 'keys.query': 'getStudyFiles' }, { $set: { status: enumCacheStatus.OUTDATED } });
+            return fileEntry;
+        } catch (error) {
             throw new CoreError(
                 enumCoreErrors.CLIENT_MALFORMED_INPUT,
-                res[0].description ?? 'Failed to upload file.'
+                `${(error as Error).message}`
             );
         }
-
-        // invalidate the cache
-        await this.db.collections.cache_collection.updateMany({ 'keys.studyId': studyId, 'keys.query': 'getStudyFiles' }, { $set: { status: enumCacheStatus.OUTDATED } });
-
-        return fileEntry;
     }
 
     /**

@@ -289,7 +289,7 @@ if (global.hasMinio) {
                     type: enumUserTypes.ADMIN
                 });
             expect(response.status).toBe(400);
-            expect(response.body.error.message).toBe('Standard user can not change their type, expiration time and organisation. Please contact admins for help.');
+            expect(response.body.error.message).toBe('Standard user can not change their type, expiration time. Please contact admins for help.');
         });
         test('Edit a user (password not long enough)', async () => {
             const response = await user.post('/trpc/user.editUser')

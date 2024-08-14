@@ -19,14 +19,14 @@ import { fileDownloadControllerInstance } from '../rest/fileDownload';
 import { BigIntResolver as scalarResolvers } from 'graphql-scalars';
 import { createProxyMiddleware, RequestHandler } from 'http-proxy-middleware';
 import qs from 'qs';
-import { FileUploadSchema, IUser, enumConfigType } from '@itmat-broker/itmat-types';
+import { FileUploadSchema, IUser, IUserConfig, enumConfigType, enumUserTypes } from '@itmat-broker/itmat-types';
 import { logPluginInstance } from '../log/logPlugin';
 import { IConfiguration, spaceFixing } from '@itmat-broker/itmat-cores';
 import { userLoginUtils } from '../utils/userLoginUtils';
 import * as trpcExpress from '@trpc/server/adapters/express';
 import { tokenAuthentication } from './commonMiddleware';
 import multer from 'multer';
-import { PassThrough } from 'stream';
+import { Readable } from 'stream';
 import { z } from 'zod';
 import { ApolloServerContext, DMPContext, createtRPCContext, typeDefs } from '@itmat-broker/itmat-apis';
 import { APICalls } from './helper';
@@ -41,11 +41,6 @@ export class Router {
 
         this.config = config;
         this.app = express();
-
-        this.app.use(rateLimit({
-            windowMs: 1 * 60 * 1000,
-            max: 500
-        }));
 
         this.app.use(express.json({ limit: '50mb' }));
         this.app.use(express.urlencoded({ extended: true }));
@@ -74,6 +69,8 @@ export class Router {
                 });
         });
 
+        this.app.set('trust proxy', 1);
+
         /* save persistent sessions in mongo */
         this.app.use(
             session({
@@ -98,6 +95,42 @@ export class Router {
         this.app.use(passport.session());
         passport.serializeUser(userLoginUtils.serialiseUser);
         passport.deserializeUser(userLoginUtils.deserialiseUser);
+
+        // authentication middleware
+        this.app.use((req, res, next) => {
+            const token: string = req.headers.authorization || '';
+            tokenAuthentication(token)
+                .then((associatedUser) => {
+                    if (associatedUser) {
+                        req.user = associatedUser;
+                    }
+                    next();
+                })
+                .catch(() => {
+                    next();
+                });
+        });
+
+
+        this.app.use(rateLimit({
+            windowMs: 1 * 60 * 1000,
+            max: async function (req) {
+                const minimumQPS = 200;
+                let qps = minimumQPS;
+                if (req.user) {
+                    const userConfig = await db.collections.configs_collection.findOne({ type: enumConfigType.USERCONFIG, key: req.user.id });
+                    if (!userConfig) {
+                        qps = minimumQPS;
+                    } else {
+                        qps = (userConfig.properties as IUserConfig).defaultMaximumQPS ?? minimumQPS;
+                    }
+                }
+                if (req.user?.type === enumUserTypes.ADMIN) {
+                    qps = Math.max(qps, 1000);
+                }
+                return qps;
+            }
+        }));
 
         this.server = http.createServer({
             keepAlive: true,
@@ -242,11 +275,6 @@ export class Router {
             graphqlUploadExpress(),
             expressMiddleware(gqlServer, {
                 context: async ({ req, res }): Promise<DMPContext> => {
-                    const token: string = req.headers.authorization || '';
-                    const associatedUser = await tokenAuthentication(token);
-                    if (associatedUser) {
-                        req.user = associatedUser;
-                    }
                     return ({ req, res });
                 }
             })
@@ -275,6 +303,18 @@ export class Router {
         //     next();
         // });
 
+        // webdav
+        const webdav_proxy = createProxyMiddleware({
+            target: `http://localhost:${this.config.webdavPort}`,
+            changeOrigin: true,
+            pathRewrite: (path) => {
+                const rewrittenPath = path.replace(/^\/webdav/, '/');
+                return rewrittenPath;
+            }
+        });
+
+        this.app.use('/webdav', webdav_proxy as NativeRequestHandler);
+
         // trpc
         const upload = multer();
         this.app.use(
@@ -283,11 +323,6 @@ export class Router {
             (req, _res, next) => {
                 (async () => {
                     try {
-                        const token: string = req.headers.authorization || '';
-                        const associatedUser = await tokenAuthentication(token);
-                        if (associatedUser) {
-                            req.user = associatedUser;
-                        }
                         if (req.files && req.files.length > 0) {
                             const files = req.files || [];
                             const transformedFiles: Record<string, z.infer<typeof FileUploadSchema>[]> = {};
@@ -296,11 +331,16 @@ export class Router {
                                 if (!transformedFiles[file.fieldname]) {
                                     transformedFiles[file.fieldname] = [];
                                 }
-                                const fileStream = new PassThrough();
-                                fileStream.end(file.buffer);
 
                                 transformedFiles[file.fieldname].push({
-                                    createReadStream: () => fileStream,
+                                    createReadStream: () => {
+                                        const readableStream = new Readable();
+                                        // eslint-disable-next-line @typescript-eslint/no-empty-function
+                                        readableStream._read = () => { }; // No-op _read method
+                                        readableStream.push(file.buffer);
+                                        readableStream.push(null); // Signify the end of the stream
+                                        return readableStream;
+                                    },
                                     filename: file.originalname,
                                     mimetype: file.mimetype,
                                     encoding: file.encoding,

@@ -71,7 +71,7 @@ export const ProfileManagementSection: FunctionComponent = () => {
                 </div>
                 <br />
                 <div>
-                    <Title level={4}>{getOrganisations.data.filter(el => el.id === whoAmI.data.organisation)?.[0].name}</Title>
+                    <Title level={4}>{getOrganisations.data.filter(el => el.id === whoAmI.data.organisation)?.[0]?.name ?? 'NA'}</Title>
                 </div>
                 <br />
                 <div className={css.profile_summary_description}>
@@ -163,7 +163,9 @@ export const ProfileEditForm: FunctionComponent<{ user: IUserWithoutToken, organ
             <Col span={13}>
                 <div className={css.profile_edit_normal_title}>Organisation</div><br />
                 <Form.Item className={css.profile_edit_lastname} name='organisation' hasFeedback rules={[{ required: false, message: ' ' }]}>
-                    <Select>
+                    <Select placeholder='Organisation' showSearch filterOption={(input, option) =>
+                        option?.children?.toLocaleString()?.toLocaleLowerCase()?.includes(input.toLocaleLowerCase()) ?? false
+                    }>
                         {
                             organisations.map((organisation) =>
                                 <Select.Option key={organisation.id} value={organisation.id}>{organisation.name}</Select.Option>)

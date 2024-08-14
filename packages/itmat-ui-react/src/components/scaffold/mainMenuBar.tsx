@@ -38,7 +38,7 @@ export const MainMenuBar: FunctionComponent = () => {
                 <div className={css.button}>
                     {
                         (whoAmI.data.type !== enumUserTypes.ADMIN && dayjs().add(2, 'week').valueOf() - dayjs(whoAmI.data.expiredAt).valueOf() > 0) ?
-                            <><SettingOutlined /><Tooltip title={'Your account will expire soon. You can make a request on the login page.'}> My Account<WarningTwoTone /></Tooltip></> :
+                            <><SettingOutlined /><Tooltip title={'Your account will expire soon. You can make a request on the login page in your profile settings.'}> My Account<WarningTwoTone /></Tooltip></> :
                             <><SettingOutlined /> My Account</>
                     }
                 </div>
