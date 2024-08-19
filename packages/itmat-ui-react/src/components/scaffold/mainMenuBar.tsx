@@ -54,7 +54,7 @@ export const MainMenuBar: FunctionComponent = () => {
                     {
                         useWebauthn === 'register' &&
                         (
-                            <Tooltip title="You could to register a WebAuthn device.">
+                            <Tooltip title="You could register a WebAuthn account in this device.">
                                 <ExclamationCircleOutlined twoToneColor="#ff0000" style={{ marginLeft: '8px' }} />
                             </Tooltip>
                         )

@@ -48,12 +48,14 @@ export const Fence: FunctionComponent = () => {
         } else {
             setIsUserLogin(false);
         }
-
-        if (credentials?.length === 0) {
+        if (isWebauthAvailable && credentials?.length === 0) {
             setUseWebauthn('register');
-        } else {
+        } else if (isWebauthAvailable && (credentials?.length ?? 0) > 0) {
             setUseWebauthn('authenticate');
+        }  else {
+            setUseWebauthn('close');
         }
+
     }, [whoAmI.data, credentials]);
 
     useEffect(() => {
