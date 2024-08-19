@@ -24,6 +24,19 @@ import {
     PublicKeyCredentialCreationOptionsJSON
 } from '@simplewebauthn/types';
 
+import { WebauthnCore} from '@itmat-broker/itmat-cores';
+
+jest.mock('nodemailer', () => {
+    const { TEST_SMTP_CRED, TEST_SMTP_USERNAME } = process.env;
+    if (!TEST_SMTP_CRED || !TEST_SMTP_USERNAME || !config?.nodemailer?.auth?.pass || !config?.nodemailer?.auth?.user)
+        return {
+            createTransport: jest.fn().mockImplementation(() => ({
+                sendMail: jest.fn()
+            }))
+        };
+    return jest.requireActual('nodemailer');
+});
+
 // Mock the @simplewebauthn/browser module
 jest.mock('@simplewebauthn/browser', () => ({
     startRegistration: jest.fn().mockResolvedValue({
@@ -151,15 +164,25 @@ if (global.hasMinio) { // eslint-disable-line no-undef
 
     };
 
+    // Mocking getCurrentOriginAndRpID method only
+    let webauthnCoreMock: jest.SpyInstance;
 
     beforeAll(async () => {
         await setupDatabaseAndApp();
+
+        // Mock getCurrentOriginAndRpID method
+        webauthnCoreMock = jest.spyOn(WebauthnCore.prototype, 'getCurrentOriginAndRpID')
+            .mockResolvedValue({
+                origin: 'http://localhost:3000',
+                rpID: 'localhost'
+            });
     });
 
     afterAll(async () => {
         await db.closeConnection();
         await mongoConnection.close();
         await mongodb.stop();
+        webauthnCoreMock.mockRestore(); // Restore original method after tests
         jest.clearAllMocks();
     });
 
@@ -168,6 +191,7 @@ if (global.hasMinio) { // eslint-disable-line no-undef
         test('Should verify WebAuthn registration and retrieve WebAuthn ID successfully', async () => {
             // Step 1: Get registration options
             const registrationResponse = await user.post('/trpc/webauthn.webauthnRegister').send();
+
             expect(registrationResponse.status).toBe(200);
 
             // Extract the webauthn_id from the registration response
