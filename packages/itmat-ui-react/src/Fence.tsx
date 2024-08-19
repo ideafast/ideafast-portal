@@ -16,23 +16,17 @@ import { WebAuthnAuthenticationComponent } from './utils/dmpWebauthn/webauthn.au
 import { DeviceNicknameModal } from './utils/dmpWebauthn/webuathn.nickname';
 import { useAuth } from './utils/dmpWebauthn/webauthn.context';
 
-import {
-    browserSupportsWebAuthn,
-    platformAuthenticatorIsAvailable
-} from '@simplewebauthn/browser';
-import { message } from 'antd';
 
 export const Fence: FunctionComponent = () => {
     const {
+        showRegistrationDialog,
+        setShowRegistrationDialog,
         credentials,
-        setCredentials,
         isUserLogin,
         setIsUserLogin,
         isWebauthAvailable,
-        setIsWebauthAvailable,
-        showRegistrationDialog,
-        setShowRegistrationDialog,
-        handleCancelRegistration,
+        useWebauthn,
+        setUseWebauthn,
         showNicknameModal
     } = useAuth();
 
@@ -42,9 +36,6 @@ export const Fence: FunctionComponent = () => {
     });
 
     const [component, setComponent] = useState<JSX.Element | null>(null);
-    const [windowComponent, setwindowComponent] = useState<JSX.Element | null>(null);
-
-    const [useWebauthn, setUseWebauthn] = useState<'register' | 'authenticate' | 'close'>('close');
 
     const isAnyLoading = whoAmI.isLoading;
 
@@ -66,19 +57,15 @@ export const Fence: FunctionComponent = () => {
     }, [whoAmI.data, credentials]);
 
     useEffect(() => {
-        if (isWebauthAvailable === null) {
-            setIsWebauthAvailable(false);
-            Promise.all([
-                browserSupportsWebAuthn(),
-                platformAuthenticatorIsAvailable()
-            ])
-                .then(statuses => statuses.reduce((prev, curr) => curr && prev, true))
-                .then((result) => {
-                    setIsWebauthAvailable(result);
-                })
-                .catch(() => setIsWebauthAvailable(false));
+        if (!isWebauthAvailable) {
+            setShowRegistrationDialog(false);
+        } else if (useWebauthn === 'authenticate' && !isUserLogin) {
+            setShowRegistrationDialog(true);  // Show the WebAuthn dialog
+        } else {
+            setShowRegistrationDialog(false);
         }
-    }, [isWebauthAvailable]);
+    }, [isWebauthAvailable, isUserLogin, useWebauthn, setShowRegistrationDialog]);
+
 
     useEffect(() => {
         if (isAnyLoading) {
@@ -98,36 +85,6 @@ export const Fence: FunctionComponent = () => {
         }
     }, [isAnyLoading, hasError, isUserLogin, errorMessage]);
 
-    useEffect(() => {
-        if (isWebauthAvailable && !showRegistrationDialog) {
-            try {
-                if (isUserLogin && useWebauthn === 'register') {
-                    setShowRegistrationDialog(true);
-                } else if (!isUserLogin && useWebauthn === 'authenticate') {
-                    setShowRegistrationDialog(true);
-                } else {
-                    setShowRegistrationDialog(false);
-                }
-            } catch (error) {
-                void message.error('WebAuthn authentication failed:');
-            }
-        }
-    }, [isUserLogin, isWebauthAvailable, useWebauthn]);
-
-    useEffect(() => {
-        if (isUserLogin && showRegistrationDialog && useWebauthn === 'register') {
-            setwindowComponent(
-                <WebAuthnRegistrationComponent />
-            );
-        } else if (!isUserLogin && showRegistrationDialog && useWebauthn === 'authenticate') {
-            setwindowComponent(
-                <WebAuthnAuthenticationComponent />
-            );
-        } else {
-            setwindowComponent(null);
-        }
-    }, [showRegistrationDialog, handleCancelRegistration, isUserLogin, useWebauthn, credentials, setCredentials]);
-
     return (
         <Routes>
             <Route path='/reset/:encryptedEmail/:token' element={<ResetPasswordPage />} />
@@ -138,7 +95,7 @@ export const Fence: FunctionComponent = () => {
             <Route path='*' element={
                 <>
                     {component}
-                    {windowComponent}
+                    {showRegistrationDialog && <WebAuthnAuthenticationComponent />}
                     {showNicknameModal && <DeviceNicknameModal />}
                 </>
             } />

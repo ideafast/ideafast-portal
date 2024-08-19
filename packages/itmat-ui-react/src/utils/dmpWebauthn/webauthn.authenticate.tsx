@@ -11,6 +11,7 @@ import { useAuth } from './webauthn.context';
 import { trpc } from '../../utils/trpc';
 
 export const WebAuthnAuthenticationComponent: FunctionComponent = () => {
+
     const {
         credentials: webauthn_ids,
         setCredentials,
@@ -112,6 +113,7 @@ export const WebAuthnAuthenticationComponent: FunctionComponent = () => {
             const authenticationData = await webauthnAuthenticate.mutateAsync({ userId: selectedUser.id });
 
             const authenticationOptions: PublicKeyCredentialRequestOptionsJSON = authenticationData;
+
             const assertionResponse: AuthenticationResponseJSON = await startAuthentication(authenticationOptions);
             const verificationData = await webauthnAuthenticateVerify.mutateAsync({
                 userId: selectedUser.id,

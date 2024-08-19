@@ -152,6 +152,12 @@ export const MyWebauthn: FunctionComponent = () => {
             render: (transports: string[]) => transports.join(', ')
         },
         {
+            title: 'Origin',
+            dataIndex: 'origin',
+            key: 'origin',
+            render: (origin: string | undefined) => (origin ? origin : 'N/A') // Show N/A if origin is null or undefined
+        },
+        {
             title: 'Set Name',
             dataIndex: '',
             key: 'setName',
@@ -174,22 +180,18 @@ export const MyWebauthn: FunctionComponent = () => {
 
     if (isLoading) return <LoadSpinner />;
     if (isError) return <Alert type="error" message={'Error fetching data.'} />;
-    if (devices.length === 0) return <p>No WebAuthn devices found for this user.</p>;
-
     return (
         <div className={css.group_wrapper}>
             <List
                 header={
                     <div className={css['overview-header']} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div className={css['overview-header']} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div style={{ display: 'flex', alignItems: 'center' }}>
-                                <div className={css['overview-icon']}></div>
-                                <div>WebAuthn Devices</div>
-                            </div>
+                        <div style={{ display: 'flex', alignItems: 'center' }}>
+                            <div className={css['overview-icon']}></div>
+                            <div>WebAuthn Devices</div>
                         </div>
                         <div>
                             <Button type="primary" onClick={handleNavigateToRegister}>
-                            Register New Device
+                                Register New Device
                             </Button>
                         </div>
                     </div>
@@ -197,10 +199,18 @@ export const MyWebauthn: FunctionComponent = () => {
             >
                 <List.Item>
                     <div className={css.shared_container}>
+                        {/* Conditional rendering for devices */}
                         {devices.length > 0 ? (
-                            <Table style={{width: '100%'}} dataSource={devices} columns={columns} rowKey={(record: AuthenticatorDevice) => record.credentialID} />
+                            <Table
+                                style={{ width: '100%' }}
+                                dataSource={devices}
+                                columns={columns}
+                                rowKey={(record: AuthenticatorDevice) => record.credentialID}
+                            />
                         ) : (
-                            <p>No WebAuthn devices found for this user.</p>
+                            <div style={{ width: '100%' }}>
+                                <p style={{ textAlign: 'left' }}>No WebAuthn devices found for this user.</p>
+                            </div>
                         )}
                     </div>
                 </List.Item>

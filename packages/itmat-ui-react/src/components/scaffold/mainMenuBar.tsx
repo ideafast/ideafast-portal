@@ -2,11 +2,12 @@ import { FunctionComponent } from 'react';
 import { NavLink } from 'react-router-dom';
 import { enumUserTypes } from '@itmat-broker/itmat-types';
 import css from './scaffold.module.css';
-import { DatabaseOutlined, TeamOutlined, PoweroffOutlined, HistoryOutlined, SettingOutlined, DesktopOutlined, WarningTwoTone, CloudOutlined, ApartmentOutlined, ClusterOutlined } from '@ant-design/icons';
+import { DatabaseOutlined, TeamOutlined, PoweroffOutlined, HistoryOutlined, SettingOutlined, DesktopOutlined, WarningTwoTone, CloudOutlined, ApartmentOutlined, ClusterOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import LoadSpinner from '../reusable/loadSpinner';
 import dayjs from 'dayjs';
 import { Collapse, Tooltip } from 'antd';
 import { trpc } from '../../utils/trpc';
+import { useAuth } from '../../utils/dmpWebauthn/webauthn.context';
 
 export const MainMenuBar: FunctionComponent = () => {
     const whoAmI = trpc.user.whoAmI.useQuery();
@@ -18,6 +19,7 @@ export const MainMenuBar: FunctionComponent = () => {
             window.location.reload();
         }
     });
+    const { useWebauthn } = useAuth(); // Access the WebAuthn state from context
     if (whoAmI.isLoading) {
         return <LoadSpinner />;
     }
@@ -36,10 +38,26 @@ export const MainMenuBar: FunctionComponent = () => {
         <div>
             <NavLink to='/profile' title='My account' className={({ isActive }) => isActive ? css.clickedButton : undefined}>
                 <div className={css.button}>
+                    <SettingOutlined />
+                    <span> My Account </span>
+
+                    {/* Check if the account is expiring soon and show a warning */}
                     {
-                        (whoAmI.data.type !== enumUserTypes.ADMIN && dayjs().add(2, 'week').valueOf() - dayjs(whoAmI.data.expiredAt).valueOf() > 0) ?
-                            <><SettingOutlined /><Tooltip title={'Your account will expire soon. You can make a request on the login page in your profile settings.'}> My Account<WarningTwoTone /></Tooltip></> :
-                            <><SettingOutlined /> My Account</>
+                        (whoAmI.data.type !== enumUserTypes.ADMIN && dayjs().add(2, 'week').valueOf() - dayjs(whoAmI.data.expiredAt).valueOf() > 0) && (
+                            <Tooltip title={'Your account will expire soon. You can make a request on the login page in your profile settings.'}>
+                                <WarningTwoTone twoToneColor="#ffcc00" style={{ marginLeft: '8px' }} />
+                            </Tooltip>
+                        )
+                    }
+
+                    {/* Check if WebAuthn registration is needed and show another warning */}
+                    {
+                        useWebauthn === 'register' &&
+                        (
+                            <Tooltip title="You could to register a WebAuthn device.">
+                                <ExclamationCircleOutlined twoToneColor="#ff0000" style={{ marginLeft: '8px' }} />
+                            </Tooltip>
+                        )
                     }
                 </div>
             </NavLink >

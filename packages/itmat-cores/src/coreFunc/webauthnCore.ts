@@ -33,18 +33,14 @@ export class WebauthnCore {
     objStore: ObjectStore;
     configCore: ConfigCore;
     rpName: string;
-    origin: string;
-    rpID: string;
     constructor(db: DBType, mailer: Mailer, config: IConfiguration, objStore: ObjectStore) {
         this.db = db;
         this.mailer = mailer;
         this.config = config;
         this.objStore = objStore;
         this.configCore = new ConfigCore(db);
-        // get the rpName, origin and rpID from the config
+        // get the rpName,from the config
         this.rpName = config.appName;
-        this.origin = process.env['NX_WEBAUTHN_ORIGIN'] ?? config.webauthnOrigin;
-        this.rpID = new URL(this.origin).hostname;
     }
     /**
      * webauthn functions
@@ -122,7 +118,7 @@ export class WebauthnCore {
      * @param user
      * @returns   - The registration options.
      */
-    public async getWebauthnRegistrationOptions(user: IUser) {
+    public async getWebauthnRegistrationOptions(user: IUser, rpID: string) {
         let webauthn_id;
         const challenge = this.generate_challenge();
         const webauthnStore = await this.db.collections.webauthn_collection.findOne({
@@ -163,7 +159,7 @@ export class WebauthnCore {
         try {
             const options = await generateRegistrationOptions({
                 rpName: this.rpName,
-                rpID: this.rpID,
+                rpID: rpID,
                 userID: Buffer.from(user.id) as Uint8Array,
                 userName: user.username,
                 timeout: 60000,
@@ -198,7 +194,7 @@ export class WebauthnCore {
      * @param attestationResponse   - The attestation response.
      * @returns   - The response.
      */
-    public async handleRegistrationVerify(user: IUser, attestationResponse: RegistrationResponseJSON) {
+    public async handleRegistrationVerify(user: IUser, attestationResponse: RegistrationResponseJSON, origin: string, rpID: string) {
         let device_id;
         const webauthn = await this.db.collections.webauthn_collection.findOne({
             userId: user.id
@@ -216,11 +212,12 @@ export class WebauthnCore {
         const decodedString = isoBase64URL.fromBuffer(challenge.buffer as Uint8Array);
 
         try{
+            // verify the registration response
             const {verified, registrationInfo} = await verifyRegistrationResponse({
                 response: attestationResponse,
                 expectedChallenge: decodedString,
-                expectedOrigin: this.origin,
-                expectedRPID: this.rpID,
+                expectedOrigin: origin,
+                expectedRPID: rpID,
                 requireUserVerification: true
             });
 
@@ -233,7 +230,8 @@ export class WebauthnCore {
                     credentialID,
                     counter,
                     transports: attestationResponse.response.transports,
-                    id: device_id
+                    id: device_id,
+                    origin: origin
                 };
                 devices.push(newDevice);
 
@@ -264,7 +262,7 @@ export class WebauthnCore {
      * @param userId    - The user id.
      * @returns     - The authentication options.
      */
-    public async getWebauthnAuthenticationOptions(userId: string): Promise<PublicKeyCredentialRequestOptionsJSON>{
+    public async getWebauthnAuthenticationOptions(userId: string, rpID: string): Promise<PublicKeyCredentialRequestOptionsJSON>{
 
         const webauthn = await this.db.collections.webauthn_collection.findOne({
             userId: userId
@@ -279,7 +277,6 @@ export class WebauthnCore {
         const {devices, challenge} = webauthn;
 
         try{
-
             const options = await generateAuthenticationOptions({
                 challenge: challenge.buffer as Uint8Array,
                 timeout: 60000,
@@ -289,7 +286,7 @@ export class WebauthnCore {
                     transports: authenticator.transports
                 })),
                 userVerification: 'required',
-                rpID: this.rpID
+                rpID: rpID
             });
             return options;
         }
@@ -307,7 +304,7 @@ export class WebauthnCore {
      * @param assertionResponse     - The assertion response.
      * @returns    - The response.
      */
-    public async handleAuthenticationVerify(userId: string, assertionResponse: AuthenticationResponseJSON) {
+    public async handleAuthenticationVerify(userId: string, assertionResponse: AuthenticationResponseJSON, origin: string, rpID: string) {
 
 
         const webauthn = await this.db.collections.webauthn_collection.findOne({
@@ -344,8 +341,8 @@ export class WebauthnCore {
             const verification = await verifyAuthenticationResponse({
                 response: assertionResponse,
                 expectedChallenge: decodedChallengeString,
-                expectedOrigin: this.origin,
-                expectedRPID: this.rpID,
+                expectedOrigin: origin,
+                expectedRPID: rpID,
                 authenticator: {
                     credentialPublicKey: device.credentialPublicKey.buffer as Uint8Array,
                     credentialID: device.credentialID,
@@ -452,6 +449,18 @@ export class WebauthnCore {
         }
 
         return result.devices;
+    }
+    /**
+     *  get the current origin and rpID.
+     * @param ctx   - The context.
+     * @returns     - The origin and rpID.
+     */
+
+    public async getCurrentOriginAndRpID(ctx) {
+        const req = ctx.req;
+        const origin = req.headers.origin;
+        const rpID = (new URL(origin)).hostname;
+        return {origin, rpID};
     }
 
 }

@@ -13,6 +13,7 @@ import { IBase } from './base';
 export type AuthenticatorDevice = Omit<OriginalAuthenticatorDevice, 'id' | 'name'> & {
     id: string; // the ID of the authenticator credential
     name?: string;  // the name of the authenticator credential
+    origin?: string; // the origin of the authenticator credential
 };
 
 // include the credential

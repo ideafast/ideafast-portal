@@ -33,26 +33,30 @@ export class WebAuthnRouter {
             }),
 
             webauthnRegister: this.baseProcedure.mutation(async ({ ctx }) => {
-                return await this.webAuthnCore.getWebauthnRegistrationOptions(ctx.user);
+                const {rpID} = await this.webAuthnCore.getCurrentOriginAndRpID(ctx);
+                return await this.webAuthnCore.getWebauthnRegistrationOptions(ctx.user, rpID);
             }),
 
             webauthnRegisterVerify: this.baseProcedure.input(z.object({
                 attestationResponse: z.any()
             })).mutation(async ({ input, ctx }) => {
-                return await this.webAuthnCore.handleRegistrationVerify(ctx.req.user, input.attestationResponse);
+                const {origin, rpID} = await this.webAuthnCore.getCurrentOriginAndRpID(ctx);
+                return await this.webAuthnCore.handleRegistrationVerify(ctx.req.user, input.attestationResponse,origin, rpID);
             }),
 
             webauthnAuthenticate: this.baseProcedure.input(z.object({
                 userId: z.string()
-            })).mutation(async ({ input }) => {
-                return await this.webAuthnCore.getWebauthnAuthenticationOptions(input.userId);
+            })).mutation(async ({ input, ctx}) => {
+                const {rpID} = await this.webAuthnCore.getCurrentOriginAndRpID(ctx);
+                return await this.webAuthnCore.getWebauthnAuthenticationOptions(input.userId, rpID);
             }),
 
             webauthnAuthenticateVerify: this.baseProcedure.input(z.object({
                 userId: z.string(),
                 assertionResponse: z.any()
-            })).mutation(async ({ input }) => {
-                return await this.webAuthnCore.handleAuthenticationVerify(input.userId, input.assertionResponse);
+            })).mutation(async ({ input, ctx }) => {
+                const {origin, rpID} = await this.webAuthnCore.getCurrentOriginAndRpID(ctx);
+                return await this.webAuthnCore.handleAuthenticationVerify(input.userId, input.assertionResponse, origin, rpID);
             }),
 
             deleteWebauthnRegisteredDevices: this.baseProcedure.input(z.object({
