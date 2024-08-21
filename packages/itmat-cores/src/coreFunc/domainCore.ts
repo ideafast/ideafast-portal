@@ -38,7 +38,9 @@ export class DomainCore {
             );
         }
 
-        const obj: Filter<IDomain> = {};
+        const obj: Filter<IDomain> = {
+            'life.deletedTime': null
+        };
         if (domainId) {
             obj.id = domainId;
         }

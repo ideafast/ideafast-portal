@@ -35,7 +35,7 @@ type LogsSummary = {
 };
 
 export const LogSection: FunctionComponent = () => {
-    const getLogs = trpc.log.getLogs.useQuery({ indexRange: [0, 1000] });
+    const getLogs = trpc.log.getLogs.useQuery({ indexRange: [0, 100] });
     const getUsers = trpc.user.getUsers.useQuery({});
     const getSystemConfig = trpc.config.getConfig.useQuery({ configType: enumConfigType.SYSTEMCONFIG, key: null, useDefault: true });
     const getLogsSummary = trpc.log.getLogsSummary.useQuery();
@@ -293,7 +293,7 @@ const generateLogColumns = (users: IUserWithoutToken[], barThreshold: number[]) 
         title: 'Execution Time',
         dataIndex: 'time',
         key: 'time',
-        sorter: (a, b) => a.life.createdTime - b.life.createdTime,
+        sorter: (a, b) => a.life.createdTime ?? 0 - b.life.createdTime ?? 0,
         render: (__unused__value, record) => {
             return new Date(record.life.createdTime).toUTCString();
         }

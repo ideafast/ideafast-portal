@@ -6,6 +6,8 @@ export interface IPubkey extends IBase {
     jwtSeckey: string;
     refreshCounter: number;
     associatedUserId: string | null;
+    challenge: string | null;
+    lastUsedTime: number | null;
 }
 
 export type AccessToken = {

@@ -673,7 +673,7 @@ export class UserCore {
      *
      * @return IPubkey - The object of ther registered key.
      */
-    public async registerPubkey(requester: IUserWithoutToken | undefined, pubkey: string, signature: string, associatedUserId: string): Promise<IPubkey> {
+    public async registerPubkey(requester: IUserWithoutToken | undefined, pubkey: string, signature: string | undefined, associatedUserId: string): Promise<IPubkey> {
         if (!requester) {
             throw new CoreError(
                 enumCoreErrors.NOT_LOGGED_IN,
@@ -705,22 +705,6 @@ export class UserCore {
             );
         }
 
-        /* Validate the signature with the public key */
-        try {
-            const signature_verifier = await rsaverifier(pubkey, signature);
-            if (!signature_verifier) {
-                throw new CoreError(
-                    enumCoreErrors.CLIENT_MALFORMED_INPUT,
-                    'Signature vs Public-key mismatched.'
-                );
-            }
-        } catch (error) {
-            throw new CoreError(
-                enumCoreErrors.CLIENT_MALFORMED_INPUT,
-                'Error: Signature or Public-key is incorrect.'
-            );
-        }
-
         /* Generate a public key-pair for generating and authenticating JWT access token later */
         const keypair = rsakeygen();
 
@@ -737,6 +721,8 @@ export class UserCore {
                 deletedTime: null,
                 deletedUser: null
             },
+            challenge: null,
+            lastUsedTime: null,
             metadata: {}
         };
 
@@ -763,6 +749,159 @@ export class UserCore {
             `
         });
         return entry;
+    }
+    /**
+     * Generate a random challenge.
+     *
+     * @param length - The length of the challenge.
+     * @returns - The challenge.
+     */
+    public generateChallenge(length) {
+        // Generate a random buffer of the desired byte length
+        const randomBytes = crypto.randomBytes(length / 2); // `length / 2` to get a hex string of desired length
+        // Convert the buffer to a hex string and return it
+        return randomBytes.toString('hex').slice(0, length);
+    }
+
+    /**
+     * Request an access token.
+     *
+     * @param username - The username.
+     * @param pubkeyKey - The public key.
+     * @returns - The challenge.
+     */
+    public async requestAccessToken(username: string, pubkeyKey: string) {
+        const user = await this.db.collections.users_collection.findOne({ 'username': username, 'life.deletedTime': null });
+        if (!user) {
+            throw new CoreError(
+                enumCoreErrors.CLIENT_MALFORMED_INPUT,
+                'This public-key has not been registered yet.'
+            );
+        }
+
+        const pubkeyrec = await this.db.collections.pubkeys_collection.findOne({ 'associatedUserId': user.id, 'pubkey': pubkeyKey, 'life.deletedTime': null });
+
+        if (!pubkeyrec) {
+            throw new CoreError(
+                enumCoreErrors.CLIENT_MALFORMED_INPUT,
+                'This public-key has not been registered yet.'
+            );
+        }
+        const challenge = this.generateChallenge(128);
+        const hashedChallenge = crypto.createHash('sha256').update(challenge).digest('hex');
+        await this.db.collections.pubkeys_collection.findOneAndUpdate({ id: pubkeyrec.id }, { $set: { challenge: hashedChallenge } });
+        return { challenge: hashedChallenge };
+    }
+
+    /**
+     * Get an access token.
+     *
+     * @param username - The username.
+     * @param pubkeyKey - The public key.
+     * @param signature - The signature.
+     * @param life - The life of the token.
+     * @returns - The token.
+     */
+    public async getAccessToken(username: string, pubkeyKey: string, signature: string, life = 12000) {
+        const user = await this.db.collections.users_collection.findOne({ 'username': username, 'life.deletedTime': null });
+        if (!user) {
+            throw new CoreError(
+                enumCoreErrors.CLIENT_MALFORMED_INPUT,
+                'This public-key has not been registered yet.'
+            );
+        }
+        const pubkeyrec = await this.db.collections.pubkeys_collection.findOne({ 'associatedUserId': user.id, 'pubkey': pubkeyKey, 'life.deletedTime': null });
+        if (!pubkeyrec) {
+            throw new CoreError(
+                enumCoreErrors.CLIENT_MALFORMED_INPUT,
+                'This public-key has not been registered yet.'
+            );
+        }
+
+        if (!pubkeyrec.challenge) {
+            throw new CoreError(
+                enumCoreErrors.CLIENT_MALFORMED_INPUT,
+                'Please request a challenge first.'
+            );
+        }
+
+        const isVerified = crypto.verify(
+            null,  // No hash algorithm because the challenge is already hashed
+            Buffer.from(pubkeyrec.challenge, 'hex'),  // Convert the hex-encoded challenge to binary
+            {
+                key: pubkeyrec.pubkey,
+                padding: crypto.constants.RSA_PKCS1_PSS_PADDING
+            },
+            Buffer.from(signature, 'base64')  // Decode the Base64-encoded signature
+        );
+
+        if (!isVerified) {
+            throw new CoreError(
+                enumCoreErrors.CLIENT_MALFORMED_INPUT,
+                'Signature is not correct.'
+            );
+        }
+        const token = tokengen({
+            username: user.username,
+            publicKey: pubkeyrec.jwtPubkey
+        }, pubkeyrec.jwtSeckey, undefined, undefined, life);
+
+        await this.db.collections.pubkeys_collection.findOneAndUpdate({ id: pubkeyrec.id }, { $set: { lastUsedTime: Date.now() } });
+        return token;
+    }
+    /**
+     * Issue an access token.
+     *
+     * @param pubkey - The public key.
+     * @param signature - The signature of the key.
+     * @param life - The life of the token.
+     * @returns
+     */
+    public async issueAccessToken(pubkey: string, signature: string, life?: number) {
+        // refine the public-key parameter from browser
+        pubkey = pubkey.replace(/\\n/g, '\n');
+
+        /* Validate the signature with the public key */
+        if (!await rsaverifier(pubkey, signature)) {
+            throw new CoreError(
+                enumCoreErrors.CLIENT_MALFORMED_INPUT,
+                'Signature vs Public key mismatched.'
+            );
+        }
+
+        const pubkeyrec = await this.db.collections.pubkeys_collection.findOne({ pubkey, deleted: null });
+        if (pubkeyrec === null || pubkeyrec === undefined) {
+            throw new CoreError(
+                enumCoreErrors.CLIENT_MALFORMED_INPUT,
+                'This public-key has not been registered yet.'
+            );
+        }
+
+        // payload of the JWT for storing user information
+        const payload = {
+            publicKey: pubkeyrec.jwtPubkey,
+            associatedUserId: pubkeyrec.associatedUserId,
+            refreshCounter: pubkeyrec.refreshCounter,
+            Issuer: 'IDEA-FAST DMP'
+        };
+
+        // update the counter
+        const fieldsToUpdate = {
+            refreshCounter: (pubkeyrec.refreshCounter + 1)
+        };
+        const updateResult = await this.db.collections.pubkeys_collection.findOneAndUpdate({ pubkey, deleted: null }, { $set: fieldsToUpdate }, { returnDocument: 'after' });
+        if (!updateResult) {
+            throw new CoreError(
+                enumCoreErrors.DATABASE_ERROR,
+                enumCoreErrors.DATABASE_ERROR
+            );
+        }
+        // return the acccess token
+        const accessToken = {
+            accessToken: tokengen(payload, pubkeyrec.jwtSeckey, undefined, undefined, life)
+        };
+
+        return accessToken;
     }
 
     /**
@@ -807,7 +946,7 @@ export class UserCore {
         await this.db.collections.pubkeys_collection.findOneAndUpdate({ id: keyId }, {
             $set: {
                 'life.deletedTime': Date.now(),
-                'life.deletedUser': requester
+                'life.deletedUser': requester.id
             }
         });
 
@@ -902,61 +1041,6 @@ export class UserCore {
         }
 
         return updateResult;
-    }
-
-    /**
-     * Issue an access token.
-     *
-     * @param pubkey - The public key.
-     * @param signature - The signature of the key.
-     * @param life - The life of the token.
-     * @returns
-     */
-    public async issueAccessToken(pubkey: string, signature: string, life?: number) {
-        // refine the public-key parameter from browser
-        pubkey = pubkey.replace(/\\n/g, '\n');
-
-        /* Validate the signature with the public key */
-        if (!await rsaverifier(pubkey, signature)) {
-            throw new CoreError(
-                enumCoreErrors.CLIENT_MALFORMED_INPUT,
-                'Signature vs Public key mismatched.'
-            );
-        }
-
-        const pubkeyrec = await this.db.collections.pubkeys_collection.findOne({ pubkey, deleted: null });
-        if (pubkeyrec === null || pubkeyrec === undefined) {
-            throw new CoreError(
-                enumCoreErrors.CLIENT_MALFORMED_INPUT,
-                'This public-key has not been registered yet.'
-            );
-        }
-
-        // payload of the JWT for storing user information
-        const payload = {
-            publicKey: pubkeyrec.jwtPubkey,
-            associatedUserId: pubkeyrec.associatedUserId,
-            refreshCounter: pubkeyrec.refreshCounter,
-            Issuer: 'IDEA-FAST DMP'
-        };
-
-        // update the counter
-        const fieldsToUpdate = {
-            refreshCounter: (pubkeyrec.refreshCounter + 1)
-        };
-        const updateResult = await this.db.collections.pubkeys_collection.findOneAndUpdate({ pubkey, deleted: null }, { $set: fieldsToUpdate }, { returnDocument: 'after' });
-        if (!updateResult) {
-            throw new CoreError(
-                enumCoreErrors.DATABASE_ERROR,
-                enumCoreErrors.DATABASE_ERROR
-            );
-        }
-        // return the acccess token
-        const accessToken = {
-            accessToken: tokengen(payload, pubkeyrec.jwtSeckey, undefined, undefined, life)
-        };
-
-        return accessToken;
     }
 
     /**

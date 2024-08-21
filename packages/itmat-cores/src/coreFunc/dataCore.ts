@@ -803,16 +803,11 @@ export class DataCore {
                 return await getJsonFileContents(this.objStore, 'cache', hashedInfo[0].uri);
             } else {
                 // raw data by the permission
-                const data = await this.getDataByRoles(roles, studyId, availableDataVersions, fieldIds);
-                // data versioning
-                const filteredData = this.dataTransformationCore.transformationAggregate(data, { raw: this.genVersioningAggregation((config.properties as IStudyConfig).defaultVersioningKeys, availableDataVersions.includes(null)) });
-                if (!Array.isArray(filteredData['raw']) || (filteredData['raw'].length > 0 && Array.isArray(filteredData['raw'][0]))) {
-                    throw new Error('Input data must be of type IDataTransformationClipArray (A[]) and not A[][]');
-                }
+                const data = await this.getDataByRoles(requester, roles, studyId, availableDataVersions, fieldIds);
                 // data transformation if aggregation is provided
-                const transformed = aggregation ? this.dataTransformationCore.transformationAggregate(filteredData['raw'] as IDataTransformationClipArray, aggregation) : filteredData;
+                const transformed = aggregation ? this.dataTransformationCore.transformationAggregate(data as unknown as IDataTransformationClipArray, aggregation) : data;
                 // write to minio and cache collection
-                const info = await convertToBufferAndUpload(this.fileCore, requester, transformed);
+                const info = await convertToBufferAndUpload(this.fileCore, requester, { data: data });
                 const newHashInfo = {
                     id: uuid(),
                     keyHash: hash,
@@ -840,14 +835,9 @@ export class DataCore {
             }
         } else {
             // raw data by the permission
-            const data = await this.getDataByRoles(roles, studyId, availableDataVersions, fieldIds);
-            // data versioning
-            const filteredData = this.dataTransformationCore.transformationAggregate(data, { raw: this.genVersioningAggregation((config.properties as IStudyConfig).defaultVersioningKeys, availableDataVersions.includes(null)) });
-            if (!Array.isArray(filteredData['raw']) || (filteredData['raw'].length > 0 && Array.isArray(filteredData['raw'][0]))) {
-                throw new Error('Input data must be of type IDataTransformationClipArray (A[]) and not A[][]');
-            }
+            const data = await this.getDataByRoles(requester, roles, studyId, availableDataVersions, fieldIds);
             // data transformation if aggregation is provided
-            const transformed = aggregation ? this.dataTransformationCore.transformationAggregate(filteredData['raw'] as IDataTransformationClipArray, aggregation) : filteredData;
+            const transformed = aggregation ? this.dataTransformationCore.transformationAggregate(data as unknown as IDataTransformationClipArray, aggregation) : data;
             return transformed;
         }
     }
@@ -1006,18 +996,18 @@ export class DataCore {
             if (fieldIds.length === 0) {
                 return [];
             }
-            const fileDataRecords = (await this.getData(
+            const fileDataRecords: IData[] = (await this.getData(
                 requester,
                 studyId,
                 fieldIds,
                 availableDataVersions,
                 undefined,
                 false
-            ))['raw'];
+            )) as unknown as IData[];
             if (!Array.isArray(fileDataRecords)) {
                 return [];
             }
-            const files = await this.db.collections.files_collection.find({ id: { $in: fileDataRecords.map(el => el.value) } }).toArray();
+            const files = await this.db.collections.files_collection.find({ id: { $in: fileDataRecords.map(el => String(el.value)) } }).toArray();
             if (readable) {
                 const users = await this.db.collections.users_collection.find({}).toArray();
                 const edited = [...files];
@@ -1074,19 +1064,12 @@ export class DataCore {
     }
 
 
-    public async getDataByRoles(roles: IRole[], studyId: string, dataVersions: Array<string | null>, fieldIds?: string[]) {
+    public async getDataByRoles(requester: IUserWithoutToken, roles: IRole[], studyId: string, dataVersions: Array<string | null>, fieldIds?: string[]) {
         const matchFilter: Filter<IData> = {
             studyId: studyId,
             dataVersion: { $in: dataVersions }
         };
-        if (fieldIds && fieldIds[0]) {
-            // we ask that for regular expressions, ^ and $ must be used
-            if (fieldIds[0][0] === '^' && fieldIds[0][fieldIds[0].length - 1] === '$') {
-                matchFilter.fieldId = { $in: fieldIds.map(el => new RegExp(el)) };
-            } else {
-                matchFilter.fieldId = { $in: fieldIds };
-            }
-        }
+
         const roleArr: Filter<IData>[] = [];
         for (const role of roles) {
             const permissionArr: Filter<IData>[] = [];
@@ -1112,11 +1095,44 @@ export class DataCore {
             }
             roleArr.push({ $or: permissionArr });
         }
-        const res = await this.db.collections.data_collection.aggregate([{
-            $match: { ...matchFilter }
-        }, {
-            $match: { $or: roleArr }
-        }], { allowDiskUse: true }).toArray();
+
+        // we need to query each field based on its properties
+        const availableFields = (await this.getStudyFields(requester, studyId, dataVersions)).reduce((a, c) => {
+            a[c.fieldId] = c;
+            return a;
+        }, {});
+        const availableFieldIds = Object.keys(availableFields);
+        const refactoredFieldIds = fieldIds ?? Object.keys(availableFields);
+        let res: IData[] = [];
+        for (const fieldId of refactoredFieldIds) {
+            if (availableFieldIds.includes(fieldId) || availableFieldIds.some(el => new RegExp(el).test(fieldId))) {
+                const propertyFilter = {};
+                if (availableFields[fieldId].properties) {
+                    for (const property of availableFields[fieldId].properties) {
+                        propertyFilter[`${property.name}`] = `$properties.${property.name}`;
+                    }
+                }
+                const data = await this.db.collections.data_collection.aggregate<IData>([{
+                    $match: { ...matchFilter, fieldId: fieldId }
+                }, {
+                    $match: { $or: roleArr }
+                }, {
+                    $sort: {
+                        'life.createdTime': -1
+                    }
+                }, {
+                    $group: {
+                        _id: {
+                            ...propertyFilter
+                        },
+                        latestDocument: { $first: '$$ROOT' }
+                    }
+                }, {
+                    $replaceRoot: { newRoot: '$latestDocument' }
+                }], { allowDiskUse: true }).toArray();
+                res = res.concat(data);
+            }
+        }
         return res;
     }
 
@@ -1320,22 +1336,18 @@ export class DataCore {
         }
 
         const generatedSummary = async () => {
-            const numberOfDataRecords: number = await this.db.collections.data_collection.countDocuments({ studyId: studyId });
-            const numberOfDataAdds: number = await this.db.collections.data_collection.countDocuments({ studyId: studyId, value: { $ne: null } });
-            const numberOfDataDeletes: number = await this.db.collections.data_collection.countDocuments({ studyId: studyId, value: null });
-
-            const numberOfVersionedRecords: number = await this.db.collections.data_collection.countDocuments({ studyId: studyId, dataVersion: { $ne: null } });
-            const numberOfVersionedAdds: number = await this.db.collections.data_collection.countDocuments({ studyId: studyId, dataVersion: { $ne: null }, value: { $ne: null } });
-            const numberOfVersionedDeletes: number = await this.db.collections.data_collection.countDocuments({ studyId: studyId, dataVersion: { $ne: null }, value: null });
-
-            const numberOfUnversionedRecords: number = await this.db.collections.data_collection.countDocuments({ studyId: studyId, dataVersion: null });
-            const numberOfUnversionedAdds: number = await this.db.collections.data_collection.countDocuments({ studyId: studyId, dataVersion: null, value: { $ne: null } });
-            const numberOfUnversionedDeletes: number = await this.db.collections.data_collection.countDocuments({ studyId: studyId, dataVersion: null, value: null });
-
+            const numberOfDataRecords: number = await this.db.collections.data_collection.countDocuments({ studyId: studyId }, { allowDiskUse: true });
+            const numberOfDataAdds: number = await this.db.collections.data_collection.countDocuments({ studyId: studyId, value: { $ne: null } }, { allowDiskUse: true });
+            const numberOfDataDeletes: number = await this.db.collections.data_collection.countDocuments({ studyId: studyId, value: null }, { allowDiskUse: true });
+            const numberOfVersionedRecords: number = await this.db.collections.data_collection.countDocuments({ studyId: studyId, dataVersion: { $ne: null } }, { allowDiskUse: true });
+            const numberOfVersionedAdds: number = await this.db.collections.data_collection.countDocuments({ studyId: studyId, dataVersion: { $ne: null }, value: { $ne: null } }, { allowDiskUse: true });
+            const numberOfVersionedDeletes: number = await this.db.collections.data_collection.countDocuments({ studyId: studyId, dataVersion: { $ne: null }, value: null }, { allowDiskUse: true });
+            const numberOfUnversionedRecords: number = await this.db.collections.data_collection.countDocuments({ studyId: studyId, dataVersion: null }, { allowDiskUse: true });
+            const numberOfUnversionedAdds: number = await this.db.collections.data_collection.countDocuments({ studyId: studyId, dataVersion: null, value: { $ne: null } }, { allowDiskUse: true });
+            const numberOfUnversionedDeletes: number = await this.db.collections.data_collection.countDocuments({ studyId: studyId, dataVersion: null, value: null }, { allowDiskUse: true });
             const numberOfFields: number = (await this.db.collections.field_dictionary_collection.distinct('fieldId', { studyId: studyId })).length;
             const numberOfVersionedFields: number = (await this.db.collections.field_dictionary_collection.distinct('fieldId', { studyId: studyId, dataVersion: { $ne: null } })).length;
             const numberOfUnversionedFields: number = (await this.db.collections.field_dictionary_collection.distinct('fieldId', { studyId: studyId, dataVersion: null })).length;
-
             const dataByUploaders = await this.db.collections.data_collection.aggregate<{ userId: string, count: number }>([
                 { $match: { studyId: studyId } },
                 {
@@ -1351,8 +1363,8 @@ export class DataCore {
                         count: 1
                     }
                 }
-            ]).toArray();
-
+            ], { allowDiskUse: true }).toArray();
+            console.log('dataByUploaders done');
             const events = ['GET_DATA_RECORDS', 'GET_STUDY_FIELDS', 'GET_STUDY', 'data.getStudyFields',
                 'data.getStudyData', 'data.getStudyDataLatest', 'data.getFiles'
             ];
@@ -1379,8 +1391,8 @@ export class DataCore {
                         count: 1
                     }
                 }
-            ]).toArray();
-
+            ], { allowDiskUse: true }).toArray();
+            console.log('dataByUsers done');
             return {
                 numberOfDataRecords: numberOfDataRecords,
                 numberOfDataAdds: numberOfDataAdds,

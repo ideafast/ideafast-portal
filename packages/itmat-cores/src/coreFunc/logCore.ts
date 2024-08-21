@@ -62,7 +62,7 @@ export class LogCore {
         }
         let logs: ILog[];
         if (indexRange) {
-            logs = await this.db.collections.log_collection.find(filters).skip(indexRange[0]).limit(indexRange[1] - indexRange[0]).toArray();
+            logs = await this.db.collections.log_collection.find(filters).sort({ 'life.createdTime': -1 }).skip(indexRange[0]).limit(indexRange[1] - indexRange[0]).toArray();
         } else {
             logs = await this.db.collections.log_collection.find(filters).toArray();
         }

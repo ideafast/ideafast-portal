@@ -273,13 +273,40 @@ export class UserRouter {
                 return await this.userCore.registerPubkey(opts.ctx.user, opts.input.pubkey, opts.input.signature, opts.input.associatedUserId);
             }),
             /**
-             * Issue an access token.
-             *
+             * Request an access token.
+             * @param username - The username of the user.
              * @param pubkey - The public key.
-             * @param signature - The signature of the public key.
-             * @param life - The life of the token.
-             * @return IAccessToken
+             *
+             * @return challenge
              */
+            requestAccessToken: this.baseProcedure.input(z.object({
+                username: z.string(),
+                pubkey: z.string()
+            })).mutation(async (opts) => {
+                return await this.userCore.requestAccessToken(opts.input.username, opts.input.pubkey);
+            }),
+            /**
+             * Get an access token.
+             * @param username - The username of the user.
+             * @param pubkey - The public key.
+             *
+             * @return token
+             */
+            getAccessToken: this.baseProcedure.input(z.object({
+                username: z.string(),
+                pubkey: z.string(),
+                signature: z.string()
+            })).mutation(async (opts) => {
+                return await this.userCore.getAccessToken(opts.input.username, opts.input.pubkey, opts.input.signature);
+            }),
+            /**
+                 * Issue an access token.
+                 *
+                 * @param pubkey - The public key.
+                 * @param signature - The signature of the public key.
+                 * @param life - The life of the token.
+                 * @return IAccessToken
+                 */
             issueAccessToken: this.baseProcedure.input(z.object({
                 pubkey: z.string(),
                 signature: z.string(),
@@ -288,16 +315,16 @@ export class UserRouter {
                 return await this.userCore.issueAccessToken(opts.input.pubkey, opts.input.signature, opts.input.life);
             }),
             /**
-             * Delete a public key.
-             *
-             * @param keyId - The id of the public key.
-             * @param associatedUserId - The id of the user.
-             */
+                 * Delete a public key.
+                 *
+                 * @param keyId - The id of the public key.
+                 * @param associatedUserId - The id of the user.
+                 */
             deletePubkey: this.baseProcedure.input(z.object({
-                keyId: z.string(),
-                associatedUserId: z.string()
+                associatedUserId: z.string(),
+                keyId: z.string()
             })).mutation(async (opts) => {
-                return await this.userCore.deletePubkey(opts.ctx.user, opts.input.keyId, opts.input.associatedUserId);
+                return await this.userCore.deletePubkey(opts.ctx.user, opts.input.associatedUserId, opts.input.keyId);
             })
         });
     }

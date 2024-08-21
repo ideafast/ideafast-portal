@@ -112,7 +112,7 @@ export const MyWebauthn: FunctionComponent = () => {
                     <Button
                         onClick={() => handleCancelEdit(record.id)}
                     >
-                            Cancel
+                        Cancel
                     </Button>
                 </>
             ) : (
@@ -121,7 +121,7 @@ export const MyWebauthn: FunctionComponent = () => {
                     <Button
                         onClick={() => handleEditClick(record.id, record.name || '')}
                     >
-                            Edit
+                        Edit
                     </Button>
                 </>
             )
@@ -168,10 +168,10 @@ export const MyWebauthn: FunctionComponent = () => {
             dataIndex: 'action',
             key: 'action',
             render: (__unused__text: string, record: AuthenticatorDevice) => (
-                <Button type="primary" onClick={() => {
+                <Button onClick={() => {
                     setSelectedDevice(record);
                     setDeleteModalVisible(true);
-                }}>
+                }} danger>
                     Delete
                 </Button>
             )

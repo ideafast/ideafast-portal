@@ -379,7 +379,7 @@ function generateTableColumns(block: IStudyFileBlock, searchedKeyword: string | 
     }];
     for (const bcolumn of block.defaultFileColumns) {
         columns.push({
-            title: <span style={{ color: block.defaultFileColumnsPropertyColor }}>{bcolumn.title}</span>,
+            title: <span style={{ color: 'black' }}>{bcolumn.title}</span>,
             dataIndex: bcolumn.property,
             key: bcolumn.property,
             render: (__unused__value, record) => {

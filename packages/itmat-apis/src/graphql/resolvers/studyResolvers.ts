@@ -72,7 +72,7 @@ export class StudyResolvers {
 
     async getDataRecords(_parent, { studyId, queryString, versionId }: { queryString: IQueryString, studyId: string, versionId: string | null | undefined }, context) {
         try {
-            const result = (await this.dataCore.getData(context.req.user, studyId, queryString.data_requested, versionId))['raw'] as unknown as IData[] & { properties: { subjectId: string, visitId: string }, fieldId: string, value: string }[];
+            const result = (await this.dataCore.getData(context.req.user, studyId, queryString.data_requested, versionId)) as unknown as IData[] & { properties: { subjectId: string, visitId: string }, fieldId: string, value: string }[];
             const groupedResult: IGroupedData = {};
             for (let i = 0; i < result.length; i++) {
                 const { subjectId, visitId } = result[i].properties;

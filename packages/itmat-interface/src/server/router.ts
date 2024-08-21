@@ -98,7 +98,10 @@ export class Router {
 
         // authentication middleware
         this.app.use((req, res, next) => {
-            const token: string = req.headers.authorization || '';
+            let token: string = req.headers.authorization || '';
+            if (token.startsWith('Bearer ')) {
+                token = token.slice(7);
+            }
             tokenAuthentication(token)
                 .then((associatedUser) => {
                     if (associatedUser) {

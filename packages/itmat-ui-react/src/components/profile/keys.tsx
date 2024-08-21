@@ -1,8 +1,8 @@
 import React, { FunctionComponent, useState } from 'react';
 import LoadSpinner from '../reusable/loadSpinner';
 // import { ProjectSection } from '../users/projectSection';
-import { Form, Input, Button, List, Table, message, Modal } from 'antd';
-import { CopyOutlined } from '@ant-design/icons';
+import { Form, Input, Button, List, Table, message, Modal, Upload, Popconfirm } from 'antd';
+import { CopyOutlined, UploadOutlined } from '@ant-design/icons';
 import css from './profile.module.css';
 import { trpc } from '../../utils/trpc';
 import copy from 'copy-to-clipboard';
@@ -62,13 +62,6 @@ export const MyKeys: FunctionComponent = () => {
             );
         }
     }, {
-        title: 'Refresh Counter',
-        dataIndex: 'refreshCounter',
-        key: 'value',
-        render: (__unused__value, record) => {
-            return record.refreshCounter;
-        }
-    }, {
         title: 'Created At',
         dataIndex: 'createdAt',
         key: 'value',
@@ -80,17 +73,22 @@ export const MyKeys: FunctionComponent = () => {
         dataIndex: 'tokenGeneration',
         key: 'value',
         render: (_, record) => {
-            return <TokenGenerationForm pubkey={record.pubkey} />;
+            return <TokenGenerationForm username={whoAmI.data.username} pubkey={record.pubkey} />;
         }
     }, {
         title: '',
         dataIndex: 'delete',
         key: 'delete',
         render: (_, record) => {
-            return <Button onClick={() => deletePubkey.mutate({
-                associatedUserId: whoAmI.data.id,
-                keyId: record.id
-            })}>Delete</Button>;
+            return <Popconfirm
+                title="Are you sure to delete this key?"
+                onConfirm={() => deletePubkey.mutate({
+                    associatedUserId: whoAmI.data.id,
+                    keyId: record.id
+                })}
+            >
+                <Button danger>Delete</Button>
+            </Popconfirm >;
         }
     }];
     return (<div className={css.key_wrapper}>
@@ -140,15 +138,15 @@ const KeyGeneration: React.FunctionComponent<{ userId: string }> = ({ userId }) 
     // function for generating file and set download link
     const makeTextFile = (filecontent: string) => {
         const data = new Blob([filecontent], { type: 'text/plain' });
-        // this part avoids memory leaks
+        // Avoid memory leaks
         if (downloadLink !== '') window.URL.revokeObjectURL(downloadLink);
-        // update the download link state
+        // Update the download link state
         setDownloadLink(window.URL.createObjectURL(data));
     };
 
     return (
         <div>
-            <Button onClick={() => setIsKeyGenOpen(true)}>Generate a Key Pair</Button>
+            <Button type='primary' onClick={() => setIsKeyGenOpen(true)}>Generate a Key Pair</Button>
             <Modal
                 title='Generate a new key pair'
                 open={isKeyGenOpen}
@@ -177,22 +175,23 @@ const KeyGeneration: React.FunctionComponent<{ userId: string }> = ({ userId }) 
                     completedKeypairGen ? <div>
                         Public key: <TextArea value={exportedKeyPair.publicKey.replace(/\n/g, '\\n')} disabled={true} />
                         <a download='publicKey.pem' href={downloadLink}>
-                            <Button type='primary' onClick={() => makeTextFile(exportedKeyPair.publicKey.replace(/\n/g, '\\n'))}>
+                            <Button type='primary' onClick={() => makeTextFile(exportedKeyPair.publicKey)}>
                                 Save the public key (PEM file)
                             </Button>
-                        </a><br />
-                        Secret key: <TextArea value={exportedKeyPair.privateKey.replace(/\n/g, '\\n')} disabled={true} />
+                        </a><br /><br />
+                        {/* Secret key: <TextArea value={exportedKeyPair.privateKey.replace(/\n/g, '\\n')} disabled={true} /> */}
                         <a download='privateKey.pem' href={downloadLink}>
-                            <Button type='primary' onClick={() => makeTextFile(exportedKeyPair.privateKey.replace(/\n/g, '\\n'))}>
+                            <Button type='primary' onClick={() => makeTextFile(exportedKeyPair.privateKey)}>
                                 Save the private key (PEM file)
                             </Button>
                         </a><br />
-                        Signature: <TextArea value={signature} disabled={true} />
-                        <a download='signature.txt' href={downloadLink}>
+
+                        {/* Signature: <TextArea value={signature} disabled={true} /> */}
+                        {/* <a download='signature.txt' href={downloadLink}>
                             <Button type='primary' onClick={() => makeTextFile(signature)}>
                                 Save the signature (TXT file)
                             </Button>
-                        </a><br />
+                        </a><br /> */}
                         <Button onClick={() => {
                             void (async () => {
                                 await registerPubkey.mutate({
@@ -212,12 +211,28 @@ const KeyGeneration: React.FunctionComponent<{ userId: string }> = ({ userId }) 
     );
 };
 
-const TokenGenerationForm = ({ pubkey }) => {
+const TokenGenerationForm = ({ username, pubkey }) => {
     const [form] = Form.useForm();
-    const issueAccessToken = trpc.user.issueAccessToken.useMutation({
+    const [privateKey, setPrivateKey] = useState<string | null>(null);
+
+    const requestAccessToken = trpc.user.requestAccessToken.useMutation({
+        onSuccess: async (data) => {
+            if (!privateKey) {
+                void message.error('Private key not loaded.');
+                return;
+            }
+            const signature = await signWithPrivateKey(privateKey, data.challenge);
+            getAccessToken.mutate({ username, pubkey, signature: signature });
+        },
+        onError: () => {
+            void message.error('Failed to generate token.');
+        }
+    });
+
+    const getAccessToken = trpc.user.getAccessToken.useMutation({
         onSuccess: (data) => {
             void message.success('Token generated.');
-            copy(data.accessToken);
+            copy(data);  // Assuming `copy` is defined elsewhere
         },
         onError: () => {
             void message.error('Failed to generate token.');
@@ -225,24 +240,119 @@ const TokenGenerationForm = ({ pubkey }) => {
     });
 
     const handleGenerateClick = async () => {
-        const values = await form.validateFields();
-        issueAccessToken.mutate({ pubkey, signature: values.signature, life: values.life * 60 * 60 });
-
+        requestAccessToken.mutate({ username, pubkey });
     };
+
+    const handleFileUpload = (info) => {
+        const file = info.file.originFileObj as File; // Get the selected file
+        const reader = new FileReader();
+
+        reader.onload = async (e) => {
+            const pem = e?.target?.result as string | undefined;
+            if (pem) {
+                try {
+                    setPrivateKey(pem);
+                } catch (error) {
+                    void message.error('Failed to load the private key.');
+                }
+            }
+        };
+
+        reader.onerror = () => {
+            void message.error('Failed to read the private key file.');
+        };
+
+        reader.readAsText(file);  // Read the file as text
+    };
+
+    async function signWithPrivateKey(pemKey, hashedChallengeHex) {
+        // Convert PEM to ArrayBuffer
+        function pemToArrayBuffer(pem) {
+            const b64 = pem
+                .replace(/-----(BEGIN|END) PRIVATE KEY-----/g, '')
+                .replace(/\s+/g, '');
+            const binary = window.atob(b64);
+            const len = binary.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binary.charCodeAt(i);
+            }
+            return bytes.buffer;
+        }
+
+        // Import the private key
+        async function importPrivateKey(pemKey) {
+            const keyData = pemToArrayBuffer(pemKey);
+            return await crypto.subtle.importKey(
+                'pkcs8', // The format of the key, PKCS8 for private keys
+                keyData, // The ArrayBuffer from the PEM
+                {
+                    name: 'RSA-PSS', // The algorithm to use
+                    hash: { name: 'SHA-256' } // The hash function to use
+                },
+                false, // Not extractable
+                ['sign'] // Key usages
+            );
+        }
+
+        // Convert the hex string to ArrayBuffer
+        function hexToArrayBuffer(hexString) {
+            const byteArray = new Uint8Array(
+                hexString.match(/.{1,2}/g).map(byte => parseInt(byte, 16))
+            );
+            return byteArray.buffer;
+        }
+
+        // Convert Uint8Array to Base64
+        function arrayBufferToBase64(buffer) {
+            const byteArray = new Uint8Array(buffer);
+            let binary = '';
+            byteArray.forEach(byte => {
+                binary += String.fromCharCode(byte);
+            });
+            return window.btoa(binary);
+        }
+
+        // Import the private key
+        const privateKey = await importPrivateKey(pemKey);
+
+        // Convert the hashed challenge from hex to ArrayBuffer
+        const challengeBuffer = hexToArrayBuffer(hashedChallengeHex);
+
+        // Sign the hashed challenge
+        const signatureBuffer = await crypto.subtle.sign(
+            {
+                name: 'RSA-PSS', // Using RSA-PSS for the signing algorithm
+                saltLength: 32 // Typically the same length as the hash output (32 bytes for SHA-256)
+            },
+            privateKey, // The private key object
+            challengeBuffer // The data to be signed, as an ArrayBuffer
+        );
+
+        // Convert the signature to a Base64 string
+        const signatureBase64 = arrayBufferToBase64(signatureBuffer);
+
+        return signatureBase64;
+    }
 
     return (
         <Form form={form} layout="inline">
             <Form.Item
-                name="signature"
-                rules={[{ required: true, message: 'Signature is required' }]}
-            >
-                <Input placeholder="Enter signature" />
-            </Form.Item>
-            <Form.Item
                 name="life"
                 rules={[{ required: true, message: 'Life is required' }]}
             >
-                <Input placeholder="Enter life in hours" />
+                {
+                    !privateKey ?
+                        <Upload
+                            onChange={handleFileUpload}
+                            accept='.pem'
+                            showUploadList={false}
+                        >
+                            <Button icon={<UploadOutlined />}>Select Private Key</Button>
+                        </Upload>
+                        :
+                        <Button style={{ backgroundColor: 'lightgreen' }}>Private Key Loaded</Button>
+                }
             </Form.Item>
             <Form.Item>
                 <Button
@@ -251,6 +361,7 @@ const TokenGenerationForm = ({ pubkey }) => {
                         void (async () => {
                             await handleGenerateClick();
                         })();
+
                     }}
                 >
                     Gen
