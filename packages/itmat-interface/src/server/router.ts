@@ -219,11 +219,11 @@ export class Router {
             target: _this.config.aeEndpoint,
             ws: true,
             xfwd: true,
-            // logLevel: 'debug',
             autoRewrite: true,
             changeOrigin: true,
             on: {
                 proxyReq: function (preq, req: Request, res: Response) {
+                    preq.path = req.baseUrl + req.path;
                     if (!req.user)
                         return res.status(403).redirect('/');
                     res.cookie('ae_proxy', req.headers['host']);
