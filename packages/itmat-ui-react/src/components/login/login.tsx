@@ -1,9 +1,11 @@
 import { FunctionComponent } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate} from 'react-router-dom';
 import css from './login.module.css';
-import { Input, Form, Button, Alert, Checkbox, message, Image } from 'antd';
+import { Input, Form, Button, Alert, Checkbox, message, Image, Divider} from 'antd';
 import { trpc } from '../../utils/trpc';
 import LoadSpinner from '../reusable/loadSpinner';
+import { useAuth } from '../../utils/dmpWebauthn/webauthn.context';
+import { UserOutlined, KeyOutlined} from '@ant-design/icons';
 
 export const LoginBox: FunctionComponent = () => {
     const login = trpc.user.login.useMutation({
@@ -18,6 +20,9 @@ export const LoginBox: FunctionComponent = () => {
     const getCurrentSubPath = trpc.domain.getCurrentSubPath.useQuery();
     const getCurrentDomain = trpc.domain.getCurrentDomain.useQuery();
 
+    const navigate = useNavigate();
+    const { isWebauthAvailable, credentials } = useAuth(); // Accessing webauthn availability and credentials
+
     if (getCurrentSubPath.isLoading || getCurrentDomain.isLoading) {
         return <>
             <div className='page_ariane'>Loading...</div>
@@ -31,6 +36,10 @@ export const LoginBox: FunctionComponent = () => {
             An error occured.
         </>;
     }
+
+    const handleAuthLogin = () => {
+        navigate('/authenticate_webauthn');
+    };
 
     return (
         <div className={css.login_wrapper}>
@@ -76,6 +85,33 @@ export const LoginBox: FunctionComponent = () => {
 
                     </Form>
                 </div>
+
+                {/* Conditionally render the "Login with Authenticator" button */}
+                {(isWebauthAvailable &&  credentials && credentials.length > 0) && (
+                    <>
+                        <Divider plain>Or</Divider>
+                        <Button
+                            type="default"
+                            onClick={handleAuthLogin}
+                            style={{
+                                display: 'flex',
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                                width: '100%',
+                                maxWidth: '280px',
+                                margin: '0 auto',
+                                borderColor: '#007bff',
+                                color: '#007bff'
+                            }}
+                        >
+                            <div style={{ display: 'flex', alignItems: 'center', marginRight: '8px' }}>
+                                <UserOutlined style={{ fontSize: '16px' }} />
+                                <KeyOutlined style={{ fontSize: '10px', marginLeft: '1px' }} />
+                            </div>
+                       Login with an authenticator
+                        </Button>
+                    </>
+                )}
                 <br />
                 <br />
                 <br />

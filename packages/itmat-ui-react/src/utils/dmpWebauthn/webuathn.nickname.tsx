@@ -1,24 +1,23 @@
 import React, { FunctionComponent, useState, useEffect} from 'react';
-import { Modal, Input, message } from 'antd';
+import {Input, Button, message } from 'antd';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from './webauthn.context';
 import { trpc } from '../trpc';
+import css from './webauthn.module.css';
 
-export const DeviceNicknameModal: FunctionComponent = () => {
-    const {
-        handleCancelRegistration,
-        showNicknameModal,
-        setShowNicknameModal,
-        newDeviceId
-
-    } = useAuth();
-
+export const DeviceNicknameComponent: FunctionComponent = () => {
+    const {newDeviceId} = useAuth();
+    const navigate = useNavigate();
     const [deviceName, setDeviceName] = useState('');
 
     useEffect(() => {
-        if (showNicknameModal) {
-            setDeviceName('');
+        if (!newDeviceId) {
+            // If there's no new device registered, redirect to another page (like dashboard or registration)
+            void message.error('No new device registered.');
+            navigate('/'); // Redirect to a desired route
         }
-    }, [showNicknameModal]);
+    }, [newDeviceId, navigate]);
+
 
     const updateDeviceNameMutation = trpc.webauthn.updateWebauthnDeviceName.useMutation();
 
@@ -30,33 +29,47 @@ export const DeviceNicknameModal: FunctionComponent = () => {
                     name: deviceName
                 });
                 void message.success('Device nickname updated.');
+                handleCancel();
             } catch (error) {
                 void message.error('Failed to update device nickname.');
             }
         }
-        setShowNicknameModal(false);
-        handleCancelRegistration(); // Close the registration dialog after setting the nickname
     };
 
+    const handleCancel = () => {
+        navigate('/profile'); // Redirect to user profile route
+    };
+
+
     return (
-        <Modal
-            title="Authenticator Nickname"
-            open={showNicknameModal}
-            onOk={() => void handleSetDeviceNickname()}
-            onCancel={() => {
-                setShowNicknameModal(false);
-                handleCancelRegistration(); // Also close the main registration dialog
-            }}
-            okText="Save"
-            cancelText="Later"
-        >
-            <p>Pick a nickname that will help you identify this registerd device later.</p>
-            <p>For example, the name of your device or laptop.</p>
-            <Input
-                value={deviceName}
-                onChange={(e) => setDeviceName(e.target.value)}
-                placeholder="Enter a nickname for your device"
-            />
-        </Modal>
+        <div>
+            <div className={css.registration_dialog}>
+                <img
+                    alt='IDEA-FAST Logo'
+                    src='https://avatars3.githubusercontent.com/u/60649739?s=150'
+                />
+                <h3>Pick a Nickname for Your Device</h3>
+                <p>Please pick a nickname that will help you identify this registered device later.</p>
+                <p>For example, the name of your device or laptop.</p>
+                <Input
+                    value={deviceName}
+                    onChange={(e) => setDeviceName(e.target.value)}
+                    placeholder="Enter a nickname for your device"
+                />
+            </div>
+            <div className={css.primaryButton}>
+                <Button key="cancel" onClick={handleCancel} size='large'>
+                        Later
+                </Button>
+                <Button
+                    key="save"
+                    type="primary"
+                    onClick={() => void handleSetDeviceNickname()}
+                    size='large'
+                >
+                        Save
+                </Button>
+            </div>
+        </div>
     );
 };

@@ -13,21 +13,14 @@ import { trpc } from './utils/trpc';
 
 import { WebAuthnRegistrationComponent } from './utils/dmpWebauthn/webauthn.register';
 import { WebAuthnAuthenticationComponent } from './utils/dmpWebauthn/webauthn.authenticate';
-import { DeviceNicknameModal } from './utils/dmpWebauthn/webuathn.nickname';
+import { DeviceNicknameComponent } from './utils/dmpWebauthn/webuathn.nickname';
 import { useAuth } from './utils/dmpWebauthn/webauthn.context';
 
 
 export const Fence: FunctionComponent = () => {
     const {
-        showRegistrationDialog,
-        setShowRegistrationDialog,
-        credentials,
         isUserLogin,
-        setIsUserLogin,
-        isWebauthAvailable,
-        useWebauthn,
-        setUseWebauthn,
-        showNicknameModal
+        setIsUserLogin
     } = useAuth();
 
     const whoAmI = trpc.user.whoAmI.useQuery();
@@ -48,26 +41,7 @@ export const Fence: FunctionComponent = () => {
         } else {
             setIsUserLogin(false);
         }
-        if (isWebauthAvailable && credentials?.length === 0) {
-            setUseWebauthn('register');
-        } else if (isWebauthAvailable && (credentials?.length ?? 0) > 0) {
-            setUseWebauthn('authenticate');
-        }  else {
-            setUseWebauthn('close');
-        }
-
-    }, [whoAmI.data, credentials]);
-
-    useEffect(() => {
-        if (!isWebauthAvailable) {
-            setShowRegistrationDialog(false);
-        } else if (useWebauthn === 'authenticate' && !isUserLogin) {
-            setShowRegistrationDialog(true);  // Show the WebAuthn dialog
-        } else {
-            setShowRegistrationDialog(false);
-        }
-    }, [isWebauthAvailable, isUserLogin, useWebauthn, setShowRegistrationDialog]);
-
+    }, [whoAmI.data]);
 
     useEffect(() => {
         if (isAnyLoading) {
@@ -94,13 +68,8 @@ export const Fence: FunctionComponent = () => {
             <Route path='/register' element={<RegisterNewUser />} />
             <Route path='/register_webauthn' element={<WebAuthnRegistrationComponent />} />
             <Route path='/authenticate_webauthn' element={<WebAuthnAuthenticationComponent />} />
-            <Route path='*' element={
-                <>
-                    {component}
-                    {showRegistrationDialog && <WebAuthnAuthenticationComponent />}
-                    {showNicknameModal && <DeviceNicknameModal />}
-                </>
-            } />
+            <Route path='/nickname_webauthn' element={<DeviceNicknameComponent />} />
+            <Route path='*' element={component} />
         </Routes>
     );
 };

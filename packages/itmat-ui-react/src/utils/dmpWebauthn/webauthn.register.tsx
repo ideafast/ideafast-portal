@@ -1,5 +1,7 @@
 import React, { FunctionComponent} from 'react';
-import { Button, Modal, message } from 'antd';
+import { Button, message } from 'antd';
+import { useNavigate } from 'react-router-dom';
+import { UserOutlined, KeyOutlined } from '@ant-design/icons';
 
 import { startRegistration } from '@simplewebauthn/browser';
 import {
@@ -15,12 +17,11 @@ export const WebAuthnRegistrationComponent: FunctionComponent = () => {
     const {
         credentials,
         setCredentials,
-        isUserLogin,
-        showRegistrationDialog,
         handleCancelRegistration,
-        setShowNicknameModal,
+        isUserLogin,
         setNewDeviceId
     } = useAuth();
+    const nagivate = useNavigate();
 
     const webauthnRegistration = trpc.webauthn.webauthnRegister.useMutation();
     const webauthnRegisterVerify = trpc.webauthn.webauthnRegisterVerify.useMutation();
@@ -29,7 +30,7 @@ export const WebAuthnRegistrationComponent: FunctionComponent = () => {
         enabled: false,
         onSuccess: (data) => {
             if (data === null) {
-                void message.warning('No WebAuthn ID found for the user.');
+                void message.warning('No Authenticator ID found for the user.');
                 return;
             }
             const webauthnID = data?.id;
@@ -37,11 +38,10 @@ export const WebAuthnRegistrationComponent: FunctionComponent = () => {
             if (webauthnID && !updatedCredentials.includes(webauthnID)) {
                 updatedCredentials.push(webauthnID);
                 setCredentials(updatedCredentials);
-                handleCancelRegistration();
             }
         },
         onError: () => {
-            void message.error('Failed to fetch WebAuthn ID.');
+            void message.error('Failed to fetch Authenticator ID.');
         }
     });
 
@@ -69,7 +69,6 @@ export const WebAuthnRegistrationComponent: FunctionComponent = () => {
             const registrationData = await webauthnRegistration.mutateAsync();
             webauthn_id = registrationData.webauthn_id;
             const registrationOptions: PublicKeyCredentialCreationOptionsJSON = registrationData.options;
-
             const attestationResponse: RegistrationResponseJSON = await startRegistration(registrationOptions);
 
             const verificationData = await webauthnRegisterVerify.mutateAsync({
@@ -80,7 +79,7 @@ export const WebAuthnRegistrationComponent: FunctionComponent = () => {
 
             if (verificationResult.successful) {
                 if (elemSuccess) {
-                    elemSuccess.innerHTML = 'Authenticator registered!!';
+                    elemSuccess.innerHTML = 'Authenticator registered successfully!';
                 }
 
                 device_id = verificationResult.id;
@@ -90,15 +89,16 @@ export const WebAuthnRegistrationComponent: FunctionComponent = () => {
                         webauthn_id
                     ]);
                     void message.success('Registration verified.');
-                    setNewDeviceId(device_id); // Ensure id is defined
-                    setShowNicknameModal(true);
-                    handleCancelRegistration();
+                    setNewDeviceId(device_id); // Set the device ID for the nickname
+                    // Redirect to the device nickname route
+                    nagivate('/nickname_webauthn');
+
                 } else {
-                    void message.error('Verification ID is undefined.');
+                    void message.error('Authenticator ID is undefined.');
                 }
             } else {
                 if (elemError) {
-                    elemError.innerHTML = `Oh no, something went wrong! Response: <pre>${JSON.stringify(verificationResult)}</pre>`;
+                    elemError.innerHTML = `Oh no, something wrong! Response: <pre>${JSON.stringify(verificationResult)}</pre>`;
                 }
             }
         } catch (error: unknown) {
@@ -106,18 +106,17 @@ export const WebAuthnRegistrationComponent: FunctionComponent = () => {
                 if (error.name === 'InvalidStateError') {
                     await fetchWebAuthnID(); // Fetch the webauthn ID if the user has already registered the device
                     if (elemError) {
-                        elemError.innerHTML = 'This device has already been registered. You don\'t have to register it again.';
+                        elemError.innerHTML = 'This device has already been registered. You don\'t need to register it again!';
                     }
-                    if (webauthn_id) { // Ensure id is available
+                    if (webauthn_id && !credentials?.includes(webauthn_id)) { // Ensure id is available
                         setCredentials([
                             ...(credentials ?? []),
                             webauthn_id
                         ]);
-                        handleCancelRegistration();
                     }
                 } else {
                     if (elemError) {
-                        elemError.innerHTML = `Error occurred: ${error.message || 'Unknown error'}`;
+                        elemError.innerHTML = `Error occurred: ${(error as Error).message || 'Unknown error'}`;
                     }
                 }
             } else {
@@ -130,28 +129,30 @@ export const WebAuthnRegistrationComponent: FunctionComponent = () => {
 
 
     return (
-        <Modal
-            open={showRegistrationDialog}
-            onCancel={handleCancelRegistration}
-            footer={null}
-            centered
-            styles={{ mask: { backgroundColor: 'rgba(0, 0, 0, 0.3)' } }}
-            style={{ padding: '24px' }} // Adjust padding as needed to reduce boundary
-        >
+        <div>
+
             <div className={webauthnStyles.registration_dialog}>
                 <img alt='IDEA-FAST Logo' src='https://avatars3.githubusercontent.com/u/60649739?s=150' />
-                <h3>Register for WebAuthn?</h3>
+                <div className={webauthnStyles.userIconWrapper}>
+                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                        <KeyOutlined style={{ fontSize: '16px', marginRight: '-8px' }} />
+                        <UserOutlined style={{ fontSize: '32px', marginLeft: '8px' }} />
+                    </div>
+                    <h3 style={{ marginTop: '10px', textAlign: 'center' }}>Register new Authenticator?</h3>
+                </div>
+
                 <p className="success" id="regSuccess"></p>
                 <p className="error" id="regError"></p>
             </div>
             <div className={webauthnStyles.primaryButton}>
                 <Button key="no" onClick={handleCancelRegistration} size='large'>
-                        No
+                            Cancel
                 </Button>
                 <Button key="yes" type="primary" onClick={(event) => { void handleWebAuthnRegistration(event); }} size='large'>
-                        Yes
+                            Register
                 </Button>
             </div>
-        </Modal>
+
+        </div>
     );
 };

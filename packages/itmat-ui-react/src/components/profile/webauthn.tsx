@@ -2,14 +2,13 @@ import React, { FunctionComponent, useState, useEffect } from 'react';
 import { Alert, Button, Table, Modal, List, message } from 'antd';
 import { AuthenticatorDevice } from '@itmat-broker/itmat-types';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../utils/dmpWebauthn/webauthn.context';
 import css from './profile.module.css';
 import LoadSpinner from '../reusable/loadSpinner';
 import { trpc } from '../../utils/trpc';
+import { useAuth } from '../../utils/dmpWebauthn/webauthn.context';
 
 export const MyWebauthn: FunctionComponent = () => {
     const navigate = useNavigate();
-    const { setShowRegistrationDialog } = useAuth();
     const [devices, setDevices] = useState<AuthenticatorDevice[]>([]);
     const [deleteModalVisible, setDeleteModalVisible] = useState(false);
     const [selectedDevice, setSelectedDevice] = useState<AuthenticatorDevice | null>(null);
@@ -18,15 +17,44 @@ export const MyWebauthn: FunctionComponent = () => {
 
     const { data, isLoading, isError, refetch } = trpc.webauthn.getWebauthnRegisteredDevices.useQuery();
 
+    // getWebAuthnID query to remove the webauthn_id when no devices remain
+    const { refetch: fetchWebAuthnID } = trpc.webauthn.getWebauthnID.useQuery(undefined, {
+        enabled: false,
+        onSuccess: (data) => {
+            if (!data) {
+                void message.warning('No Authenticator ID found for the user.');
+                return;
+            }
+            const webauthnID = data.id;
+            const updatedCredentials = credentials ? credentials.filter(id => id !== webauthnID) : [];
+            setCredentials(updatedCredentials); // Remove the ID from credentials
+        },
+        onError: () => {
+            void message.error('Failed to fetch WebAuthn ID.');
+        }
+    });
+    const { credentials, setCredentials } = useAuth(); // Access credentials from context
+
     const deleteDeviceMutation = trpc.webauthn.deleteWebauthnRegisteredDevices.useMutation();
     const updateDeviceNameMutation = trpc.webauthn.updateWebauthnDeviceName.useMutation();
 
     useEffect(() => {
-        if (data) {
-            const fetchedDevices = data as AuthenticatorDevice[];
-            setDevices(fetchedDevices);
-        }
-    }, [data]);
+        const handleFetchWebAuthnID = async () => {
+            if (data) {
+                const fetchedDevices = data as AuthenticatorDevice[];
+                setDevices(fetchedDevices);
+
+                // If no devices exist, trigger the fetchWebAuthnID to remove the ID from credentials
+                if (fetchedDevices.length === 0) {
+                    await fetchWebAuthnID(); // Trigger the query to remove the WebAuthn ID
+                }
+            }
+        };
+
+        handleFetchWebAuthnID().catch(() => {
+            void message.error('Error fetching Authenticator ID.');
+        });
+    }, [data, fetchWebAuthnID]);
 
     const handleDeleteDevice = async () => {
         if (selectedDevice) {
@@ -56,7 +84,6 @@ export const MyWebauthn: FunctionComponent = () => {
     };
 
     const handleNavigateToRegister = () => {
-        setShowRegistrationDialog(true);
         navigate('/register_webauthn');
     };
 
@@ -119,6 +146,7 @@ export const MyWebauthn: FunctionComponent = () => {
                 <>
                     <span style={{ marginRight: '10px' }}>{record.name || 'N/A'}</span>
                     <Button
+                        type='primary'
                         onClick={() => handleEditClick(record.id, record.name || '')}
                     >
                         Edit
@@ -133,35 +161,14 @@ export const MyWebauthn: FunctionComponent = () => {
             title: 'Name',
             dataIndex: 'name',
             key: 'name',
-            render: (name: string | undefined) => (name ? name : 'N/A')
+            render: renderSetNameColumn
         },
-        {
-            title: 'Credential ID',
-            dataIndex: 'credentialID',
-            key: 'credentialID'
-        },
-        {
-            title: 'Counter',
-            dataIndex: 'counter',
-            key: 'counter'
-        },
-        {
-            title: 'Transports',
-            dataIndex: 'transports',
-            key: 'transports',
-            render: (transports: string[]) => transports.join(', ')
-        },
+
         {
             title: 'Origin',
             dataIndex: 'origin',
             key: 'origin',
             render: (origin: string | undefined) => (origin ? origin : 'N/A') // Show N/A if origin is null or undefined
-        },
-        {
-            title: 'Set Name',
-            dataIndex: '',
-            key: 'setName',
-            render: renderSetNameColumn
         },
         {
             title: 'Action',
@@ -187,7 +194,7 @@ export const MyWebauthn: FunctionComponent = () => {
                     <div className={css['overview-header']} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div style={{ display: 'flex', alignItems: 'center' }}>
                             <div className={css['overview-icon']}></div>
-                            <div>WebAuthn Devices</div>
+                            <div>Authenticator Devices</div>
                         </div>
                         <div>
                             <Button type="primary" onClick={handleNavigateToRegister}>
@@ -209,7 +216,7 @@ export const MyWebauthn: FunctionComponent = () => {
                             />
                         ) : (
                             <div style={{ width: '100%' }}>
-                                <p style={{ textAlign: 'left' }}>No WebAuthn devices found for this user.</p>
+                                <p style={{ textAlign: 'left' }}>No Authenticator devices found for this user.</p>
                             </div>
                         )}
                     </div>

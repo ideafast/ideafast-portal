@@ -19,11 +19,13 @@ export const MainMenuBar: FunctionComponent = () => {
             window.location.reload();
         }
     });
-    const { useWebauthn } = useAuth(); // Access the WebAuthn state from context
-    if (whoAmI.isLoading) {
+    const { isWebauthAvailable} = useAuth(); // Access the WebAuthn state from context
+    const fetchedDevices = trpc.webauthn.getWebauthnRegisteredDevices.useQuery();
+
+    if (whoAmI.isLoading || fetchedDevices.isLoading) {
         return <LoadSpinner />;
     }
-    if (whoAmI.isError) {
+    if (whoAmI.isError || fetchedDevices.isError) {
         return <p>
             An error occured, please contact your administrator
         </p>;
@@ -52,9 +54,9 @@ export const MainMenuBar: FunctionComponent = () => {
 
                     {/* Check if WebAuthn registration is needed and show another warning */}
                     {
-                        useWebauthn === 'register' &&
+                        (isWebauthAvailable && fetchedDevices.data.length === 0) &&
                         (
-                            <Tooltip title="You could register a WebAuthn account in this device.">
+                            <Tooltip title="You could register a Authenticator on this device.">
                                 <ExclamationCircleOutlined twoToneColor="#ff0000" style={{ marginLeft: '8px' }} />
                             </Tooltip>
                         )

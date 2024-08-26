@@ -8,24 +8,20 @@ import {
 } from '@simplewebauthn/browser';
 
 interface AuthContextState {
-    // registration dialog
-    showRegistrationDialog: boolean;
-    setShowRegistrationDialog: (show: boolean) => void;
+
     handleCancelRegistration: () => void;
+
+    // webauthn credentials locally stored
     credentials: Array<string> | null;
     setCredentials: (value: Array<string>) => void;
+
     // webauthn availability
     isWebauthAvailable: null | boolean;
     setIsWebauthAvailable: (value: null | boolean) => void;
     // user login status
     isUserLogin: boolean;
     setIsUserLogin: (value: boolean) => void;
-    // webauthn registration or authentication
-    useWebauthn: 'register' | 'authenticate' | 'close';
-    setUseWebauthn: (value: 'register' | 'authenticate' | 'close') => void;
-    // nickname setting for webauthn
-    showNicknameModal: boolean;
-    setShowNicknameModal: (show: boolean) => void;
+
     newDeviceId: string | undefined;
     setNewDeviceId: (id: string | undefined) => void;
 }
@@ -37,21 +33,16 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: FunctionComponent<AuthProviderProps> = ({ children }) => {
-    // registration dialog
-    const [showRegistrationDialog, setShowRegistrationDialog] = useState(false);
-    const [credentials, setCredentials] = useLocalForage<Array<string>>('enrolledCredentials', []);
+
+    const [credentials, setCredentials, , isLoading] = useLocalForage<Array<string>>('enrolledCredentials', []);
+
     const [isWebauthAvailable, setIsWebauthAvailable] = useState<null | boolean>(null);
     const [isUserLogin, setIsUserLogin] = useState<boolean>(false);
-    const [useWebauthn, setUseWebauthn] = useState<'register' | 'authenticate' | 'close'>('close');
-
-    const [showNicknameModal, setShowNicknameModal] = useState(false);
     const [newDeviceId, setNewDeviceId] = useState<string | undefined>('');
 
     const navigate = useNavigate();
 
     const handleCancelRegistration = () => {
-        setShowRegistrationDialog(false);
-
         navigate('/');
     };
 
@@ -70,10 +61,13 @@ export const AuthProvider: FunctionComponent<AuthProviderProps> = ({ children })
         }
     }, [isWebauthAvailable]);
 
+    // Show a loading screen or spinner until credentials are loaded
+    if (isLoading) {
+        return <div>Loading...</div>; // Replace with any spinner or loading UI
+    }
+
     return (
         <AuthContext.Provider value={{
-            showRegistrationDialog,
-            setShowRegistrationDialog,
             handleCancelRegistration,
             credentials,
             setCredentials,
@@ -81,11 +75,6 @@ export const AuthProvider: FunctionComponent<AuthProviderProps> = ({ children })
             setIsWebauthAvailable,
             isUserLogin,
             setIsUserLogin,
-            useWebauthn,
-            setUseWebauthn,
-            // nickname setting for webauthn
-            showNicknameModal,
-            setShowNicknameModal,
             newDeviceId,
             setNewDeviceId
         }}>

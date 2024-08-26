@@ -13,6 +13,7 @@ export { localForage };
 
 export function useLocalForage<D>(key: string, initialValue: D, errorHandler?: ErrorHandler) {
     const [storedValue, setStoredValue] = useState<D | null>(initialValue);
+    const [isLoading, setIsLoading] = useState(true); // Add loading state
     const _errorHandler = useRef(
         (typeof errorHandler == 'undefined' || errorHandler == null) ? defaultErrorHandler : errorHandler
     );
@@ -28,9 +29,12 @@ export function useLocalForage<D>(key: string, initialValue: D, errorHandler?: E
                 setStoredValue(value == null ? initialValue : value);
             } catch (e) {
                 error(e as Error);
+            } finally {
+                setIsLoading(false); // Done fetching
             }
         })().catch((e) => {
             error(e as Error);
+            setIsLoading(false); // Ensure loading ends in case of an error
         });
     }, [initialValue, key]);
 
@@ -62,5 +66,5 @@ export function useLocalForage<D>(key: string, initialValue: D, errorHandler?: E
         });
     }, [key]);
 
-    return [storedValue, setValue, removeValue] as const;
+    return [storedValue, setValue, removeValue, isLoading] as const;
 }

@@ -86,23 +86,10 @@
     padding: 0;
 }
 
-.auth_modalContent {
-    text-align: center;
-    padding: 24px;
+.userIconWrapper {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-}
-
-.auth_buttonContainer {
-    margin-top: 10px;
-    display: flex;
-    justify-content: center;
-    width: 100%;
     margin-bottom: 10px;
-}
-
-.authenticateButton {
-    margin-left: 40px;
 }
