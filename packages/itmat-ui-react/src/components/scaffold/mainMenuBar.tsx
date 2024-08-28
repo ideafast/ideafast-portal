@@ -25,11 +25,13 @@ export const MainMenuBar: FunctionComponent<MainMenuBarProps> = ({ projects }) =
     }
     return <div className={css.main_menubar}>
 
-        <div>
-            <NavLink to={projects.length === 1 ? `/projects/${projects[0].id}` : '/projects'} title='Projects' className={({ isActive }) => isActive ? css.clickedButton : undefined}>
-                <div className={css.button}><ProjectOutlined /> Projects</div>
-            </NavLink>
-        </div>
+        {(whoAmIData.whoAmI.type === userTypes.ADMIN) ?
+            <div>
+                <NavLink to={projects.length === 1 ? `/projects/${projects[0].id}` : '/projects'} title='Projects' className={({ isActive }) => isActive ? css.clickedButton : undefined}>
+                    <div className={css.button}><ProjectOutlined /> Projects</div>
+                </NavLink>
+            </div> : null
+        }
 
 
         <div>

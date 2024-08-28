@@ -44,14 +44,6 @@ const PickDatasetSection: FunctionComponent<{ datasets: IStudy[] }> = ({ dataset
                     {record.name}
                 </Button>);
             }
-        },
-        {
-            title: 'Dataset Type',
-            dataIndex: 'type',
-            key: 'type',
-            render: (__unused__value, record) => {
-                return record.type ?? 'GENERIC';
-            }
         }
     ];
     return <>

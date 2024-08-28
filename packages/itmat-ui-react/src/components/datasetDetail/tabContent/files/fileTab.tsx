@@ -1,43 +1,30 @@
 import { FunctionComponent, useState, useEffect, useRef, useContext, Fragment, HTMLAttributes, createContext, ReactNode } from 'react';
-import { Button, Upload, notification, Table, Form, Input, InputRef, DatePicker, Space } from 'antd';
-import { RcFile } from 'antd/es/upload';
+import { Button, Upload, notification, Table, Form, Input, InputRef, Space } from 'antd';
 import { UploadOutlined, DeleteOutlined } from '@ant-design/icons';
 import { Query } from '@apollo/client/react/components';
 import { useApolloClient, useMutation, useQuery } from '@apollo/client/react/hooks';
 import { useDropzone } from 'react-dropzone';
 import { GET_STUDY, UPLOAD_FILE, GET_ORGANISATIONS, EDIT_STUDY, WHO_AM_I } from '@itmat-broker/itmat-models';
-import { IFile, userTypes, deviceTypes } from '@itmat-broker/itmat-types';
+import { userTypes } from '@itmat-broker/itmat-types';
 import { FileList, formatBytes } from '../../../reusable/fileList/fileList';
 import LoadSpinner from '../../../reusable/loadSpinner';
 import { Subsection, SubsectionWithComment } from '../../../reusable/subsection/subsection';
 import css from './tabContent.module.css';
 import { ApolloError } from '@apollo/client/errors';
-import { validate } from '@ideafast/idgen';
-import dayjs, { Dayjs } from 'dayjs';
 import { v4 as uuid } from 'uuid';
 
-type StudyFile = RcFile & {
-    uuid: string;
-    participantId?: string;
-    deviceId?: string;
-    startDate?: Dayjs;
-    endDate?: Dayjs;
-}
-
-const { RangePicker } = DatePicker;
 let progressReports: any[] = [];
 
 export const FileRepositoryTabContent: FunctionComponent<{ studyId: string }> = ({ studyId }) => {
 
     const [uploadMovement, setUploadMovement] = useState(0);
     const [isDropOverlayShowing, setisDropOverlayShowing] = useState(false);
-    const [fileList, setFileList] = useState<StudyFile[]>([]);
+    const [fileList, setFileList] = useState<any[]>([]);
     const [isUploading, setIsUploading] = useState(false);
     const store = useApolloClient();
-    const { loading: getOrgsLoading, error: getOrgsError, data: getOrgsData } = useQuery(GET_ORGANISATIONS);
+    const { loading: getOrgsLoading, error: getOrgsError } = useQuery(GET_ORGANISATIONS);
     const { loading: getStudyLoading, error: getStudyError, data: getStudyData } = useQuery(GET_STUDY, { variables: { studyId: studyId } });
     const { loading: whoAmILoading, error: whoAmIError, data: whoAmIData } = useQuery(WHO_AM_I);
-    const [searchTerm, setSearchTerm] = useState('');
     const [isEditingDescription, setIsEditingDescription] = useState(false);
     const [datasetDescription, setDatasetDescription] = useState('');
     const [editStudy] = useMutation(EDIT_STUDY, {
@@ -74,7 +61,7 @@ export const FileRepositoryTabContent: FunctionComponent<{ studyId: string }> = 
 
     const onDropLocal = (acceptedFiles: Blob[]) => {
         fileFilter(acceptedFiles.map(file => {
-            return file as StudyFile;
+            return file;
         }));
     };
 
@@ -96,7 +83,7 @@ export const FileRepositoryTabContent: FunctionComponent<{ studyId: string }> = 
         onDropRejected
     });
 
-    const removeFile = (record: StudyFile): void => {
+    const removeFile = (record): void => {
         setFileList(fileList => {
             const index = fileList.findIndex(file => file.uuid === record.uuid);
             const newFileList = [...fileList];
@@ -105,27 +92,9 @@ export const FileRepositoryTabContent: FunctionComponent<{ studyId: string }> = 
         });
     };
 
-    const fileFilter = (files: StudyFile[]) => {
+    const fileFilter = (files: any[]) => {
         files.forEach((file) => {
-            const matcher = /(.{1})(.{6})-(.{3})(.{6})-(\d{8})-(\d{8})\.(.*)/;
-            const particules = file.name.match(matcher);
-            if (particules?.length === 8) {
-                if (Object.keys(sites).includes(particules[1].toUpperCase())
-                    && validate(particules[2].toUpperCase()))
-                    file.participantId = `${particules[1].toUpperCase()}${particules[2].toUpperCase()}`;
-                if (Object.keys(deviceTypes).includes(particules[3].toUpperCase())
-                    && validate(particules[4].toUpperCase()))
-                    file.deviceId = `${particules[3].toUpperCase()}${particules[4].toUpperCase()}`;
-                const startDate = dayjs(particules[5], 'YYYYMMDD');
-                const endDate = dayjs(particules[6], 'YYYYMMDD');
-                if (startDate.isSame(endDate) || startDate.isBefore(endDate)) {
-                    if (startDate.isValid())
-                        file.startDate = startDate;
-                    if (endDate.isValid() && (endDate.isSame(dayjs()) || endDate.isBefore(dayjs())))
-                        file.endDate = endDate;
-                }
-            }
-            progressReports[`UP_${file.participantId}_${file.deviceId}_${file.startDate?.valueOf()}_${file.endDate?.valueOf()}`] = undefined;
+            progressReports[`UP_${file.name}`] = undefined;
             file.uuid = uuid();
             fileList.push(file);
         });
@@ -137,10 +106,7 @@ export const FileRepositoryTabContent: FunctionComponent<{ studyId: string }> = 
         const uploads: Promise<any>[] = [];
         setIsUploading(true);
         validFile.forEach(file => {
-            const description = {
-                participantId: file.participantId?.trim().toUpperCase()
-            };
-            const uploadMapHackName = `UP_${description.participantId || 'NA'}`;
+            const uploadMapHackName = `UP_${file.name || 'NA'}`;
             if (!(window as any).onUploadProgressHackMap)
                 (window as any).onUploadProgressHackMap = {};
             (window as any).onUploadProgressHackMap[uploadMapHackName] = (progressEvent) => {
@@ -154,7 +120,7 @@ export const FileRepositoryTabContent: FunctionComponent<{ studyId: string }> = 
                 variables: {
                     file,
                     studyId,
-                    description: JSON.stringify(description),
+                    description: JSON.stringify({}),
                     fileLength: file.size
                 }
             }).then(result => {
@@ -205,20 +171,6 @@ export const FileRepositoryTabContent: FunctionComponent<{ studyId: string }> = 
         showUploadList: false
     };
 
-    const handleSave = record => {
-        setFileList(fileList => {
-            const index = fileList.findIndex(file => file.uuid === record.uuid);
-            const newFileList = [...fileList];
-            const newFile = fileList[index];
-            newFile.participantId = record.participantId;
-            newFile.deviceId = record.deviceId;
-            newFile.startDate = record.startDate;
-            newFile.endDate = record.endDate;
-            newFileList.splice(index, 1, newFile);
-            return newFileList;
-        });
-    };
-
     const fileDetailsColumns = [
         {
             title: 'File name',
@@ -226,50 +178,18 @@ export const FileRepositoryTabContent: FunctionComponent<{ studyId: string }> = 
             key: 'fileName',
             sorter: (a, b) => a.fileName.localeCompare(b.fileName),
             render: (value, record) => {
-                const progress = progressReports[`UP_${record.participantId}_${record.deviceId}_${record.startDate?.valueOf()}_${record.endDate?.valueOf()}`];
+                const progress = progressReports[`UP_${record.fileName}`];
                 if (progress)
                     return <Fragment key={uploadMovement}>{Math.round(1000 * (progress.loaded - 1) / progress.total) / 10}%</Fragment>;
                 return value;
             }
         },
         {
-            title: 'Participant ID',
-            dataIndex: 'participantId',
-            key: 'pid',
-            editable: true,
-            width: '10rem'
-        },
-        {
-            title: 'Field ID',
-            dataIndex: 'fieldId',
-            key: 'pid',
-            editable: true,
-            width: '10rem'
-        },
-        {
             key: 'delete',
             render: (__unused__value, record) => <Button disabled={isUploading} type='primary' danger icon={<DeleteOutlined />} onClick={() => {
                 removeFile(record);
             }}></Button>
-        }]
-        .map(col => {
-            if (!col.editable) {
-                return col;
-            }
-            return {
-                ...col,
-                onCell: record => ({
-                    record: {
-                        ...record,
-                        period: [record.startDate, record.endDate]
-                    },
-                    editable: col.editable,
-                    dataIndex: col.dataIndex,
-                    title: col.title,
-                    handleSave
-                })
-            };
-        });
+        }];
 
     if (getOrgsLoading || getStudyLoading || whoAmILoading)
         return <LoadSpinner />;
@@ -279,36 +199,10 @@ export const FileRepositoryTabContent: FunctionComponent<{ studyId: string }> = 
             An error occured, please contact your administrator
         </div>;
 
+    const sortedFiles = ([...getStudyData.getStudy.files]).sort((a, b) => parseInt((b as any).uploadTime) - parseInt((a as any).uploadTime));
+    const numberOfFiles = sortedFiles.length;
+    const sizeOfFiles = sortedFiles.reduce((a, b) => a + (parseInt(b['fileSize'] as any) || 0), 0);
 
-    const sites = getOrgsData.getOrganisations.filter(org => org.metadata?.siteIDMarker).reduce((prev, current) => ({
-        ...prev,
-        [current.metadata.siteIDMarker]: current.shortname ?? current.name
-    }), {});
-
-    function dataSourceFilter(files: IFile[]) {
-        const studyLevelFiles: IFile[] = [];
-        const subjectLevelFiles: IFile[] = [];
-        for (const file of files) {
-            if (Object.keys(JSON.parse(file.description)).length !== 0) {
-                if (JSON.parse(file.description).participantId) {
-                    subjectLevelFiles.push(file);
-                }
-            } else {
-                studyLevelFiles.push(file);
-            }
-        }
-        return [subjectLevelFiles, studyLevelFiles];
-    }
-    const sortedFiles = dataSourceFilter(getStudyData.getStudy.files).sort((a, b) => parseInt((b as any).uploadTime) - parseInt((a as any).uploadTime));
-    const numberOfFiles = sortedFiles[0].length;
-    const sizeOfFiles = sortedFiles[0].reduce((a, b) => a + (parseInt(b['fileSize'] as any) || 0), 0);
-    const participantOfFiles = sortedFiles[0].reduce(function (values, v) {
-        if (!values.set[JSON.parse(v['description'])['participantId']]) {
-            (values as any).set[JSON.parse(v['description'])['participantId']] = 1;
-            values.count++;
-        }
-        return values;
-    }, { set: {}, count: 0 }).count;
     return <div {...getRootProps() as HTMLAttributes<HTMLDivElement>} className={`${css.scaffold_wrapper} ${isDropOverlayShowing ? css.drop_overlay : ''}`}>
         <input title='fileTabDropZone' {...getInputProps()} />
         {fileList.length > 0
@@ -375,33 +269,35 @@ export const FileRepositoryTabContent: FunctionComponent<{ studyId: string }> = 
                     <br />
                     <br />
                 </SubsectionWithComment>
-                <Subsection title='Upload files'>
-                    <Query<any, any> query={GET_STUDY} variables={{ studyId }}>
-                        {({ loading, data, error }) => {
-                            if (loading || error)
-                                return <>To upload files you can click on the button below or drag and drop files directly from your hard drive.</>;
-                            return <>To upload files to <i>{data.getStudy.name}</i> you can click on the button below or drag and drop files directly from your hard drive.</>;
-                        }}
-                    </Query>
-                    <br />
-                    <Upload {...uploaderProps}>
-                        <Button>Select files</Button>
-                    </Upload>
-                    <br />
-                    <br />
-                    <br />
-                </Subsection>
+                {
+                    whoAmIData.whoAmI.type === userTypes.ADMIN ?
+
+                        <Subsection title='Upload files'>
+                            <Query<any, any> query={GET_STUDY} variables={{ studyId }}>
+                                {({ loading, data, error }) => {
+                                    if (loading || error)
+                                        return <>To upload files you can click on the button below or drag and drop files directly from your hard drive.</>;
+                                    return <>To upload files to <i>{data.getStudy.name}</i> you can click on the button below or drag and drop files directly from your hard drive.</>;
+                                }}
+                            </Query>
+                            <br />
+                            <Upload {...uploaderProps}>
+                                <Button>Select files</Button>
+                            </Upload>
+                            <br />
+                            <br />
+                            <br />
+                        </Subsection>
+                        : null
+                }
                 <SubsectionWithComment
                     title='Existing files'
                     comment={<Space size={'large'}>
                         <span>Total Files: {numberOfFiles}</span>
                         <span>Total Size: {formatBytes(sizeOfFiles)}</span>
-                        <span>Total Participants: {participantOfFiles}</span>
                     </Space>}
                 >
-                    <Input.Search allowClear placeholder='Search' onChange={({ target: { value } }) => setSearchTerm(value?.toUpperCase())} />
-                    <FileList files={sortedFiles[0]} searchTerm={searchTerm} isStudyLevel={true}></FileList>
-                    <FileList isStudyLevel={true} files={sortedFiles[1]} searchTerm={undefined}></FileList>
+                    <FileList isStudyLevel={true} files={sortedFiles} searchTerm={undefined}></FileList>
                     <br />
                     <br />
                 </SubsectionWithComment>
@@ -437,8 +333,8 @@ interface EditableCellProps {
     editable: boolean;
     children: ReactNode;
     dataIndex: string;
-    record: StudyFile;
-    handleSave: (__unused__record: StudyFile) => void;
+    record: any;
+    handleSave: (__unused__record: any) => void;
 }
 
 const EditableCell: FunctionComponent<EditableCellProps> = ({
@@ -451,7 +347,6 @@ const EditableCell: FunctionComponent<EditableCellProps> = ({
 }) => {
     const [editing, setEditing] = useState(false);
     const inputRef = useRef<InputRef>(null);
-    const rangeRef = useRef<any>(null);
     const form = useContext(EditableContext);
 
     useEffect(() => {
@@ -473,62 +368,18 @@ const EditableCell: FunctionComponent<EditableCellProps> = ({
     let childNode = children;
 
     if (editing) {
-        if (dataIndex === 'period') {
-            childNode = <>
-                <Form.Item
-                    style={{ display: 'none' }}
-                    name='startDate'
-                    rules={[{ required: true, message: <></> }]}
-                >
-                    <Input id={`startDate_${record.uuid}`} />
-                </Form.Item>
-                <Form.Item
-                    style={{ display: 'none' }}
-                    name='endDate'
-                    rules={[{ required: true, message: <></> }]}
-                >
-                    <Input id={`endDate_${record.uuid}`} />
-                </Form.Item>
-                <Form.Item
-                    style={{ margin: 0 }}
-                    name='period'
-                    hasFeedback
-                    dependencies={['startDate', 'endDate']}
-                    rules={[
-                        { required: true, message: <></> },
-                        ({ getFieldValue }) => ({
-                            validator() {
-                                if (getFieldValue('startDate') && getFieldValue('endDate'))
-                                    return Promise.resolve();
-                                return Promise.reject('Missing dates');
-                            }
-                        })
-                    ]}
-                >
-                    <RangePicker id={`period_${record.uuid}`} allowClear={false} ref={rangeRef} defaultValue={[record.startDate ?? null, record.endDate ?? null]} disabledDate={(currentDate) => {
-                        return dayjs().isBefore(currentDate);
-                    }} onCalendarChange={(dates) => {
-                        if (dates === null)
-                            return;
-                        form.setFieldsValue({ startDate: dates[0] });
-                        form.setFieldsValue({ endDate: dates[1] });
-                    }} onBlur={save} />
-                </Form.Item>
-            </>;
-        } else {
-            childNode = <Form.Item
-                style={{ margin: 0 }}
-                name={dataIndex}
-                hasFeedback
-                rules={[{
-                    required: true, message: <></>, validator: () => {
-                        return Promise.resolve();
-                    }
-                }]}
-            >
-                <Input id={`${dataIndex}_${record.uuid}`} ref={inputRef} allowClear={false} onPressEnter={save} onBlur={save} style={{ width: '100%' }} />
-            </Form.Item>;
-        }
+        childNode = <Form.Item
+            style={{ margin: 0 }}
+            name={dataIndex}
+            hasFeedback
+            rules={[{
+                required: true, message: <></>, validator: () => {
+                    return Promise.resolve();
+                }
+            }]}
+        >
+            <Input id={`${dataIndex}_${record.uuid}`} ref={inputRef} allowClear={false} onPressEnter={save} onBlur={save} style={{ width: '100%' }} />
+        </Form.Item>;
     }
 
     return <td {...restProps}>{childNode}</td>;

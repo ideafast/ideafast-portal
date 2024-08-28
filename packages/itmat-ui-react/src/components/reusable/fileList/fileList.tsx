@@ -9,6 +9,7 @@ import dayjs from 'dayjs';
 import { deviceTypes } from '@itmat-broker/itmat-types';
 import Highlighter from 'react-highlight-words';
 import LoadSpinner from '../loadSpinner';
+import { ColumnType } from 'antd/es/table';
 
 export function formatBytes(size: number, decimal = 2): string {
     if (size === 0) {
@@ -63,7 +64,7 @@ export const FileList: FunctionComponent<{ files: IFile[], searchTerm: string | 
         [current.metadata.siteIDMarker]: current.shortname ?? current.name
     }), {});
 
-    const fileDetailsColumns = [
+    const fileDetailsColumns: any[] = [
         {
             title: 'Participant ID',
             dataIndex: 'participantId',
@@ -147,7 +148,9 @@ export const FileList: FunctionComponent<{ files: IFile[], searchTerm: string | 
             title: 'Uploaded',
             dataIndex: 'uploadTime',
             key: 'uploadTime',
-            render: (value) => dayjs(parseInt(value)).format('YYYY-MM-DD'),
+            render: (__unused__value, record) => {
+                return dayjs(parseInt(record.uploadTime)).format('YYYY-MM-DD');
+            },
             sorter: (a, b) => parseInt(a.uploadTime) - parseInt(b.uploadTime)
         },
         {
@@ -169,25 +172,31 @@ export const FileList: FunctionComponent<{ files: IFile[], searchTerm: string | 
         {
             title: 'Size',
             dataIndex: 'fileSize',
-            render: (size) => formatBytes(size),
+            render: (__unused__value, record) => {
+                return formatBytes(record.fileSize);
+            },
             width: '8rem',
             key: 'size'
-        },
-        {
-            render: (__unused__value, record) => {
-                const ext = record.fileName.substr(record.fileName.lastIndexOf('.')).toLowerCase();
-                const file = JSON.parse(record.description);
-                const startDate = dayjs(file.startDate).format('YYYYMMDD');
-                const endDate = dayjs(file.endDate).format('YYYYMMDD');
-                return <Button icon={<CloudDownloadOutlined />} download={`${file.participantId}-${file.deviceId}-${startDate}-${endDate}.${ext}`} href={`/file/${record.id}`}>
-                    Download
-                </Button>;
-            },
-            width: '10rem',
-            key: 'download'
         }]
         .concat(!loadingWhoAmI && dataWhoAmI?.whoAmI?.type === userTypes.ADMIN ? [
             {
+                title: '',
+                dataIndex: 'download',
+                render: (__unused__value, record) => {
+                    const ext = record.fileName.substr(record.fileName.lastIndexOf('.')).toLowerCase();
+                    const file = JSON.parse(record.description);
+                    const startDate = dayjs(file.startDate).format('YYYYMMDD');
+                    const endDate = dayjs(file.endDate).format('YYYYMMDD');
+                    return <Button icon={<CloudDownloadOutlined />} download={`${file.participantId}-${file.deviceId}-${startDate}-${endDate}.${ext}`} href={`/file/${record.id}`}>
+                        Download
+                    </Button>;
+                },
+                width: '10rem',
+                key: 'download'
+            },
+            {
+                titke: '',
+                dataIndex: 'delete',
                 render: (__unused__value, record) => (
                     <Button icon={<DeleteOutlined />} loading={isDeleting[record.id]} danger onClick={() => deletionHandler(record.id)}>
                         Delete
@@ -196,9 +205,11 @@ export const FileList: FunctionComponent<{ files: IFile[], searchTerm: string | 
                 width: '8rem',
                 key: 'delete'
             }
-        ] : [])
+        ] as any : [])
         .concat([
             {
+                title: '',
+                dataIndex: 'hash',
                 render: (__unused__value, record) => (
                     <Tooltip title={record.hash} placement='bottomRight' >
                         <Button type='link' icon={<NumberOutlined />} loading={isDeleting[record.id]}></Button>
@@ -207,7 +218,7 @@ export const FileList: FunctionComponent<{ files: IFile[], searchTerm: string | 
                 width: '8rem',
                 key: 'delete'
             }
-        ]);
+        ] as any);
 
     const fileNameColumns = [
         {
@@ -248,21 +259,21 @@ export const FileList: FunctionComponent<{ files: IFile[], searchTerm: string | 
             render: (size) => formatBytes(size),
             width: '8rem',
             key: 'size'
-        },
-        {
-            render: (__unused__value, record) => {
-                const ext = record.fileName.substr(record.fileName.lastIndexOf('.')).toLowerCase();
-                const file = JSON.parse(record.description);
-                const startDate = dayjs(file.startDate).format('YYYYMMDD');
-                const endDate = dayjs(file.endDate).format('YYYYMMDD');
-                return <Button icon={<CloudDownloadOutlined />} download={`${file.participantId}-${file.deviceId}-${startDate}-${endDate}.${ext}`} href={`/file/${record.id}`}>
-                    Download
-                </Button>;
-            },
-            width: '10rem',
-            key: 'download'
         }]
         .concat(!loadingWhoAmI && dataWhoAmI?.whoAmI?.type === userTypes.ADMIN ? [
+            {
+                render: (__unused__value, record) => {
+                    const ext = record.fileName.substr(record.fileName.lastIndexOf('.')).toLowerCase();
+                    const file = JSON.parse(record.description);
+                    const startDate = dayjs(file.startDate).format('YYYYMMDD');
+                    const endDate = dayjs(file.endDate).format('YYYYMMDD');
+                    return <Button icon={<CloudDownloadOutlined />} download={`${file.participantId}-${file.deviceId}-${startDate}-${endDate}.${ext}`} href={`/file/${record.id}`}>
+                        Download
+                    </Button>;
+                },
+                width: '10rem',
+                key: 'download'
+            },
             {
                 render: (__unused__value, record) => (
                     <Button icon={<DeleteOutlined />} loading={isDeleting[record.id]} danger onClick={() => deletionHandler(record.id)}>
@@ -272,7 +283,7 @@ export const FileList: FunctionComponent<{ files: IFile[], searchTerm: string | 
                 width: '8rem',
                 key: 'delete'
             }
-        ] : [])
+        ] as any : [])
         .concat([
             {
                 render: (__unused__value, record) => (
@@ -283,7 +294,7 @@ export const FileList: FunctionComponent<{ files: IFile[], searchTerm: string | 
                 width: '8rem',
                 key: 'delete'
             }
-        ]);
+        ] as any);
     return <Table
         rowKey={(rec) => rec.id}
         pagination={

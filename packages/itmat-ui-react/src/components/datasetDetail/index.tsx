@@ -39,15 +39,13 @@ export const DatasetDetailPage: FunctionComponent = () => {
                                                 <NavLink to='files' className={({ isActive }) => isActive ? css.active : undefined}>FILES REPOSITORY</NavLink>
                                                 <NavLink to='admin' className={({ isActive }) => isActive ? css.active : undefined}>ADMINISTRATION</NavLink>
                                                 <NavLink to='projects' className={({ isActive }) => isActive ? css.active : undefined}>PROJECTS</NavLink>
+                                                <NavLink to={'data_management'} className={({ isActive }) => isActive ? css.active : undefined}>DATA MANAGEMENT</NavLink>
+                                                <NavLink to='projects' className={({ isActive }) => isActive ? css.active : undefined}>PROJECTS</NavLink>
                                             </>
                                         );
                                     } else {
                                         return (
-                                            <>
-                                                <NavLink to={'files'} className={({ isActive }) => isActive ? css.active : undefined}>FILES REPOSITORY</NavLink>
-                                                <NavLink to={'data_management'} className={({ isActive }) => isActive ? css.active : undefined}>DATA MANAGEMENT</NavLink>
-                                                <NavLink to='projects' className={({ isActive }) => isActive ? css.active : undefined}>PROJECTS</NavLink>
-                                            </>
+                                            <NavLink to={'files'} className={({ isActive }) => isActive ? css.active : undefined}>FILES REPOSITORY</NavLink>
                                         );
                                     }
                                 }}
