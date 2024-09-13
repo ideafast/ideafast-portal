@@ -17,7 +17,13 @@ export interface IConfiguration extends IServerConfig {
     adminEmail: string;
     aeEndpoint: string;
     useWebdav: boolean;
+    webdavServer: string;
     webdavPort: number;
+    lxdEndpoint: string;
+    SystemKey: Record<string, string>;
+    lxdCertFile: Record<string, string>;
+    lxdRejectUnauthorized: boolean;
+    jupyterPort: number;
 }
 
 export class ConfigurationManager {

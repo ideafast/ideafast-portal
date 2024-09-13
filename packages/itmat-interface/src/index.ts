@@ -42,10 +42,6 @@ function serverStart() {
         // notice users of expiration
         await emailNotification();
 
-        const interfaceRouterProxy = itmatRouter.getProxy();
-        if (interfaceRouterProxy?.upgrade)
-            interfaceServer.on('upgrade', interfaceRouterProxy?.upgrade);
-
     }).catch((error) => {
         console.error('An error occurred while starting the ITMAT core.', error);
         if (error.stack)

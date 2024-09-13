@@ -20,6 +20,7 @@ export class UserCore {
     objStore: ObjectStore;
     fileCore: FileCore;
     configCore: ConfigCore;
+    systemSecret: { publickey: string, privatekey: string };
     constructor(db: DBType, mailer: Mailer, config: IConfiguration, objStore: ObjectStore) {
         this.db = db;
         this.mailer = mailer;
@@ -27,6 +28,11 @@ export class UserCore {
         this.objStore = objStore;
         this.fileCore = new FileCore(db, objStore);
         this.configCore = new ConfigCore(db);
+        // System secret key pairs
+        this.systemSecret = {
+            publickey: config.SystemKey['pubkey'],
+            privatekey: config.SystemKey['privkey']
+        };
     }
     /**
      * Get a user. One of the parameters should not be null, we will find users by the following order: usreId, username, email.
@@ -899,6 +905,25 @@ export class UserCore {
         // return the acccess token
         const accessToken = {
             accessToken: tokengen(payload, pubkeyrec.jwtSeckey, undefined, undefined, life)
+        };
+
+        return accessToken;
+    }
+
+    public async issueSystemAccessToken(userId: string, life?: number) {
+        // payload of the JWT for storing user information
+        const payload = {
+            publicKey: this.systemSecret.publickey,
+            userId: userId,  // encode the UserId into the token
+            Issuer: 'IDEA-FAST DMP SYSTEM',
+            timestamp: Date.now()
+        };
+        // set the life time to 1 week if not specified
+        life = life || 7 * 24 * 60 * 60 * 1000;
+
+        const accessToken = {
+            // set the token not to be expired by transfer the life time to 1 year
+            accessToken: tokengen(payload, this.systemSecret.privatekey, undefined,undefined,  life)
         };
 
         return accessToken;

@@ -141,6 +141,13 @@ const collections = {
             { key: { id: 1 }, unique: true },
             { key: { userId: 1 }, unique: false }
         ]
+    },
+    instance_collection: {
+        name: 'INSTANCE_COLLECTION',
+        indexes: [
+            { key: { id: 1 }, unique: true },
+            { key: { userId: 1 }, unique: false }
+        ]
     }
 };
 
@@ -157,7 +164,6 @@ export async function setupDatabase(mongostr: string, databaseName: string): Pro
         const collection = await db.createCollection(collections[each].name);
         await collection.createIndexes(collections[each].indexes as Array<mongo.IndexDescription>);
     }
-
 
     /* replace the user id from the seeds */
     seedUsers[0].id = uuid();

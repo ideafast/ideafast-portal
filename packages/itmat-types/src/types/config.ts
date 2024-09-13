@@ -1,6 +1,7 @@
 import { IBase, ILifeCircle } from './base';
 import { v4 as uuid } from 'uuid';
 import { enumReservedUsers } from './user';
+import { IJobSchedulerConfig, enumJobSchedulerStrategy } from './job';
 
 export interface IConfig extends IBase {
     type: enumConfigType;
@@ -27,6 +28,7 @@ export interface ISystemConfig extends IBase {
     archiveAddress: string;
     defaultEventTimeConsumptionBar: number[];
     defaultUserExpireDays: number;
+    jobSchedulerConfig: IJobSchedulerConfig;
 }
 
 export enum enumStudyBlockColumnValueType {
@@ -118,7 +120,15 @@ export class DefaultSettings implements IDefaultSettings {
         logoSize: ['24px', '24px'],
         archiveAddress: '',
         defaultEventTimeConsumptionBar: [50, 100],
-        defaultUserExpireDays: 90
+        defaultUserExpireDays: 90,
+        jobSchedulerConfig: {
+            strategy: enumJobSchedulerStrategy.FIFO,
+            usePriority: true,
+            // for errored jobs
+            reExecuteFailedJobs: true,
+            failedJobDelayTime: 30 * 60 * 1000, // unit timestamps
+            maxAttempts: 10 // the number of attempts should be stored in history
+        }
     };
 
     public readonly studyConfig: IStudyConfig = {

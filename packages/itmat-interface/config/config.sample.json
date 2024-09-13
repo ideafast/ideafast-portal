@@ -23,7 +23,8 @@
             "drives_collection": "DRIVE_COLLECTION",
             "colddata_collection": "COLDDATA_COLLECTION",
             "domains_collection": "DOMAIN_COLLECTION",
-            "webauthn_collection": "WEBAUTHN_COLLECTION"
+            "webauthn_collection": "WEBAUTHN_COLLECTION",
+            "instance_collection": "INSTANCE_COLLECTION"
         }
     },
     "server": {
@@ -51,5 +52,19 @@
     "adminEmail": "admin@example.com",
     "aeEndpoint": "http://localhost:9090",
     "useWebdav": true,
-    "webdavPort": 1900
+    "webdavPort": 1900,
+    "lxdEndpoint": "https://localhost:8443",
+    "webdavServer": "http://localhost:4200/webdav",
+    "webdavMountPath": "/mnt/webdav",
+    "SystemKey":{
+        "pubkey": "-----BEGIN PUBLIC KEY-----\nMIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAnKXlNUDuKSAAClMe2cXf\n7maUnwcS2qsPYuG/gjZn8/Y+ICguPia5c+xlcQgHFYP7bBLeohsPbnp5bG0YTgeg\nGlLPoy+z/rZKBdKTXnv3fAy6ko9SnjpxfC/+kIkNfMcQe7YiwyGsvhVRYUErn5zZ\nQdxjot+DHXrrOsX00fu/E7mU0VqeISouRKkeYSzx4kJVYxGE89hrya8RyOmnyAay\nP5rhPicde4Oiag4J4K+t6eyNS3cel4JiKct8p+fPs+ryw/yzhYOffpOhkAJZvVcR\n/FRB1dUio2pn6BrqYZGWEJllZbOEbhKep8VKCQgqhI74Ab9Bl/hZU6n6+FFJbJfe\nFUaFqdkIMrEy5lKA7K50prhvkjokvf3XeDl+2WnfndIGVjcDMag1KXoQqdqdEScq\nT9DCQuib+JIdq4P81krtqxMOKg4c5cPhzTydACluAr6FLNjStCIMcI0uDHlmfIt/\nfd3/VdYoCxl0paZlA6Ku406HvpBk9oGz7i7eLQ2G6Wby3OP2EPA3JNW6zqe+AnfJ\nszLc39MrBeR4BMmj4++9QK5EsF+hg9KVVLwbaVs0HxlRqvnCN99M0EVPZL1DhnmQ\nQCn5O5vVAvmeDnTb+keI79qA6JIABdoEZSjFB2pWrwC/EQQj2nzL56EPT1oCNvLF\nBp5cqMAVb4vGCe2LAZ8MNxECAwEAAQ==\n-----END PUBLIC KEY-----\n",
+        "privkey": "-----BEGIN ENCRYPTED PRIVATE KEY-----\n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\n-----END ENCRYPTED PRIVATE KEY-----\n"
+    },
+
+    "lxdCertFile": {
+        "cert": "/Users/jwang12/mylxd.crt",
+        "key": "/Users/jwang12/mylxd.key"
+    },
+    "lxdRejectUnauthorized": false,
+    "jupyterPort": 8888
 }
