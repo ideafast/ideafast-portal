@@ -49,5 +49,19 @@ module.exports = {
         changeOrigin: true,
         autoRewrite: true,
         ws: true
+    },
+    '/rtc': {
+        target: API_SERVER,
+        secure: false,
+        changeOrigin: true,
+        autoRewrite: true,
+        ws: true
+    },
+    '/jupyter': {
+        target: API_SERVER,
+        secure: false,
+        changeOrigin: true,
+        autoRewrite: true,
+        ws: true
     }
 };

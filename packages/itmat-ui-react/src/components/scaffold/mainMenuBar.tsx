@@ -74,6 +74,13 @@ export const MainMenuBar: FunctionComponent = () => {
                 <div className={css.button}><DesktopOutlined /> Analytical Environment</div>
             </NavLink>
         </div>
+        <div>
+            <div>
+                <NavLink to='/instances' title='Analytical Environment2' className={({ isActive }) => isActive ? css.clickedButton : undefined}>
+                    <div className={css.button}><DesktopOutlined /> Analytical Environment2</div>
+                </NavLink>
+            </div>
+        </div>
         {
             (whoAmI.data.type === enumUserTypes.ADMIN) ?
                 <div>

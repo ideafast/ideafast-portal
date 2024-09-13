@@ -261,9 +261,22 @@ export const MyFile: FunctionComponent = () => {
                                 </Menu>
                             } trigger={['click']}>
                                 <Tooltip title="More actions">
-                                    <a onClick={(e) => e.stopPropagation()}>
+                                    {/* <a href="#" onClick={(e) => e.stopPropagation()}>
                                         <MoreOutlined className={css.cellIcon} />
-                                    </a>
+                                    </a> */}
+                                    <button
+                                        onClick={(e) => e.stopPropagation()}
+                                        style={{
+                                            background: 'none',
+                                            border: 'none',
+                                            padding: 0,
+                                            cursor: 'pointer',
+                                            textDecoration: 'underline',
+                                            color: 'inherit'
+                                        }}
+                                    >
+                                        <MoreOutlined className={css.cellIcon} />
+                                    </button>
                                 </Tooltip>
                             </Dropdown>
                         </div>
@@ -832,9 +845,22 @@ export const SharedFiles: FunctionComponent<{ users: IUserWithoutToken[], shared
                                 </Menu>
                             } trigger={['click']}>
                                 <Tooltip title="More actions">
-                                    <a onClick={(e) => e.stopPropagation()}>
+                                    {/* <a onClick={(e) => e.stopPropagation()}>
                                         <MoreOutlined className={css.cellIcon} />
-                                    </a>
+                                    </a> */}
+                                    <button
+                                        onClick={(e) => e.stopPropagation()}
+                                        style={{
+                                            background: 'none',
+                                            border: 'none',
+                                            padding: 0,
+                                            cursor: 'pointer',
+                                            textDecoration: 'underline',
+                                            color: 'inherit'
+                                        }}
+                                    >
+                                        <MoreOutlined className={css.cellIcon} />
+                                    </button>
                                 </Tooltip>
                             </Dropdown>
                         </div>
