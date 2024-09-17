@@ -14,9 +14,22 @@ export class LxdManager {
 
     constructor(config: IConfiguration) {
         this.config = config;
+        let lxdSslCert: string;
+        let lxdSslKey: string;
+
         // Load the SSL certificate and key
-        const lxdSslCert = fs.readFileSync(config.lxdCertFile['cert']);
-        const lxdSslKey = fs.readFileSync(config.lxdCertFile['key']);
+        // Determine if cert and key are file paths or direct content
+        if (config.lxdCertFile['cert'].includes('-----BEGIN')) {
+            lxdSslCert = config.lxdCertFile['cert'];
+        } else {
+            lxdSslCert = fs.readFileSync(config.lxdCertFile['cert'], 'utf8');
+        }
+
+        if (config.lxdCertFile['key'].includes('-----BEGIN')) {
+            lxdSslKey = config.lxdCertFile['key'];
+        } else {
+            lxdSslKey = fs.readFileSync(config.lxdCertFile['key'], 'utf8');
+        }
 
         const lxdOptions: https.AgentOptions & Pick<https.RequestOptions, 'agent'> = {
             cert: lxdSslCert,

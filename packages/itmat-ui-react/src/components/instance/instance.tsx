@@ -300,11 +300,15 @@ export const InstanceSection: FunctionComponent = () => {
                         {/** console connection button, only show for RUNNING status */}
                         {instance.appType !== enumAppType.JUPYTER && instance.status === enumInstanceStatus.RUNNING &&  (
                             // set the button color to green
-                            <Button type="primary" style={{ backgroundColor: '#108ee9', borderColor: '#108ee9', marginRight: '8px' }} onClick={() => handleConsoleConnect(instance)}>Open Console</Button>
+                            <Button type="primary"
+                                style={{ backgroundColor: '#1890ff', borderColor: '#1890ff', marginRight: '8px' }}
+                                onClick={() => handleConsoleConnect(instance)
+                                }>Open Console</Button>
                         )}
                         {instance.appType === enumAppType.JUPYTER && instance.status === enumInstanceStatus.RUNNING && (
                             <Button
-                                style={{ backgroundColor: '#108ee9', borderColor: '#108ee9', marginRight: '8px' }}
+                                type="primary"
+                                style={{ backgroundColor: '#1890ff', borderColor: '#1890ff', marginRight: '8px' }}
                                 onClick={() => {
                                     void connectToJupyterHandler(instance.id);
                                 }}
