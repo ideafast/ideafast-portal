@@ -118,7 +118,7 @@
         "csv-parse": "5.5.6",
         "dayjs": "1.11.13",
         "deepmerge": "4.3.1",
-        "esbuild": "^0.23.1",
+        "esbuild": "^0.24.0",
         "export-from-json": "1.7.4",
         "express": "^4.21.0",
         "express-rate-limit": "7.4.0",
