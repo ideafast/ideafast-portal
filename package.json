@@ -99,7 +99,7 @@
         "@ant-design/icons": "5.5.1",
         "@apollo/client": "3.11.8",
         "@apollo/server": "4.11.0",
-        "@commitlint/config-conventional": "^18.6.3",
+        "@commitlint/config-conventional": "^19.5.0",
         "@commitlint/config-nx-scopes": "^18.6.1",
         "@ideafast/idgen": "0.1.1",
         "@simplewebauthn/browser": "^10.0.0",
