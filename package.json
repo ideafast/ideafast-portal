@@ -101,7 +101,7 @@
         "@apollo/server": "4.11.0",
         "@commitlint/config-conventional": "^18.6.3",
         "@commitlint/config-nx-scopes": "^18.6.1",
-        "@ideafast/idgen": "0.1.1",
+        "@ideafast/idgen": "0.2.1",
         "@simplewebauthn/browser": "^10.0.0",
         "@simplewebauthn/server": "^10.0.1",
         "@nivo/calendar": "0.87.0",
