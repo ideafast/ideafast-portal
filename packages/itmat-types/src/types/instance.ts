@@ -51,7 +51,7 @@ export enum enumMonitorType {
 
 export enum enumInstanceType {
     SMALL = 'small',
-    MIDDLE ='middle',
+    MEDIUM ='medium',
     LARGE = 'large'
 }
 

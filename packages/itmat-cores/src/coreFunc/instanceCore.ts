@@ -1,4 +1,4 @@
-import { CoreError, enumCoreErrors, IInstance, LXDInstanceTypeEnum, enumInstanceStatus, enumAppType, IUser, enumUserTypes, enumJobType, enumOpeType, enumMonitorType, enumJobStatus} from '@itmat-broker/itmat-types';
+import { IUserConfig, enumConfigType, CoreError, enumCoreErrors, IInstance, LXDInstanceTypeEnum, enumInstanceStatus, enumAppType, IUser, enumUserTypes, enumJobType, enumOpeType, enumMonitorType, enumJobStatus, ISystemConfig} from '@itmat-broker/itmat-types';
 import { v4 as uuid } from 'uuid';
 import { DBType } from '../database/database';
 import { Logger, Mailer} from '@itmat-broker/itmat-commons';
@@ -25,18 +25,36 @@ export class InstanceCore {
         this.JobCore = jobCore;
         this.UserCore = userCore;
     }
+    /**
+     * Convert memory size in bytes to a formatted string like '4GB'.
+     * @param memory - The memory size in bytes.
+     * @returns Formatted memory size string.
+     */
+    private formatMemory(memory: number): string {
+        const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+        let index = 0;
+        let size = memory;
+
+        while (size >= 1024 && index < units.length - 1) {
+            size /= 1024;
+            index++;
+        }
+
+        return `${Math.round(size)}${units[index]}`;
+    }
 
     /**
-     * Get the memory value from the memory string.
-     * @param memoryStr - The memory string to parse. like '4GB'
-     * @returns number
+     * Convert memory string like '4GB' to bytes.
+     * @param memoryStr - The memory string to parse.
+     * @returns Memory size in bytes.
      */
     private parseMemory(memoryStr: string): number {
         const units: Record<string, number> = {
             B: 1,
             KB: 1024,
             MB: 1024 * 1024,
-            GB: 1024 * 1024 * 1024
+            GB: 1024 * 1024 * 1024,
+            TB: 1024 * 1024 * 1024 * 1024
         };
 
         const match = memoryStr.match(/^(\d+(?:\.\d+)?)([KMGT]?B)$/);
@@ -78,7 +96,7 @@ export class InstanceCore {
      * @return IInstance
      */
     public async createInstance(userId: string, username: string, name: string, type: LXDInstanceTypeEnum,
-        appType: enumAppType, lifeSpan: number, project = 'default', cpuLimit?: number, memoryLimit?: string): Promise<IInstance> {
+        appType: enumAppType, lifeSpan: number, project = 'default', cpuLimit?: number, memoryLimit?: string, diskLimit?: string): Promise<IInstance> {
 
         const instance_id = uuid();  // Generate a unique ID for the instance
 
@@ -253,7 +271,8 @@ runcmd:
         // add boot-time script, to be executed on first boot
         const instaceConfig = {
             'limits.cpu': cpuLimit ? cpuLimit.toString() : '2',
-            'limits.memory': memoryLimit ? memoryLimit : '4GB',   // TODO,set all create to be a default size, only open to admin to choose the size.
+            'limits.memory': memoryLimit ? memoryLimit : '4GB',
+            'limits.disk': diskLimit ? diskLimit : '20GB',
             'user.username': username, // store username to instance config
             'user.user-data': cloudInitUserData // set the cloud-init user-data
         };
@@ -481,7 +500,7 @@ runcmd:
         // Create a series of promises to handle lifespan and status updates
         const updates = instances.map(async (instance) => {
             const lifeDuration = now - instance.createAt;
-            const remainingLife = instance.lifeSpan * 3600000 - lifeDuration;
+            const remainingLife = instance.lifeSpan * 1000 - lifeDuration;
 
             // Check if the lifespan has been exceeded
             if (remainingLife <= 0) {
@@ -734,4 +753,71 @@ runcmd:
         // Return null IP for now, as the monitor job will update the instance state
         return null;
     }
+
+    public async checkQuotaBeforeCreation(userId: string, requestedCpu: number, requestedMemory: string, requestedDisk: string, requestedInstances: number): Promise<void> {
+
+        const {properties: userQuota} = await this.configCore.getConfig(enumConfigType.USERCONFIG,  userId, true )as { properties: IUserConfig };
+        const instances: IInstance[] = await this.getInstances(userId);
+
+        let currentCpu = 0, currentMemory = 0, currentDisk = 0;
+        instances.forEach(instance => {
+            currentCpu += parseInt(instance.config['limits.cpu'] as string);
+            currentMemory += this.parseMemory(instance.config['limits.memory'] as string);
+            currentDisk += this.parseMemory(instance.config['limits.disk'] as string);
+        });
+
+        if (currentCpu + requestedCpu > userQuota.defaultLXDMaximumInstanceCPUCores) {
+            throw new CoreError(enumCoreErrors.NO_PERMISSION_ERROR, 'Requested CPU exceeds available quota. Please delete some instances or contact an administrator.');
+        }
+        if (this.parseMemory(requestedMemory) + currentMemory > userQuota.defaultLXDMaximumInstanceMemory) {
+            throw new CoreError(enumCoreErrors.NO_PERMISSION_ERROR, 'Requested memory exceeds available quota. Please delete some instances or contact an administrator.');
+        }
+        if (this.parseMemory(requestedDisk) + currentDisk > userQuota.defaultLXDMaximumInstanceDiskSize) {
+            throw new CoreError(enumCoreErrors.NO_PERMISSION_ERROR, 'Requested disk space exceeds available quota. Please delete some instances or contact an administrator.');
+        }
+        if (instances.length + requestedInstances > userQuota.defaultLXDMaximumInstances) {
+            throw new CoreError(enumCoreErrors.NO_PERMISSION_ERROR, 'Requested instance count exceeds available quota. Please delete some instances or contact an administrator.');
+        }
+    }
+
+
+    public async getQuotaAndFlavors(requester: IUser) {
+
+        // key: userId,
+        const {properties: userQuota} = await this.configCore.getConfig(enumConfigType.USERCONFIG,  requester.id, true );
+        const { properties: systemConfig } = await this.configCore.getConfig(enumConfigType.SYSTEMCONFIG, null, true);
+
+        const isAdmin = requester.type === enumUserTypes.ADMIN;
+        // const userFlavors = isAdmin ? (systemConfig as ISystemConfig).defaultLXDFlavor.keys(): (userQuota as IUserConfig).defaultLXDflavor;
+        const userFlavors = isAdmin
+            ? Object.keys((systemConfig as ISystemConfig).defaultLXDFlavor)
+            : (userQuota as IUserConfig).defaultLXDflavor;
+
+
+        // Transform flavors into an object with flavor names as keys
+
+        const transformedFlavors: Record<string, unknown> = {};
+        userFlavors.forEach(flavor => {
+
+            const flavorDetails = (systemConfig as ISystemConfig).defaultLXDFlavor[flavor];
+            if (!flavorDetails) {
+                Logger.warn(`Flavor ${flavor} is not defined in systemConfig.defaultLXDFlavor.`);
+                return; // Skip this flavor if it's not defined
+            }
+
+            transformedFlavors[flavor] = {
+                ...flavorDetails,
+                memoryLimit: this.formatMemory(flavorDetails.memoryLimit),
+                diskLimit: this.formatMemory(flavorDetails.diskLimit)
+            };
+        });
+
+        return {
+            userQuota: userQuota as IUserConfig,
+            userFlavors: transformedFlavors
+        };
+    }
+
+
+
 }

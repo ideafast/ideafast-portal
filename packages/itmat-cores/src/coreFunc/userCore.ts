@@ -12,6 +12,7 @@ import tmp from 'tmp';
 import { UpdateFilter } from 'mongodb';
 import * as pubkeycrypto from '../utils/pubkeycrypto';
 import crypto from 'crypto';
+import fs from 'fs';
 
 export class UserCore {
     db: DBType;
@@ -29,10 +30,27 @@ export class UserCore {
         this.fileCore = new FileCore(db, objStore);
         this.configCore = new ConfigCore(db);
         // System secret key pairs
+
+        // Load the system secret key pairs
         this.systemSecret = {
-            publickey: config.SystemKey['pubkey'],
-            privatekey: config.SystemKey['privkey']
+            publickey: this.loadKey(config.SystemKey['pubkey']),
+            privatekey: this.loadKey(config.SystemKey['privkey'])
         };
+    }
+
+    /**
+     * Load key from text content or file path.
+     * @param keyPathOrContent - Either the key content or a file path to the key.
+     * @returns The key as a string.
+     */
+    private loadKey(keyPathOrContent: string): string {
+        if (keyPathOrContent.includes('-----BEGIN')) {
+            // Key is provided as direct content
+            return keyPathOrContent;
+        } else {
+            // Key is provided as a file path, read from file
+            return fs.readFileSync(keyPathOrContent, 'utf8');
+        }
     }
     /**
      * Get a user. One of the parameters should not be null, we will find users by the following order: usreId, username, email.
@@ -909,7 +927,7 @@ export class UserCore {
 
         return accessToken;
     }
-
+    //TODO:  Adapt to the new token generation function
     public async issueSystemAccessToken(userId: string, life?: number) {
         // payload of the JWT for storing user information
         const payload = {

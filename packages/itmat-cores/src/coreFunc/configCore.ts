@@ -19,6 +19,7 @@ export class ConfigCore {
      */
     public async getConfig(configType: enumConfigType, key: string | null, useDefault: boolean) {
         const config = await this.db.collections.configs_collection.findOne({ 'type': configType, 'key': key, 'life.deletedTime': null });
+
         if (!config) {
             if (useDefault) {
                 return {

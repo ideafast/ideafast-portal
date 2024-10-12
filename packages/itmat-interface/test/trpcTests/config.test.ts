@@ -14,7 +14,7 @@ import { MongoClient } from 'mongodb';
 import { setupDatabase } from '@itmat-broker/itmat-setup';
 import config from '../../config/config.sample.json';
 import { v4 as uuid } from 'uuid';
-import { enumUserTypes, enumStudyRoles, enumCoreErrors, enumConfigType } from '@itmat-broker/itmat-types';
+import { enumUserTypes, enumStudyRoles, enumCoreErrors, enumConfigType, enumInstanceType } from '@itmat-broker/itmat-types';
 import { encodeQueryParams } from './helper';
 import { seedConfigs } from 'packages/itmat-setup/src/databaseSetup/seed/config';
 
@@ -274,7 +274,12 @@ if (global.hasMinio) {
                         logoSize: ['24px', '24px'],
                         archiveAddress: '',
                         defaultEventTimeConsumptionBar: [50, 100],
-                        defaultUserExpireDays: 120
+                        defaultUserExpireDays: 120,
+                        defaultLXDFlavor: {
+                            [enumInstanceType.SMALL]: { cpuLimit: 2, memoryLimit: 4 * 1024 * 1024 * 1024, diskLimit: 20 * 1024 * 1024 * 1024 },
+                            [enumInstanceType.MEDIUM]: { cpuLimit: 4, memoryLimit: 8 * 1024 * 1024 * 1024, diskLimit: 40 * 1024 * 1024 * 1024 },
+                            [enumInstanceType.LARGE]: { cpuLimit: 8, memoryLimit: 16 * 1024 * 1024 * 1024, diskLimit: 60 * 1024 * 1024 * 1024 }
+                        }
                     }
                 });
             expect(response.status).toBe(400);

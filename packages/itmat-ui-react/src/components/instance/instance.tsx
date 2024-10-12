@@ -1,10 +1,10 @@
-import React, { FunctionComponent, useState,useRef} from 'react';
+import React, { FunctionComponent, useState, useRef, useEffect} from 'react';
 import { Button, message, Modal, Form, Select,  Card, Tag, Progress,  Space, Row, Col } from 'antd';
 import { trpc } from '../../utils/trpc';
 import css from './instance.module.css';
-import { enumAppType,enumInstanceType, enumInstanceStatus, IInstance, LXDInstanceTypeEnum, enumOpeType} from '@itmat-broker/itmat-types';
+import { enumAppType,enumInstanceType, enumInstanceStatus, IInstance, LXDInstanceTypeEnum, enumOpeType, IUserConfig} from '@itmat-broker/itmat-types';
 import { LXDConsole , LXDConsoleRef} from '../lxd/lxd.instance.console';
-import LXDTextConsole from '../lxd/lxd.instance.text.console';
+import { LXDTextConsole } from '../lxd/lxd.instance.text.console';
 
 
 const { Option } = Select;
@@ -18,16 +18,14 @@ type CreateInstanceFormValues = {
     project: string;
     cpuLimit: number;
     memoryLimit: string;
-    token: string;
+    diskLimit: string;
 };
 
-
-const instanceTypeConfig = {
-    [enumInstanceType.SMALL]: { cpuLimit: 4, memoryLimit: '8GB' },
-    [enumInstanceType.MIDDLE]: { cpuLimit: 8, memoryLimit: '16GB' },
-    [enumInstanceType.LARGE]: { cpuLimit: 12, memoryLimit: '24GB' }
+type FlavorDetails = {
+    cpuLimit: number;
+    memoryLimit: string;
+    diskLimit: string;
 };
-
 
 
 export const InstanceSection: FunctionComponent = () => {
@@ -39,6 +37,15 @@ export const InstanceSection: FunctionComponent = () => {
     const [isConnectingToJupyter, setIsConnectingToJupyter] = useState(false);
 
     const handleFullScreenRef = useRef<LXDConsoleRef>(null);
+
+    // quota (user) and flavor (system)
+    // const { data: quotaAndFlavors } = trpc.instance.getQuotaAndFlavors.useQuery<QuotaAndFlavors>();
+    // quota (user) and flavor (system)
+    const { data: quotaAndFlavors } = trpc.instance.getQuotaAndFlavors.useQuery<{
+            userQuota: IUserConfig;
+            userFlavors: { [key: string]: FlavorDetails };
+        }>();
+
 
     const handleConsoleConnect = (instance) => {
         setSelectedInstance(instance);
@@ -92,31 +99,42 @@ export const InstanceSection: FunctionComponent = () => {
     // Define the initial form values including the default instanceType
     const initialFormValues: Partial<CreateInstanceFormValues> = {
         instanceType: enumInstanceType.SMALL,
-        lifeSpan: 360
+        lifeSpan: quotaAndFlavors?.userQuota?.defaultLXDMaximumInstanceLife ?? 360 * 60 * 60 // Default to 360 hours if no user quota
     };
 
-    // Update the form on component mount to include the default instance type details
-    useState(() => {
-        const { cpuLimit, memoryLimit } = instanceTypeConfig[enumInstanceType.SMALL];
-        setSelectedInstanceTypeDetails(`${cpuLimit} CPU, ${memoryLimit} memory`);
-    });
+    useEffect(() => {
+        if (quotaAndFlavors?.userFlavors && quotaAndFlavors.userFlavors[enumInstanceType.SMALL]) {
+            const { cpuLimit, memoryLimit, diskLimit } = quotaAndFlavors.userFlavors[enumInstanceType.SMALL];
+            setSelectedInstanceTypeDetails(`${cpuLimit} CPU, ${memoryLimit} memory, ${diskLimit} disk`);
+        }
+    }, [quotaAndFlavors]);
 
 
     const handleCreateInstance = (values: CreateInstanceFormValues) => {
 
-        const effectiveLifeSpan = values.lifeSpan || 360;
         const generatedName = `${values.appType}-${Date.now()}`;
         const determinedType = values.appType === enumAppType.MATLAB ? LXDInstanceTypeEnum.VIRTUAL_MACHINE: LXDInstanceTypeEnum.CONTAINER;
-        const { cpuLimit, memoryLimit } = instanceTypeConfig[values.instanceType];
+        // get the cpu, memorylimit, disk limit from the backend server
+        // Get the flavor details from the selected type
+        const flavorDetails = quotaAndFlavors?.userFlavors[values.instanceType];
+        if (!flavorDetails) {
+            void message.error('Invalid instance type selected.');
+            return;
+        }
+        // Use user-defined maximum instance life or default value
+        const effectiveLifeSpan = values.lifeSpan ?? (quotaAndFlavors?.userQuota?.defaultLXDMaximumInstanceLife || 360 * 60 * 60);
+
         const defaultProject = 'default';
+
         createInstance.mutate({
             name: generatedName,
             type: determinedType,
             appType: values.appType,
             lifeSpan: effectiveLifeSpan,
             project: defaultProject,
-            cpuLimit: cpuLimit,
-            memoryLimit: memoryLimit
+            cpuLimit: flavorDetails.cpuLimit,
+            memoryLimit: flavorDetails.memoryLimit,
+            diskLimit: flavorDetails.diskLimit
         });
         setIsModalOpen(false);
         createForm.resetFields();
@@ -224,14 +242,39 @@ export const InstanceSection: FunctionComponent = () => {
     return (
         <div className={css.page_container}>
             <div className={css.marginBottom}>
-                <Button type="primary" style={{ backgroundColor: '#108ee9', borderColor: '#108ee9', marginRight: '8px' }} onClick={() => setIsModalOpen(true)}>
-            Create New Instance
-                </Button>
+                <div style={{ marginTop: '10px' }} />
+                <Space size="large"> {}
+                    <Button
+                        type="primary"
+                        size="large" // Increase the size for better emphasis
+                        style={{ backgroundColor: '#108ee9', borderColor: '#108ee9' }}
+                        onClick={() => setIsModalOpen(true)}
+                    >
+                    Create New Instance
+                    </Button>
+                    <Button
+                        type="default"
+                        size="large" // Match the size with "Create New Instance" button
+                        style={{
+                            borderColor: '#108ee9',
+                            color: '#108ee9'
+                        }}
+                        href="/pun/sys/dashboard"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                    Go back to old AE v2
+                    </Button>
+                </Space>
+
             </div>
+            <div style={{ marginTop: '50px' }} />
+
             {sortedInstances.map((instance) => (
                 <Card
                     key={instance.id}
-                    headStyle={{ backgroundColor: getStatusTagColor(instance.status) }}
+                    // headStyle={{ backgroundColor: getStatusTagColor(instance.status) }}
+                    styles={{ header: { backgroundColor: getStatusTagColor(instance.status) } }}
                     style={{ maxWidth: '600px', margin: '20px', overflow: 'auto' }}
                     title={<span>{instance.name}</span>}
                     extra={<Tag color={getStatusTagColor(instance.status)}>{instance.status}</Tag>}
@@ -241,7 +284,7 @@ export const InstanceSection: FunctionComponent = () => {
                         <Col span={16}>
                             <p>Application Type: {instance.appType}</p>
                             <p>Created At: {new Date(instance.createAt).toLocaleString()}</p>
-                            <p>Life Span: <strong>{Number(instance.lifeSpan).toFixed(2)}</strong> (hours)</p>
+                            <p>Life Span: <strong>{(Number(instance.lifeSpan) / 3600).toFixed(2)}</strong> (hours)</p>
                             <p>
                                 CPU: {instance.config && typeof instance.config['limits.cpu'] === 'string' ? instance.config['limits.cpu'] : 'N/A'} Cores,
                                 Memory: {instance.config && typeof instance.config['limits.memory'] === 'string' ? instance.config['limits.memory'] : 'N/A'}
@@ -294,7 +337,7 @@ export const InstanceSection: FunctionComponent = () => {
                         {instance.status === enumInstanceStatus.STOPPED && instance.lifeSpan <= 0 && (
                             <Button type="primary" style={{ backgroundColor: '#2db7f5', borderColor: '#2db7f5', marginRight: '8px' }}
                                 onClick={() => {
-                                    void handleRestartInstance({ instance_id: instance.id, lifeSpan: 360 });
+                                    void handleRestartInstance({ instance_id: instance.id, lifeSpan: 360 * 60 * 60 });
                                 }}>Restart</Button>
                         )}
                         {/** console connection button, only show for RUNNING status */}
@@ -338,13 +381,18 @@ export const InstanceSection: FunctionComponent = () => {
                         <Select
                             placeholder="Select an instance type"
                             onChange={(value) => {
-                                const { cpuLimit, memoryLimit } = instanceTypeConfig[value];
-                                setSelectedInstanceTypeDetails(`${cpuLimit} CPU, ${memoryLimit} memory`);
+                                const flavorDetails = quotaAndFlavors?.userFlavors[value];
+                                if (flavorDetails) {
+                                    setSelectedInstanceTypeDetails(`${flavorDetails.cpuLimit} CPU, ${flavorDetails.memoryLimit} memory, ${flavorDetails.diskLimit} disk`);
+                                }
                             }}
                         >
-                            <Option value={enumInstanceType.SMALL}>Small</Option>
-                            <Option value={enumInstanceType.MIDDLE}>Middle</Option>
-                            <Option value={enumInstanceType.LARGE}>Large</Option>
+
+                            {quotaAndFlavors?.userFlavors && Object.keys(quotaAndFlavors.userFlavors).map((flavor) => (
+                                <Option key={flavor} value={flavor}>
+                                    {flavor.charAt(0).toUpperCase() + flavor.slice(1)} {/* Capitalize flavor name */}
+                                </Option>
+                            ))}
                         </Select>
                     </Form.Item>
                     {selectedInstanceTypeDetails && (
@@ -362,7 +410,7 @@ export const InstanceSection: FunctionComponent = () => {
                     width: 'auto !important',
                     height: 'auto !important'
                 }}
-                bodyStyle={{ height: 'calc(100vh - 110px)', overflowY: 'auto' }}
+                styles={{ body: { height: 'calc(100vh - 110px)', overflowY: 'auto' } }}
                 footer={[
                     <Button key="back" onClick={handleCloseModal}>
                         Cancel

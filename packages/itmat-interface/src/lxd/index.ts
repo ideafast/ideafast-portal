@@ -110,9 +110,21 @@ export const registerContainSocketServer = (server: WebSocketServer, lxdManager:
                 //     }
 
                 //     const messageContent = `Binary message: ${textDecoder.decode(arrayBuffer)}`;
-                //     console.log(`Message from container: ${messageContent}`);
+
+                // const asciiMessage = Array.from(new Uint8Array(arrayBuffer))
+                //     .map(byte => String.fromCharCode(byte))
+                //     .join('');
+                // const hexMessage = Array.from(new Uint8Array(arrayBuffer))
+                //     .map(byte => byte.toString(16).padStart(2, '0'))
+                //     .join(' ');
+
+                // console.log(`Message from container: ${messageContent}`);
+                // console.log(`Message from container: Binary message (ASCII): ${asciiMessage}`);
+                // console.log(`Message from container: Binary message (Hex): ${hexMessage}`);
+                // console.log(`Message from container: type ${isBinary}, ${message}`);
                 // } else {
                 //     // If it's not binary, we expect a text message, which should be a string
+                //     console.log(`Message from container: type ${isBinary}, ${message}`);
                 //     const messageContent = `Text message: ${message.toString()}`;
                 //     console.log(`Message from container: ${messageContent}`);
                 // }

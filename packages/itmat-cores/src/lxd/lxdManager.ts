@@ -218,26 +218,39 @@ export class LxdManager {
             if (response.status === 200) {
                 return response.data;
             } else {
-                Logger.error(`Failed to fetch Logger log data. ${response.data}`);
+                const errorMessage = `Failed to fetch Logger log data. Status: ${response.status}, Data: ${JSON.stringify(response.data)}`;
+                Logger.error(errorMessage);
                 return {
                     error: true,
-                    data: `Failed to fetch Logger log data. ${JSON.stringify(response.data)}`
+                    data: errorMessage
                 };
             }
         } catch (error: unknown) {
-            if (axios.isAxiosError(error) && error.response && error.response.status === 404) {
-                Logger.error(`Logger log file not found.${error.response}`);
-                return {
-                    error: true,
-                    data: `Logger log file not found.${error.response}`
-                };
+            let errorMessage = 'Error fetching instance Logger log from LXD:';
+            if (axios.isAxiosError(error)) {
+                if (error.response) {
+                    if (error.response.status === 404) {
+                        errorMessage = `Logger log file not found. Status: ${error.response.status}, Data: ${JSON.stringify(error.response.data)}`;
+                        Logger.error(errorMessage);
+                        // Return an empty string to the frontend
+                        return {
+                            error: false,
+                            data: ''
+                        };
+                    } else {
+                        errorMessage = `Failed to fetch Logger log data. Status: ${error.response.status}, Data: ${JSON.stringify(error.response.data)}`;
+                    }
+                } else {
+                    errorMessage = `Axios error without response: ${error.message}`;
+                }
             } else {
-                Logger.error(`Error fetching instance Logger log from LXD:${error}`);
-                return {
-                    error: true,
-                    data: String(error)
-                };
+                errorMessage = `Unknown error: ${String(error)}`;
             }
+            Logger.error(errorMessage);
+            return {
+                error: true,
+                data: errorMessage
+            };
         }
     }
 

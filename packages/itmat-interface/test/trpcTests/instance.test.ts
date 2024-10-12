@@ -107,8 +107,13 @@ if (global.hasMinio) { // eslint-disable-line no-undef
                     name: 'test-instance',
                     type: LXDInstanceTypeEnum.CONTAINER,
                     appType: enumAppType.JUPYTER,
+                    cpuLimit: 2,
+                    memoryLimit: '4GB',
+                    diskLimit: '10GB',
                     lifeSpan: 3600
                 });
+
+
                 expect(response.status).toBe(200);
                 expect(response.body.result.data.name).toBe('test-instance');
 
@@ -127,6 +132,24 @@ if (global.hasMinio) { // eslint-disable-line no-undef
 
                 expect(response.status).toBe(400); // User is not authenticated
                 expect(response.body.error).toBeDefined();
+            });
+        });
+
+        describe('getQuotaAndFlavors', () => {
+            test('Should return quota and flavors for logged-in user', async () => {
+
+                const response = await user.get('/trpc/instance.getQuotaAndFlavors').send();
+
+                expect(response.status).toBe(200);
+                expect(response.body.result?.data?.userQuota).toBeDefined();
+                expect(response.body.result?.data?.userFlavors).toBeDefined();
+            });
+
+            test('Should throw error when user is not logged in', async () => {
+                const response = await request(app).get('/trpc/instance.getQuotaAndFlavors').send();
+                expect(response.status).toBe(400);
+                expect(response.body.error).toBeDefined();
+                expect(response.body.error.message).toBe('User must be authenticated.');
             });
         });
 
@@ -220,7 +243,6 @@ if (global.hasMinio) { // eslint-disable-line no-undef
 
                 // The logged-in user should retrieve their own instance
                 const response = await user.get('/trpc/instance.getInstances').send();
-                console.log(response.data);
                 expect(response.status).toBe(200);
                 expect(response.body.result.data).toHaveLength(1); // Only the user's instance
                 expect(response.body.result.data[0].name).toBe('user-instance');
@@ -259,6 +281,7 @@ if (global.hasMinio) { // eslint-disable-line no-undef
                 expect(instance?.status).toBe(enumInstanceStatus.DELETED);
             });
         });
+
     });
 } else {
     test(`${__filename.split(/[\\/]/).pop()} skipped because it requires Minio on Docker`, () => {

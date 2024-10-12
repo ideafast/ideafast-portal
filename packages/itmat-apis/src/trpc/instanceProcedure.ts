@@ -27,7 +27,8 @@ export class InstanceRouter {
                     lifeSpan: z.number(),
                     project: z.string().optional(),
                     cpuLimit: z.number().optional(),
-                    memoryLimit: z.string().optional()
+                    memoryLimit: z.string().optional(),
+                    diskLimit: z.string().optional()
                 })
             ).mutation(async ({ input, ctx }) => {
 
@@ -38,6 +39,10 @@ export class InstanceRouter {
                 }
                 const userId = ctx.req.user.id;
 
+                // Check if requested resources exceed the user's quota
+                await this.instanceCore.checkQuotaBeforeCreation(userId, input.cpuLimit ?? 0, input.memoryLimit ?? '0', input.diskLimit ?? '0', 1);
+
+
                 return await this.instanceCore.createInstance(
                     userId,
                     ctx.req.user.username,
@@ -47,7 +52,8 @@ export class InstanceRouter {
                     input.lifeSpan,
                     input.project,
                     input.cpuLimit,
-                    input.memoryLimit
+                    input.memoryLimit,
+                    input.diskLimit
                 );
             }),
 
@@ -144,6 +150,12 @@ export class InstanceRouter {
                 }
 
                 return await this.instanceCore.deleteInstance(user.id, input.instanceId);
+            }),
+            getQuotaAndFlavors: this.baseProcedure.query(async ({ ctx }) => {
+                if (!ctx.req.user || !ctx.req.user.id) {
+                    throw new CoreError(enumCoreErrors.NOT_LOGGED_IN, 'User must be authenticated.');
+                }
+                return await this.instanceCore.getQuotaAndFlavors(ctx.req.user);
             })
         });
     }

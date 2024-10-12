@@ -1,14 +1,14 @@
-import React, { useEffect, useState} from 'react';
+import React, { useEffect, useRef, useState} from 'react';
 import { Table, Button, message, Spin, Modal, Space, Form, InputNumber, Input } from 'antd';
-import {  CloseOutlined, DeleteOutlined } from '@ant-design/icons';
+import { DeleteOutlined } from '@ant-design/icons';
 // Additional imports
 import { PoweroffOutlined, PlayCircleOutlined } from '@ant-design/icons';
-import { LXDInstanceType } from '@itmat-broker/itmat-types';
+import { LXDInstanceType, enumOpeType} from '@itmat-broker/itmat-types';
 
 // import { instanceCreationTypes } from './instanceOptions';
 import InstanceStatusIcon from '././lxd.Instance.statusIcon';
-// import { LXDConsole } from './lxd.instance.console';
-// import LXDTextConsole from './lxd.instance.text.console';
+import { LXDConsole, LXDConsoleRef} from './lxd.instance.console';
+import {LXDTextConsole, LXDTextConsoleRef} from './lxd.instance.text.console';
 import { trpc } from '../../utils/trpc';
 import css from './lxd.module.css';
 import { formatCPUInfo, formatMemoryInfo, formatStorageInfo, formatGPUInfo} from './util/formatUtils';
@@ -20,13 +20,25 @@ const LXDInstanceList = () => {
     const [loading, setLoading] = useState(true);
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [selectedInstance, setSelectedInstance] = useState<LXDInstanceType | null>(null);
-    const [selectedTab, setSelectedTab] = useState('overview'); // new state for tab selection
     const [isInstanceDetailsModalVisible, setIsInstanceDetailsModalVisible] = useState(false);
 
     const [isUpdateConfigModalOpen, setIsUpdateConfigModalOpen] = useState(false);
     const [editingInstance, setEditingInstance] = useState<LXDInstanceType | null>(null);
 
     const [updateConfigForm] = Form.useForm();
+
+    const [systemStats, setSystemStats] = useState({
+        cpu: '',
+        memory: '',
+        storage: '',
+        gpu: ''
+
+    });
+
+    const [isFullscreen, setIsFullscreen] = useState(false); // <-- Manage fullscreen state
+
+    // const handleFullScreenRef = useRef<LXDConsoleRef>(null);
+    const handleFullScreenRef = useRef<LXDConsoleRef | LXDTextConsoleRef>(null);
     const updateInstanceConfig = trpc.instance.editInstance.useMutation({
         onSuccess: () => {
             void message.success('Instance configuration updated successfully.');
@@ -36,8 +48,20 @@ const LXDInstanceList = () => {
         }
     });
 
-    const getInstances = trpc.lxd.getInstances.useQuery();
+    const getInstances = trpc.lxd.getInstances.useQuery(undefined, {
+        refetchInterval: 60 * 1000 // Refetch every 60 seconds
+    });
     const getResources = trpc.lxd.getResources.useQuery();
+
+
+    // Function to refresh the list of instances
+    const refreshInstancesList = async () => {
+        try {
+            await getInstances.refetch();
+        } catch (error) {
+            console.error('Failed to refresh instances list:', error);
+        }
+    };
 
     const startStopInstance = trpc.lxd.startStopInstance.useMutation({
         onSuccess: async () => {
@@ -58,22 +82,20 @@ const LXDInstanceList = () => {
             void message.error(`Failed to delete instance: ${error.message}`);
         }
     });
-    const handleStartStop = (instanceName: string , action: 'start' | 'stop') => {
+    const handleStartStop = (instanceName: string , action: enumOpeType.START | enumOpeType.STOP) => {
         startStopInstance.mutate({ instanceName, action });
     };
 
     const handleDelete = (instanceName: string) => {
         deleteInstance.mutate({ instanceName });
     };
+    const enterFullScreen = () => {
+        if (handleFullScreenRef.current) {
+            handleFullScreenRef.current.handleFullScreen();
+            setIsFullscreen(true); // Set fullscreen state
+        }
+    };
 
-
-    const [systemStats, setSystemStats] = useState({
-        cpu: '',
-        memory: '',
-        storage: '',
-        gpu: ''
-
-    });
 
     const openUpdateConfigModal = (instance: LXDInstanceType) => {
         setEditingInstance(instance);
@@ -85,8 +107,6 @@ const LXDInstanceList = () => {
         setSelectedInstance(instance);
         setIsInstanceDetailsModalVisible(true);
     };
-
-    // const handleFullScreenRef = useRef(undefined);
 
 
     useEffect(() => {
@@ -124,10 +144,6 @@ const LXDInstanceList = () => {
         }
     }, [getResources.isLoading, getResources.data, getResources.isError]);
 
-    // Function to refresh the list of instances
-    const refreshInstancesList = async () => {
-        setLoading(true);
-    };
 
     const columns = [
         {
@@ -163,6 +179,8 @@ const LXDInstanceList = () => {
             render: (_, record) => (
                 <Space size="middle">
                     <Button
+                        type="primary"
+                        style={{ backgroundColor: '#1890ff', borderColor: '#1890ff', marginRight: '8px' }}
                         onClick={() => handleOpenConsole(record)}
                         disabled={record.status !== 'Running'} // Disable if the instance is not running
                     >
@@ -174,7 +192,7 @@ const LXDInstanceList = () => {
                     >Update Config</Button>
                     <Button
                         type="link"
-                        onClick={() => handleStartStop(record.name, 'start')}
+                        onClick={() => handleStartStop(record.name, enumOpeType.START)}
                         icon={<PlayCircleOutlined />}
                         disabled={record.status === 'Running'}
                     >
@@ -182,7 +200,7 @@ const LXDInstanceList = () => {
                     </Button>
                     <Button
                         type="link"
-                        onClick={() => handleStartStop(record.name, 'stop')}
+                        onClick={() => handleStartStop(record.name, enumOpeType.STOP)}
                         icon={<PoweroffOutlined />}
                         disabled={record.status !== 'Running'}
                     >
@@ -205,13 +223,13 @@ const LXDInstanceList = () => {
 
     const handleOpenConsole = (instance: LXDInstanceType) => {
         setSelectedInstance(instance);
-        setSelectedTab('console');
         setIsModalVisible(true);
     };
 
     // TDDO:  Reset the connect signal when the modal is closed
     const handleCloseModal = () => {
         setIsModalVisible(false);
+        setIsFullscreen(false); // Reset fullscreen state when modal is closed
     };
 
     const handleUpdateInstanceConfig = async (values: { cpuLimit: number; memoryLimit: number; }) => {
@@ -273,34 +291,35 @@ const LXDInstanceList = () => {
             </Modal>
 
             <Modal
-                title={`Instance ${selectedTab.charAt(0).toUpperCase() + selectedTab.slice(1) +': '+ selectedInstance?.name}`}
+                className={css['console-modal']}
+                title={`Console - ${selectedInstance?.name}`}
                 open={isModalVisible}
-                onOk={handleCloseModal}
                 onCancel={handleCloseModal}
-                style={{
-                    width: 'auto !important'
-                }}
-                className={css.modalOverrides}
-                footer={null}
-                closable={true}
-                closeIcon={selectedTab !== 'overview' ? <CloseOutlined /> : undefined}
-                destroyOnClose={true} // Destroy Terminal on close
-                forceRender // Pre-render Modal for immediate open
+                width="100%"
+                // styles={{ body: { height: 'calc(100vh - 110px)', overflowY: 'auto' } }}
+                styles={{ body: { height: isFullscreen ? '100vh' : 'calc(100vh - 110px)', overflowY: 'hidden' } }}
+                footer={[
+                    <Button key="back" onClick={handleCloseModal}>
+      Cancel
+                    </Button>,
+                    <Button key="fullScreen" type="primary" onClick={enterFullScreen}>
+      Fullscreen
+                    </Button>
+                ]}
             >
-                {selectedInstance && selectedTab === 'console' && (
-                    <div className={css.consoleContainer}>
-                        {/* {selectedInstance.type === 'container' ?
-                            <LXDTextConsole
-                                instanceName={selectedInstance.name}
-                            /> : // Render LXDTextConsole for containers
-                            <LXDConsole
-                                instanceName={selectedInstance.name}
-                            /> // Render LXDConsole for virtual machines
-                        } */}
-                    </div>
-                )}
-
+                {selectedInstance?.name && (selectedInstance.type === 'container' ? (
+                    <LXDTextConsole
+                        ref = {handleFullScreenRef}
+                        instanceName={selectedInstance.name}
+                    />
+                ) : (
+                    <LXDConsole
+                        ref={handleFullScreenRef}
+                        instanceName={selectedInstance.name}
+                    />
+                ))}
             </Modal>
+
             <Modal
                 title="Update Instance Configuration"
                 open={isUpdateConfigModalOpen}
@@ -334,7 +353,7 @@ const LXDInstanceList = () => {
                             })
                         ]}
                     >
-                        <Input.Group compact>
+                        <Space.Compact>
                             <Form.Item
                                 noStyle
                                 name="memoryLimit"
@@ -343,7 +362,7 @@ const LXDInstanceList = () => {
                                 <InputNumber min={1} max={64} style={{ width: 'calc(100% - 50px)' }} />
                             </Form.Item>
                             <Input style={{ width: '50px' }} defaultValue="GB" disabled />
-                        </Input.Group>
+                        </Space.Compact>
                     </Form.Item>
                 </Form>
             </Modal>
