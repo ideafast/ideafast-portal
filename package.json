@@ -104,7 +104,7 @@
         "@apollo/client": "3.11.8",
         "@apollo/server": "4.11.0",
         "@ideafast/idgen": "0.2.1",
-        "@simplewebauthn/browser": "^10.0.0",
+        "@simplewebauthn/browser": "^11.0.0",
         "@simplewebauthn/server": "^10.0.1",
         "@nivo/calendar": "0.87.0",
         "@nivo/bar": "0.87.0",
