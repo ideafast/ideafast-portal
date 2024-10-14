@@ -3196,10 +3196,10 @@
   dependencies:
     "@simplewebauthn/types" "^10.0.0"
 
-"@simplewebauthn/server@^10.0.1":
-  version "10.0.1"
-  resolved "https://registry.yarnpkg.com/@simplewebauthn/server/-/server-10.0.1.tgz#b40362f80b2d13a541936a09e1be9829cb59e21d"
-  integrity sha512-djNWcRn+H+6zvihBFJSpG3fzb0NQS9c/Mw5dYOtZ9H+oDw8qn9Htqxt4cpqRvSOAfwqP7rOvE9rwqVaoGGc3hg==
+"@simplewebauthn/server@^11.0.0":
+  version "11.0.0"
+  resolved "https://registry.yarnpkg.com/@simplewebauthn/server/-/server-11.0.0.tgz#577eb8beefd1e371f09fbf9c99eac0c2ddf50599"
+  integrity sha512-zu8dxKcPiRUNSN2kmrnNOzNbRI8VaR/rL4ENCHUfC6PEE7SAAdIql9g5GBOd/wOVZolIsaZz3ccFxuGoVP0iaw==
   dependencies:
     "@hexagon/base64" "^1.1.27"
     "@levischuck/tiny-cbor" "^0.2.2"
@@ -3208,13 +3208,18 @@
     "@peculiar/asn1-rsa" "^2.3.8"
     "@peculiar/asn1-schema" "^2.3.8"
     "@peculiar/asn1-x509" "^2.3.8"
-    "@simplewebauthn/types" "^10.0.0"
+    "@simplewebauthn/types" "^11.0.0"
     cross-fetch "^4.0.0"
 
 "@simplewebauthn/types@^10.0.0":
   version "10.0.0"
   resolved "https://registry.yarnpkg.com/@simplewebauthn/types/-/types-10.0.0.tgz#a07259d42fbdff7a014473f78401d262b298ed8e"
   integrity sha512-SFXke7xkgPRowY2E+8djKbdEznTVnD5R6GO7GPTthpHrokLvNKw8C3lFZypTxLI7KkCfGPfhtqB3d7OVGGa9jQ==
+
+"@simplewebauthn/types@^11.0.0":
+  version "11.0.0"
+  resolved "https://registry.yarnpkg.com/@simplewebauthn/types/-/types-11.0.0.tgz#f329abc4c1bc3b18d6c7a4346af9fdec90d8a67e"
+  integrity sha512-b2o0wC5u2rWts31dTgBkAtSNKGX0cvL6h8QedNsKmj8O4QoLFQFR3DBVBUlpyVEhYKA+mXGUaXbcOc4JdQ3HzA==
 
 "@sinclair/typebox@^0.27.8":
   version "0.27.8"
