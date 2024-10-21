@@ -21,6 +21,10 @@ export const tokenAuthentication = async (token: string) => {
             }
             return true;
         });
+        // TODO: check if the token is system token for lxd-ae user
+        // if (decodedPayload['iss'] === 'lxd-ae') {
+        // then user retrieval by userID
+
         // store the associated user with the JWT to context
         try {
             const associatedUser = await userRetrieval(db, pubkey);

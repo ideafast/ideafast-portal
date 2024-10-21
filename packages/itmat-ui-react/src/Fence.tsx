@@ -41,7 +41,7 @@ export const Fence: FunctionComponent = () => {
         } else {
             setIsUserLogin(false);
         }
-    }, [whoAmI.data]);
+    }, [setIsUserLogin, whoAmI.data]);
 
     useEffect(() => {
         if (isAnyLoading) {
