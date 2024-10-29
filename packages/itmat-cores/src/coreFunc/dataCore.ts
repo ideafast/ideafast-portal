@@ -1302,9 +1302,13 @@ export class DataCore {
                 permissionArr.push(obj);
             }
             if (permissionArr.length === 0) {
-                return [];
+                continue;
             }
             roleArr.push({ $or: permissionArr });
+        }
+
+        if (roleArr.length === 0) {
+            return [];
         }
 
         const availableFields = (await this.getStudyFields(requester, studyId, dataVersions)).reduce((a, c) => {
