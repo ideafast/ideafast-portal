@@ -791,19 +791,19 @@ function generateTableColumns(block: IStudyFileBlock, searchedKeyword: string | 
         // width: '8rem',
         key: 'delete'
     });
-    columns.push({
-        title: '',
-        dataIndex: 'download',
-        key: 'download',
-        render: (__unused__value, record) => {
-            return <Button
-                icon={<CloudDownloadOutlined />}
-                download={`${record.fileName}`}
-                href={`/file/${record.id}`}>
-                Download
-            </Button>;
-        }
-    });
+    // columns.push({
+    //     title: '',
+    //     dataIndex: 'download',
+    //     key: 'download',
+    //     render: (__unused__value, record) => {
+    //         return <Button
+    //             icon={<CloudDownloadOutlined />}
+    //             download={`${record.fileName}`}
+    //             href={`/file/${record.id}`}>
+    //             Download
+    //         </Button>;
+    //     }
+    // });
 
     return columns;
 }
