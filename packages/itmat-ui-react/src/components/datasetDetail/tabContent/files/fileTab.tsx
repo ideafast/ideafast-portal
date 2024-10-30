@@ -1,6 +1,6 @@
 import React, { FunctionComponent, useState } from 'react';
 import { Progress, Button, Table, List, Modal, Upload, Form, Select, Input, notification, message, Typography, Tooltip } from 'antd';
-import { CloudDownloadOutlined, InboxOutlined, NumberOutlined } from '@ant-design/icons';
+import { InboxOutlined, NumberOutlined } from '@ant-design/icons';
 import { enumConfigType, IStudyConfig, IStudy, IField, enumDataTypes, IStudyFileBlock, enumUserTypes, IUserWithoutToken, deviceTypes, enumStudyBlockColumnValueType, IFile } from '@itmat-broker/itmat-types';
 import LoadSpinner from '../../../reusable/loadSpinner';
 import css from './fileRepo.module.css';
