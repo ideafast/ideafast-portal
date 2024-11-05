@@ -748,7 +748,7 @@ export class DataCore {
      *
      * @return Partial<IData>[] - The list of objects of Partial<IData>
      */
-    public async getData(requester: IUserWithoutToken | undefined, studyId: string, selectedFieldIds?: string[], dataVersion?: string | null | Array<string | null>, aggregation?: Record<string, Array<{ operationName: enumDataTransformationOperation, params: Record<string, unknown> }>>, useCache?: boolean, forceUpdate?: boolean) {
+    public async getData(requester: IUserWithoutToken | undefined, studyId: string, selectedFieldIds?: string[], dataVersion?: string | null | Array<string | null>, aggregation?: Record<string, Array<{ operationName: enumDataTransformationOperation, params: Record<string, unknown> }>>, useCache?: boolean, forceUpdate?: boolean, fromCold?: boolean) {
         if (!requester) {
             throw new CoreError(
                 enumCoreErrors.NOT_LOGGED_IN,
@@ -843,7 +843,7 @@ export class DataCore {
             }
         } else {
             // raw data by the permission
-            const data = await this.getDataByRoles(requester, roles, studyId, availableDataVersions, fieldIds);
+            const data = await this.getDataByRoles(requester, roles, studyId, availableDataVersions, fieldIds, fromCold);
             // data transformation if aggregation is provided
             const transformed = aggregation ? this.dataTransformationCore.transformationAggregate(data as unknown as IDataTransformationClipArray, aggregation) : data;
             return transformed;
@@ -1275,7 +1275,7 @@ export class DataCore {
     }
 
 
-    public async getDataByRoles(requester: IUserWithoutToken, roles: IRole[], studyId: string, dataVersions: Array<string | null>, fieldIds?: string[]) {
+    public async getDataByRoles(requester: IUserWithoutToken, roles: IRole[], studyId: string, dataVersions: Array<string | null>, fieldIds?: string[], fromCold?: boolean) {
         const matchFilter: Filter<IData> = {
             studyId: studyId,
             dataVersion: { $in: dataVersions }
@@ -1325,38 +1325,57 @@ export class DataCore {
                         propertyFilter[`${property.name}`] = `$properties.${property.name}`;
                     }
                 }
-                const data = await this.db.collections.data_collection.aggregate<IData>([{
-                    $match: {
-                        ...matchFilter,
-                        fieldId: fieldId,
-                        $or: [{ $or: roleArr }, { 'life.createdUser': requester.id }]
-                    }
-                }, {
-                    $sort: {
-                        'life.createdTime': -1
-                    }
-                }, {
-                    $group: {
-                        _id: {
-                            ...propertyFilter
-                        },
-                        latestDocument: { $first: '$$ROOT' }
-                    }
-                }, {
-                    $replaceRoot: { newRoot: '$latestDocument' }
-                }, {
-                    $match: {
-                        'life.deletedTime': null
-                    }
-                }, {
-                    $project: {
-                        _id: 0, // Exclude the _id field
-                        id: 0, // Exclude the id field
-                        life: 0, // Exclude the life field
-                        metadata: 0 // Exclude the metadata field
-                    }
-                }], { allowDiskUse: true }).toArray();
-                return data;
+                if (!fromCold) {
+                    const data = await this.db.collections.data_collection.aggregate<IData>([{
+                        $match: {
+                            ...matchFilter,
+                            fieldId: fieldId,
+                            $or: [{ $or: roleArr }, { 'life.createdUser': requester.id }]
+                        }
+                    }, {
+                        $sort: {
+                            'life.createdTime': -1
+                        }
+                    }, {
+                        $group: {
+                            _id: {
+                                ...propertyFilter
+                            },
+                            latestDocument: { $first: '$$ROOT' }
+                        }
+                    }, {
+                        $replaceRoot: { newRoot: '$latestDocument' }
+                    }, {
+                        $match: {
+                            'life.deletedTime': null
+                        }
+                    }, {
+                        $project: {
+                            _id: 0, // Exclude the _id field
+                            id: 0, // Exclude the id field
+                            life: 0, // Exclude the life field
+                            metadata: 0 // Exclude the metadata field
+                        }
+                    }], { allowDiskUse: true }).toArray();
+                    return data;
+                } else {
+                    const data = await this.db.collections.colddata_collection.aggregate<IData>([{
+                        $match: {
+                            ...matchFilter,
+                            'fieldId': fieldId,
+                            '$or': [{ $or: roleArr }, { 'life.createdUser': requester.id }],
+                            'life.deletedTime': null
+                        }
+                    }, {
+                        $project: {
+                            _id: 0, // Exclude the _id field
+                            id: 0, // Exclude the id field
+                            life: 0, // Exclude the life field
+                            metadata: 0 // Exclude the metadata field
+                        }
+                    }], { allowDiskUse: true }).toArray();
+                    return data;
+                }
             }
 
             return [];
