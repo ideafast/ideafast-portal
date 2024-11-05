@@ -43,6 +43,7 @@ interface CreateFieldInput {
     comments?: string;
     verifier?: ValueVerifierInput[][];
     properties?: IFieldProperty[];
+    metadata?: Record<string, unknown>;
 }
 
 type EditFieldInput = CreateFieldInput;
@@ -255,7 +256,7 @@ export class DataCore {
                 deletedTime: null,
                 deletedUser: null
             },
-            metadata: {}
+            metadata: fieldInput.metadata ?? {}
         };
 
         await this.db.collections.field_dictionary_collection.insertOne(fieldEntry);
@@ -747,7 +748,7 @@ export class DataCore {
      *
      * @return Partial<IData>[] - The list of objects of Partial<IData>
      */
-    public async getData(requester: IUserWithoutToken | undefined, studyId: string, selectedFieldIds?: string[], dataVersion?: string | null | Array<string | null>, aggregation?: Record<string, Array<{ operationName: enumDataTransformationOperation, params: Record<string, unknown> }>>, useCache?: boolean, forceUpdate?: boolean) {
+    public async getData(requester: IUserWithoutToken | undefined, studyId: string, selectedFieldIds?: string[], dataVersion?: string | null | Array<string | null>, aggregation?: Record<string, Array<{ operationName: enumDataTransformationOperation, params: Record<string, unknown> }>>, useCache?: boolean, forceUpdate?: boolean, fromCold?: boolean) {
         if (!requester) {
             throw new CoreError(
                 enumCoreErrors.NOT_LOGGED_IN,
@@ -842,7 +843,7 @@ export class DataCore {
             }
         } else {
             // raw data by the permission
-            const data = await this.getDataByRoles(requester, roles, studyId, availableDataVersions, fieldIds);
+            const data = await this.getDataByRoles(requester, roles, studyId, availableDataVersions, fieldIds, fromCold);
             // data transformation if aggregation is provided
             const transformed = aggregation ? this.dataTransformationCore.transformationAggregate(data as unknown as IDataTransformationClipArray, aggregation) : data;
             return transformed;
@@ -1274,7 +1275,7 @@ export class DataCore {
     }
 
 
-    public async getDataByRoles(requester: IUserWithoutToken, roles: IRole[], studyId: string, dataVersions: Array<string | null>, fieldIds?: string[]) {
+    public async getDataByRoles(requester: IUserWithoutToken, roles: IRole[], studyId: string, dataVersions: Array<string | null>, fieldIds?: string[], fromCold?: boolean) {
         const matchFilter: Filter<IData> = {
             studyId: studyId,
             dataVersion: { $in: dataVersions }
@@ -1301,9 +1302,13 @@ export class DataCore {
                 permissionArr.push(obj);
             }
             if (permissionArr.length === 0) {
-                return [];
+                continue;
             }
             roleArr.push({ $or: permissionArr });
+        }
+
+        if (roleArr.length === 0) {
+            return [];
         }
 
         const availableFields = (await this.getStudyFields(requester, studyId, dataVersions)).reduce((a, c) => {
@@ -1320,38 +1325,57 @@ export class DataCore {
                         propertyFilter[`${property.name}`] = `$properties.${property.name}`;
                     }
                 }
-                const data = await this.db.collections.data_collection.aggregate<IData>([{
-                    $match: {
-                        ...matchFilter,
-                        fieldId: fieldId,
-                        $or: [{ $or: roleArr }, { 'life.createdUser': requester.id }]
-                    }
-                }, {
-                    $sort: {
-                        'life.createdTime': -1
-                    }
-                }, {
-                    $group: {
-                        _id: {
-                            ...propertyFilter
-                        },
-                        latestDocument: { $first: '$$ROOT' }
-                    }
-                }, {
-                    $replaceRoot: { newRoot: '$latestDocument' }
-                }, {
-                    $match: {
-                        'life.deletedTime': null
-                    }
-                }, {
-                    $project: {
-                        _id: 0, // Exclude the _id field
-                        id: 0, // Exclude the id field
-                        life: 0, // Exclude the life field
-                        metadata: 0 // Exclude the metadata field
-                    }
-                }], { allowDiskUse: true }).toArray();
-                return data;
+                if (!fromCold) {
+                    const data = await this.db.collections.data_collection.aggregate<IData>([{
+                        $match: {
+                            ...matchFilter,
+                            fieldId: fieldId,
+                            $or: [{ $or: roleArr }, { 'life.createdUser': requester.id }]
+                        }
+                    }, {
+                        $sort: {
+                            'life.createdTime': -1
+                        }
+                    }, {
+                        $group: {
+                            _id: {
+                                ...propertyFilter
+                            },
+                            latestDocument: { $first: '$$ROOT' }
+                        }
+                    }, {
+                        $replaceRoot: { newRoot: '$latestDocument' }
+                    }, {
+                        $match: {
+                            'life.deletedTime': null
+                        }
+                    }, {
+                        $project: {
+                            _id: 0, // Exclude the _id field
+                            id: 0, // Exclude the id field
+                            life: 0, // Exclude the life field
+                            metadata: 0 // Exclude the metadata field
+                        }
+                    }], { allowDiskUse: true }).toArray();
+                    return data;
+                } else {
+                    const data = await this.db.collections.colddata_collection.aggregate<IData>([{
+                        $match: {
+                            ...matchFilter,
+                            'fieldId': fieldId,
+                            '$or': [{ $or: roleArr }, { 'life.createdUser': requester.id }],
+                            'life.deletedTime': null
+                        }
+                    }, {
+                        $project: {
+                            _id: 0, // Exclude the _id field
+                            id: 0, // Exclude the id field
+                            life: 0, // Exclude the life field
+                            metadata: 0 // Exclude the metadata field
+                        }
+                    }], { allowDiskUse: true }).toArray();
+                    return data;
+                }
             }
 
             return [];
@@ -1520,6 +1544,52 @@ export class DataCore {
                     ...JSON.parse(properties),
                     FileName: fileEntry.fileName
                 } : undefined
+            }];
+            const res = await this.uploadData(requester, studyId, dataInput);
+            if (!res[0].successful) {
+                throw new CoreError(
+                    enumCoreErrors.CLIENT_MALFORMED_INPUT,
+                    res[0].description ?? 'Failed to upload file.'
+                );
+            }
+            // invalidate the cache
+            await this.db.collections.cache_collection.updateMany({ 'keys.studyId': studyId, 'keys.query': 'getStudyFiles' }, { $set: { status: enumCacheStatus.OUTDATED } });
+            return fileEntry;
+        } catch (error) {
+            throw new CoreError(
+                enumCoreErrors.CLIENT_MALFORMED_INPUT,
+                `${(error as Error).message}`
+            );
+        }
+    }
+
+    public async uploadFileDataWithFileEntry(requester: IUserWithoutToken | undefined, studyId: string, fieldId: string, fileEntry: IFile, properties?: string) {
+        if (!requester) {
+            throw new CoreError(
+                enumCoreErrors.NOT_LOGGED_IN,
+                enumCoreErrors.NOT_LOGGED_IN
+            );
+        }
+        const roles = await this.permissionCore.getRolesOfUser(requester, requester.id, studyId);
+        if (roles.length === 0) {
+            throw new CoreError(
+                enumCoreErrors.NO_PERMISSION_ERROR,
+                enumCoreErrors.NO_PERMISSION_ERROR
+            );
+        }
+        const study = await this.db.collections.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null });
+        if (!study) {
+            throw new CoreError(
+                enumCoreErrors.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY,
+                'Study does not exist.'
+            );
+        }
+        try {
+            const parsedProperties = properties ? JSON.parse(properties) : {};
+            const dataInput: IDataInput[] = [{
+                fieldId: fieldId,
+                value: fileEntry.id,
+                properties: parsedProperties
             }];
             const res = await this.uploadData(requester, studyId, dataInput);
             if (!res[0].successful) {
