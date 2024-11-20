@@ -1,3 +1,4 @@
+/* eslint-disable */
 const path = require('node:path');
 const webpack = require('webpack');
 const { composePlugins, withNx } = require('@nx/webpack');
@@ -18,7 +19,8 @@ module.exports = composePlugins(
             'mongodb': 'commonjs mongodb',
             'bufferutil': 'commonjs bufferutil',
             'utf-8-validate': 'commonjs utf-8-validate',
-            'require_optional': 'commonjs require_optional'
+            'require_optional': 'commonjs require_optional',
+            'sharp': 'commonjs sharp'
         }];
 
         const baseHref = context?.options?.baseHref ?? '/';
@@ -29,6 +31,14 @@ module.exports = composePlugins(
             NX_NODE_APP_BRANCH: git.branch(),
             NX_NODE_APP_BASEHREF: baseHref
         }));
+        // config.module.rules.push({
+        //     test: /\.scss$/,
+        //     use: [
+        //         'style-loader', // Injects styles into DOM
+        //         'css-loader',   // Resolves CSS imports
+        //         'sass-loader'   // Compiles Sass to CSS
+        //     ]
+        // });
 
         return config;
     }

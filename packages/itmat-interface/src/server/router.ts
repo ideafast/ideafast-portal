@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { ApolloServer } from '@apollo/server';
 import { ApolloServerErrorCode } from '@apollo/server/errors';
 import { expressMiddleware } from '@apollo/server/express4';
@@ -30,6 +31,7 @@ import { userRetrieval } from '../authentication/pubkeyAuthentication';
 import { createProxyMiddleware, RequestHandler } from 'http-proxy-middleware';
 import qs from 'qs';
 import { IUser } from '@itmat-broker/itmat-types';
+import payload from 'payload';
 
 interface ApolloServerContext {
     token?: string;
@@ -273,6 +275,180 @@ export class Router {
         // });
 
         this.app.get('/file/:fileId', fileDownloadController);
+
+        const start = async () => {
+            await payload.init({
+                secret: 'ishaishaisha12345678910',
+                express: this.app
+            });
+
+        };
+
+        start();
+
+
+        // Create Payload proxy middleware
+        const payloadProxy = createProxyMiddleware({
+            target: 'http://localhost:3000',  // Payload server address
+            changeOrigin: true,
+            ws: true,  // Enable WebSocket support if needed
+            xfwd: true, // Pass original headers for debugging
+            autoRewrite: true,
+            onProxyReq: (preq, req, res) => {
+                const data = (req.user as IUser).username + ':token';
+                preq.setHeader('authorization', `Basic ${Buffer.from(data).toString('base64')}`);
+                if (req.body && Object.keys(req.body).length) {
+                    const contentType = preq.getHeader('Content-Type');
+                    preq.setHeader('origin', 'http://localhost:3000');
+                    const writeBody = (bodyData: string) => {
+                        preq.setHeader('Content-Length', Buffer.byteLength(bodyData));
+                        preq.write(bodyData);
+                        preq.end();
+                    };
+
+                    if (contentType === 'application/json') {  // contentType.includes('application/json')
+                        writeBody(JSON.stringify(req.body));
+                    }
+
+                    if (contentType === 'application/x-www-form-urlencoded') {
+                        writeBody(qs.stringify(req.body));
+                    }
+
+                }
+            },
+            onProxyReqWs: function (preq) {
+                const data = 'username:token';
+                preq.setHeader('authorization', `Basic ${Buffer.from(data).toString('base64')}`);
+            },
+            onError: (err, req, res, target) => {
+                console.error(`Payload proxy error: ${err.message} to ${target}`);
+            }
+        });
+
+        this.app.use('/cms', payloadProxy);
+
+
+        //payload cms
+        // const start = async () => {
+        //     await payload.init({
+        //         secret: "ishaishaisha12345678910",
+        //         express: this.app,
+        //     });
+        // }
+        // start()
+
+        // }
+        // this.app.listen(3000, async () => {
+        //     console.log(
+        //         "Express is now listening for incoming connections on port 3000."
+        //     )
+        // })
+        // start()
+
+
+
+        //Create Payload proxy middleware
+
+        // Create Payload proxy middleware
+        // const payloadProxy = createProxyMiddleware({
+        //     target: 'http://localhost:3000',  // Payload server address
+        //     changeOrigin: true,
+        //     ws: true,  // Enable WebSocket support if needed
+        //     xfwd: true, // Pass original headers for debugging
+        //     autoRewrite: true,
+        //     onProxyReq: (preq, req, res) => {
+        //         console.log('Proxy request Initiated:', req.url);
+        //         const data = (req.user as IUser).username + ':token';
+        //         preq.setHeader('authorization', `Basic ${Buffer.from(data).toString('base64')}`);
+        //         if (req.body && Object.keys(req.body).length) {
+        //             const contentType = preq.getHeader('Content-Type');
+        //             preq.setHeader('origin', 'http://localhost:3000');
+        //             const writeBody = (bodyData: string) => {
+        //                 preq.setHeader('Content-Length', Buffer.byteLength(bodyData));
+        //                 preq.write(bodyData);
+        //                 preq.end();
+        //             };
+        //             console.log('Proxy response:', res);
+
+        //             if (contentType === 'application/json') {  // contentType.includes('application/json')
+        //                 writeBody(JSON.stringify(req.body));
+        //             }
+
+        //             if (contentType === 'application/x-www-form-urlencoded') {
+        //                 writeBody(qs.stringify(req.body));
+        //             }
+
+        //         }
+
+        //     },
+        //     onProxyReqWs: function (preq) {
+        //         const data = 'username:token';
+        //         preq.setHeader('authorization', `Basic ${Buffer.from(data).toString('base64')}`);
+        //     },
+        //     onError: (err, req, res, target) => {
+        //         console.error(`Payload proxy error: ${err.message} to ${target} error isss :: ${res}`);
+        //     }
+        // });
+
+        // this.app.use('/cms', payloadProxy);
+        ///KKK
+        // const payloadProxy = createProxyMiddleware({
+        //     target: 'http://localhost:3000/admin',
+        //     secure: false,
+        //     changeOrigin: true,
+        //     autoRewrite: true,
+        //     ws: true,
+        //     onProxyReq: (preq, req, res) => {
+        //         console.log("In payloadproxy");
+        //         preq.setHeader('origin', 'http://localhost:3000/admin');
+        //         preq.setHeader('Content-Type', 'text/html');
+        //     },
+        //     onProxyRes: (preq, req, res) => {
+        //         // res.json({ message: 'MIGHTY' });
+        //     },
+        // });
+
+        // this.app.use('/cms', payloadProxy);
+
+
+        //
+
+        // var apiProxy = createProxyMiddleware('/cms', {
+        //     target: 'http://localhost:3000/payadmin',
+        //     secure: false,
+        //     changeOrigin: true,
+        //     autoRewrite: true,
+        //     ws: true,
+        //     pathRewrite: {
+        //         '^/cms': '', // Removes '/cms' from the URL path before forwarding it
+        //     },
+        //     onProxyReq: (preq, req, res) => {
+        //         console.log("In payloadproxy");
+        //         preq.setHeader('origin', 'http://localhost:3000/payadmin');
+        //         preq.setHeader('Content-Type', 'text/html');
+        //     },
+        //     onProxyRes: (preq, req, res) => {
+        //         // res.json({ message: 'MIGHTY' });
+        //     },
+        // });
+        // this.app.use(apiProxy)
+
+
+
+
+
+        //     onProxyReq: function (preq, req, res) {
+        //         // Uncomment if authentication is required
+        //         // if (!req.user) return res.status(403).redirect('/');
+        //     },
+        //     onError: function (err, req, res) {
+        //         console.error('Proxy error:', err);
+        //         res.status(500).send('Proxy error');
+        //     }
+        // });
+
+        // this.app.use('/paycms', payloadProxy);
+
 
     }
 
