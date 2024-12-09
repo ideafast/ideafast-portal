@@ -3221,10 +3221,10 @@
   dependencies:
     "@simplewebauthn/types" "^10.0.0"
 
-"@simplewebauthn/server@^10.0.1":
-  version "10.0.1"
-  resolved "https://registry.yarnpkg.com/@simplewebauthn/server/-/server-10.0.1.tgz#b40362f80b2d13a541936a09e1be9829cb59e21d"
-  integrity sha512-djNWcRn+H+6zvihBFJSpG3fzb0NQS9c/Mw5dYOtZ9H+oDw8qn9Htqxt4cpqRvSOAfwqP7rOvE9rwqVaoGGc3hg==
+"@simplewebauthn/server@^13.0.0":
+  version "13.0.0"
+  resolved "https://registry.yarnpkg.com/@simplewebauthn/server/-/server-13.0.0.tgz#a2e16ac3c58ae9f5b36893c3acfcb040af9ac51e"
+  integrity sha512-Tb3hJRpeT4cgT2uPORc465qu9LGXcDoIegFmkIgqw7XNZtsaoHzn3xI1DiFH7ukzs6JbhfQBRyY4rlfCdTwkNw==
   dependencies:
     "@hexagon/base64" "^1.1.27"
     "@levischuck/tiny-cbor" "^0.2.2"
@@ -3233,7 +3233,6 @@
     "@peculiar/asn1-rsa" "^2.3.8"
     "@peculiar/asn1-schema" "^2.3.8"
     "@peculiar/asn1-x509" "^2.3.8"
-    "@simplewebauthn/types" "^10.0.0"
     cross-fetch "^4.0.0"
 
 "@simplewebauthn/types@^10.0.0":
