@@ -4,35 +4,34 @@ import { db } from '../database/database';
 
 export const tokenAuthentication = async (token: string) => {
     if (token !== '') {
-        // get the decoded payload ignoring signature, no symmetric secret or asymmetric key needed
         const decodedPayload = jwt.decode(token);
-        // obtain the public-key of the robot user in the JWT payload
-        let pubkey;
-        if (decodedPayload !== null && typeof decodedPayload === 'object') {
-            pubkey = decodedPayload['publicKey'];
-        } else {
-            return false;
-        }
 
-        // verify the JWT
-        jwt.verify(token, pubkey, function (error) {
-            if (error) {
+        if (decodedPayload !== null && typeof decodedPayload === 'object') {
+            // Check if it's a system token
+            if (decodedPayload['isSystemToken'] === true) {
+
+                try {
+                    jwt.verify(token, decodedPayload['publicKey']);
+                    return await userRetrieval(db, decodedPayload['publicKey'], true, decodedPayload['userId']);
+                } catch {
+                    return false;
+                }
+            }
+
+            // Handle regular user token
+            const pubkey = decodedPayload['publicKey'];
+            if (!pubkey) {
                 return false;
             }
-            return true;
-        });
-        // TODO: check if the token is system token for lxd-ae user
-        // if (decodedPayload['iss'] === 'lxd-ae') {
-        // then user retrieval by userID
 
-        // store the associated user with the JWT to context
-        try {
-            const associatedUser = await userRetrieval(db, pubkey);
-            return associatedUser;
-        } catch {
-            return false;
+            try {
+                jwt.verify(token, pubkey);
+                return await userRetrieval(db, pubkey);
+            } catch {
+                return false;
+            }
         }
-    } else {
-        return null;
+        return false;
     }
+    return null;
 };

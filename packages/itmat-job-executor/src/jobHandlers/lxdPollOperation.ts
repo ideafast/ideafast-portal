@@ -1,5 +1,6 @@
 import { Logger } from '@itmat-broker/itmat-commons';
 import { LxdManager } from '@itmat-broker/itmat-cores'; // Adjust the import path as necessary
+import {CoreError, enumCoreErrors } from '@itmat-broker/itmat-types';
 
 /**
  *  Polls an LXD operation until it is completed
@@ -12,7 +13,7 @@ export const pollOperation = async (
     lxdManager: LxdManager,
     operationUrl: string,
     project: string,
-    maxTry = 100
+    maxTry = 50
 ): Promise<void> => {
     let tryCount = 0;
     return new Promise<void>((resolve, reject) => {
@@ -43,18 +44,18 @@ export const pollOperation = async (
                             return;
                         } else {
                             clearInterval(interval);
-                            reject(new Error(`Operation failed for ${opData.metadata.err}`));
+                            reject(new CoreError(enumCoreErrors.POLLING_ERROR, `Operation failed for ${opData.metadata.err}`));
                         }
                     } else if (operationStatus === 'Running') {
                         return;
                     } else {
                         clearInterval(interval);
-                        reject(new Error(`Unknown operation status: ${operationStatus}`));
+                        reject(new CoreError(enumCoreErrors.POLLING_ERROR, `Unknown operation status: ${operationStatus}`));
                     }
                 } catch (error) {
                     Logger.error(`Error polling operation: ${error}`);
                     clearInterval(interval);
-                    reject(new Error(`Fatal error polling operation: ${error instanceof Error ? error.message : String(error)}`));
+                    reject(new CoreError(enumCoreErrors.POLLING_ERROR, `Fatal error polling operation: ${error instanceof Error ? error.message : String(error)}`));
                 }
             })();
         }, 4000);

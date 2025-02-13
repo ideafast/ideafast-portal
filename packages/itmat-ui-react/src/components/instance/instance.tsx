@@ -1,5 +1,5 @@
 import React, { FunctionComponent, useState, useRef, useEffect} from 'react';
-import { Button, message, Modal, Form, Select,  Card, Tag, Progress,  Space, Row, Col } from 'antd';
+import { Button, message, Modal, Form, Select,  Card, Tag, Progress,  Space, Row, Col , Tooltip} from 'antd';
 import { trpc } from '../../utils/trpc';
 import css from './instance.module.css';
 import { enumAppType,enumInstanceType, enumInstanceStatus, IInstance, LXDInstanceTypeEnum, enumOpeType, IUserConfig} from '@itmat-broker/itmat-types';
@@ -31,15 +31,17 @@ type FlavorDetails = {
 export const InstanceSection: FunctionComponent = () => {
 
     const [consoleModalOpen, setConsoleModalOpen] = useState(false);
-    const [selectedInstance, setSelectedInstance] = useState<IInstance | null>(null);
+    const [selectedInstance] = useState<IInstance | null>(null);
 
     const [selectedInstanceTypeDetails, setSelectedInstanceTypeDetails] = useState('');
     const [isConnectingToJupyter, setIsConnectingToJupyter] = useState(false);
 
+    const [isConnectingToVNC, setIsConnectingToVNC] = useState(false);
+
+    const [isAtOrOverQuota, setIsAtOrOverQuota] = useState(false);
+
     const handleFullScreenRef = useRef<LXDConsoleRef>(null);
 
-    // quota (user) and flavor (system)
-    // const { data: quotaAndFlavors } = trpc.instance.getQuotaAndFlavors.useQuery<QuotaAndFlavors>();
     // quota (user) and flavor (system)
     const { data: quotaAndFlavors } = trpc.instance.getQuotaAndFlavors.useQuery<{
             userQuota: IUserConfig;
@@ -47,14 +49,33 @@ export const InstanceSection: FunctionComponent = () => {
         }>();
 
 
-    const handleConsoleConnect = (instance) => {
-        setSelectedInstance(instance);
-        setConsoleModalOpen(true);
-    };
+    // const handleConsoleConnect = (instance) => {
+    //     setSelectedInstance(instance);
+    //     setConsoleModalOpen(true);
+    // };
 
     const getInstances = trpc.instance.getInstances.useQuery(undefined, {
-        refetchInterval: 60 * 1000
+        refetchInterval: 2 * 60 * 1000,
+        refetchIntervalInBackground: true, // Continue refetching when tab is in background
+        refetchOnWindowFocus: true, // Refetch when window regains focus
+        refetchOnReconnect: true, // Refetch when reconnecting
+        retry: 3, // Number of retry attempts
+        onError: (error) => {
+            console.error('Failed to fetch instances:', error);
+        }
     });
+
+
+    // Recalculate `isAtOrOverQuota` whenever quota or instances data changes
+    useEffect(() => {
+        if (getInstances.data && quotaAndFlavors) {
+            const runningInstancesCount = getInstances.data.length;
+            const maxInstancesAllowed = quotaAndFlavors.userQuota.defaultLXDMaximumInstances || 0;
+            setIsAtOrOverQuota(runningInstancesCount >= maxInstancesAllowed);
+        }
+    }, [getInstances.data, quotaAndFlavors]);
+
+
     const createInstance = trpc.instance.createInstance.useMutation({
         onSuccess: async () => {
             void message.success('Instance created successfully.');
@@ -75,11 +96,11 @@ export const InstanceSection: FunctionComponent = () => {
     });
     const startStopInstance = trpc.instance.startStopInstance.useMutation({
         onSuccess: async () => {
-            void message.success('Instance state changed successfully.');
+            void message.success('Instance status changed successfully.');
             await  getInstances.refetch();
         },
         onError: (error) => {
-            void message.error(`Failed to change instance state: ${error.message}`);
+            void message.error(`Failed to change instance status: ${error.message}`);
         }
     });
     const restartInstance = trpc.instance.restartInstance.useMutation({
@@ -99,11 +120,12 @@ export const InstanceSection: FunctionComponent = () => {
     // Define the initial form values including the default instanceType
     const initialFormValues: Partial<CreateInstanceFormValues> = {
         instanceType: enumInstanceType.SMALL,
-        lifeSpan: quotaAndFlavors?.userQuota?.defaultLXDMaximumInstanceLife ?? 360 * 60 * 60 // Default to 360 hours if no user quota
+        lifeSpan: quotaAndFlavors?.userQuota?.defaultLXDMaximumInstanceLife ?? 360 * 60 * 60 * 1000 // Default to 360 hours if no user quota
     };
 
     useEffect(() => {
         if (quotaAndFlavors?.userFlavors && quotaAndFlavors.userFlavors[enumInstanceType.SMALL]) {
+
             const { cpuLimit, memoryLimit, diskLimit } = quotaAndFlavors.userFlavors[enumInstanceType.SMALL];
             setSelectedInstanceTypeDetails(`${cpuLimit} CPU, ${memoryLimit} memory, ${diskLimit} disk`);
         }
@@ -113,7 +135,7 @@ export const InstanceSection: FunctionComponent = () => {
     const handleCreateInstance = (values: CreateInstanceFormValues) => {
 
         const generatedName = `${values.appType}-${Date.now()}`;
-        const determinedType = values.appType === enumAppType.MATLAB ? LXDInstanceTypeEnum.VIRTUAL_MACHINE: LXDInstanceTypeEnum.CONTAINER;
+        const determinedType = values.appType === enumAppType.DESKTOP ? LXDInstanceTypeEnum.VIRTUAL_MACHINE: LXDInstanceTypeEnum.CONTAINER;
         // get the cpu, memorylimit, disk limit from the backend server
         // Get the flavor details from the selected type
         const flavorDetails = quotaAndFlavors?.userFlavors[values.instanceType];
@@ -122,7 +144,7 @@ export const InstanceSection: FunctionComponent = () => {
             return;
         }
         // Use user-defined maximum instance life or default value
-        const effectiveLifeSpan = values.lifeSpan ?? (quotaAndFlavors?.userQuota?.defaultLXDMaximumInstanceLife || 360 * 60 * 60);
+        const effectiveLifeSpan = values.lifeSpan ?? (quotaAndFlavors?.userQuota?.defaultLXDMaximumInstanceLife || 360 * 60 * 60 * 1000);
 
         createInstance.mutate({
             name: generatedName,
@@ -166,6 +188,28 @@ export const InstanceSection: FunctionComponent = () => {
             }
         } finally {
             setIsConnectingToJupyter(false); // Reset the connection attempt status
+        }
+    };
+
+
+    // instanceActions.tsx
+    const connectToVNCHandler = async (instance_id: string) => {
+        setIsConnectingToVNC(true);
+
+        try {
+            const baseUrl = new URL(window.location.href);
+            const vncProxyUrl = `${baseUrl.origin}/matlab/${instance_id}/vnc_auto.html?path=matlab/${instance_id}/websockify`;
+
+            // Open VNC viewer in new tab
+            window.open(vncProxyUrl, '_blank');
+        } catch (error: unknown) {
+            if (error instanceof Error) {
+                void message.error(error.message || 'Failed to connect to VNC viewer');
+            } else {
+                void message.error('Failed to connect to VNC viewer');
+            }
+        } finally {
+            setIsConnectingToVNC(false);
         }
     };
 
@@ -220,16 +264,16 @@ export const InstanceSection: FunctionComponent = () => {
     // sorting function
     const sortedInstances = [...getInstances.data].sort((a, b) => {
         if (a.status === enumInstanceStatus.RUNNING && b.status !== enumInstanceStatus.RUNNING) {
-            return -1; // a comes first
+            return -1;
         }
         if (b.status === enumInstanceStatus.RUNNING && a.status !== enumInstanceStatus.RUNNING) {
-            return 1; // b comes first
+            return 1;
         }
         if (a.status === enumInstanceStatus.FAILED && b.status !== enumInstanceStatus.FAILED) {
-            return 1; // b comes before a if a is FAILED and b is not
+            return 1;
         }
         if (b.status === enumInstanceStatus.FAILED && a.status !== enumInstanceStatus.FAILED) {
-            return -1; // a comes before b if b is FAILED and a is not
+            return -1;
         }
         // Within the same status, sort by creation time, most recent first
         return new Date(b.createAt).getTime() - new Date(a.createAt).getTime();
@@ -241,14 +285,31 @@ export const InstanceSection: FunctionComponent = () => {
             <div className={css.marginBottom}>
                 <div style={{ marginTop: '10px' }} />
                 <Space size="large"> {}
-                    <Button
+                    {/* <Button
                         type="primary"
                         size="large" // Increase the size for better emphasis
                         style={{ backgroundColor: '#108ee9', borderColor: '#108ee9' }}
                         onClick={() => setIsModalOpen(true)}
                     >
                     Create New Instance
-                    </Button>
+                    </Button> */}
+                    <Tooltip
+                        title={
+                            isAtOrOverQuota
+                                ? `Over the quota of ${quotaAndFlavors?.userQuota.defaultLXDMaximumInstances} instances. Please delete an instance to create a new one.`
+                                : ''
+                        }
+                    >
+                        <Button
+                            type="primary"
+                            size="large"
+                            style={{ backgroundColor: '#108ee9', borderColor: '#108ee9' }}
+                            onClick={() => setIsModalOpen(true)}
+                            disabled={isAtOrOverQuota} // Disable button if over quota
+                        >
+                            Create New Instance
+                        </Button>
+                    </Tooltip>
                     <Button
                         type="default"
                         size="large" // Match the size with "Create New Instance" button
@@ -281,7 +342,7 @@ export const InstanceSection: FunctionComponent = () => {
                         <Col span={16}>
                             <p>Application Type: {instance.appType}</p>
                             <p>Created At: {new Date(instance.createAt).toLocaleString()}</p>
-                            <p>Life Span: <strong>{(Number(instance.lifeSpan) / 3600).toFixed(2)}</strong> (hours)</p>
+                            <p>Life Span: <strong>{(Number(instance.lifeSpan) / 1000 / 3600 ).toFixed(2)}</strong> (hours)</p>
                             <p>
                                 CPU: {instance.config && typeof instance.config['limits.cpu'] === 'string' ? instance.config['limits.cpu'] : 'N/A'} Cores,
                                 Memory: {instance.config && typeof instance.config['limits.memory'] === 'string' ? instance.config['limits.memory'] : 'N/A'}
@@ -298,7 +359,7 @@ export const InstanceSection: FunctionComponent = () => {
                                             CPU: {('cpuUsage' in instance.metadata) ? instance.metadata.cpuUsage as number : 0}%
                                             </span>
                                         )}
-                                        strokeWidth={15} // Adjust thickness
+                                        size="default"
                                         style={{ width: '150px' }} // Adjust width
                                     />
                                     <Progress
@@ -309,7 +370,7 @@ export const InstanceSection: FunctionComponent = () => {
                                             Memory: {('memoryUsage' in instance.metadata) ? Math.round(instance.metadata.memoryUsage as number) : 0}%
                                             </span>
                                         )}
-                                        strokeWidth={15} // Adjust thickness
+                                        size="default"
                                         style={{ width: '150px' }} // Adjust width
                                     />
                                 </Space>
@@ -334,16 +395,20 @@ export const InstanceSection: FunctionComponent = () => {
                         {instance.status === enumInstanceStatus.STOPPED && instance.lifeSpan <= 0 && (
                             <Button type="primary" style={{ backgroundColor: '#2db7f5', borderColor: '#2db7f5', marginRight: '8px' }}
                                 onClick={() => {
-                                    void handleRestartInstance({ instance_id: instance.id, lifeSpan: 360 * 60 * 60 });
+                                    void handleRestartInstance({ instance_id: instance.id, lifeSpan: 360 * 60 * 60 * 1000 });
                                 }}>Restart</Button>
                         )}
                         {/** console connection button, only show for RUNNING status */}
-                        {instance.appType !== enumAppType.JUPYTER && instance.status === enumInstanceStatus.RUNNING &&  (
+                        {instance.appType === enumAppType.MATLAB && instance.status === enumInstanceStatus.RUNNING &&  (
                             // set the button color to green
                             <Button type="primary"
                                 style={{ backgroundColor: '#1890ff', borderColor: '#1890ff', marginRight: '8px' }}
-                                onClick={() => handleConsoleConnect(instance)
-                                }>Open Console</Button>
+                                // onClick={() => handleConsoleConnect(instance)
+                                onClick={() => {
+                                    void connectToVNCHandler(instance.id);
+                                }}
+                                disabled={isConnectingToVNC} // Disable button during connection attempt
+                            >Open Console</Button>
                         )}
                         {instance.appType === enumAppType.JUPYTER && instance.status === enumInstanceStatus.RUNNING && (
                             <Button
@@ -354,7 +419,7 @@ export const InstanceSection: FunctionComponent = () => {
                                 }}
                                 disabled={isConnectingToJupyter} // Disable button during connection attempt
                             >
-                           Connect to Jupyter
+                          Open Jupyter
                             </Button> )}
                     </Space>
                 </Card>

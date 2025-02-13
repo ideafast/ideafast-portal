@@ -110,7 +110,7 @@ export class InstanceCore {
         let instanceSystemToken;
         try {
             // fake Id
-            const data = await this.UserCore.issueSystemAccessToken(userId);
+            const data = await this.UserCore.issueSystemAccessToken(userId, null);  // null for unlimited token
             instanceSystemToken = data.accessToken;
         } catch (error) {
             Logger.error(`Error generating token: ${error}`);
@@ -118,12 +118,14 @@ export class InstanceCore {
         }
 
         const webdavServer = this.config.webdavServer;
-        const webdavMountPath = `/home/ubuntu/${username}_Drive`;
+        const webdavMountPath = `/home/ubuntu/${username}_Drive`; // Ensure the correct path is used
 
-        const instanceProfile = type===LXDInstanceTypeEnum.VIRTUAL_MACHINE? 'matlab-profile' : 'jupyter-profile';
+        // const instanceProfile = type===LXDInstanceTypeEnum.VIRTUAL_MACHINE? 'matlab-profile' : 'jupyter-profile';
+        const instanceProfile = appType===enumAppType.MATLAB? 'matlab-profile' : 'jupyter-profile';
+
 
         // Prepare user-data for cloud-init to initialize the instance
-        const cloudInitUserDataContainer = `
+        const cloudInitUserDataJupyterContainer = `
 #cloud-config
 packages:
   - davfs2
@@ -148,7 +150,7 @@ write_files:
       After=network.target
       [Service]
       Type=oneshot
-      ExecStart=/bin/mount -t davfs ${webdavServer} ${webdavMountPath} -o rw,uid=ubuntu,gid=ubuntu
+      ExecStart=/bin/mount -t davfs ${webdavServer} ${webdavMountPath} -o rw,uid=ubuntu,gid=ubuntu,mode=0775
       ExecStartPre=/bin/mkdir -p ${webdavMountPath}
       RemainAfterExit=true
       [Install]
@@ -193,15 +195,103 @@ runcmd:
   - systemctl start webdav-mount.service
   - |
     if [ -d "/home/\${DEFAULT_USER}" ]; then
-      ln -sf ${webdavMountPath} "/home/\${DEFAULT_USER}/${username}_Drive"
-      chown \${DEFAULT_USER}:\${DEFAULT_USER} "/home/\${DEFAULT_USER}/${username}_Drive"
+      if [ ! -e "/home/\${DEFAULT_USER}/${username}_Drive" ]; then
+        ln -sf ${webdavMountPath} "/home/\${DEFAULT_USER}/${username}_Drive"
+        chown \${DEFAULT_USER}:\${DEFAULT_USER} "/home/\${DEFAULT_USER}/${username}_Drive"
+      fi
     fi
-  - source /etc/profile.d/dmpy.sh
-  - source /etc/profile.d/instance_token.sh
+  - . /etc/profile.d/dmpy.sh
+  - . /etc/profile.d/instance_token.sh
 `;
 
 
-        const cloudInitUserDataVM = `
+        const __unused_cloudInitUserDataVM = `
+#cloud-config
+packages:
+    - lxd-agent
+    - davfs2
+users:
+    - name: ubuntu
+        groups: sudo
+        sudo: "ALL=(ALL) NOPASSWD:ALL"
+        shell: /bin/bash
+    - name: matlab
+        groups: sudo
+        sudo: "ALL=(ALL) NOPASSWD:ALL"
+        shell: /bin/bash
+write_files:
+    - path: /etc/profile.d/instance_token.sh
+        content: |
+        export DMP_TOKEN="${instanceSystemToken}"
+        permissions: '0755'
+    - path: /etc/davfs2/secrets
+        content: |
+        ${webdavServer} ubuntu ${instanceSystemToken}
+        permissions: '0600'
+    - path: /etc/systemd/system/webdav-mount.service
+        content: |
+        [Unit]
+        Description=Mount WebDAV on startup
+        After=network.target
+        [Service]
+        Type=oneshot
+        ExecStart=/bin/mount -t davfs ${webdavServer} ${webdavMountPath} -o rw,uid=ubuntu,gid=ubuntu
+        ExecStartPre=/bin/mkdir -p ${webdavMountPath}
+        RemainAfterExit=true
+        [Install]
+        WantedBy=multi-user.target
+        permissions: '0644'
+runcmd:
+    # Removing MATLAB licenses
+    - rm -rf /usr/local/MATLAB/R2022b/licenses/
+    - rm /home/ubuntu/.matlab/R2022b_licenses/license_matlab-ubuntu-vm_600177_R2022b.lic
+    - rm /usr/local/MATLAB/R2022b/licenses/license.dat
+    - rm /usr/local/MATLAB/R2022b/licenses/license*.lic
+    # Apply netplan configuration
+    - netplan apply
+    # New commands for user setup
+    - |
+        DEFAULT_USER="\${USERNAME:-ubuntu}"
+        if ! getent group nopasswdlogin > /dev/null; then
+        addgroup nopasswdlogin
+        fi
+        if ! id -u \${DEFAULT_USER} > /dev/null 2>&1; then
+        adduser \${DEFAULT_USER} nopasswdlogin || true
+        fi
+        passwd -d \${DEFAULT_USER} || true
+        echo "@reboot \${DEFAULT_USER} DISPLAY=:0 /home/\${DEFAULT_USER}/disable_autolock.sh" | crontab -u \${DEFAULT_USER} -
+        cat << 'EOF' > "/home/\${DEFAULT_USER}/disable_autolock.sh"
+        #!/bin/bash
+        if [ -z "\${DISPLAY}" ]; then
+        echo "No DISPLAY available. Skipping GUI settings."
+        else
+        dbus-launch gsettings set org.gnome.desktop.screensaver lock-enabled false
+        dbus-launch gsettings set org.gnome.desktop.session idle-delay 0
+        fi
+        EOF
+        chmod +x "/home/\${DEFAULT_USER}/disable_autolock.sh"
+        chown \${DEFAULT_USER}: "/home/\${DEFAULT_USER}/disable_autolock.sh"
+    - sleep 10
+    - systemctl daemon-reload
+    - systemctl enable webdav-mount.service
+    - systemctl start webdav-mount.service
+    - | 
+        if [ -d "/home/\${DEFAULT_USER}/Desktop" ]; then
+        ln -sf ${webdavMountPath} "/home/\${DEFAULT_USER}/Desktop/${username}_Drive"
+        chown \${DEFAULT_USER}:\${DEFAULT_USER} "/home/\${DEFAULT_USER}/Desktop/${username}_Drive"
+        fi
+        if [ -d "/home/\${DEFAULT_USER}" ]; then
+            if [ ! -e "/home/\${DEFAULT_USER}/${username}_Drive" ]; then
+                ln -sf ${webdavMountPath} "/home/\${DEFAULT_USER}/${username}_Drive"
+                chown \${DEFAULT_USER}:\${DEFAULT_USER} "/home/\${DEFAULT_USER}/${username}_Drive"
+            fi
+        fi
+    - . /etc/profile.d/dmpy.sh
+    - . /etc/profile.d/instance_token.sh
+`;
+
+
+        const cloudInitUserDataMatlabContainer = `
 #cloud-config
 packages:
   - davfs2
@@ -226,19 +316,40 @@ write_files:
       After=network.target
       [Service]
       Type=oneshot
-      ExecStart=/bin/mount -t davfs ${webdavServer} ${webdavMountPath} -o rw,uid=ubuntu,gid=ubuntu
+      ExecStart=/bin/mount -t davfs ${webdavServer} ${webdavMountPath} -o rw,uid=ubuntu,gid=ubuntu,mode=0775
       ExecStartPre=/bin/mkdir -p ${webdavMountPath}
       RemainAfterExit=true
       [Install]
       WantedBy=multi-user.target
     permissions: '0644'
+  - path: /etc/nginx/sites-available/vnc_proxy
+    content: |
+        server {
+            listen 8888;
+            server_name _;
+            # Use the instance_id in the path:
+            location ~ ^/matlab/${instance_id}(/.*)?$ {
+                # Strip the prefix and forward to noVNC on 6080
+                rewrite ^/matlab/${instance_id}(/.*)$ $1 break;
+                proxy_pass http://localhost:6080;
+                proxy_http_version 1.1;
+                proxy_set_header Upgrade $http_upgrade;
+                proxy_set_header Connection $http_connection;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+
+                # Increase timeouts
+                proxy_read_timeout  36000;
+                proxy_send_timeout  36000;
+            }
+            location / {
+                return 404;
+            }
+        }
+    permissions: '0644'
 runcmd:
-  # Removing MATLAB licenses
-  - rm -rf /usr/local/MATLAB/R2022b/licenses/
-  - rm /home/ubuntu/.matlab/R2022b_licenses/license_matlab-ubuntu-vm_600177_R2022b.lic
-  - rm /usr/local/MATLAB/R2022b/licenses/license.dat
-  - rm /usr/local/MATLAB/R2022b/licenses/license*.lic
-  # New commands for user setup
   - |
     DEFAULT_USER="\${USERNAME:-ubuntu}"
     if ! getent group nopasswdlogin > /dev/null; then
@@ -264,23 +375,27 @@ runcmd:
   - systemctl daemon-reload
   - systemctl enable webdav-mount.service
   - systemctl start webdav-mount.service
-  - | 
-    if [ -d "/home/\${DEFAULT_USER}/Desktop" ]; then
-      ln -sf ${webdavMountPath} "/home/\${DEFAULT_USER}/Desktop/${username}_Drive"
-      chown \${DEFAULT_USER}:\${DEFAULT_USER} "/home/\${DEFAULT_USER}/Desktop/${username}_Drive"
+  - |
+    if [ -d "/home/\${DEFAULT_USER}" ]; then
+      if [ ! -e "/home/\${DEFAULT_USER}/${username}_Drive" ]; then
+        ln -sf ${webdavMountPath} "/home/\${DEFAULT_USER}/${username}_Drive"
+        chown \${DEFAULT_USER}:\${DEFAULT_USER} "/home/\${DEFAULT_USER}/${username}_Drive"
+      fi
     fi
-  - source /etc/profile.d/dmpy.sh
-  - source /etc/profile.d/instance_token.sh
+  - . /etc/profile.d/dmpy.sh
+  - . /etc/profile.d/instance_token.sh
 `;
 
-        const cloudInitUserData = type ===LXDInstanceTypeEnum.VIRTUAL_MACHINE? cloudInitUserDataVM : cloudInitUserDataContainer;
+
+        const cloudInitUserData = appType ===enumAppType.MATLAB? cloudInitUserDataMatlabContainer : cloudInitUserDataJupyterContainer;
         // add boot-time script, to be executed on first boot
         const instaceConfig = {
-            'limits.cpu': cpuLimit ? cpuLimit.toString() : '2',
+            'limits.cpu': cpuLimit ? cpuLimit.toString() : '4',
             'limits.memory': memoryLimit ? memoryLimit : '16GB',
             'user.disk': diskLimit ? diskLimit : '20GB',
             'user.username': username, // store username to instance config
             'user.user-data': cloudInitUserData // set the cloud-init user-data
+            // 'cloud-init.user-data': cloudInitUserData // set the cloud-init user-data
         };
 
         const instanceEntry: IInstance = {
@@ -346,7 +461,8 @@ runcmd:
                 },
                 source: {
                     type: 'image',
-                    alias: type===LXDInstanceTypeEnum.VIRTUAL_MACHINE? 'ubuntu-matlab-image' : 'ubuntu-jupyter-container-image'
+                    // alias: type===LXDInstanceTypeEnum.VIRTUAL_MACHINE? 'ubuntu-matlab-image' : 'ubuntu-jupyter-container-image'
+                    alias: appType ===enumAppType.MATLAB? 'ubuntu-matlab-container-image' : 'ubuntu-jupyter-container-image'
                 },
                 profiles: [instanceProfile],
                 type: type, // 'virtual-machine' or 'container'
@@ -364,7 +480,7 @@ runcmd:
             { path: executorPath, type: 'lxd', id: instance_id },
             null,
             null,
-            1,
+            5,
             lxd_metadata);
 
         return instanceEntry;
@@ -398,7 +514,7 @@ runcmd:
         };
 
         // Call the createJob method of JobCore to create a new job for starting/stopping the instance
-        await this.JobCore.createJob(userId, jobName, jobType, undefined, undefined, { id: instanceId, type: 'lxd', path: executorPath }, null, null, 1, lxd_metadata);
+        await this.JobCore.createJob(userId, jobName, jobType, undefined, undefined, { id: instanceId, type: 'lxd', path: executorPath }, null, null, 5, lxd_metadata);
 
         // Optionally, immediately return the instance object or wait for the job to complete based on your application's needs
         return instance;
@@ -406,7 +522,6 @@ runcmd:
 
     /**
      * restartInstance with new lifespan, and update the instance's create time
-     * TODO: also generate and update the instance token
      */
     public async restartInstance(userId: string, instanceId: string, lifeSpan: number): Promise<IInstance> {
 
@@ -440,7 +555,7 @@ runcmd:
         };
 
         // Call the createJob method of JobCore to create a new job for restarting the instance
-        await this.JobCore.createJob(userId, jobName, jobType, undefined, undefined, { id: instanceId, type: 'lxd', path: executorPath }, null, null, 1, lxd_metadata);
+        await this.JobCore.createJob(userId, jobName, jobType, undefined, undefined, { id: instanceId, type: 'lxd', path: executorPath }, null, null, 2, lxd_metadata);
 
 
         return instance;
@@ -460,6 +575,8 @@ runcmd:
         }, {
             returnDocument: 'after'
         });
+        // log that set the instance status to deleted
+        console.log(`Instance ${instanceId} is deleted by user ${UserId}`);
 
         if (!result) { // Check if a document was found and updated
             throw new CoreError(
@@ -481,7 +598,28 @@ runcmd:
         };
 
         // Call the createJob method of JobCore to create a new job for deleting the instance
-        await this.JobCore.createJob(instance.userId, jobName, jobType, undefined, undefined, { id: instanceId, type: 'lxd', path: executorPath }, null, null, 1, lxd_metadata);
+        await this.JobCore.createJob(instance.userId, jobName, jobType, undefined, undefined, { id: instanceId, type: 'lxd', path: executorPath }, null, null, 2, lxd_metadata);
+
+        // remove all the job related to the instance
+        // Find and cancel all pending jobs related to this instance
+        await this.db.collections.jobs_collection.updateMany(
+            {
+            // Match jobs that are pending and have metadata containing this instanceId
+                status: enumJobStatus.PENDING,
+                $or: [
+                    { 'metadata.instanceId': instanceId },
+                    { 'executor.id': instanceId }
+                ]
+            },
+            {
+                $set: {
+                    'status': enumJobStatus.CANCELLED,
+                    'life.deletedTime': Date.now(),
+                    'life.deletedUser': UserId
+                }
+            }
+        );
+
         return true;
     }
 
@@ -503,7 +641,7 @@ runcmd:
         const jobName = `Update Instance Status of User: ${userId}`;
         const jobType = enumJobType.LXD_MONITOR;
         const executorPath = '/lxd/monitor';
-        const period = 60 * 1000; // 1 minute
+        const period =  1 * 60 * 1000; // set 5 minute future
         // Check if there is a pending job for the user instances update
         const existingJobs = await this.JobCore.getJob({ name: jobName, type: jobType, status: enumJobStatus.PENDING });
 
@@ -521,7 +659,7 @@ runcmd:
         // Create a series of promises to handle lifespan and status updates
         const updates = instances.map(async (instance) => {
             const lifeDuration = now - instance.createAt;
-            const remainingLife = instance.lifeSpan * 1000 - lifeDuration;
+            const remainingLife = instance.lifeSpan - lifeDuration;
 
             // Check if the lifespan has been exceeded
             if (remainingLife <= 0) {
@@ -599,14 +737,13 @@ runcmd:
         // Fetch and return the updated list of instances
         return instances.map(instance => {
             // calculate the cpu and memory usage percentage, only for running instances
-            //  TODO, {cpuUsage: 0, memoryUsage: 0}
 
             // This will provide the updated remaining life span without persisting it
             const lifeDuration = now - instance.createAt;
-            const remainingLifeHours = (instance.lifeSpan * 3600000 - lifeDuration) / 3600000;
+            const remainingLifeSpan = (instance.lifeSpan - lifeDuration);
             return {
                 ...instance,
-                lifeSpan: remainingLifeHours > 0 ? remainingLifeHours : 0
+                lifeSpan: remainingLifeSpan > 0 ? remainingLifeSpan : 0
             };
         });
     }
@@ -695,7 +832,7 @@ runcmd:
         // TODO: better to package all of them to the jobCore as a attch function
         const jobName = `Update Config for ${appType} Instance: ${result.name}`;
         const executorPath = '/lxd/update';
-        await this.JobCore.createJob(requester.id, jobName, enumJobType.LXD, undefined, undefined, { id: instanceId || instanceName || '', type: 'lxd', path: executorPath }, null, null, 1, metadata);
+        await this.JobCore.createJob(requester.id, jobName, enumJobType.LXD, undefined, undefined, { id: instanceId || instanceName || '', type: 'lxd', path: executorPath }, null, null, 2, metadata);
 
 
         return result;
@@ -749,7 +886,7 @@ runcmd:
             const jobName = `Update Instance Status of User: ${instance.userId}`;
             const jobType = enumJobType.LXD_MONITOR;
             const executorPath = '/lxd/monitor';
-            const period = 60 * 1000; // 1 minute
+            const period = 5 * 60 * 1000; // 5 minute
 
             const metadata = {
                 operation: enumMonitorType.STATE,

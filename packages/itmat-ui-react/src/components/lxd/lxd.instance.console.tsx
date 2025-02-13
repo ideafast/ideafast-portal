@@ -83,20 +83,36 @@ export const LXDConsole = forwardRef<LXDConsoleRef, LXDConsoleProps>(({ instance
 
         const result = res;
 
-        const baseUrl = new URL(window.location.href);
+        const baseUrl = new URL('/rtc', window.location.origin);
         baseUrl.protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        baseUrl.pathname = '/rtc';
 
-        const dataUrl = `${baseUrl.href}?t=d&o=${result.operationId}&s=${result.operationSecrets['0']}`;
-        const controlUrl = `${baseUrl.href}?t=c&o=${result.operationId}&s=${result.operationSecrets.control}`;
+        const dataUrl = `${baseUrl.origin}${baseUrl.pathname}?t=d&o=${result.operationId}&s=${result.operationSecrets['0']}`;
+        const controlUrl = `${baseUrl.origin}${baseUrl.pathname}?t=c&o=${result.operationId}&s=${result.operationSecrets.control}`;
 
         const control = new WebSocket(controlUrl);
+
+        control.onopen = () => {
+            console.log('WebSocket connection opened:', controlUrl);
+        };
+
+        control.onclose = (event) => {
+            console.error('WebSocket connection closed:', event);
+        };
+
+        control.onerror = (event) => {
+            console.error('WebSocket connection error:', event);
+        };
+
+        control.onmessage = (message) => {
+            console.log('WebSocket message received:', message.data);
+        };
 
         try {
             window.spice_connection = new SpiceMainConn({
                 uri: dataUrl,
                 screen_id: 'spice-screen',
                 onerror: (e) => {
+                    console.error('Console connection error:', e);
                     void message.error(`Error in console connection ${JSON.stringify(e)}`);
                 },
                 onsuccess: () => {
@@ -107,6 +123,7 @@ export const LXDConsole = forwardRef<LXDConsoleRef, LXDConsoleProps>(({ instance
             });
 
         } catch (e) {
+            console.error('Console creation error:', e);
             void message.error(`Console create error ${e}`);
         }
 

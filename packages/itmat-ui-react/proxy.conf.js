@@ -1,3 +1,5 @@
+// const { xor } = require('./src/utils/dmpCrypto/dmp.utils');
+
 const API_SERVER = 'http://localhost:3333';
 
 module.exports = [
@@ -27,11 +29,12 @@ module.exports = [
         changeOrigin: true
     },
     {
-        context: ['/pun', '/node', '/rnode', '/public', '/rtc', '/jupyter'],
+        context: ['/pun', '/node', '/rnode', '/public', '/rtc', '/jupyter', '/matlab'],
         target: API_SERVER,
         secure: false,
         changeOrigin: true,
         autoRewrite: true,
-        ws: true
+        ws: true,
+        xforward: true
     }
 ];

@@ -3,10 +3,12 @@ import {
     IInstance,
     enumOpeType,
     enumInstanceStatus,
-    LxdConfiguration
+    LxdConfiguration,
+    LXDInstanceState
 } from '@itmat-broker/itmat-types';
 import { APIHandler } from './apiJobHandler';
 import { Logger } from '@itmat-broker/itmat-commons';
+import {CoreError, enumCoreErrors } from '@itmat-broker/itmat-types';
 import type * as mongodb from 'mongodb';
 import { pollOperation } from './lxdPollOperation';
 import { db } from '../database/database';
@@ -59,16 +61,58 @@ export class LXDJobHandler extends APIHandler {
         if (!instanceData) {
             throw new Error('Instance not found.');
         }
+        // if instance's status is not pending, then do not create the instance
+        if (instanceData.status !== enumInstanceStatus.PENDING) {
+            throw new Error('Instance status is not PENDING.');
+        }
         const project = instanceData.project || 'default';
 
         try {
             const data = await this.lxdManager.createInstance(payload, project);
 
             if (data?.operation) {
-                await pollOperation(this.lxdManager, data.operation, project);
+
+                try {
+                    await pollOperation(this.lxdManager, data.operation, project);
+                    // await this.updateInstanceMetadata(instanceId, data, enumInstanceStatus.STOPPED);
+
+                    // Add wait and check loop
+                    let attempts = 0;
+                    const maxAttempts = 30; // 5 minutes total
+                    while (attempts < maxAttempts) {
+                        const instanceInfo= await this.lxdManager.getInstanceInfo(instanceData.name, project);
+                        const stateResponse = await this.lxdManager.getInstanceState(instanceData.name, project);
+                        const instanceState = stateResponse.data as LXDInstanceState;
+
+                        // Check both operation status and instance state
+                        if (!instanceInfo.data.metadata?.running_operation &&
+                            instanceState.status === 'Stopped') {
+                            await this.updateInstanceMetadata(instanceId, data, enumInstanceStatus.STOPPED);
+                            return { successful: true, result: data };
+                        }
+
+                        await new Promise(resolve => setTimeout(resolve, 10000));
+                        attempts++;
+                    }
+
+                    throw new Error('Instance creation timeout - still busy after 5 minutes');
+
+                } catch (error) {
+                    if (error instanceof CoreError && error.errorCode === enumCoreErrors.POLLING_ERROR) {
+                        Logger.error(`LXD polling error for instance ${instanceId}: ${error.message}`);
+                        // Don't update status, keep it as is for polling errors
+                        return {
+                            successful: false,
+                            error: error.message
+                        };
+                    }
+                    // For non-polling errors, rethrow to be caught by outer catch
+                    Logger.error(`Error polling operation for instance ${instanceId}: ${error}`);
+                    throw error;
+                }
             }
 
-            await this.updateInstanceMetadata(instanceId, data, enumInstanceStatus.STOPPED);
+            // await this.updateInstanceMetadata(instanceId, data, enumInstanceStatus.STOPPED);
             return { successful: true, result: data };
         } catch (error) {
             Logger.error(`Error creating instance: ${instanceId}, ${error}`);
@@ -108,14 +152,13 @@ export class LXDJobHandler extends APIHandler {
             if (data?.operation) {
                 await pollOperation(this.lxdManager, data.operation, project);
             }
-
-            const newStatus = action === enumOpeType.START ? enumInstanceStatus.RUNNING : enumInstanceStatus.STOPPED;
-            // use the this.instanceCore to update the instance status
-            await this.updateInstanceMetadata(instanceId, null, newStatus);
+            // update the status of the instance by the state monitor
+            // const newStatus = action === enumOpeType.START ? enumInstanceStatus.RUNNING : enumInstanceStatus.STOPPED;
+            // await this.updateInstanceMetadata(instanceId, null, newStatus);
 
             return { successful: true, result: data };
         } catch (error) {
-            Logger.error(`Error in startStopInstance: ${error}`);
+            Logger.error(`Error in startStopInstance ${instanceData.name}: ${error}`);
             return { successful: false, error: error instanceof Error ? error.message : String(error) };
         }
     }
@@ -125,6 +168,10 @@ export class LXDJobHandler extends APIHandler {
         if (!instanceData) {
             return { successful: false, error: 'Instance not found.' };
         }
+        // if instance's status is not deleted, then do not delete the instance
+        if (instanceData.status !== enumInstanceStatus.DELETED) {
+            return { successful: false, error: 'Instance status is not DELETED.' };
+        }
         const project = instanceData.project || 'default';
         try {
             const data = await this.lxdManager.deleteInstance(instanceData.name, project);
@@ -132,7 +179,7 @@ export class LXDJobHandler extends APIHandler {
             if (data?.operation) {
                 await pollOperation(this.lxdManager, data.operation, project);
             }
-
+            // once the instance is deleted, remove the instance from the database
             await this.instanceCollection.deleteOne({ id: instanceId });
             return { successful: true, result: data };
         } catch (error) {

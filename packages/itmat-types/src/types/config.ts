@@ -135,13 +135,13 @@ export class DefaultSettings implements IDefaultSettings {
             usePriority: true,
             // for errored jobs
             reExecuteFailedJobs: true,
-            failedJobDelayTime: 30 * 60 * 1000, // unit timestamps
+            failedJobDelayTime: 10 * 60 * 1000, // unit timestamps
             maxAttempts: 10 // the number of attempts should be stored in history
         },
         defaultLXDFlavor: {
-            [enumInstanceType.SMALL]: { cpuLimit: 4, memoryLimit: 16 * 1024 * 1024 * 1024, diskLimit: 20 * 1024 * 1024 * 1024 },
-            [enumInstanceType.MEDIUM]: { cpuLimit: 8, memoryLimit: 32 * 1024 * 1024 * 1024, diskLimit: 40 * 1024 * 1024 * 1024 },
-            [enumInstanceType.LARGE]: { cpuLimit: 16, memoryLimit: 64 * 1024 * 1024 * 1024, diskLimit: 60 * 1024 * 1024 * 1024 }
+            [enumInstanceType.SMALL]: { cpuLimit: 4, memoryLimit: 16 * 1024 * 1024 * 1024, diskLimit: 40 * 1024 * 1024 * 1024 },
+            [enumInstanceType.MEDIUM]: { cpuLimit: 8, memoryLimit: 32 * 1024 * 1024 * 1024, diskLimit: 60 * 1024 * 1024 * 1024 },
+            [enumInstanceType.LARGE]: { cpuLimit: 16, memoryLimit: 64 * 1024 * 1024 * 1024, diskLimit: 80 * 1024 * 1024 * 1024 }
         }
     };
 
@@ -179,11 +179,11 @@ export class DefaultSettings implements IDefaultSettings {
         // LXD instances
         defaultLXDflavor: [enumInstanceType.SMALL],
         defaultLXDMaximumInstances: 3, // number
-        defaultLXDMaximumInstanceCPUCores: 3 * 4,  // number
+        defaultLXDMaximumInstanceCPUCores: 3 * 8,  // number
         defaultLXDMaximumInstanceDiskSize: 3 * 40 * 1024 * 1024 * 1024,
         defaultLXDMaximumInstanceMemory: 3 * 16  *  1024 * 1024 * 1024,
         // set to 360 hours
-        defaultLXDMaximumInstanceLife: 360 * 60 * 60 // TODO, set to suitable hours
+        defaultLXDMaximumInstanceLife: 360 * 60 * 60 * 1000 // set to suitable hours
     };
 
     public readonly docConfig: IDocConfig = {

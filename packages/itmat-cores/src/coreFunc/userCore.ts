@@ -30,19 +30,30 @@ export class UserCore {
         this.fileCore = new FileCore(db, objStore);
         this.configCore = new ConfigCore(db);
 
-        // System secret key pairs
+        // Initialize with empty strings, will be populated in init()
+        this.systemSecret = {
+            publickey: '',
+            privatekey: ''
+        };
+
+        // Initialize synchronously to avoid async constructor
+        void this.initialize();
+    }
+
+    private async initialize(): Promise<void> {
         // Load the system secret key pairs
         this.systemSecret = {
-            publickey: this.loadKey(config.systemKey['pubkey']),
-            privatekey: this.loadKey(config.systemKey['privkey'])
+            publickey: await this.loadKey(this.config.systemKey['pubkey']),
+            privatekey: await this.loadKey(this.config.systemKey['privkey'])
         };
     }
+
     /**
      * Load key from text content or file path.
      * @param keyPathOrContent - Either the key content or a file path to the key.
      * @returns The key as a string.
      */
-    private loadKey(keyPathOrContent: string): string {
+    private async loadKey(keyPathOrContent: string): Promise<string> {
         if (keyPathOrContent.includes('-----BEGIN')) {
             // Key is provided as direct content
             return keyPathOrContent;
@@ -905,21 +916,34 @@ export class UserCore {
         return accessToken;
     }
 
-    //TODO:  Adapt to the new token generation function, like using the public key from the user
-    public async issueSystemAccessToken(userId: string, life?: number) {
-        // payload of the JWT for storing user information
+    public async issueSystemAccessToken(userId: string, life?: number | null) {
+        // Get the user to verify existence
+        const user = await this.db.collections.users_collection.findOne(
+            { 'id': userId, 'life.deletedTime': null },
+            { projection: { password: 0, otpSecret: 0 } }
+        );
+
+        if (!user) {
+            throw new CoreError(
+                enumCoreErrors.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY,
+                'User does not exist.'
+            );
+        }
+
+        // Minimal payload for system token
         const payload = {
             publicKey: this.systemSecret.publickey,
-            userId: userId,  // encode the UserId into the token
-            Issuer: 'IDEA-FAST DMP SYSTEM',
+            userId: user.id,
+            isSystemToken: true,
+            issuer: 'IDEA-FAST DMP SYSTEM',
             timestamp: Date.now()
         };
-            // set the life time to 1 week if not specified
+
+        // set the life time to 1 week if not specified
         life = life || 7 * 24 * 60 * 60 * 1000;
 
         const accessToken = {
-            // set the token not to be expired by transfer the life time to 1 year
-            accessToken: tokengen(payload, this.systemSecret.privatekey, undefined,undefined,  life)
+            accessToken: tokengen(payload, this.systemSecret.privatekey, undefined, undefined, life)
         };
 
         return accessToken;

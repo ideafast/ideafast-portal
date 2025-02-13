@@ -1,5 +1,4 @@
 
-// import * as http from 'http';
 import httpProxy from 'http-proxy';
 import { WebSocketServer, WebSocket, RawData} from 'ws';
 import { NextFunction, Request, Response} from 'express';
@@ -12,6 +11,7 @@ import { Logger } from '@itmat-broker/itmat-commons';
 
 
 // const textDecoder = new TextDecoder('utf-8');
+
 export const registerContainSocketServer = (server: WebSocketServer, lxdManager: LxdManager) => {
 
     server.on('connection', (clientSocket, req) => {
@@ -111,17 +111,17 @@ export const registerContainSocketServer = (server: WebSocketServer, lxdManager:
 
                 //     const messageContent = `Binary message: ${textDecoder.decode(arrayBuffer)}`;
 
-                // const asciiMessage = Array.from(new Uint8Array(arrayBuffer))
-                //     .map(byte => String.fromCharCode(byte))
-                //     .join('');
-                // const hexMessage = Array.from(new Uint8Array(arrayBuffer))
-                //     .map(byte => byte.toString(16).padStart(2, '0'))
-                //     .join(' ');
+                //     const asciiMessage = Array.from(new Uint8Array(arrayBuffer))
+                //         .map(byte => String.fromCharCode(byte))
+                //         .join('');
+                //     const hexMessage = Array.from(new Uint8Array(arrayBuffer))
+                //         .map(byte => byte.toString(16).padStart(2, '0'))
+                //         .join(' ');
 
-                // console.log(`Message from container: ${messageContent}`);
-                // console.log(`Message from container: Binary message (ASCII): ${asciiMessage}`);
-                // console.log(`Message from container: Binary message (Hex): ${hexMessage}`);
-                // console.log(`Message from container: type ${isBinary}, ${message}`);
+                //     console.log(`Message from container: ${messageContent}`);
+                //     console.log(`Message from container: Binary message (ASCII): ${asciiMessage}`);
+                //     console.log(`Message from container: Binary message (Hex): ${hexMessage}`);
+                //     console.log(`Message from container: type ${isBinary}, ${message}`);
                 // } else {
                 //     // If it's not binary, we expect a text message, which should be a string
                 //     console.log(`Message from container: type ${isBinary}, ${message}`);
@@ -197,7 +197,6 @@ export const registerJupyterSocketServer = (server: WebSocketServer, lxdManager:
             }
 
             const targetUrl = `ws://${ip}:${port}${req.url}`;
-
             const flushClientMessageBuffers = () => {
 
                 if (containerSocket && containerSocket.readyState === WebSocket.OPEN) {
@@ -275,6 +274,9 @@ export const registerJupyterSocketServer = (server: WebSocketServer, lxdManager:
 
             try {
 
+                // Determine the protocol for the Origin header
+                const originProtocol = req.headers['x-forwarded-proto'] === 'https' ? 'wss' : 'ws';
+
                 // Create WebSocket connection to the backend (container)
                 const headers = {
                     'Sec-WebSocket-Protocol': clientSubprotocol,  // Pass client's subprotocol if provided
@@ -287,7 +289,9 @@ export const registerJupyterSocketServer = (server: WebSocketServer, lxdManager:
                     'connection': req.headers['connection'],
                     'Accept-Encoding': req.headers['accept-encoding'],
                     'Accept-Language': req.headers['accept-language'],
-                    'User-Agent': req.headers['user-agent']
+                    'User-Agent': req.headers['user-agent'],
+                    'Host': `${ip}:${port}`, // Set the Host header
+                    'Origin': `${originProtocol}://${ip}:${port}` // Set the Origin header
                 };
 
                 // Create WebSocket connection to the backend (container)
@@ -304,6 +308,7 @@ export const registerJupyterSocketServer = (server: WebSocketServer, lxdManager:
                 clientSocket.setMaxListeners(20);
 
                 containerSocket.on('message', (message, isBinary) => {
+                    // console.log('container Socket message', message, isBinary);
                     containerMessageBuffers.push([message, isBinary]);
                     flushContainerMessageBuffers();
                 });
@@ -401,13 +406,22 @@ export const jupyterProxyMiddleware = async (req: Request & { user?: { id: strin
         // Attach event listeners for proxy events
         proxy.on('proxyReq', (proxyReq: http.ClientRequest, req: http.IncomingMessage & { body?: unknown }) => {
 
-            const originalUrl = req.url || '';
+            if (req.headers.upgrade && req.headers.upgrade.toLowerCase() === 'websocket') {
+                // Do not modify the path for WebSocket upgrade requests
+                console.log('WebSocket request detected, not modifying proxyReq.path');
+                return;
+            }
+
             const instancePrefix = `/jupyter/${instance_id}`;
 
-            if (!originalUrl.startsWith(instancePrefix)) {
-                const newUrl = `${instancePrefix}${originalUrl}`;
-                proxyReq.path = newUrl; // Ensure the proxy forwards the correct URL
-            }
+            proxyReq.path = (req.url || '').startsWith(instancePrefix)
+                ? (req.url || '')
+                : `${instancePrefix}${req.url
+                    || ''}`;
+
+            // Set the request headers
+            proxyReq.setHeader('Host', `${ip}:${port}`);
+            proxyReq.setHeader('Origin', `http://${ip}:${port}`);
 
             if (req.body && Object.keys(req.body).length) {
                 const contentType = proxyReq.getHeader('Content-Type');
@@ -448,4 +462,271 @@ export const jupyterProxyMiddleware = async (req: Request & { user?: { id: strin
         Logger.error(`error ${error}`);
     }
 
+};
+
+
+
+// matlab vncProxyMiddleware
+
+interface VNCProxyCache {
+    [instance_id: string]: {
+        proxy: httpProxy;
+        ip: string;
+        port: number;
+    };
+}
+
+const vncProxyCache: VNCProxyCache = {};
+
+export const vncProxyMiddleware = async (
+    req: Request & { user?: { id: string } },
+    res: Response,
+    next: NextFunction,
+    instanceCore: InstanceCore
+) => {
+    const instance_id = req.params['instance_id'];
+    // log
+    console.log('vncProxyMiddleware, instance_id', instance_id);
+
+    if (!instance_id) {
+        return res.status(404).send('Instance not found');
+    }
+
+    try {
+        // Get or create proxy instance
+        if (!vncProxyCache[instance_id]) {
+
+            const { ip, port } =  await getInstanceTarget( instance_id, instanceCore, req.user?.id);
+            // const ip = 'localhost';
+            // const port = 8888;
+            const target = `http://${ip}:${port}`;
+
+            const proxy = httpProxy.createProxyServer({
+                // target: `http://${ip}:8888`, // noVNC websockify port
+                target: target,
+                xfwd: true,
+                autoRewrite: true,
+                changeOrigin: true,
+                secure: false
+            });
+
+            proxy.on('proxyReq', (proxyReq: http.ClientRequest, req: http.IncomingMessage & { body?: unknown }) => {
+
+                const originalUrl = req.url || '';
+                const instancePrefix = `/matlab/${instance_id}`;
+
+                // If `originalUrl` is missing that prefix, add it
+                if (!originalUrl.startsWith(instancePrefix)) {
+                    proxyReq.path = `${instancePrefix}${originalUrl}`;
+                } else {
+                    proxyReq.path = originalUrl;
+                }
+
+                // Set the request headers
+                proxyReq.setHeader('Host', `${ip}:${port}`);
+                proxyReq.setHeader('Origin', `http://${ip}:${port}`);
+
+                if (req.body && Object.keys(req.body).length) {
+                    const contentType = proxyReq.getHeader('Content-Type');
+
+                    const writeBody = (bodyData: string) => {
+                        proxyReq.setHeader('Content-Length', Buffer.byteLength(bodyData));
+                        proxyReq.write(bodyData);
+                        proxyReq.end();
+                    };
+
+                    if (contentType === 'application/json') {
+                        writeBody(JSON.stringify(req.body));
+                    } else if (contentType === 'application/x-www-form-urlencoded') {
+                        writeBody(qs.stringify(req.body));
+                    }
+                }
+            });
+
+
+            proxy.on('error', (err: Error) => {
+                console.log('VNC Proxy error:', JSON.stringify(err));
+                Logger.error(`VNC Proxy error: ${err.message}`);
+                if (!res.headersSent) {
+                    res.status(502).send('VNC Proxy Error');
+                }
+            });
+
+            vncProxyCache[instance_id] = { proxy, ip, port: 8888 };
+        }
+
+        // Handle the request
+        vncProxyCache[instance_id].proxy.web(req, res);
+        return;
+
+    } catch (error) {
+        Logger.error(`VNC proxy error: ${error}`);
+        next(error);
+        return;
+    }
+};
+
+// WebSocket handler for VNC
+export const registerVNCSocketServer = (server: WebSocketServer, instanceCore: InstanceCore) => {
+    server.on('connection', (clientSocket, req) => {
+        const handleConnection = async () => {
+            clientSocket.pause();
+            clientSocket.binaryType = 'arraybuffer';
+
+            // Extract subprotocol from the client's WebSocket request
+            const clientSubprotocol = req.headers['sec-websocket-protocol'] || '';
+
+
+            let containerSocket: WebSocket | undefined;
+
+            if (!req.url?.startsWith('/matlab')) {
+                Logger.log(`error request ${req.url}`);
+                clientSocket.close(4004, 'Invalid VNC path');
+                return;
+            }
+
+            const instance_id = req.url.split('/')[2];
+            if (!instance_id) {
+                clientSocket.close(4004, 'Missing instance ID');
+                return;
+            }
+
+            const clientMessageBuffers: Array<[RawData, boolean]> = [];
+            const containerMessageBuffers: Array<[RawData, boolean]> = [];
+
+
+            let ip = ''; // Initialize with a default value
+            let port = 0; // Initialize with a default value
+            try {
+                const result = await getInstanceTarget(instance_id, instanceCore);
+
+                // ip = 'localhost';
+                ({ ip, port } = result);
+            } catch (error) {
+                Logger.error(`Failed to retrieve container IP: ${JSON.stringify(error)}`);
+                clientSocket.close(4013, 'Failed to get container IP');
+                return;
+            }
+
+            // const targetUrl = `ws://${ip}:8888`;
+            // also need to combine the path of the original request
+            const targetUrl = `ws://${ip}:${port}${req.url}`;
+
+            const flushClientMessageBuffers = () => {
+                if (containerSocket?.readyState === WebSocket.OPEN && clientMessageBuffers.length > 0) {
+                    const buffer = clientMessageBuffers.shift();
+                    if (buffer) {
+                        const [message, isBinary] = buffer;
+                        containerSocket.send(message, { binary: isBinary }, (err) => {
+                            if (err) console.error('Error sending to container:', err);
+                        });
+                        if (clientMessageBuffers.length > 0) flushClientMessageBuffers();
+                    }
+                }
+            };
+
+            const flushContainerMessageBuffers = () => {
+                if (clientSocket.readyState === WebSocket.OPEN && containerMessageBuffers.length > 0) {
+                    const buffer = containerMessageBuffers.shift();
+                    if (buffer) {
+                        const [message, isBinary] = buffer;
+                        clientSocket.send(message, { binary: isBinary }, (err) => {
+                            if (err) console.error('Error sending to client:', err);
+                        });
+                        if (containerMessageBuffers.length > 0) flushContainerMessageBuffers();
+                    }
+                }
+            };
+
+            try {
+
+
+                // Determine the protocol for the Origin header
+                const originProtocol = req.headers['x-forwarded-proto'] === 'https' ? 'wss' : 'ws';
+
+                // Create WebSocket connection to the backend (container)
+                const headers = {
+                    'Sec-WebSocket-Protocol': clientSubprotocol,  // Pass client's subprotocol if provided
+                    'Sec-WebSocket-Key': req.headers['sec-websocket-key'],
+                    'Sec-WebSocket-Version': req.headers['sec-websocket-version'],
+                    'Sec-WebSocket-Extensions': req.headers['sec-websocket-extensions'],
+                    'pragma': req.headers['pragma'],
+                    'cache-control': req.headers['cache-control'],
+                    'upgrade': req.headers['upgrade'],
+                    'connection': req.headers['connection'],
+                    'Accept-Encoding': req.headers['accept-encoding'],
+                    'Accept-Language': req.headers['accept-language'],
+                    'User-Agent': req.headers['user-agent'],
+                    'Host': `${ip}:${port}`, // Set the Host header
+                    'Origin': `${originProtocol}://${ip}:${port}` // Set the Origin header
+                };
+
+
+                // containerSocket = new WebSocket(targetUrl, { headers });
+                containerSocket = new WebSocket(targetUrl,
+                    clientSubprotocol ? [clientSubprotocol] : [],
+                    { headers });
+
+                containerSocket.binaryType = 'arraybuffer';
+                containerSocket.pause();
+
+                containerSocket.setMaxListeners(20);
+                clientSocket.setMaxListeners(20);
+
+                clientSocket.on('message', (message, isBinary) => {
+                    clientMessageBuffers.push([message, isBinary]);
+                    flushClientMessageBuffers();
+                });
+
+                containerSocket.on('message', (message, isBinary) => {
+                    containerMessageBuffers.push([message, isBinary]);
+                    flushContainerMessageBuffers();
+                });
+
+                clientSocket.on('close', (code, reason) => {
+                    console.log('VNC client closed:', code, reason.toString());
+                    if (containerSocket?.readyState === WebSocket.OPEN) {
+                        containerSocket.close(4001, `Client closed: ${code}`);
+                    }
+                });
+
+                containerSocket.on('close', (code, reason) => {
+                    flushContainerMessageBuffers();
+                    if (clientSocket?.readyState === WebSocket.OPEN) {
+                        clientSocket.close(4010, `Container closed: ${code}: ${reason}`);
+                    }
+                });
+
+                containerSocket.on('error', (error) => {
+                    Logger.error(`VNC container error: ${JSON.stringify(error, null, 2)}`);
+                    clientSocket.close(4011, 'Container error');
+                });
+
+                clientSocket.on('error', (error) => {
+                    Logger.error(`VNC client error: ${JSON.stringify(error, null, 2)}`);
+                    containerSocket?.close(4012, 'Client error');
+                });
+
+                containerSocket.on('open', () => {
+                    flushClientMessageBuffers();
+                    containerSocket?.resume();
+                    clientSocket.resume();
+                });
+
+            } catch (error) {
+                Logger.error(`VNC connection error: ${error}`);
+                clientSocket.close(4015, 'Failed to establish connection');
+                containerSocket?.close(4015, 'Failed to establish connection');
+            }
+        };
+
+        handleConnection().catch((error) => {
+            Logger.error(`Error handling VNC connection: ${JSON.stringify(error)}`);
+            clientSocket.close(4013, 'Connection error');
+        });
+    });
+
+    server.on('error', (err) => {
+        Logger.error(`VNC socket broker error: ${JSON.stringify(err)}`);
+    });
 };

@@ -7,11 +7,12 @@ export class JobPoller {
     private readonly matchObj: unknown;
 
     private readonly identity: string;
-    private readonly jobType?: string;w;
+    private readonly jobType?: string;
     private readonly jobCollection: mongodb.Collection<IJob>;
     private readonly pollingInterval: number;
     private readonly action: (document: IJob) => Promise<IJobActionReturn>;
     private readonly jobScheduler: JobScheduler;
+    private readonly jobSchedulerConfig: IJobSchedulerConfig;
 
     constructor(config: IJobPollerConfig) {
         this.identity = config.identity;
@@ -21,24 +22,22 @@ export class JobPoller {
         this.action = config.action;
         this.setInterval = this.setInterval.bind(this);
         this.checkForJobs = this.checkForJobs.bind(this);
-        // this.matchObj = {
-        //     status: enumJobStatus.PENDING
-        //     /*, lastClaimed: more then 0 */
-        // };
+
         this.jobScheduler = new JobScheduler({
             ...config.jobSchedulerConfig,
             jobCollection: config.jobCollection
         });
+        this.jobSchedulerConfig = config.jobSchedulerConfig;
 
     }
 
     public setInterval(): void {
         this.intervalObj = setInterval(() => {
-            void this.checkForJobs(); // Wrap the async call
+            void this.checkForJobs(this.jobSchedulerConfig); // Wrap the async call
         }, this.pollingInterval);
     }
 
-    private async checkForJobs() {
+    private async checkForJobs(config: IJobSchedulerConfig){
         let job: IJob | null;
         try {
             // implement the scheduler here
@@ -68,18 +67,26 @@ export class JobPoller {
                             errors: [result.error]
                         };
                         // update the job status to failed if not periodic
+                        // if periodic, keep it pending, else if oneoff, set it to error
                         setObj['status'] = job.period ? enumJobStatus.PENDING : enumJobStatus.ERROR;
+
+                        // if the job has failed and  it's not period, counter less than maxAttempts, set the job nextExecutionTime to now + failedJobDelayTime
+                        if (!job.period && job.counter < config.maxAttempts) {
+                            setObj['nextExecutionTime'] = Date.now() + config.failedJobDelayTime;
+                        }
+
                     } else {
                         newHistoryEntry = {
                             time: Date.now(),
                             status: enumJobHistoryStatus.SUCCESS,
-                            errors: []
+                            result: result.result ? [result.result] : []
                         };
                         // update the job status to success
                         // numJobStatus.FINISHED if !job.period else enumJobStatus.PENDING;
                         setObj['status'] = job.period ? enumJobStatus.PENDING : enumJobStatus.FINISHED;
                     }
                 }
+                setObj['counter'] = job.counter + 1;
 
                 const jobUpdate = await this.jobCollection.findOne({ id: job.id });
                 if (jobUpdate) {
@@ -116,34 +123,49 @@ export class JobScheduler {
 
     public async findNextJob() {
         let availableJobs = await this.config.jobCollection.find({
-            status: enumJobStatus.PENDING
+            status: { $in: [enumJobStatus.PENDING] }
         }).toArray();
         // we sort jobs based on the config
         availableJobs = availableJobs.filter(el => {
+            // If the job has a non-null period, it should always be included
+            if (el.period !== null) {
+                return true;
+            }
+            // ERROR jobs are always included
             if (this.config.reExecuteFailedJobs && el.history.filter(ek => ek.status === enumJobHistoryStatus.FAILED).length > this.config.maxAttempts) {
-                // console.log('Job failed more than max attempts: ', el.id);
                 return false;
             }
             if (Date.now() < el.nextExecutionTime) {
                 return false;
             }
             return true;
-        }).sort((a, b) => {
+        });
+
+
+        // Sort jobs based on the config
+        availableJobs = availableJobs.sort((a, b) => {
             if (this.config.usePriority) {
-                if (a.priority > b.priority) {
-                    return 1;
-                } else if (a.nextExecutionTime < b.nextExecutionTime) {
-                    return 1;
+                if (a.priority !== b.priority) {
+                    return b.priority - a.priority; // Higher priority first
                 } else {
-                    return -1;
+                    return a.nextExecutionTime - b.nextExecutionTime; // Earlier execution time first
                 }
             } else {
-                return a.nextExecutionTime - b.nextExecutionTime;
+                return a.nextExecutionTime - b.nextExecutionTime; // Earlier execution time first
             }
         });
+
+
         const job = availableJobs[0];
         if (!job) {
             return null;
+        }
+
+
+        // Update nextExecutionTime for periodic jobs
+        if (job.period !== null) {
+            job.nextExecutionTime = Date.now() + job.period;
+            await this.config.jobCollection.updateOne({ _id: job._id }, { $set: { nextExecutionTime: job.nextExecutionTime, status: enumJobStatus.PENDING } });
         }
         return job;
     }

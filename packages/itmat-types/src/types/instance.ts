@@ -11,7 +11,7 @@ export interface IInstance extends IBase{
     type: LXDInstanceTypeEnum; // virtual-machine' | 'container'; instance type VM or container
     appType: enumAppType; // the application type, jupyter or matlab
     createAt: number; // instance creation time
-    lifeSpan: number; // instance's life span, exp. 10 hours
+    lifeSpan: number; // instance's life span, miliseconds
     instanceToken: string; // instance cert token
     project?: string |'default'; // the lxd project of the this instance
     webDavToken?: string; // webDav cert token
@@ -31,7 +31,8 @@ export enum enumInstanceStatus {
 
 export enum enumAppType {
     JUPYTER = 'Jupyter',
-    MATLAB = 'Matlab'
+    MATLAB = 'Matlab',
+    DESKTOP = 'Desktop'
 }
 
 

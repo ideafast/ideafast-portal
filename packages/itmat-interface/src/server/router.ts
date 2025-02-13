@@ -30,7 +30,7 @@ import { Readable } from 'stream';
 import { z } from 'zod';
 import { ApolloServerContext, DMPContext, createtRPCContext, typeDefs } from '@itmat-broker/itmat-apis';
 import { APICalls } from './helper';
-import { registerContainSocketServer, registerJupyterSocketServer, jupyterProxyMiddleware } from '../lxd';
+import { registerContainSocketServer, registerJupyterSocketServer, jupyterProxyMiddleware, vncProxyMiddleware, registerVNCSocketServer} from '../lxd';
 import { Socket } from 'node:net';
 import { Logger } from '@itmat-broker/itmat-commons';
 
@@ -116,6 +116,10 @@ export class Router {
                     qps = Math.max(qps, 2000);
                 }
                 return qps;
+            },
+            keyGenerator: (req) => {
+                const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+                return Array.isArray(ip) ? ip[0] : ip || 'unknown';
             }
         }));
 
@@ -381,6 +385,15 @@ export class Router {
             });
         });
 
+        // Add VNC proxy routes
+        const vncProxyRoutes = ['/matlab/:instance_id', '/matlab/:instance_id/*'];
+        vncProxyRoutes.forEach((route) => {
+            this.app.use(route, (req, res, next) => {
+                vncProxyMiddleware(req, res, next, apiCalls.instanceCore).catch(next);
+            });
+        });
+
+
         // Create WebSocket server for RTC connections
         const containerWsServer = new WebSocketServer({
             noServer: true
@@ -395,6 +408,12 @@ export class Router {
 
         registerJupyterSocketServer(targetWsServer, apiCalls.lxdManager, apiCalls.instanceCore);
 
+
+        const vncWsServer = new WebSocketServer({
+            noServer: true
+        });
+
+        registerVNCSocketServer(vncWsServer, apiCalls.instanceCore);
 
         // Upgrade handler for WebSocket requests
         this.server.on('upgrade', (req, socket: Socket, head: Buffer) => {
@@ -423,8 +442,21 @@ export class Router {
                     socket.end();  // End socket if there's an error creating the proxy
                     return; }
             }
+            // handle VNC websocket connections
+            else if (req.url?.startsWith('/matlab')) {
+
+                if (req.headers.upgrade?.toLowerCase() === 'websocket') {
+
+                    vncWsServer.handleUpgrade(req, socket, head, (ws) => {
+                        vncWsServer.emit('connection', ws, req);
+                    });
+                } else {
+                    socket.destroy();
+                }
+            }
             // Handle RTC WebSocket connections
             else if (req.url?.startsWith('/rtc')) {
+
                 containerWsServer.handleUpgrade(req, socket, head, (ws) => {
                     containerWsServer.emit('connection', ws, req);  // Forward the upgrade to the container WebSocket server
                 });

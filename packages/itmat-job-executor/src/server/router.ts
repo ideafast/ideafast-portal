@@ -7,10 +7,15 @@ export class Router {
 
     constructor() {
         this.app = express();
+        this.app.set('trust proxy', 1);
 
         this.app.use(rateLimit({
             windowMs: 1 * 60 * 1000,
-            max: 500
+            max: 500,
+            keyGenerator: (req) => {
+                const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+                return Array.isArray(ip) ? ip[0] : ip || 'unknown';
+            }
         }));
 
         this.app.use(express.json());

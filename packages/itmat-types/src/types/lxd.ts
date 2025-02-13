@@ -414,3 +414,8 @@ export type LxdGetInstanceConsoleResponse = {
     error: boolean;
     data: string;
 };
+export interface InstanceInfo {
+    metadata?: {
+        running_operation?: string;
+    };
+}

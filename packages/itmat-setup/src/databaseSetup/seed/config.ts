@@ -23,19 +23,15 @@ export const seedConfigs = [{
         defaultMaximumRepoSize: 10 * 1024 * 1024 * 1024, // 10GB
         defaultFileBucketId: 'user',
         defaultMaximumQPS: 500,
-        defaultLXDMaximumContainers: 2,
-        defaultLXDMaximumContainerCPUCores: 2,
-        defaultLXDMaximumContainerDiskSize: 50 * 1024 * 1024 * 1024,
-        defaultLXDMaximumContainerMemory: 8 * 1024 * 1024 * 1024,
-        defaultLXDMaximumContainerLife: 8 * 60 * 60,
+
         // LXD instances
         defaultLXDflavor: [enumInstanceType.SMALL],
         defaultLXDMaximumInstances: 3, // number
-        defaultLXDMaximumInstanceCPUCores: 3 * 4,  // number
+        defaultLXDMaximumInstanceCPUCores: 3 * 8,  // number
         defaultLXDMaximumInstanceDiskSize: 3 * 40 * 1024 * 1024 * 1024,
-        defaultLXDMaximumInstanceMemory: 3 * 16  *  1024 * 1024 * 1024,
+        defaultLXDMaximumInstanceMemory: 3 * 32  *  1024 * 1024 * 1024,
         // set to 360 hours
-        defaultLXDMaximumInstanceLife: 360 * 60 * 60
+        defaultLXDMaximumInstanceLife: 360 * 60 * 60 * 1000
     }
 }, {
     id: 'root_standard_user_config_protected',
@@ -56,20 +52,15 @@ export const seedConfigs = [{
         defaultMaximumRepoSize: 10 * 1024 * 1024 * 1024, // 10GB
         defaultFileBucketId: 'user',
         defaultMaximumQPS: 500,
-        defaultLXDMaximumContainers: 2,
-        defaultLXDMaximumContainerCPUCores: 2,
-        defaultLXDMaximumContainerDiskSize: 50 * 1024 * 1024 * 1024,
-        defaultLXDMaximumContainerMemory: 8 * 1024 * 1024 * 1024,
-        defaultLXDMaximumContainerLife: 8 * 60 * 60,
 
         // LXD instances
         defaultLXDflavor: [enumInstanceType.SMALL],
         defaultLXDMaximumInstances: 3, // number
-        defaultLXDMaximumInstanceCPUCores: 3 * 4,  // number
+        defaultLXDMaximumInstanceCPUCores: 3 * 8,  // number
         defaultLXDMaximumInstanceDiskSize: 3 * 40 * 1024 * 1024 * 1024,
         defaultLXDMaximumInstanceMemory: 3 * 16  *  1024 * 1024 * 1024,
         // set to 360 hours
-        defaultLXDMaximumInstanceLife: 360 * 60 * 60
+        defaultLXDMaximumInstanceLife: 360 * 60 * 60 * 1000
     }
 }, {
     id: 'root_system_config_protected',

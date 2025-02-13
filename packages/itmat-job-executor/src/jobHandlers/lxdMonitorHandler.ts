@@ -47,7 +47,11 @@ export class LXDMonitorHandler extends APIHandler {
     }
 
     private async updateInstanceState(userId: string) {
-        const instances = await this.instanceCollection.find({ userId }).toArray();
+        // Get all instances for this user, filter the status of DELETED instances
+        const instances = await this.instanceCollection.find({
+            userId: userId,
+            status: { $ne: enumInstanceStatus.DELETED }
+        }).toArray();
 
         for (const instance of instances) {
             try {
@@ -66,20 +70,23 @@ export class LXDMonitorHandler extends APIHandler {
                             }
                         }
                     );
-                    return { successful: true };
+                    // return { successful: true };
                 } else {
                     Logger.error(`Failed to retrieve state for instance: ${instance.name}`);
-                    return { successful: false, error: `Failed to retrieve state for instance: ${instance.name}` };
                 }
             } catch (error) {
                 Logger.error(`Error updating state for instance ${instance.name}: ${error}`);
-                return { successful: false, error: error instanceof Error ? error.message : String(error) };
+                // return { successful: false, error: error instanceof Error ? error.message : String(error) };
+
             }
         }
 
         // Add a default return statement
-        return { successful: false, error: 'Unknown error occurred.' };
+        return { successful: true};
     }
+
+    // TODO: define the function to delete the instance that should be deleted after the lifespan + 10 day ( comapre the life.deletedTime)
+    // check the expried instance and delete them, and recaulate the lifespan of them
 
     private determineInstanceStatus(state: LXDInstanceState): enumInstanceStatus {
         switch (state.status) {
