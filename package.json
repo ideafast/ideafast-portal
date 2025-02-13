@@ -124,6 +124,7 @@
         "antd-img-crop": "4.23.0",
         "apollo-upload-client": "18.0.1",
         "axios": "1.7.7",
+        "axios-retry": "^4.5.0",
         "bcrypt": "5.1.1",
         "connect-mongo": "5.1.0",
         "connect-timeout": "1.9.0",
