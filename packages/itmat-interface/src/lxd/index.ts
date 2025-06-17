@@ -1,11 +1,11 @@
 import httpProxy from 'http-proxy';
-import { WebSocketServer, WebSocket, RawData} from 'ws';
-import { NextFunction, Request, Response} from 'express';
+import { WebSocketServer, WebSocket, RawData } from 'ws';
+import { NextFunction, Request, Response } from 'express';
 import http from 'node:http';
 import * as net from 'net'; // For WebSocket handling (net.Socket)
 import * as url from 'url'; // For handling target URLs
 import qs from 'qs';
-import {LxdManager, InstanceCore} from '@itmat-broker/itmat-cores';
+import { LxdManager, InstanceCore } from '@itmat-broker/itmat-cores';
 import { Logger } from '@itmat-broker/itmat-commons';
 
 
@@ -120,7 +120,7 @@ export const registerContainSocketServer = (server: WebSocketServer, lxdManager:
 
 export const registerJupyterSocketServer = (server: WebSocketServer, instanceCore: InstanceCore) => {
 
-    server.on('connection', (clientSocket, req: http.IncomingMessage & { user?: { id: string } }) => {
+    server.on('connection', (clientSocket, req) => {
         const handleConnection = async () => {
 
             clientSocket.pause();
@@ -131,7 +131,7 @@ export const registerJupyterSocketServer = (server: WebSocketServer, instanceCor
 
             let containerSocket: WebSocket | undefined;
 
-            if ( !req.url ||!req.url?.startsWith('/jupyter')){
+            if (!req.url || !req.url?.startsWith('/jupyter')) {
                 Logger.log(`Error request ${req.url}`);
                 clientSocket.close(4004, 'Invalid Jupyter path');
                 return;
@@ -144,23 +144,6 @@ export const registerJupyterSocketServer = (server: WebSocketServer, instanceCor
                 return;
             }
 
-            // Extract user ID from the request user object
-            const user_id = req.user?.id;
-
-            // Verify instance ownership
-            try {
-                const hasAccess = await verifyInstanceAccess(instance_id, user_id, instanceCore);
-                if (!hasAccess) {
-                    Logger.warn(`WebSocket: Unauthorized access attempt to Jupyter instance ${instance_id}`);
-                    clientSocket.close(4003, 'Access denied: You do not have permission to access this instance');
-                    return;
-                }
-            } catch (error) {
-                Logger.error(`WebSocket: Error verifying instance ownership: ${error instanceof Error ? error.message : String(error)}`);
-                clientSocket.close(4003, 'Access verification failed');
-                return;
-            }
-
             const clientMessageBuffers: Array<[RawData, boolean]> = [];
             const containerMessageBuffers: Array<[RawData, boolean]> = [];
 
@@ -168,7 +151,7 @@ export const registerJupyterSocketServer = (server: WebSocketServer, instanceCor
             let port = 0; // Initialize with a default value
             try {
                 // Get the container IP according to the instance_id
-                const result = await getInstanceTarget(instance_id, instanceCore, user_id);
+                const result = await getInstanceTarget(instance_id, instanceCore);
                 ({ ip, port } = result); // Wrap destructuring in parentheses
             } catch (error) {
                 Logger.error(`Failed to retrieve container IP: ${JSON.stringify(error)}`);
@@ -219,13 +202,13 @@ export const registerJupyterSocketServer = (server: WebSocketServer, instanceCor
                 }
             };
             clientSocket.on('message', (message, isBinary) => {
-            // Buffer the message and send it to the containerSocket
+                // Buffer the message and send it to the containerSocket
                 clientMessageBuffers.push([message, isBinary]);
                 flushClientMessageBuffers();
             });
             clientSocket.on('open', () => {
                 clientSocket.ping();
-            }   );
+            });
 
             clientSocket.on('error', (error) => {
                 Logger.error(`clientSocket error: ${JSON.stringify(error, null, 2)}`);
@@ -716,7 +699,7 @@ export function clearProxyCacheForInstance(instanceId: string): void {
 
 // WebSocket handler for VNC
 export const registerVNCSocketServer = (server: WebSocketServer, instanceCore: InstanceCore) => {
-    server.on('connection', (clientSocket, req: http.IncomingMessage & { user?: { id: string } }) => {
+    server.on('connection', (clientSocket, req) => {
         const handleConnection = async () => {
             clientSocket.pause();
             clientSocket.binaryType = 'arraybuffer';
@@ -739,23 +722,6 @@ export const registerVNCSocketServer = (server: WebSocketServer, instanceCore: I
                 return;
             }
 
-            // Extract user ID from the request user object
-            const user_id = req.user?.id;
-
-            // Verify instance ownership
-            try {
-                const hasAccess = await verifyInstanceAccess(instance_id, user_id, instanceCore);
-                if (!hasAccess) {
-                    Logger.warn(`WebSocket: Unauthorized access attempt to VNC instance ${instance_id}`);
-                    clientSocket.close(4003, 'Access denied: You do not have permission to access this instance');
-                    return;
-                }
-            } catch (error) {
-                Logger.error(`WebSocket: Error verifying VNC instance ownership: ${error instanceof Error ? error.message : String(error)}`);
-                clientSocket.close(4003, 'Access verification failed');
-                return;
-            }
-
             const clientMessageBuffers: Array<[RawData, boolean]> = [];
             const containerMessageBuffers: Array<[RawData, boolean]> = [];
 
@@ -763,7 +729,7 @@ export const registerVNCSocketServer = (server: WebSocketServer, instanceCore: I
             let ip = ''; // Initialize with a default value
             let port = 0; // Initialize with a default value
             try {
-                const result = await getInstanceTarget(instance_id, instanceCore, user_id);
+                const result = await getInstanceTarget(instance_id, instanceCore);
 
                 // ip = 'localhost';
                 ({ ip, port } = result);

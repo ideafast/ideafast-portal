@@ -1,10 +1,10 @@
-import { IUserConfig, enumConfigType, CoreError, enumCoreErrors, IInstance, LXDInstanceTypeEnum, enumInstanceStatus, enumAppType, IUser, enumUserTypes, enumJobType, enumOpeType, enumMonitorType, enumJobStatus, ISystemConfig} from '@itmat-broker/itmat-types';
+import { IUserConfig, enumConfigType, CoreError, enumCoreErrors, IInstance, LXDInstanceTypeEnum, enumInstanceStatus, enumAppType, IUser, enumUserTypes, enumJobType, enumOpeType, enumMonitorType, enumJobStatus, ISystemConfig } from '@itmat-broker/itmat-types';
 import { v4 as uuid } from 'uuid';
 import { DBType } from '../database/database';
-import { Logger, Mailer} from '@itmat-broker/itmat-commons';
-import { IConfiguration} from '../utils';
+import { Logger, Mailer } from '@itmat-broker/itmat-commons';
+import { IConfiguration } from '../utils';
 import { ConfigCore } from './configCore';
-import { JobCore} from './jobCore'; // Ensure you have the correct import path
+import { JobCore } from './jobCore'; // Ensure you have the correct import path
 import { UserCore } from './userCore';
 import { cloudInitUserDataJupyterContainer, cloudInitUserDataMatlabContainer } from '../lxd/lxd.config';
 
@@ -103,13 +103,13 @@ export class InstanceCore {
 
         // If no valid ports are found, start from the base port
         if (existingPorts.length === 0) {
-            return 30000;
+            return 39000;
         }
 
         // Find the highest port and increment
         const latestPort = Math.max(...existingPorts);
         // Wrap around if we reach the maximum port
-        return latestPort >= 40000 ? 30000 : latestPort + 1;
+        return latestPort >= 40000 ? 39000 : latestPort + 1;
     }
 
     private formatProxyAddress(address: string): string {
@@ -150,7 +150,7 @@ export class InstanceCore {
         const webdavServer = this.config.webdavServer;
         const webdavMountPath = `/home/ubuntu/${username}_Drive`; // Ensure the correct path is used
 
-        const instanceProfile = appType===enumAppType.MATLAB? 'matlab-profile' : 'jupyter-profile';
+        const instanceProfile = appType === enumAppType.MATLAB ? 'matlab-profile' : 'jupyter-profile';
 
         const instanceMapPort = await this.getValidHostPort();
 
@@ -240,7 +240,7 @@ export class InstanceCore {
                 } as Record<string, unknown>,
                 source: {
                     type: 'image',
-                    alias: appType ===enumAppType.MATLAB? 'ubuntu-matlab-container-image' : 'ubuntu-jupyter-container-image'
+                    alias: appType === enumAppType.MATLAB ? 'ubuntu-matlab-container-image' : 'ubuntu-jupyter-container-image'
                 },
                 profiles: [instanceProfile],
                 type: type, // 'virtual-machine' or 'container'
@@ -424,7 +424,7 @@ export class InstanceCore {
  * @return IInstance[] The list of instances.
  */
     public async getInstances(userId: string): Promise<IInstance[]> {
-    // Retrieve all instances that haven't been deleted
+        // Retrieve all instances that haven't been deleted
         const instances = await this.db.collections.instance_collection.find({
             // status is not DELETED
             status: { $nin: [enumInstanceStatus.DELETED] },
@@ -435,7 +435,7 @@ export class InstanceCore {
         const jobName = `Update Instance Status of User: ${userId}`;
         const jobType = enumJobType.LXD_MONITOR;
         const executorPath = '/lxd/monitor';
-        const period =  1 * 60 * 1000; // set 5 minute future
+        const period = 1 * 60 * 1000; // set 5 minute future
         // Check if there is a pending job for the user instances update
         const existingJobs = await this.JobCore.getJob({ name: jobName, type: jobType, status: enumJobStatus.PENDING });
 
@@ -486,7 +486,7 @@ export class InstanceCore {
 
             // Check if the lifespan has been exceeded
             if (remainingLife <= 0) {
-            // Check if the instance is not already stopped
+                // Check if the instance is not already stopped
                 if (instance.status !== enumInstanceStatus.STOPPED && instance.status !== enumInstanceStatus.STOPPING
                     && instance.status !== enumInstanceStatus.FAILED
                 ) {
@@ -693,7 +693,7 @@ export class InstanceCore {
                 .map((addr) => addr.address)[0];
 
             if (ipv4Address) {
-                return {ip: ipv4Address, port: this.config.jupyterPort};
+                return { ip: ipv4Address, port: this.config.jupyterPort };
             }
         }
 
@@ -737,7 +737,7 @@ export class InstanceCore {
 
     public async checkQuotaBeforeCreation(userId: string, requestedCpu: number, requestedMemory: string, requestedDisk: string, requestedInstances: number): Promise<void> {
 
-        const {properties: userQuota} = await this.configCore.getConfig(enumConfigType.USERCONFIG,  userId, true )as { properties: IUserConfig };
+        const { properties: userQuota } = await this.configCore.getConfig(enumConfigType.USERCONFIG, userId, true) as { properties: IUserConfig };
         const instances: IInstance[] = await this.getInstances(userId);
 
         let currentCpu = 0, currentMemory = 0, currentDisk = 0;
@@ -827,7 +827,7 @@ export class InstanceCore {
     public async getQuotaAndFlavors(requester: IUser) {
 
         // key: userId,
-        const {properties: userQuota} = await this.configCore.getConfig(enumConfigType.USERCONFIG,  requester.id, true );
+        const { properties: userQuota } = await this.configCore.getConfig(enumConfigType.USERCONFIG, requester.id, true);
         const { properties: systemConfig } = await this.configCore.getConfig(enumConfigType.SYSTEMCONFIG, null, true);
 
         const isAdmin = requester.type === enumUserTypes.ADMIN;

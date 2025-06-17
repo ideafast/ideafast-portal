@@ -1,6 +1,6 @@
 import React, { FunctionComponent, useState } from 'react';
 import { Progress, Button, Table, List, Modal, Upload, Form, Select, Input, notification, message, Typography, Tooltip } from 'antd';
-import { CloudDownloadOutlined, InboxOutlined, NumberOutlined } from '@ant-design/icons';
+import { InboxOutlined, NumberOutlined } from '@ant-design/icons';
 import { enumConfigType, IStudyConfig, IStudy, IField, enumDataTypes, IStudyFileBlock, enumUserTypes, IUserWithoutToken, deviceTypes, enumStudyBlockColumnValueType, IFile } from '@itmat-broker/itmat-types';
 import LoadSpinner from '../../../reusable/loadSpinner';
 import css from './fileRepo.module.css';
@@ -12,8 +12,6 @@ import axios from 'axios';
 import { validate } from '@ideafast/idgen';
 import dayjs from 'dayjs';
 import Highlighter from 'react-highlight-words';
-import { ResponsiveLine } from '@nivo/line';
-import { ResponsiveBar } from '@nivo/bar';
 import { useQueryClient } from '@tanstack/react-query';
 const { Option } = Select;
 
@@ -83,14 +81,15 @@ export const UploadFileComponent: FunctionComponent<{ study: IStudy, fields: IFi
         fieldId: ''
     });
     const getCurrentDomain = trpc.domain.getCurrentDomain.useQuery();
+    const whoAmI = trpc.user.whoAmI.useQuery();
     const [form] = Form.useForm();
     let selectedField = fields.filter(el => el.fieldId === fileProperties.fieldId)[0];
 
-    if (getCurrentDomain.isLoading) {
+    if (getCurrentDomain.isLoading || whoAmI.isLoading) {
         return <LoadSpinner />;
     }
 
-    if (getCurrentDomain.isError) {
+    if (getCurrentDomain.isError || whoAmI.isError) {
         return <div>An error occured.</div>;
     }
 
@@ -165,7 +164,11 @@ export const UploadFileComponent: FunctionComponent<{ study: IStudy, fields: IFi
     };
     return (<div>
         {contextHolder}
-        <Button style={{ backgroundColor: 'powderblue' }} onClick={() => setIsShowPanel(true)}>Upload Files</Button>
+        {
+            whoAmI.data.type === enumUserTypes.ADMIN ? (
+                <Button style={{ backgroundColor: 'powderblue' }} onClick={() => setIsShowPanel(true)}>Upload Files</Button>
+            ) : null
+        }
         <Modal
             open={isShowPanel}
             onCancel={() => {
@@ -294,7 +297,6 @@ export const FileBlock: FunctionComponent<{ user: IUserWithoutToken, fields: IFi
     const queryClient = useQueryClient();
     const [progress, setProgress] = useState(0);
     const [searchedKeyword, setSearchedKeyword] = useState<string | undefined>(undefined);
-    const [isModalOn, setIsModalOn] = useState(false);
     const getFiles = trpc.data.getFiles.useQuery({ studyId: study.id, fieldIds: block.fieldIds, readable: true, useCache: false });
     const deleteFile = trpc.data.deleteFile.useMutation({
         onSuccess: (data) => {
@@ -358,78 +360,6 @@ export const FileBlock: FunctionComponent<{ user: IUserWithoutToken, fields: IFi
         }
     }).sort((a, b) => (b.life?.createdTime ?? 0) - (a.life?.createdTime ?? 0));
 
-    const summaryByMonth = (filteredFiles) => {
-        // Create a map to hold the counts per month
-        const fileCounts: { [key: string]: number } = {};
-
-        // Iterate over each file and extract the createdTime
-        filteredFiles.forEach(file => {
-            if (file.life?.createdTime) {
-                // Convert createdTime (Unix timestamp) to a JavaScript Date object
-                const createdDate = new Date(file.life.createdTime);
-
-                // Format the date as 'YYYY-MM' for the month
-                const month = `${createdDate.getFullYear()}-${String(createdDate.getMonth() + 1).padStart(2, '0')}`;
-
-                // Increment the count for the corresponding month
-                if (fileCounts[month]) {
-                    fileCounts[month]++;
-                } else {
-                    fileCounts[month] = 1;
-                }
-            }
-        });
-
-        // Convert the map into an array of {x: month, y: count} objects
-        const result = Object.keys(fileCounts).map(month => ({
-            x: month,
-            y: fileCounts[month]
-        }));
-
-        // Sort the result array by the 'x' (month) value
-        result.sort((a, b) => {
-            const dateA = new Date(a.x + '-01'); // Adding '-01' to treat it as a full date (YYYY-MM-DD)
-            const dateB = new Date(b.x + '-01');
-            return dateA.getTime() - dateB.getTime();
-        });
-        // Return in the expected format
-        return [{
-            id: 'Month',
-            color: 'hsl(127, 70%, 50%)',
-            data: result
-        }];
-    };
-
-    const summaryByUser = (filteredFiles) => {
-        // Create a map to hold the counts per user
-        const userCounts: { [key: string]: number } = {};
-
-        // Iterate over each file and extract the createdUser
-        filteredFiles.forEach(file => {
-            const createdUser = file.life?.createdUser || 'Unknown User'; // Fallback to 'Unknown User' if createdUser is null/undefined
-
-            // Increment the count for the corresponding user
-            if (userCounts[createdUser]) {
-                userCounts[createdUser]++;
-            } else {
-                userCounts[createdUser] = 1;
-            }
-        });
-
-        // Convert the map into an array of {x: user, y: count} objects
-        const result = Object.keys(userCounts).map(user => ({
-            user: user.split(' ').map(el => (el[0] ?? '').toUpperCase()).join(''),
-            userFullName: user,
-            files: userCounts[user]
-        }));
-
-        // Sort the result array by the 'y' (count) value in descending order
-        result.sort((a, b) => a.user.localeCompare(b.user));
-
-        // Return in the expected format
-        return result;
-    };
-
     return <List
         header={
             <div className={css['overview-header']} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -478,219 +408,8 @@ export const FileBlock: FunctionComponent<{ user: IUserWithoutToken, fields: IFi
                     <span style={{ fontSize: '16px', fontWeight: 'bold', color: 'black', marginRight: '20px' }}>
                         {`Size: ${formatBytes(filteredFiles.reduce((acc, curr) => acc + (Number(curr?.fileSize) || 0), 0))}`}
                     </span>
-                    <Button onClick={() => setIsModalOn(true)}>Statistics</Button>
                 </div>
             </div>
-            <Modal
-                open={isModalOn}
-                onCancel={() => setIsModalOn(false)}
-                footer={null}
-                width='80%'
-            >
-                <h2>Progress by Month</h2>
-                <div style={{ height: '300px' }}>
-                    <ResponsiveLine
-                        data={summaryByMonth(filteredFiles)}
-                        margin={{ top: 50, right: 110, bottom: 50, left: 60 }}
-                        xScale={{ type: 'point' }}
-                        yScale={{
-                            type: 'linear',
-                            min: 'auto',
-                            max: 'auto',
-                            stacked: true,
-                            reverse: false
-                        }}
-                        yFormat=" >-.2f"
-                        axisTop={null}
-                        axisRight={null}
-                        axisBottom={{
-                            tickSize: 5,
-                            tickPadding: 5,
-                            tickRotation: 0,
-                            legend: 'Month',
-                            legendOffset: 36,
-                            legendPosition: 'middle',
-                            truncateTickAt: 0
-                        }}
-                        axisLeft={{
-                            tickSize: 5,
-                            tickPadding: 5,
-                            tickRotation: 0,
-                            legend: 'Files Uploaded',
-                            legendOffset: -40,
-                            legendPosition: 'middle',
-                            truncateTickAt: 0
-                        }}
-                        pointSize={10}
-                        pointColor={{ theme: 'background' }}
-                        pointBorderWidth={2}
-                        pointBorderColor={{ from: 'serieColor' }}
-                        pointLabel="data.yFormatted"
-                        pointLabelYOffset={-12}
-                        enableTouchCrosshair={true}
-                        useMesh={true}
-                        legends={[
-                            {
-                                anchor: 'bottom-right',
-                                direction: 'column',
-                                justify: false,
-                                translateX: 100,
-                                translateY: 0,
-                                itemsSpacing: 0,
-                                itemDirection: 'left-to-right',
-                                itemWidth: 80,
-                                itemHeight: 20,
-                                itemOpacity: 0.75,
-                                symbolSize: 12,
-                                symbolShape: 'circle',
-                                symbolBorderColor: 'rgba(0, 0, 0, .5)',
-                                effects: [
-                                    {
-                                        on: 'hover',
-                                        style: {
-                                            itemBackground: 'rgba(0, 0, 0, .03)',
-                                            itemOpacity: 1
-                                        }
-                                    }
-                                ]
-                            }
-                        ]}
-                    />
-                </div>
-                <h2>Progress by Uploaders</h2>
-                <div style={{ height: '400px' }}>
-                    <ResponsiveBar
-                        data={summaryByUser(filteredFiles)}
-                        keys={[
-                            'files'
-                        ]}
-                        indexBy="user"
-                        margin={{ top: 50, right: 130, bottom: 50, left: 60 }}
-                        padding={0.3}
-                        valueScale={{ type: 'linear' }}
-                        indexScale={{ type: 'band', round: true }}
-                        colors={{ scheme: 'nivo' }}
-                        defs={[
-                            {
-                                id: 'dots',
-                                type: 'patternDots',
-                                background: 'inherit',
-                                color: '#38bcb2',
-                                size: 4,
-                                padding: 1,
-                                stagger: true
-                            },
-                            {
-                                id: 'lines',
-                                type: 'patternLines',
-                                background: 'inherit',
-                                color: '#eed312',
-                                rotation: -45,
-                                lineWidth: 6,
-                                spacing: 10
-                            }
-                        ]}
-                        fill={[
-                            {
-                                match: {
-                                    id: 'fries'
-                                },
-                                id: 'dots'
-                            },
-                            {
-                                match: {
-                                    id: 'sandwich'
-                                },
-                                id: 'lines'
-                            }
-                        ]}
-                        borderColor={{
-                            from: 'color',
-                            modifiers: [
-                                [
-                                    'darker',
-                                    1.6
-                                ]
-                            ]
-                        }}
-                        axisTop={null}
-                        axisRight={null}
-                        axisBottom={(() => {
-                            return {
-                                tickSize: 10,
-                                tickPadding: 0,
-                                tickRotation: -90,
-                                legend: 'User',
-                                legendPosition: 'middle',
-                                legendOffset: 32,
-                                truncateTickAt: 0
-                            };
-                        })()}
-                        axisLeft={{
-                            tickSize: 5,
-                            tickPadding: 5,
-                            tickRotation: 0,
-                            legend: 'Files',
-                            legendPosition: 'middle',
-                            legendOffset: -40,
-                            truncateTickAt: 0
-                        }}
-                        labelSkipWidth={12}
-                        labelSkipHeight={12}
-                        labelTextColor={{
-                            from: 'color',
-                            modifiers: [
-                                [
-                                    'darker',
-                                    1.6
-                                ]
-                            ]
-                        }}
-                        legends={[
-                            {
-                                dataFrom: 'keys',
-                                anchor: 'bottom-right',
-                                direction: 'column',
-                                justify: false,
-                                translateX: 120,
-                                translateY: 0,
-                                itemsSpacing: 2,
-                                itemWidth: 100,
-                                itemHeight: 20,
-                                itemDirection: 'left-to-right',
-                                itemOpacity: 0.85,
-                                symbolSize: 20,
-                                effects: [
-                                    {
-                                        on: 'hover',
-                                        style: {
-                                            itemOpacity: 1
-                                        }
-                                    }
-                                ]
-                            }
-                        ]}
-                        tooltip={(d) => `${d.data.userFullName}: ${d.data.files} files`}
-                        role="application"
-                        ariaLabel="Nivo bar chart demo"
-                        barAriaLabel={e => e.id + ': ' + e.formattedValue + ' in country: ' + e.indexValue}
-                    />
-                </div><br />
-                <h2>Statistics by Group</h2>
-                <div>
-                    <Select
-                        placeholder='Select the grouping keys in order'
-                        style={{ width: '100%' }}
-                        mode='multiple'
-                    >
-                        {
-                            block.defaultFileColumns.map(el => (
-                                <Option value={el.property}>{el.title}</Option>
-                            ))
-                        }
-                    </Select>
-                </div>
-            </Modal>
         </List.Item>
         <List.Item>
             <div style={{ fontSize: '20px', width: '100%' }}>
@@ -791,20 +510,6 @@ function generateTableColumns(block: IStudyFileBlock, searchedKeyword: string | 
         // width: '8rem',
         key: 'delete'
     });
-    columns.push({
-        title: '',
-        dataIndex: 'download',
-        key: 'download',
-        render: (__unused__value, record) => {
-            return <Button
-                icon={<CloudDownloadOutlined />}
-                download={`${record.fileName}`}
-                href={`/file/${record.id}`}>
-                Download
-            </Button>;
-        }
-    });
-
     return columns;
 }
 
