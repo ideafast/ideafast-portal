@@ -107,7 +107,7 @@ export const RequestResetPassword: FunctionComponent = () => {
                                     </Button>
                                 </>}
                             &nbsp;&nbsp;&nbsp;
-                            <Button type='primary' disabled={requestPasswordReset.isLoading} loading={requestPasswordReset.isLoading} htmlType='submit'>
+                            <Button type='primary' disabled={requestPasswordReset.isPending} loading={requestPasswordReset.isPending} htmlType='submit'>
                                 Send me a reset link
                             </Button>
                         </Form.Item>

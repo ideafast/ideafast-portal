@@ -15,7 +15,7 @@ export const DashboardTabContent: FunctionComponent<{ study: IStudy }> = ({ stud
             Loading...
         </div>;
     }
-    if (getStudyDataSummary.isError) {
+    if (getStudyDataSummary.isError || !getStudyDataSummary.data) {
         return <div className={css.tab_page_wrapper}>
             An error occured.
         </div>;
@@ -73,7 +73,7 @@ export const MetaBlock: FunctionComponent<{ study: IStudy, dataSummary: IDataSet
         </div>;
     }
 
-    if (getStudyRoles.isError || getUsers.isError) {
+    if (getStudyRoles.isError || getUsers.isError || !getUsers.data) {
         return <div className={css.tab_page_wrapper}>
             An error occured.
         </div>;
@@ -132,7 +132,7 @@ export const MetaBlock: FunctionComponent<{ study: IStudy, dataSummary: IDataSet
             </Col>
             <Col span={6}>
                 <Card title='Users' bordered={false}>
-                    <Statistic title='Users' value={Array.from(new Set(getStudyRoles.data.map(el => el.users).reduce((a, c) => {
+                    <Statistic title='Users' value={Array.from(new Set(getStudyRoles.data?.map(el => el.users).reduce((a, c) => {
                         a = a.concat(c);
                         return a;
                     }, []))).length} />
@@ -140,7 +140,7 @@ export const MetaBlock: FunctionComponent<{ study: IStudy, dataSummary: IDataSet
             </Col>
             <Col span={6}>
                 <Card title='Roles' bordered={false}>
-                    <Statistic title='Roles' value={getStudyRoles.data.length} />
+                    <Statistic title='Roles' value={getStudyRoles.data?.length} />
                 </Card>
             </Col>
         </Row><br />

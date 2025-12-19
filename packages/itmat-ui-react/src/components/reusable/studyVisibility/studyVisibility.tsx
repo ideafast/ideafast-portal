@@ -181,7 +181,7 @@ export const StudyVisibility: FunctionComponent<{ studyId: string }> = ({ studyI
                     onChange={handleToggle}
                     checkedChildren="Public"
                     unCheckedChildren="Private"
-                    loading={loading || editStudyVisibility.isLoading}
+                    loading={loading || editStudyVisibility.isPending}
                 />
                 <div style={{ marginTop: 8 }}>
                     <Typography.Text type="secondary">

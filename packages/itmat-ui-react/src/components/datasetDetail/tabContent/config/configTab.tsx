@@ -86,7 +86,7 @@ export const ConfigTabContent: FunctionComponent<{ study: IStudy }> = ({ study }
             <Form.Item name={[index, 'fieldIds']} noStyle>
                 <Select mode='multiple'>
                     {
-                        getStudyFields.data.map(el => <Select.Option value={el.fieldId}>{el.fieldName}</Select.Option>)
+                        getStudyFields.data?.map(el => <Select.Option value={el.fieldId}>{el.fieldName}</Select.Option>)
                     }
                 </Select>
             </Form.Item>
@@ -154,7 +154,7 @@ export const ConfigTabContent: FunctionComponent<{ study: IStudy }> = ({ study }
                             <Button type='primary' onClick={() => {
                                 const values = form.getFieldsValue();
                                 const variables = {
-                                    ...getStudyConfig.data.properties,
+                                    ...(getStudyConfig.data?.properties ?? {}),
                                     ...values,
                                     life: {
                                         createdTime: Date.now(),
@@ -176,7 +176,7 @@ export const ConfigTabContent: FunctionComponent<{ study: IStudy }> = ({ study }
             >
                 <List.Item>
                     <Form
-                        initialValues={getStudyConfig.data.properties}
+                        initialValues={getStudyConfig.data?.properties}
                         form={form}
                     >
                         <Form.Item

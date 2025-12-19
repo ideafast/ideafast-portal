@@ -54,7 +54,7 @@ export const MainMenuBar: FunctionComponent = () => {
 
                     {/* Check if WebAuthn registration is needed and show another warning */}
                     {
-                        (isWebauthAvailable && fetchedDevices.data.length === 0) &&
+                        (isWebauthAvailable && fetchedDevices.data?.length === 0) &&
                         (
                             <Tooltip title="You could register a Authenticator on this device.">
                                 <ExclamationCircleOutlined twoToneColor="#ff0000" style={{ marginLeft: '8px' }} />

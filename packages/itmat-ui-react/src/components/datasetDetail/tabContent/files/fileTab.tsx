@@ -136,14 +136,16 @@ export const UploadFileComponent: FunctionComponent<{ study: IStudy, fields: IFi
                 const cache: IFile[] = queryClient.getQueryData(queryKey) ?? [];
                 const newCache = [...cache, response.data.result.data];
                 queryClient.setQueryData(queryKey, newCache);
-                void queryClient.invalidateQueries(['data', 'getFiles', {
-                    input: {
-                        studyId: study.id,
-                        fieldIds: fieldIds,
-                        useCache: false,
-                        readable: true
-                    }
-                }]);
+                void queryClient.invalidateQueries({
+                    queryKey: ['data', 'getFiles', {
+                        input: {
+                            studyId: study.id,
+                            fieldIds: fieldIds,
+                            useCache: false,
+                            readable: true
+                        }
+                    }]
+                });
                 setIsUploading(false);
                 setIsShowPanel(false);
                 void message.success('File has been uploaded.');
@@ -309,14 +311,16 @@ export const FileBlock: FunctionComponent<{ user: IUserWithoutToken, fields: IFi
             const cache: IFile[] = queryClient.getQueryData(queryKey) ?? [];
             const newCache = cache.filter(el => el.id !== data.id);
             queryClient.setQueryData(queryKey, newCache);
-            void queryClient.invalidateQueries(['data', 'getFiles', {
-                input: {
-                    studyId: study.id,
-                    fieldIds: fields.map(el => el.fieldId),
-                    useCache: false,
-                    readable: true
-                }
-            }]);
+            void queryClient.invalidateQueries({
+                queryKey: ['data', 'getFiles', {
+                    input: {
+                        studyId: study.id,
+                        fieldIds: fields.map(el => el.fieldId),
+                        useCache: false,
+                        readable: true
+                    }
+                }]
+            });
             void message.success('File has been deleted.');
         },
         onError: () => {

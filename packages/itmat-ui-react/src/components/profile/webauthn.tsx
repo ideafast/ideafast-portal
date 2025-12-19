@@ -18,32 +18,35 @@ export const MyWebauthn: FunctionComponent = () => {
     const { data, isLoading, isError, refetch } = trpc.webauthn.getWebauthnRegisteredDevices.useQuery();
 
     // getWebAuthnID query to remove the webauthn_id when no devices remain
-    const { refetch: fetchWebAuthnID } = trpc.webauthn.getWebauthnID.useQuery(undefined, {
-        enabled: false,
-        onSuccess: (data) => {
-            if (!data) {
-                void message.warning('No Authenticator ID found for the user.');
-                return;
-            }
-            const webauthnID = data.id;
-            // if  webauthnID did not exist in the credentials and the device is not empty,  add it to the credentials
-            if (data.devices.length !== 0 && !credentials?.includes(webauthnID)) {
-                const updatedCredentials = [...(credentials || []), webauthnID];
-                setCredentials(updatedCredentials); // add the ID to credentials
-            } else if (data.devices.length === 0 && credentials?.includes(webauthnID)) {
-                // remove the webauthnID from the credentials
-                const updatedCredentials = credentials.filter((id) => id !== webauthnID);
-                setCredentials(updatedCredentials); // Remove the ID from credentials
-            }
-        },
-        onError: () => {
-            void message.error('Failed to fetch WebAuthn ID.');
-        }
+    const { data: webauthnIDData, error: webauthnIDError, refetch: fetchWebAuthnID } = trpc.webauthn.getWebauthnID.useQuery(undefined, {
+        enabled: false
     });
     const { credentials, setCredentials } = useAuth(); // Access credentials from context
 
     const deleteDeviceMutation = trpc.webauthn.deleteWebauthnRegisteredDevices.useMutation();
     const updateDeviceNameMutation = trpc.webauthn.updateWebauthnDeviceName.useMutation();
+
+    useEffect(() => {
+        if (!webauthnIDData) {
+            void message.warning('No Authenticator ID found for the user.');
+            return;
+        }
+        const webauthnID = webauthnIDData.id;
+        // if  webauthnID did not exist in the credentials and the device is not empty,  add it to the credentials
+        if (webauthnIDData.devices.length !== 0 && !credentials?.includes(webauthnID)) {
+            const updatedCredentials = [...(credentials || []), webauthnID];
+            setCredentials(updatedCredentials); // add the ID to credentials
+        } else if (webauthnIDData.devices.length === 0 && credentials?.includes(webauthnID)) {
+            // remove the webauthnID from the credentials
+            const updatedCredentials = credentials.filter((id) => id !== webauthnID);
+            setCredentials(updatedCredentials); // Remove the ID from credentials
+        }
+    }, [webauthnIDData])
+
+    useEffect(() => {
+        if (webauthnIDError)
+            void message.error('Failed to fetch WebAuthn ID.');
+    }, [webauthnIDError]);
 
     useEffect(() => {
         const handleFetchWebAuthnID = async () => {

@@ -28,7 +28,7 @@ export const AdminTabContent: FunctionComponent = () => {
         return <p>An error occured</p>;
     }
 
-    if (!getStudy.data[0]) {
+    if (!getStudy.data?.[0]) {
         return null;
     }
 
@@ -44,7 +44,7 @@ export const AdminTabContent: FunctionComponent = () => {
                 <Subsection title='Dataset Deletion'>
                     <p>Be careful to check all related projects and files before deleting this dataset!</p>
                     {(() => {
-                        if (!deleteStudy.isLoading && !deleteStudy.isError && deleteStudy.data) {
+                        if (!deleteStudy.isPending && !deleteStudy.isError && deleteStudy.data) {
                             return <Navigate to={'/datasets'} />;
                         }
                         return !deleteButtonShown ? <Button onClick={() => setDeleteButtonShown(true)}>Delete the dataset</Button> :

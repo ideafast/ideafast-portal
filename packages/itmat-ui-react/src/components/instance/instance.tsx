@@ -1,8 +1,8 @@
-import React, { FunctionComponent, useState, useEffect} from 'react';
-import { Button, message, Modal, Form, Select,  Card, Tag, Progress,  Space, Row, Col , Tooltip} from 'antd';
+import React, { FunctionComponent, useState, useEffect } from 'react';
+import { Button, message, Modal, Form, Select, Card, Tag, Progress, Space, Row, Col, Tooltip } from 'antd';
 import { trpc } from '../../utils/trpc';
 import css from './instance.module.css';
-import { enumAppType,enumInstanceType, enumInstanceStatus, LXDInstanceTypeEnum, enumOpeType, IUserConfig} from '@itmat-broker/itmat-types';
+import { enumAppType, enumInstanceType, enumInstanceStatus, LXDInstanceTypeEnum, enumOpeType, IUserConfig } from '@itmat-broker/itmat-types';
 
 const { Option } = Select;
 
@@ -36,9 +36,9 @@ export const InstanceSection: FunctionComponent = () => {
 
     // quota (user) and flavor (system)
     const { data: quotaAndFlavors } = trpc.instance.getQuotaAndFlavors.useQuery<{
-            userQuota: IUserConfig;
-            userFlavors: { [key: string]: FlavorDetails };
-        }>();
+        userQuota: IUserConfig;
+        userFlavors: { [key: string]: FlavorDetails };
+    }>();
 
     const getInstances = trpc.instance.getInstances.useQuery(undefined, {
         refetchInterval: 2 * 60 * 1000,
@@ -46,11 +46,7 @@ export const InstanceSection: FunctionComponent = () => {
         refetchOnWindowFocus: true, // Refetch when window regains focus
         refetchOnReconnect: true, // Refetch when reconnecting
         retry: 3, // Number of retry attempts
-        onError: (error) => {
-            console.error('Failed to fetch instances:', error);
-        }
     });
-
 
     // Recalculate `isAtOrOverQuota` whenever quota or instances data changes
     useEffect(() => {
@@ -60,6 +56,11 @@ export const InstanceSection: FunctionComponent = () => {
             setIsAtOrOverQuota(runningInstancesCount >= maxInstancesAllowed);
         }
     }, [getInstances.data, quotaAndFlavors]);
+
+    useEffect(() => {
+        if (getInstances.error)
+            console.error('Failed to fetch instances:', getInstances.error.message);
+    }, [getInstances.error]);
 
 
     const createInstance = trpc.instance.createInstance.useMutation({
@@ -83,7 +84,7 @@ export const InstanceSection: FunctionComponent = () => {
     const startStopInstance = trpc.instance.startStopInstance.useMutation({
         onSuccess: async () => {
             void message.success('Instance status changed successfully.');
-            await  getInstances.refetch();
+            await getInstances.refetch();
         },
         onError: (error) => {
             void message.error(`Failed to change instance status: ${error.message}`);
@@ -131,7 +132,7 @@ export const InstanceSection: FunctionComponent = () => {
     const handleCreateInstance = (values: CreateInstanceFormValues) => {
 
         const generatedName = `${values.appType}-${Date.now()}`;
-        const determinedType = values.appType === enumAppType.DESKTOP ? LXDInstanceTypeEnum.VIRTUAL_MACHINE: LXDInstanceTypeEnum.CONTAINER;
+        const determinedType = values.appType === enumAppType.DESKTOP ? LXDInstanceTypeEnum.VIRTUAL_MACHINE : LXDInstanceTypeEnum.CONTAINER;
         // get the cpu, memorylimit, disk limit from the backend server
         // Get the flavor details from the selected type
         const flavorDetails = quotaAndFlavors?.userFlavors[values.instanceType];
@@ -157,7 +158,7 @@ export const InstanceSection: FunctionComponent = () => {
 
     const handleRestartInstance = async (values: { instance_id: string, lifeSpan: number }) => {
         restartInstance.mutate({
-            instanceId:values.instance_id,
+            instanceId: values.instance_id,
             lifeSpan: values.lifeSpan
         });
 
@@ -264,7 +265,7 @@ export const InstanceSection: FunctionComponent = () => {
     };
 
     // sorting function
-    const sortedInstances = [...getInstances.data].sort((a, b) => {
+    const sortedInstances = getInstances.data?.sort((a, b) => {
         if (a.status === enumInstanceStatus.RUNNING && b.status !== enumInstanceStatus.RUNNING) {
             return -1;
         }
@@ -279,14 +280,14 @@ export const InstanceSection: FunctionComponent = () => {
         }
         // Within the same status, sort by creation time, most recent first
         return new Date(b.createAt).getTime() - new Date(a.createAt).getTime();
-    });
+    }) ?? [];
 
 
     return (
         <div className={css.page_container}>
             <div className={css.marginBottom}>
                 <div style={{ marginTop: '10px' }} />
-                <Space size="large"> {}
+                <Space size="large"> { }
                     <h2 style={{ marginBottom: '0px' }}>My Instances</h2>
                     <Tooltip
                         title={
@@ -351,7 +352,7 @@ export const InstanceSection: FunctionComponent = () => {
                                                     additionalTime: additionalTime
                                                 });
                                             }}
-                                            disabled={extendInstanceLifespan.isLoading}
+                                            disabled={extendInstanceLifespan.isPending}
                                         >
                                             {instance.lifeSpan < 24 * 60 * 60 * 1000 ? 'Extend Now!' : 'Extend'}
                                         </Button>
@@ -371,7 +372,7 @@ export const InstanceSection: FunctionComponent = () => {
                                         status="active"
                                         format={() => (
                                             <span style={{ fontSize: '12px' }}>
-                                            CPU: {('cpuUsage' in instance.metadata) ? instance.metadata.cpuUsage as number : 0}%
+                                                CPU: {('cpuUsage' in instance.metadata) ? instance.metadata.cpuUsage as number : 0}%
                                             </span>
                                         )}
                                         size="default"
@@ -382,7 +383,7 @@ export const InstanceSection: FunctionComponent = () => {
                                         status="active"
                                         format={() => (
                                             <span style={{ fontSize: '12px' }}>
-                                            Memory: {('memoryUsage' in instance.metadata) ? Math.round(instance.metadata.memoryUsage as number) : 0}%
+                                                Memory: {('memoryUsage' in instance.metadata) ? Math.round(instance.metadata.memoryUsage as number) : 0}%
                                             </span>
                                         )}
                                         size="default"
@@ -399,7 +400,7 @@ export const InstanceSection: FunctionComponent = () => {
                         )}
                         {instance.status === enumInstanceStatus.RUNNING && (
                             // change the danger to warning color
-                            <Button type="primary" danger style={{ backgroundColor: '#ffe7ba', borderColor: '#ffd591', color: '#fa8c16', marginRight: '8px' }}  onClick={() => startStopInstance.mutate({ instanceId: instance.id, action: enumOpeType.STOP })}>Stop</Button>
+                            <Button type="primary" danger style={{ backgroundColor: '#ffe7ba', borderColor: '#ffd591', color: '#fa8c16', marginRight: '8px' }} onClick={() => startStopInstance.mutate({ instanceId: instance.id, action: enumOpeType.STOP })}>Stop</Button>
                         )}
                         {/* Only show Delete button for STOPPED status */}
                         {(instance.status === enumInstanceStatus.STOPPED || instance.status === enumInstanceStatus.FAILED) && (
@@ -414,7 +415,7 @@ export const InstanceSection: FunctionComponent = () => {
                         )}
                         {/** Remove the extend button from here since we moved it next to the lifespan */}
                         {/** console connection button, only show for RUNNING status */}
-                        {instance.appType === enumAppType.MATLAB && instance.status === enumInstanceStatus.RUNNING &&  (
+                        {instance.appType === enumAppType.MATLAB && instance.status === enumInstanceStatus.RUNNING && (
                             // set the button color to green
                             <Button type="primary"
                                 style={{ backgroundColor: '#1890ff', borderColor: '#1890ff', marginRight: '8px' }}
@@ -433,8 +434,8 @@ export const InstanceSection: FunctionComponent = () => {
                                 }}
                                 disabled={isConnectingToJupyter} // Disable button during connection attempt
                             >
-                          Open Jupyter
-                            </Button> )}
+                                Open Jupyter
+                            </Button>)}
                     </Space>
                 </Card>
             ))}

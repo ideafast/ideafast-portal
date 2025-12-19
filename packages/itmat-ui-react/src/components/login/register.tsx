@@ -47,7 +47,7 @@ export const RegisterNewUser: FunctionComponent = () => {
         </>;
     }
 
-    const orgList: IOrganisation[] = getOrganisations.data;
+    const orgList: IOrganisation[] = getOrganisations.data ?? [];
 
     if (completedCreation) {
         return (
@@ -135,7 +135,7 @@ export const RegisterNewUser: FunctionComponent = () => {
                                 Cancel
                             </Button>
                             &nbsp;&nbsp;&nbsp;
-                            <Button type='primary' disabled={createUser.isLoading} loading={createUser.isLoading} htmlType='submit'>
+                            <Button type='primary' disabled={createUser.isPending} loading={createUser.isPending} htmlType='submit'>
                                 Create
                             </Button>
                         </Form.Item>
