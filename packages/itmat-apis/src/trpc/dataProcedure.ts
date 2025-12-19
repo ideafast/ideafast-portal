@@ -3,7 +3,6 @@ import { z } from 'zod';
 import { TRPCBaseProcedure, TRPCRouter } from './trpc';
 import { DataCore } from '@itmat-broker/itmat-cores';
 
-
 const ZAST: z.ZodType<IAST> = z.lazy(() => z.object({
     type: z.nativeEnum(enumASTNodeTypes),
     operator: z.union([z.nativeEnum(enumMathOps), z.null()]),
@@ -41,7 +40,8 @@ const CreateFieldInputSchema = z.object({
     unit: z.optional(z.string()),
     comments: z.optional(z.string()),
     verifier: z.optional(z.array(z.array(ZValueVerifier))),
-    properties: z.optional(z.array(ZFieldProperty))
+    properties: z.optional(z.array(ZFieldProperty)),
+    metadata: z.optional(z.record(z.string(), z.unknown()))
 });
 
 const EditFieldInputSchema = CreateFieldInputSchema;
@@ -108,7 +108,8 @@ export class DataRouter {
                     unit: opts.input.unit,
                     comments: opts.input.comments,
                     verifier: opts.input.verifier,
-                    properties: opts.input.properties
+                    properties: opts.input.properties,
+                    metadata: opts.input.metadata
                 });
             }),
             /**
@@ -196,7 +197,7 @@ export class DataRouter {
                 fieldIds: z.optional(z.array(z.string())),
                 useCache: z.optional(z.boolean()),
                 forceUpdate: z.optional(z.boolean()),
-                formatted: z.optional(z.string())
+                fromCold: z.optional(z.boolean())
             })).query(async (opts) => {
                 return await this.dataCore.getData(
                     opts.ctx.req.user,
@@ -205,7 +206,8 @@ export class DataRouter {
                     opts.input.versionId,
                     opts.input.aggregation,
                     opts.input.useCache,
-                    opts.input.forceUpdate
+                    opts.input.forceUpdate,
+                    opts.input.fromCold
                 );
             }),
             /**
@@ -288,7 +290,7 @@ export class DataRouter {
              */
             getFiles: this.baseProcedure.input(z.object({
                 studyId: z.string(),
-                versionId: z.optional(z.string()),
+                versionId: z.optional(z.union([z.string(), z.null(), z.array(z.union([z.string(), z.null()]))])),
                 fieldIds: z.optional(z.array(z.string())),
                 readable: z.optional(z.boolean()),
                 useCache: z.optional(z.boolean()),

@@ -29,6 +29,7 @@ export enum enumFileTypes {
     DOCX = 'DOCX',
     XLSX = 'XLSX',
     XLS = 'XLS',
+    MAT = 'MAT',
     // images
     JPG = 'JPG',
     JPEG = 'JPEG',
@@ -37,7 +38,9 @@ export enum enumFileTypes {
     GIF = 'GIF',
     // videos
     MP4 = 'MP4',
-    AVI = 'AVI'
+    AVI = 'AVI',
+    // others
+    FEATHER = 'FEATHER'
 }
 
 export enum enumFileCategories {

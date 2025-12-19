@@ -48,7 +48,7 @@ export const ProfileManagementSection: FunctionComponent = () => {
                 </div>
                 <div className={css.profile_summary_statistics}>
                     <Row>
-                        <Col className={css.profile_summary_statistics_value} span={7}>{getStudies.data.length ?? 'NA'}</Col>
+                        <Col className={css.profile_summary_statistics_value} span={7}>{getStudies.data?.length ?? 'NA'}</Col>
                         <Divider type='vertical' />
                         <Col className={css.profile_summary_statistics_value} span={7}>{(() => {
                             const remaining: number = whoAmI.data.expiredAt - Date.now();
@@ -58,7 +58,7 @@ export const ProfileManagementSection: FunctionComponent = () => {
                             return Math.floor(Math.max(0, remaining) / 1000 / 60 / 60 / 24) + ' days';
                         })()}</Col>
                         <Divider type='vertical' />
-                        <Col className={css.profile_summary_statistics_value} span={7}>{getUserKeys.data.length ?? 'NA'}</Col>
+                        <Col className={css.profile_summary_statistics_value} span={7}>{getUserKeys.data?.length ?? 'NA'}</Col>
                     </Row>
                     <br />
                     <Row>
@@ -71,7 +71,7 @@ export const ProfileManagementSection: FunctionComponent = () => {
                 </div>
                 <br />
                 <div>
-                    <Title level={4}>{getOrganisations.data.filter(el => el.id === whoAmI.data.organisation)?.[0]?.name ?? 'NA'}</Title>
+                    <Title level={4}>{getOrganisations.data?.filter(el => el.id === whoAmI.data.organisation)?.[0]?.name ?? 'NA'}</Title>
                 </div>
                 <br />
                 <div className={css.profile_summary_description}>
@@ -84,7 +84,7 @@ export const ProfileManagementSection: FunctionComponent = () => {
         </div>
         <Divider type='vertical' style={{ color: 'black' }} />
         <div className={css.profile_right}>
-            <ProfileEditForm key={whoAmI.data.id} user={whoAmI.data} organisations={getOrganisations.data} />
+            <ProfileEditForm key={whoAmI.data.id} user={whoAmI.data} organisations={getOrganisations.data ?? []} />
         </div>
     </>);
 };

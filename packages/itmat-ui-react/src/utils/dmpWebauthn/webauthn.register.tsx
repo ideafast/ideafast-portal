@@ -1,4 +1,4 @@
-import React, { FunctionComponent} from 'react';
+import React, { FunctionComponent, useEffect } from 'react';
 import { Button, message } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { UserOutlined, KeyOutlined } from '@ant-design/icons';
@@ -25,26 +25,30 @@ export const WebAuthnRegistrationComponent: FunctionComponent = () => {
 
     const webauthnRegistration = trpc.webauthn.webauthnRegister.useMutation();
     const webauthnRegisterVerify = trpc.webauthn.webauthnRegisterVerify.useMutation();
+    const getCurrentDomain = trpc.domain.getCurrentDomain.useQuery();
 
-    const { refetch: fetchWebAuthnID } = trpc.webauthn.getWebauthnID.useQuery(undefined, {
-        enabled: false,
-        onSuccess: (data) => {
-            if (data === null) {
-                void message.warning('No Authenticator ID found for the user.');
-                return;
-            }
-            const webauthnID = data?.id;
-            const updatedCredentials = credentials ? [...credentials] : [];
-            // if device is not null and webauthnID is not in the credentials, add it to the credentials
-            if (webauthnID && data.devices.length!==0 && !updatedCredentials.includes(webauthnID)) {
-                updatedCredentials.push(webauthnID);
-                setCredentials(updatedCredentials);
-            }
-        },
-        onError: () => {
-            void message.error('Failed to fetch Authenticator ID.');
-        }
+    const { refetch: fetchWebAuthnID, data: webauthnIDData, error: webauthnIDError } = trpc.webauthn.getWebauthnID.useQuery(undefined, {
+        enabled: false
     });
+
+    useEffect(() => {
+        if (webauthnIDError)
+            void message.error('Failed to fetch Authenticator ID.');
+    }, [webauthnIDError]);
+
+    useEffect(() => {
+        if (!webauthnIDData) {
+            void message.warning('No Authenticator ID found for the user.');
+            return;
+        }
+        const webauthnID = webauthnIDData.id;
+        const updatedCredentials = credentials ? [...credentials] : [];
+        // if device is not null and webauthnID is not in the credentials, add it to the credentials
+        if (webauthnID && webauthnIDData.devices.length !== 0 && !updatedCredentials.includes(webauthnID)) {
+            updatedCredentials.push(webauthnID);
+            setCredentials(updatedCredentials);
+        }
+    }, [webauthnIDData]);
 
     const handleWebAuthnRegistration = async (event: React.FormEvent) => {
         event.preventDefault();
@@ -136,7 +140,11 @@ export const WebAuthnRegistrationComponent: FunctionComponent = () => {
         <div>
 
             <div className={webauthnStyles.registration_dialog}>
-                <img alt='IDEA-FAST Logo' src='https://avatars3.githubusercontent.com/u/60649739?s=150' />
+                <img
+                    src={`${window.location.origin}/file/${getCurrentDomain.data?.logo}`}
+                    width={200}
+                    alt="Logo"
+                />
                 <div className={webauthnStyles.userIconWrapper}>
                     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                         <KeyOutlined style={{ fontSize: '16px', marginRight: '-8px' }} />
@@ -150,10 +158,10 @@ export const WebAuthnRegistrationComponent: FunctionComponent = () => {
             </div>
             <div className={webauthnStyles.primaryButton}>
                 <Button key="no" onClick={handleCancelRegistration} size='large'>
-                            Cancel
+                    Cancel
                 </Button>
                 <Button key="yes" type="primary" onClick={(event) => { void handleWebAuthnRegistration(event); }} size='large'>
-                            Register
+                    Register
                 </Button>
             </div>
 

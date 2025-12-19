@@ -18,6 +18,17 @@ export interface IConfiguration extends IServerConfig {
     aeEndpoint: string;
     useWebdav: boolean;
     webdavPort: number;
+    webdavServer: string;
+    lxdEndpoint: string;
+    lxdPortRange: number[];  // the port range for lxd  a list of numbers
+    lxdSquidProxy: string; // the squid proxy server for lxd
+    lxdStoragePool: string;
+    lxdProject: string;
+    systemKey: Record<string, string>;
+    lxdCertFile: Record<string, string>;
+    lxdRejectUnauthorized: boolean;
+    jupyterPort: number;
+    dmp:  Record<string, unknown>;
 }
 
 export class ConfigurationManager {

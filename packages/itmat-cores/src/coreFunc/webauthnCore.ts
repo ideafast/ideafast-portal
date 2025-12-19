@@ -13,7 +13,6 @@ import {
     verifyRegistrationResponse,
     generateAuthenticationOptions,
     verifyAuthenticationResponse
-
 } from '@simplewebauthn/server';
 
 import type {
@@ -169,7 +168,7 @@ export class WebauthnCore {
                     type: 'public-key',
                     transports: authenticator.transports
                 })),
-                challenge: challenge.buffer as Uint8Array,
+                challenge: new Uint8Array(challenge.buffer),
                 authenticatorSelection: {
                     residentKey: 'discouraged'
                 },
@@ -209,7 +208,7 @@ export class WebauthnCore {
 
         const { devices, challenge} = webauthn;
 
-        const decodedString = isoBase64URL.fromBuffer(challenge.buffer as Uint8Array);
+        const decodedString = isoBase64URL.fromBuffer(new Uint8Array(challenge.buffer));
 
         try{
             // verify the registration response
@@ -278,7 +277,7 @@ export class WebauthnCore {
 
         try{
             const options = await generateAuthenticationOptions({
-                challenge: challenge.buffer as Uint8Array,
+                challenge: new Uint8Array(challenge.buffer),
                 timeout: 60000,
                 allowCredentials: devices.map((authenticator) => ({
                     id: authenticator.credentialID,
@@ -319,7 +318,7 @@ export class WebauthnCore {
 
         const { devices, challenge} = webauthn;
 
-        const decodedChallengeString = isoBase64URL.fromBuffer(challenge.buffer as Uint8Array);
+        const decodedChallengeString = isoBase64URL.fromBuffer(new Uint8Array(challenge.buffer));
         const bodyCredIDString = assertionResponse.rawId;
         const deviceIndex = devices.findIndex(d =>d.credentialID  === bodyCredIDString);
 
@@ -344,7 +343,7 @@ export class WebauthnCore {
                 expectedOrigin: origin,
                 expectedRPID: rpID,
                 authenticator: {
-                    credentialPublicKey: device.credentialPublicKey.buffer as Uint8Array,
+                    credentialPublicKey: new Uint8Array(device.credentialPublicKey.buffer),
                     credentialID: device.credentialID,
                     counter: device.counter
                 },

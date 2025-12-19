@@ -154,7 +154,8 @@ export function convertV2CreateFieldInputToV3(studyId: string, fields: V2CreateF
                 required: false
             }],
             unit: field.unit,
-            comments: field.comments
+            comments: field.comments,
+            metadata: field.metadata
         };
     });
 }
@@ -206,7 +207,7 @@ export function convertV2DataClipInputToV3(dataclip: IDataClip[]) {
             fieldId: el.fieldId,
             value: el.value,
             properties: {
-                subjectId: el.subjectId,
+                subjectId: el.subjectId.replace('-', ''),
                 visitId: el.visitId
             }
         };

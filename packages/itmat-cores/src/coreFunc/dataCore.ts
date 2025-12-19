@@ -43,6 +43,7 @@ interface CreateFieldInput {
     comments?: string;
     verifier?: ValueVerifierInput[][];
     properties?: IFieldProperty[];
+    metadata?: Record<string, unknown>;
 }
 
 type EditFieldInput = CreateFieldInput;
@@ -255,7 +256,7 @@ export class DataCore {
                 deletedTime: null,
                 deletedUser: null
             },
-            metadata: {}
+            metadata: fieldInput.metadata ?? {}
         };
 
         await this.db.collections.field_dictionary_collection.insertOne(fieldEntry);
@@ -747,7 +748,7 @@ export class DataCore {
      *
      * @return Partial<IData>[] - The list of objects of Partial<IData>
      */
-    public async getData(requester: IUserWithoutToken | undefined, studyId: string, selectedFieldIds?: string[], dataVersion?: string | null | Array<string | null>, aggregation?: Record<string, Array<{ operationName: enumDataTransformationOperation, params: Record<string, unknown> }>>, useCache?: boolean, forceUpdate?: boolean) {
+    public async getData(requester: IUserWithoutToken | undefined, studyId: string, selectedFieldIds?: string[], dataVersion?: string | null | Array<string | null>, aggregation?: Record<string, Array<{ operationName: enumDataTransformationOperation, params: Record<string, unknown> }>>, useCache?: boolean, forceUpdate?: boolean, fromCold?: boolean) {
         if (!requester) {
             throw new CoreError(
                 enumCoreErrors.NOT_LOGGED_IN,
@@ -810,7 +811,7 @@ export class DataCore {
                 return await getJsonFileContents(this.objStore, 'cache', hashedInfo[0].uri);
             } else {
                 // raw data by the permission
-                const data = await this.getDataByRoles(requester, roles, studyId, availableDataVersions, fieldIds);
+                const data = await this.getDataByRoles(requester, roles, studyId, availableDataVersions, fieldIds, fromCold);
                 // data transformation if aggregation is provided
                 const transformed = aggregation ? this.dataTransformationCore.transformationAggregate(data as unknown as IDataTransformationClipArray, aggregation) : data;
                 // write to minio and cache collection
@@ -842,7 +843,7 @@ export class DataCore {
             }
         } else {
             // raw data by the permission
-            const data = await this.getDataByRoles(requester, roles, studyId, availableDataVersions, fieldIds);
+            const data = await this.getDataByRoles(requester, roles, studyId, availableDataVersions, fieldIds, fromCold);
             // data transformation if aggregation is provided
             const transformed = aggregation ? this.dataTransformationCore.transformationAggregate(data as unknown as IDataTransformationClipArray, aggregation) : data;
             return transformed;
@@ -1181,8 +1182,8 @@ export class DataCore {
             if (!fieldIds) {
                 fieldIds = (await this.getStudyFields(requester, studyId, availableDataVersions)).filter(el => el.dataType === enumDataTypes.FILE).map(el => el.fieldId);
             } else {
-                const fields = await this.db.collections.field_dictionary_collection.find({ studyId: studyId, fieldId: { $in: fieldIds } }).toArray();
-                fieldIds = fields.filter(el => el.dataType === enumDataTypes.FILE).map(el => el.fieldId);
+                const fields = (await this.getStudyFields(requester, studyId, availableDataVersions)).filter(el => el.dataType === enumDataTypes.FILE).map(el => el.fieldId);
+                fieldIds = fieldIds.filter(el => fields.includes(el));
             }
             if (fieldIds.length === 0) {
                 return [];
@@ -1274,11 +1275,13 @@ export class DataCore {
     }
 
 
-    public async getDataByRoles(requester: IUserWithoutToken, roles: IRole[], studyId: string, dataVersions: Array<string | null>, fieldIds?: string[]) {
+    public async getDataByRoles(requester: IUserWithoutToken, roles: IRole[], studyId: string, dataVersions: Array<string | null>, fieldIds?: string[], fromCold?: boolean) {
         const matchFilter: Filter<IData> = {
             studyId: studyId,
             dataVersion: { $in: dataVersions }
         };
+
+        const dbCollection = fromCold ? this.db.collections.colddata_collection : this.db.collections.data_collection;
 
         const roleArr: Filter<IData>[] = [];
         for (const role of roles) {
@@ -1310,18 +1313,20 @@ export class DataCore {
             a[c.fieldId] = c;
             return a;
         }, {});
-
         const availableFieldIds = Object.keys(availableFields);
         const refactoredFieldIds = fieldIds ?? Object.keys(availableFields);
         const queryField = async (fieldId: string) => {
             if (availableFieldIds.includes(fieldId) || availableFieldIds.some(el => new RegExp(el).test(fieldId))) {
                 const propertyFilter: Record<string, string> = {};
+                if (!availableFields[fieldId]) {
+                    return [];
+                }
                 if (availableFields[fieldId].properties) {
                     for (const property of availableFields[fieldId].properties) {
                         propertyFilter[`${property.name}`] = `$properties.${property.name}`;
                     }
                 }
-                const data = await this.db.collections.data_collection.aggregate<IData>([{
+                const data = await dbCollection.aggregate<IData>([{
                     $match: {
                         ...matchFilter,
                         fieldId: fieldId,
@@ -1340,6 +1345,10 @@ export class DataCore {
                     }
                 }, {
                     $replaceRoot: { newRoot: '$latestDocument' }
+                }, {
+                    $match: {
+                        'life.deletedTime': null
+                    }
                 }, {
                     $project: {
                         _id: 0, // Exclude the _id field
@@ -1517,6 +1526,52 @@ export class DataCore {
                     ...JSON.parse(properties),
                     FileName: fileEntry.fileName
                 } : undefined
+            }];
+            const res = await this.uploadData(requester, studyId, dataInput);
+            if (!res[0].successful) {
+                throw new CoreError(
+                    enumCoreErrors.CLIENT_MALFORMED_INPUT,
+                    res[0].description ?? 'Failed to upload file.'
+                );
+            }
+            // invalidate the cache
+            await this.db.collections.cache_collection.updateMany({ 'keys.studyId': studyId, 'keys.query': 'getStudyFiles' }, { $set: { status: enumCacheStatus.OUTDATED } });
+            return fileEntry;
+        } catch (error) {
+            throw new CoreError(
+                enumCoreErrors.CLIENT_MALFORMED_INPUT,
+                `${(error as Error).message}`
+            );
+        }
+    }
+
+    public async uploadFileDataWithFileEntry(requester: IUserWithoutToken | undefined, studyId: string, fieldId: string, fileEntry: IFile, properties?: string) {
+        if (!requester) {
+            throw new CoreError(
+                enumCoreErrors.NOT_LOGGED_IN,
+                enumCoreErrors.NOT_LOGGED_IN
+            );
+        }
+        const roles = await this.permissionCore.getRolesOfUser(requester, requester.id, studyId);
+        if (roles.length === 0) {
+            throw new CoreError(
+                enumCoreErrors.NO_PERMISSION_ERROR,
+                enumCoreErrors.NO_PERMISSION_ERROR
+            );
+        }
+        const study = await this.db.collections.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null });
+        if (!study) {
+            throw new CoreError(
+                enumCoreErrors.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY,
+                'Study does not exist.'
+            );
+        }
+        try {
+            const parsedProperties = properties ? JSON.parse(properties) : {};
+            const dataInput: IDataInput[] = [{
+                fieldId: fieldId,
+                value: fileEntry.id,
+                properties: parsedProperties
             }];
             const res = await this.uploadData(requester, studyId, dataInput);
             if (!res[0].successful) {

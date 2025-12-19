@@ -1,11 +1,11 @@
 import { FunctionComponent } from 'react';
-import { NavLink, useNavigate} from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import css from './login.module.css';
-import { Input, Form, Button, Alert, Checkbox, message, Image, Divider} from 'antd';
+import { Input, Form, Button, Alert, Checkbox, message, Image, Divider } from 'antd';
 import { trpc } from '../../utils/trpc';
 import LoadSpinner from '../reusable/loadSpinner';
 import { useAuth } from '../../utils/dmpWebauthn/webauthn.context';
-import { UserOutlined, KeyOutlined} from '@ant-design/icons';
+import { UserOutlined, KeyOutlined } from '@ant-design/icons';
 
 export const LoginBox: FunctionComponent = () => {
     const login = trpc.user.login.useMutation({
@@ -70,14 +70,14 @@ export const LoginBox: FunctionComponent = () => {
                                     <Checkbox> Tick the box to request a new expiry date! </Checkbox>
                                 </Form.Item>
                                 <Form.Item>
-                                    <Button type='primary' disabled={login.isLoading} loading={login.isLoading} htmlType='submit'>
+                                    <Button type='primary' disabled={login.isPending} loading={login.isPending} htmlType='submit'>
                                         Submit Request
                                     </Button>
                                 </Form.Item>
                             </>
                         ) :
                             <Form.Item>
-                                <Button type='primary' disabled={login.isLoading} loading={login.isLoading} htmlType='submit'>
+                                <Button type='primary' disabled={login.isPending} loading={login.isPending} htmlType='submit'>
                                     Login
                                 </Button>
                             </Form.Item>
@@ -87,7 +87,7 @@ export const LoginBox: FunctionComponent = () => {
                 </div>
 
                 {/* Conditionally render the "Login with Authenticator" button */}
-                {(isWebauthAvailable &&  credentials && credentials.length > 0) && (
+                {(isWebauthAvailable && credentials && credentials.length > 0) && (
                     <>
                         <Divider plain>Or</Divider>
                         <Button
@@ -108,7 +108,7 @@ export const LoginBox: FunctionComponent = () => {
                                 <UserOutlined style={{ fontSize: '16px' }} />
                                 <KeyOutlined style={{ fontSize: '10px', marginLeft: '1px' }} />
                             </div>
-                       Login with an authenticator
+                            Login with an authenticator
                         </Button>
                     </>
                 )}

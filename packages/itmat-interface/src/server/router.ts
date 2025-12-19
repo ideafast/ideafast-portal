@@ -4,7 +4,7 @@ import { ApolloServerPluginDrainHttpServer } from '@apollo/server/plugin/drainHt
 import { graphqlUploadExpress, GraphQLUpload } from 'graphql-upload-minimal';
 import { execute, subscribe } from 'graphql';
 import { WebSocketServer } from 'ws';
-import { useServer } from 'graphql-ws/lib/use/ws';
+import { useServer } from 'graphql-ws/use/ws';
 import { makeExecutableSchema } from '@graphql-tools/schema';
 import MongoStore from 'connect-mongo';
 import express from 'express';
@@ -17,25 +17,29 @@ import passport from 'passport';
 import { db } from '../database/database';
 import { fileDownloadControllerInstance } from '../rest/fileDownload';
 import { BigIntResolver as scalarResolvers } from 'graphql-scalars';
-import { createProxyMiddleware, RequestHandler } from 'http-proxy-middleware';
-import qs from 'qs';
-import { FileUploadSchema, IUser, IUserConfig, enumConfigType, enumUserTypes } from '@itmat-broker/itmat-types';
+import 'json-bigint-patch';
+import { createProxyMiddleware } from 'http-proxy-middleware';
+import { FileUploadSchema, IUserConfig, enumConfigType, enumUserTypes } from '@itmat-broker/itmat-types';
 import { logPluginInstance } from '../log/logPlugin';
 import { IConfiguration, spaceFixing } from '@itmat-broker/itmat-cores';
 import { userLoginUtils } from '../utils/userLoginUtils';
 import * as trpcExpress from '@trpc/server/adapters/express';
-import { tokenAuthentication } from './commonMiddleware';
+import { tokenAuthentication, uploadFileData } from './commonMiddleware';
 import multer from 'multer';
 import { Readable } from 'stream';
 import { z } from 'zod';
 import { ApolloServerContext, DMPContext, createtRPCContext, typeDefs } from '@itmat-broker/itmat-apis';
 import { APICalls } from './helper';
+import { registerContainSocketServer, registerJupyterSocketServer, jupyterProxyMiddleware, vncProxyMiddleware, registerVNCSocketServer, initializeProxyCacheCleanup } from '../lxd';
+import { Socket } from 'node:net';
+import { Logger } from '@itmat-broker/itmat-commons';
+
 
 export class Router {
     private readonly app: Express;
     private readonly server: http.Server;
     private readonly config: IConfiguration;
-    public readonly proxies: Array<RequestHandler<Request, Response>> = [];
+    // public readonly proxies: Array<RequestHandler<Request, Response>> = [];
 
     constructor(config: IConfiguration) {
 
@@ -99,7 +103,7 @@ export class Router {
         this.app.use(rateLimit({
             windowMs: 1 * 60 * 1000,
             max: async function (req) {
-                const minimumQPS = 200;
+                const minimumQPS = 5000;
                 let qps = minimumQPS;
                 if (req.user) {
                     const userConfig = await db.collections.configs_collection.findOne({ type: enumConfigType.USERCONFIG, key: req.user.id });
@@ -110,7 +114,7 @@ export class Router {
                     }
                 }
                 if (req.user?.type === enumUserTypes.ADMIN) {
-                    qps = Math.max(qps, 1000);
+                    qps = Math.max(qps, 2000);
                 }
                 return qps;
             }
@@ -119,7 +123,7 @@ export class Router {
         // authentication middleware
         this.app.use((req, res, next) => {
             let token: string = req.headers.authorization || '';
-            if (token.startsWith('Bearer ')) {
+            if (token.startsWith('Bearer ') || token.startsWith('BEARER')) {
                 token = token.slice(7);
             }
             tokenAuthentication(token)
@@ -156,7 +160,7 @@ export class Router {
     async init() {
 
         // eslint-disable-next-line @typescript-eslint/no-this-alias
-        const _this = this;
+        // const _this = this;
 
         const apiCalls = new APICalls();
 
@@ -212,63 +216,6 @@ export class Router {
             }
         });
 
-        /* AE proxy middleware */
-        // initial this before graphqlUploadExpress middleware
-        const ae_proxy = createProxyMiddleware({
-            target: _this.config.aeEndpoint,
-            ws: true,
-            xfwd: true,
-            autoRewrite: true,
-            changeOrigin: true,
-            on: {
-                proxyReq: function (preq, req: Request, res: Response) {
-                    preq.path = req.baseUrl + req.path;
-                    if (!req.user)
-                        return res.status(403).redirect('/');
-                    res.cookie('ae_proxy', req.headers['host']);
-                    const data = (req.user as IUser).username + ':token';
-                    preq.setHeader('authorization', `Basic ${Buffer.from(data).toString('base64')}`);
-                    if (req.body && Object.keys(req.body).length) {
-                        const contentType = preq.getHeader('Content-Type');
-                        preq.setHeader('origin', _this.config.aeEndpoint);
-                        const writeBody = (bodyData: string) => {
-                            preq.setHeader('Content-Length', Buffer.byteLength(bodyData));
-                            preq.write(bodyData);
-                            preq.end();
-                        };
-
-                        if (contentType === 'application/json') {
-                            writeBody(JSON.stringify(req.body));
-                        }
-
-                        if (contentType === 'application/x-www-form-urlencoded') {
-                            writeBody(qs.stringify(req.body));
-                        }
-
-                    }
-                },
-                proxyReqWs: function (preq) {
-                    const data = 'username:token';
-                    preq.setHeader('authorization', `Basic ${Buffer.from(data).toString('base64')}`);
-                },
-                error: function (err, _req, _res, target) {
-                    console.error(err, target);
-                }
-            }
-        });
-
-        this.proxies.push(ae_proxy);
-
-        /* AE routers */
-        // pun for AE portal
-        // node and rnode for AE application
-        // public for public resource like favicon and logo
-        const proxy_routers = ['/pun', '/node', '/rnode', '/public'];
-
-        proxy_routers.forEach(router => {
-            this.app.use(router, ae_proxy as NativeRequestHandler);
-        });
-
         await gqlServer.start();
 
         this.app.use(
@@ -283,18 +230,14 @@ export class Router {
         );
 
         /* register the graphql subscription functionalities */
-        // Creating the WebSocket subscription server
-        const wsServer = new WebSocketServer({
-            // This is the `httpServer` returned by createServer(app);
-            server: this.server,
-            // Pass a different path here if your ApolloServer serves at
-            // a different path.
-            path: '/graphql'
+        const graphqlWsServer = new WebSocketServer({
+            noServer: true // We'll handle upgrades manually
         });
+
 
         // Passing in an instance of a GraphQLSchema and
         // telling the WebSocketServer to start listening
-        const serverCleanup = useServer({ schema: schema, execute: execute, subscribe: subscribe }, wsServer);
+        const serverCleanup = useServer({ schema: schema, execute: execute, subscribe: subscribe }, graphqlWsServer);
 
         /* Bounce all unauthenticated non-graphql HTTP requests */
         // this.app.use((req: Request, res: Response, next: NextFunction) => {
@@ -306,16 +249,67 @@ export class Router {
         // });
 
         // webdav
+
+        const webdav_target = `http://localhost:${this.config.webdavPort}`;
         const webdav_proxy = createProxyMiddleware({
-            target: `http://localhost:${this.config.webdavPort}`,
+            target: webdav_target,
+            ws: true,
+            xfwd: true,
+            autoRewrite: true,
             changeOrigin: true,
             pathRewrite: (path) => {
                 const rewrittenPath = path.replace(/^\/webdav/, '/');
                 return rewrittenPath;
+            },
+            on: {
+                //TODO local test,  Change 'ProxyReq' to 'proxyReq' to match the correct event name
+                proxyReq: function (preq, req: Request, res: Response) {
+
+                    preq.setHeader('Host', req.headers['host'] || 'localhost');
+                    preq.setHeader('Origin', req.headers['origin'] || webdav_target);
+                    preq.setHeader('Accept', '*/*');
+                    preq.setHeader('Connection', 'keep-alive');
+                    preq.setHeader('Keep-Alive', 'timeout=120');
+
+
+                    // Handle authentication
+                    if (req.user) {
+                        // If user info is available, create Basic auth header
+                        const data = `${req.user.id}:token`;
+                        preq.setHeader('Authorization', `Basic ${Buffer.from(data).toString('base64')}`);
+                    } else {
+                        Logger.log('Unauthorized request, webdav_proxy redirecting...');
+                        res.status(403).redirect('/');
+                        return;
+                    }
+                    // Special handling for OPTIONS request
+                    if (req.method === 'OPTIONS') {
+                        preq.setHeader('MS-Author-Via', 'DAV');
+                        res.setHeader('DAV', '1,2');
+                        res.setHeader('Allow', 'OPTIONS, GET, HEAD, POST, PUT, DELETE, PROPFIND, PROPPATCH, MKCOL, COPY, MOVE, LOCK, UNLOCK');
+                    }
+                },
+                proxyRes: function (proxyRes) {
+
+                    if (proxyRes.statusCode === 500) {
+                        console.error('WebDAV Server Error:', proxyRes.statusMessage);
+                        let body = '';
+                        proxyRes.on('data', chunk => {
+                            body += chunk.toString();
+                        });
+                        proxyRes.on('end', () => {
+                            Logger.error(`Response Body: ${JSON.stringify(body)}`);
+                        });
+                    }
+                }
             }
         });
 
         this.app.use('/webdav', webdav_proxy as NativeRequestHandler);
+
+        this.app.use('/trpc/data.uploadStudyFileData', (req, res, next) => {
+            uploadFileData(req, res).catch(next); // Ensure any error is passed to next()
+        });
 
         // trpc
         const upload = multer();
@@ -363,17 +357,116 @@ export class Router {
 
         this.app.get('/file/:fileId', fileDownloadControllerInstance.fileDownloadController);
 
+
+        // set up the proxy and register directly, combine the grapgql's websocket and lxd's websocket
+
+        // Setup HTTP route handlers for Jupyter proxy requests
+        const proxyRoutes = ['/jupyter/:instance_id', '/jupyter/:instance_id/*'];
+        proxyRoutes.forEach((route) => {
+            this.app.use(route, (req, res, next) => {
+                jupyterProxyMiddleware(req, res, next, apiCalls.instanceCore).catch(next);
+            });
+        });
+
+        // Add VNC proxy routes
+        const vncProxyRoutes = ['/matlab/:instance_id', '/matlab/:instance_id/*'];
+        vncProxyRoutes.forEach((route) => {
+            this.app.use(route, (req, res, next) => {
+                vncProxyMiddleware(req, res, next, apiCalls.instanceCore).catch(next);
+            });
+        });
+
+
+        // Create WebSocket server for RTC connections
+        const containerWsServer = new WebSocketServer({
+            noServer: true
+        });
+
+        registerContainSocketServer(containerWsServer, apiCalls.lxdManager);
+
+        // Create WebSocket server for  connections
+        const targetWsServer = new WebSocketServer({
+            noServer: true
+        });
+
+        registerJupyterSocketServer(targetWsServer, apiCalls.instanceCore);
+
+        // Create WebSocket server for VNC connections
+        const vncWsServer = new WebSocketServer({
+            noServer: true
+        });
+
+        registerVNCSocketServer(vncWsServer, apiCalls.instanceCore);
+
+        // Upgrade handler for WebSocket requests
+        this.server.on('upgrade', (req, socket: Socket, head: Buffer) => {
+
+            if (req.url?.startsWith('/graphql')) {
+                // Handle GraphQL WebSocket connection for subscriptions
+                graphqlWsServer.handleUpgrade(req, socket, head, (ws) => {
+                    graphqlWsServer.emit('connection', ws, req); // Forward the upgrade to the GraphQL WebSocket server
+                });
+            } else if (req.url?.startsWith('/jupyter')) {
+                const instance_id = req.url.split('/')[2];  // Extract instance ID from the URL
+
+                if (!instance_id) {
+                    Logger.error('No instance ID found in URL.');
+                    socket.end();
+                    return;
+                }
+                try {
+                    targetWsServer.handleUpgrade(req, socket, head, (ws) => {
+
+                        targetWsServer.emit('connection', ws, req);  // Forward the upgrade to the container WebSocket server
+                    }
+                    );
+                } catch (error) {
+                    Logger.log(`error ${JSON.stringify(error)}`);
+                    socket.end();  // End socket if there's an error creating the proxy
+                    return;
+                }
+            }
+            // handle VNC websocket connections
+            else if (req.url?.startsWith('/matlab')) {
+
+                if (req.headers.upgrade?.toLowerCase() === 'websocket') {
+
+                    vncWsServer.handleUpgrade(req, socket, head, (ws) => {
+                        vncWsServer.emit('connection', ws, req);
+                    });
+                } else {
+                    socket.destroy();
+                }
+            }
+            // Handle RTC WebSocket connections
+            else if (req.url?.startsWith('/rtc')) {
+
+                containerWsServer.handleUpgrade(req, socket, head, (ws) => {
+                    containerWsServer.emit('connection', ws, req);  // Forward the upgrade to the container WebSocket server
+                });
+            }
+            // Invalid WebSocket request
+            else {
+                Logger.error(`Invalid WebSocket upgrade request: ${req.url}`);
+                socket.destroy();  // Close socket if the request is not valid
+            }
+        });
+
+        // Initialize the proxy cache cleanup system
+        initializeProxyCacheCleanup();
+
     }
 
     public getApp(): Express {
         return this.app;
     }
 
-    public getProxy(): RequestHandler<Request, Response> {
-        return this.proxies[0];
-    }
+    // public getProxy(): RequestHandler<Request, Response> {
+    //     return this.proxies[0];
+    // }
 
     public getServer(): http.Server {
         return this.server;
     }
+
 }

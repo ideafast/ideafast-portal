@@ -1,5 +1,5 @@
 import { TRPCError } from '@trpc/server';
-import { TRPC_ERROR_CODE_KEY } from '@trpc/server/dist/rpc';
+
 export enum enumCoreErrors {
     DATABASE_ERROR = 'DATABASE_ERROR',
     NOT_LOGGED_IN = 'NOT_LOGGED_IN',
@@ -10,7 +10,8 @@ export enum enumCoreErrors {
     FILE_STREAM_ERROR = 'FILE_STREAM_ERROR',
     OBJ_STORE_ERROR = 'OBJ_STORE_ERROR',
     UNQUALIFIED_ERROR = 'UNQUALIFIED_ERROR',
-    NOT_IMPLEMENTED = 'NOT_IMPLEMENTED'
+    NOT_IMPLEMENTED = 'NOT_IMPLEMENTED',
+    POLLING_ERROR = 'POLLING_ERROR' // error type for polling errors
 }
 
 export enum enumRequestErrorCodes {
@@ -35,7 +36,7 @@ export enum enumRequestErrorCodes {
  */
 export class CoreError extends TRPCError {
     errorCode: enumCoreErrors;
-    constructor(errorCode: enumCoreErrors, message: string, httpErrorCode: TRPC_ERROR_CODE_KEY = 'BAD_REQUEST') {
+    constructor(errorCode: enumCoreErrors, message: string, httpErrorCode: (typeof TRPCError.prototype)['code'] = 'BAD_REQUEST') {
         super({ message: message, code: httpErrorCode });
         this.errorCode = errorCode;
         Object.setPrototypeOf(this, new.target.prototype);

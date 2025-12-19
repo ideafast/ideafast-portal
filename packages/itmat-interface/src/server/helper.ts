@@ -1,12 +1,12 @@
-import { ConfigRouter, DataRouter, DomainRouter, DriveRouter, FileResolvers, GraphQLResolvers, JobResolvers, LogResolvers, LogRouter, OrganisationResolvers, OrganisationRouter, PermissionResolvers, PubkeyResolvers, RoleRouter, StandardizationResolvers, StudyResolvers, StudyRouter, TRPCAggRouter, UserResolvers, UserRouter, tRPCBaseProcedureMilldeware, WebAuthnRouter} from '@itmat-broker/itmat-apis';
+import { ConfigRouter, DataRouter, DomainRouter, DriveRouter, FileResolvers, GraphQLResolvers, JobResolvers, LogResolvers, LogRouter, OrganisationResolvers, OrganisationRouter, PermissionResolvers, PubkeyResolvers, RoleRouter, StandardizationResolvers, StudyResolvers, StudyRouter, TRPCAggRouter, UserResolvers, UserRouter, tRPCBaseProcedureMilldeware, WebAuthnRouter, InstanceRouter, LXDRouter } from '@itmat-broker/itmat-apis';
 import { db } from '../database/database';
-import { ConfigCore, DataCore, DataTransformationCore, DomainCore, DriveCore, FileCore, LogCore, OrganisationCore, PermissionCore, StandarizationCore, StudyCore, UserCore, UtilsCore, WebauthnCore } from '@itmat-broker/itmat-cores';
+import { ConfigCore, DataCore, DataTransformationCore, DomainCore, DriveCore, FileCore, LogCore, OrganisationCore, PermissionCore, StandarizationCore, StudyCore, UserCore, UtilsCore, WebauthnCore, JobCore, InstanceCore, LxdManager } from '@itmat-broker/itmat-cores';
 import { objStore } from '../objStore/objStore';
 import { mailer } from '../emailer/emailer';
 import configManager from '../utils/configManager';
 import { CreateNextContextOptions } from '@trpc/server/adapters/next';
 import { inferAsyncReturnType, initTRPC } from '@trpc/server';
-
+import { guestProtectionMiddleware } from '../utils/guestProtection';
 export class APICalls {
     permissionCore: PermissionCore;
     fileCore: FileCore;
@@ -22,6 +22,9 @@ export class APICalls {
     configCore: ConfigCore;
     domainCore: DomainCore;
     webauthnCore: WebauthnCore;
+    jobCore: JobCore;
+    instanceCore: InstanceCore;
+    lxdManager: LxdManager;
     constructor() {
         this.permissionCore = new PermissionCore(db);
         this.fileCore = new FileCore(db, objStore);
@@ -37,6 +40,9 @@ export class APICalls {
         this.configCore = new ConfigCore(db);
         this.domainCore = new DomainCore(db, this.fileCore);
         this.webauthnCore = new WebauthnCore(db, mailer, configManager, objStore);
+        this.jobCore = new JobCore(db);
+        this.instanceCore = new InstanceCore(db, mailer, configManager, this.jobCore, this.userCore);
+        this.lxdManager = new LxdManager(configManager);
     }
 
     _listOfGraphqlResolvers() {
@@ -64,7 +70,10 @@ export class APICalls {
 
         type Context = inferAsyncReturnType<typeof __unusedCreatetRPCContext>;
         const t = initTRPC.context<Context>().create();
-        const baseProcedure = t.procedure.use(async (opts) => {
+        const protectedProcedure = t.procedure.use(async (opts) => {
+            return await guestProtectionMiddleware(opts);
+        });
+        const baseProcedure = protectedProcedure.use(async (opts) => {
             return await tRPCBaseProcedureMilldeware(db, opts);
         });
         const router = t.router;
@@ -79,7 +88,9 @@ export class APICalls {
             new LogRouter(baseProcedure, router, this.logCore),
             new DomainRouter(baseProcedure, router, this.domainCore),
             new OrganisationRouter(baseProcedure, router, this.organisationCore),
-            new WebAuthnRouter(baseProcedure, router, this.webauthnCore)
+            new WebAuthnRouter(baseProcedure, router, this.webauthnCore),
+            new InstanceRouter(baseProcedure, router, this.instanceCore),
+            new LXDRouter(baseProcedure, router, this.lxdManager)
         ))._routers();
     }
 }

@@ -12,6 +12,7 @@ import tmp from 'tmp';
 import { UpdateFilter } from 'mongodb';
 import * as pubkeycrypto from '../utils/pubkeycrypto';
 import crypto from 'crypto';
+import fs from 'fs';
 
 export class UserCore {
     db: DBType;
@@ -20,6 +21,7 @@ export class UserCore {
     objStore: ObjectStore;
     fileCore: FileCore;
     configCore: ConfigCore;
+    systemSecret: { publickey: string, privatekey: string };
     constructor(db: DBType, mailer: Mailer, config: IConfiguration, objStore: ObjectStore) {
         this.db = db;
         this.mailer = mailer;
@@ -27,7 +29,64 @@ export class UserCore {
         this.objStore = objStore;
         this.fileCore = new FileCore(db, objStore);
         this.configCore = new ConfigCore(db);
+
+        // Initialize with empty strings, will be populated in init()
+        this.systemSecret = {
+            publickey: '',
+            privatekey: ''
+        };
+
+        // Initialize synchronously to avoid async constructor
+        void this.initialize();
     }
+    private async initialize(): Promise<void> {
+        try {
+            // Load the system secret key pairs
+            this.systemSecret = {
+                publickey: await this.loadKey(this.config.systemKey['pubkey']),
+                privatekey: await this.loadKey(this.config.systemKey['privkey'])
+            };
+            Logger.log('System keys loaded successfully');
+        } catch (error) {
+            // Handle error but allow system to start
+            Logger.error(`Failed to load system keys: ${error}`);
+            this.systemSecret = {
+                publickey: '',
+                privatekey: ''
+            };
+        }
+    }
+
+    /**
+     * Load key from text content or file path.
+     * @param keyPathOrContent - Either the key content or a file path to the key.
+     * @returns The key as a string.
+     */
+    private async loadKey(keyPathOrContent: string): Promise<string> {
+        try {
+            if (!keyPathOrContent) {
+                Logger.warn('Empty key path or content provided');
+                return '';
+            }
+
+            if (keyPathOrContent.includes('-----BEGIN')) {
+                // Key is provided as direct content
+                return keyPathOrContent;
+            } else {
+                // Key is provided as a file path, read from file
+                try {
+                    return fs.readFileSync(keyPathOrContent, 'utf8');
+                } catch (fileError) {
+                    Logger.warn(`Could not read key file at ${keyPathOrContent}: ${fileError}`);
+                    return '';
+                }
+            }
+        } catch (error) {
+            Logger.warn(`Error processing key: ${error}`);
+            return '';
+        }
+    }
+
     /**
      * Get a user. One of the parameters should not be null, we will find users by the following order: usreId, username, email.
      *
@@ -781,7 +840,7 @@ export class UserCore {
      * @param life - The life of the token.
      * @returns - The token.
      */
-    public async getAccessToken(username: string, hashedPrivateKey: string, signature: string, life = 12000) {
+    public async getAccessToken(username: string, hashedPrivateKey: string, signature: string, life = 120000) {
         const user = await this.db.collections.users_collection.findOne({ 'username': username, 'life.deletedTime': null });
         if (!user) {
             throw new CoreError(
@@ -835,7 +894,7 @@ export class UserCore {
      * @param life - The life of the token.
      * @returns
      */
-    public async issueAccessToken(pubkey: string, signature: string, life?: number) {
+    public async issueAccessToken(pubkey: string, signature: string, life = 120000) {
         // refine the public-key parameter from browser
         pubkey = pubkey.replace(/\\n/g, '\n');
 
@@ -881,6 +940,47 @@ export class UserCore {
 
         return accessToken;
     }
+
+    public async issueSystemAccessToken(userId: string, life?: number | null) {
+        /**
+         * Get the user to verify existence
+         * Minimal payload for system token
+         * @param userId - The id of the user.
+         * @param life - The life of the token.
+         * @returns
+         */
+        // Get the user to verify existence
+        const user = await this.db.collections.users_collection.findOne(
+            { 'id': userId, 'life.deletedTime': null },
+            { projection: { password: 0, otpSecret: 0 } }
+        );
+
+        if (!user) {
+            throw new CoreError(
+                enumCoreErrors.CLIENT_ACTION_ON_NON_EXISTENT_ENTRY,
+                'User does not exist.'
+            );
+        }
+
+        // Minimal payload for system token
+        const payload = {
+            publicKey: this.systemSecret.publickey,
+            userId: user.id,
+            isSystemToken: true,
+            issuer: 'IDEA-FAST DMP SYSTEM',
+            timestamp: Date.now()
+        };
+
+        // set the life time to one year if not specified
+        life = life || (365 * 24 * 60 * 60 * 1000);
+
+        const accessToken = {
+            accessToken: tokengen(payload, this.systemSecret.privatekey, undefined, undefined, life)
+        };
+
+        return accessToken;
+    }
+
 
     /**
      * Delete a pubkey.

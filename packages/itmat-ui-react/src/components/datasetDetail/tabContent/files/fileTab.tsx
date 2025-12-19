@@ -1,22 +1,20 @@
 import React, { FunctionComponent, useState } from 'react';
-import { Button, Table, List, Modal, Upload, Form, Select, Input, notification, message, Typography } from 'antd';
-import { CloudDownloadOutlined, InboxOutlined } from '@ant-design/icons';
+import { Progress, Button, Table, List, Modal, Upload, Form, Select, Input, notification, message, Typography, Tooltip } from 'antd';
+import { CloudDownloadOutlined, InboxOutlined, NumberOutlined } from '@ant-design/icons';
 import { enumConfigType, IStudyConfig, IStudy, IField, enumDataTypes, IStudyFileBlock, enumUserTypes, IUserWithoutToken, deviceTypes, enumStudyBlockColumnValueType, IFile } from '@itmat-broker/itmat-types';
 import LoadSpinner from '../../../reusable/loadSpinner';
 import css from './fileRepo.module.css';
 import { trpc } from '../../../../utils/trpc';
-import { convertFileListToApiFormat, formatBytes, stringCompareFunc, tableColumnRender } from '../../../../utils/tools';
+import { formatBytes, stringCompareFunc, tableColumnRender } from '../../../../utils/tools';
 import { UploadChangeParam } from 'antd/lib/upload';
 import { RcFile, UploadFile } from 'antd/lib/upload/interface';
 import axios from 'axios';
 import { validate } from '@ideafast/idgen';
 import dayjs from 'dayjs';
 import Highlighter from 'react-highlight-words';
-import ClipLoader from 'react-spinners/ClipLoader';
 import { ResponsiveLine } from '@nivo/line';
 import { ResponsiveBar } from '@nivo/bar';
 import { useQueryClient } from '@tanstack/react-query';
-
 const { Option } = Select;
 
 export const FileRepositoryTabContent: FunctionComponent<{ study: IStudy }> = ({ study }) => {
@@ -63,11 +61,11 @@ export const FileRepositoryTabContent: FunctionComponent<{ study: IStudy }> = ({
             </List.Item>
         </List>
         {
-            ((getStudyConfig.data.properties as IStudyConfig).defaultFileBlocks ?? []).map((block, index) => (
+            (getStudyConfig.data ? (getStudyConfig.data.properties as IStudyConfig).defaultFileBlocks : []).map((block, index) => (
                 <FileBlock
                     key={`Fileblock_${index}`}
                     user={whoAmI.data}
-                    fields={getStudyFields.data}
+                    fields={getStudyFields.data ?? []}
                     study={study}
                     block={block}
                 />
@@ -76,7 +74,7 @@ export const FileRepositoryTabContent: FunctionComponent<{ study: IStudy }> = ({
     </div >;
 };
 
-export const UploadFileComponent: FunctionComponent<{ study: IStudy, fields: IField[], fieldIds: string[] }> = ({ study, fields, fieldIds }) => {
+export const UploadFileComponent: FunctionComponent<{ study: IStudy, fields: IField[], fieldIds: string[], setIsUploading: (isUploading: boolean) => void, setProgress: (progress: number) => void }> = ({ study, fields, fieldIds, setIsUploading, setProgress }) => {
     const queryClient = useQueryClient();
     const [__unused__api, contextHolder] = notification.useNotification();
     const [isShowPanel, setIsShowPanel] = React.useState(false);
@@ -84,7 +82,6 @@ export const UploadFileComponent: FunctionComponent<{ study: IStudy, fields: IFi
     const [fileProperties, setFileProperties] = useState({
         fieldId: ''
     });
-    const [isUploading, setIsUploading] = useState(false);
     const getCurrentDomain = trpc.domain.getCurrentDomain.useQuery();
     const [form] = Form.useForm();
     let selectedField = fields.filter(el => el.fieldId === fileProperties.fieldId)[0];
@@ -101,26 +98,32 @@ export const UploadFileComponent: FunctionComponent<{ study: IStudy, fields: IFi
         try {
             setIsShowPanel(false);
             setIsUploading(true);
-            const files = await convertFileListToApiFormat(fileList, 'file');
             const formData = new FormData();
-            if (files.length > 0) {
-                files.forEach(file => {
-                    formData.append('file', file.stream, file.originalname);
-                });
+
+            // Append file
+            if (fileList.length > 0) {
+                formData.append('file', fileList[0]);
             }
 
+            // Append additional fields
             formData.append('fieldId', String(variables.fieldId));
             formData.append('studyId', String(variables.studyId));
             formData.append('properties', JSON.stringify({
                 ...variables,
-                FileName: fileList[0].name
+                FileName: fileList[0]?.name || 'unknown'
             }));
+            // Axios request
             const response = await axios.post('/trpc/data.uploadStudyFileData', formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data'
+                },
+                onUploadProgress: (progressEvent) => {
+                    if (progressEvent.total) {
+                        const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                        setProgress(percentCompleted);
+                    }
                 }
             });
-
             if (response?.data?.result?.data?.id) {
                 const queryKey = [['data', 'getFiles'], {
                     input: {
@@ -133,14 +136,16 @@ export const UploadFileComponent: FunctionComponent<{ study: IStudy, fields: IFi
                 const cache: IFile[] = queryClient.getQueryData(queryKey) ?? [];
                 const newCache = [...cache, response.data.result.data];
                 queryClient.setQueryData(queryKey, newCache);
-                void queryClient.invalidateQueries(['data', 'getFiles', {
-                    input: {
-                        studyId: study.id,
-                        fieldIds: fieldIds,
-                        useCache: false,
-                        readable: true
-                    }
-                }]);
+                void queryClient.invalidateQueries({
+                    queryKey: ['data', 'getFiles', {
+                        input: {
+                            studyId: study.id,
+                            fieldIds: fieldIds,
+                            useCache: false,
+                            readable: true
+                        }
+                    }]
+                });
                 setIsUploading(false);
                 setIsShowPanel(false);
                 void message.success('File has been uploaded.');
@@ -156,22 +161,30 @@ export const UploadFileComponent: FunctionComponent<{ study: IStudy, fields: IFi
             }
         } finally {
             setIsUploading(false);
+            setProgress(0);
         }
 
     };
-
     return (<div>
         {contextHolder}
         <Button style={{ backgroundColor: 'powderblue' }} onClick={() => setIsShowPanel(true)}>Upload Files</Button>
         <Modal
             open={isShowPanel}
-            onCancel={() => setIsShowPanel(false)}
-            onOk={() => void handleUploadFile({
-                ...form.getFieldsValue(),
-                studyId: study.id
-            })}
+            onCancel={() => {
+                setIsShowPanel(false);
+                setFileList([...[]]);
+            }}
+            onOk={() => {
+                void handleUploadFile({
+                    ...form.getFieldsValue(),
+                    studyId: study.id
+                });
+                setFileList([]);
+                form.resetFields();
+            }}
         >
             <Upload.Dragger
+                key={fileList.length}
                 multiple={false}
                 showUploadList={true}
                 beforeUpload={async () => {
@@ -204,9 +217,9 @@ export const UploadFileComponent: FunctionComponent<{ study: IStudy, fields: IFi
                                 const endDate = dayjs(particules[6], 'YYYYMMDD');
                                 if (startDate.isSame(endDate) || startDate.isBefore(endDate)) {
                                     if (startDate.isValid())
-                                        properties.startDate = startDate.valueOf();
+                                        properties.startDate = startDate.format('YYYYMMDD');
                                     if (endDate.isValid() && (endDate.isSame(dayjs()) || endDate.isBefore(dayjs())))
-                                        properties.endDate = endDate.valueOf();
+                                        properties.endDate = endDate.format('YYYYMMDD');
                                 }
                             }
                             const fieldId = `Device_${deviceTypes[particules[3]].replace(/ /g, '_')}`;
@@ -222,7 +235,7 @@ export const UploadFileComponent: FunctionComponent<{ study: IStudy, fields: IFi
                             });
                             selectedField = fields.filter(el => el.fieldId === fieldId)[0];
                         } catch {
-                            void message.error('Failed to upload file.');
+                            void message.error('Failed to upload file. Please check the file name format.');
                         }
                     }
                     setFileList(validFiles);
@@ -275,28 +288,13 @@ export const UploadFileComponent: FunctionComponent<{ study: IStudy, fields: IFi
                 }
             </Form>
         </Modal>
-        {
-            isUploading ? (
-                <div
-                    style={{
-                        position: 'absolute',
-                        top: '10%',
-                        right: '0%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        transform: 'translate(-50%, -50%)'
-                    }}
-                >
-                    <ClipLoader />
-                    <span style={{ marginLeft: '8px' }}>Uploading...Please wait</span>
-                </div>
-            ) : null
-        }
     </div >);
 };
 
 export const FileBlock: FunctionComponent<{ user: IUserWithoutToken, fields: IField[], study: IStudy, block: IStudyFileBlock }> = ({ user, fields, study, block }) => {
+    const [isUploading, setIsUploading] = useState(false);
     const queryClient = useQueryClient();
+    const [progress, setProgress] = useState(0);
     const [searchedKeyword, setSearchedKeyword] = useState<string | undefined>(undefined);
     const [isModalOn, setIsModalOn] = useState(false);
     const getFiles = trpc.data.getFiles.useQuery({ studyId: study.id, fieldIds: block.fieldIds, readable: true, useCache: false });
@@ -313,14 +311,16 @@ export const FileBlock: FunctionComponent<{ user: IUserWithoutToken, fields: IFi
             const cache: IFile[] = queryClient.getQueryData(queryKey) ?? [];
             const newCache = cache.filter(el => el.id !== data.id);
             queryClient.setQueryData(queryKey, newCache);
-            void queryClient.invalidateQueries(['data', 'getFiles', {
-                input: {
-                    studyId: study.id,
-                    fieldIds: fields.map(el => el.fieldId),
-                    useCache: false,
-                    readable: true
-                }
-            }]);
+            void queryClient.invalidateQueries({
+                queryKey: ['data', 'getFiles', {
+                    input: {
+                        studyId: study.id,
+                        fieldIds: fields.map(el => el.fieldId),
+                        useCache: false,
+                        readable: true
+                    }
+                }]
+            });
             void message.success('File has been deleted.');
         },
         onError: () => {
@@ -346,7 +346,7 @@ export const FileBlock: FunctionComponent<{ user: IUserWithoutToken, fields: IFi
         });
     }
 
-    const filteredFiles = getFiles.data.filter(el => {
+    const filteredFiles = getFiles.data?.filter(el => {
         if (!searchedKeyword) {
             return true;
         } else {
@@ -360,7 +360,7 @@ export const FileBlock: FunctionComponent<{ user: IUserWithoutToken, fields: IFi
             }
             return false;
         }
-    });
+    }).sort((a, b) => (b.life?.createdTime ?? 0) - (a.life?.createdTime ?? 0)) ?? [];
 
     const summaryByMonth = (filteredFiles) => {
         // Create a map to hold the counts per month
@@ -442,19 +442,38 @@ export const FileBlock: FunctionComponent<{ user: IUserWithoutToken, fields: IFi
                     <div>{block.title}</div>
                 </div>
                 <div>
-                    <UploadFileComponent study={study} fields={fields.filter(el => el.dataType === enumDataTypes.FILE)} fieldIds={block.fieldIds} />
+                    <UploadFileComponent study={study} fields={fields.filter(el => el.dataType === enumDataTypes.FILE)} fieldIds={block.fieldIds} setIsUploading={setIsUploading} setProgress={setProgress} />
                 </div>
             </div>
         }
     >
         <List.Item>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                <div style={{ width: '70%' }}>
+                <div style={{ width: '50%' }}>
                     <Input
                         value={searchedKeyword}
                         placeholder="Search"
                         onChange={(e) => setSearchedKeyword(e.target.value)}
                     />
+                </div>
+                <div style={{ width: '20%', textAlign: 'right' }}>
+                    {
+                        isUploading ? (
+                            <div
+                                style={{
+                                    position: 'absolute',
+                                    top: '2%',
+                                    right: '25%',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    transform: 'translate(-50%, -50%)'
+                                }}
+                            >
+                                <Progress type='circle' size={60} percent={Math.min(progress, 99)} />
+                                <span style={{ fontSize: '20px', fontWeight: 'bold', color: 'black', marginRight: '20px' }}>{progress >= 99 ? 'Finishing' : 'Uploading'}</span>
+                            </div>
+                        ) : null
+                    }
                 </div>
                 <div style={{ width: '30%', textAlign: 'right' }}>
                     <span style={{ fontSize: '16px', fontWeight: 'bold', color: 'black', marginRight: '20px' }}>
@@ -765,6 +784,17 @@ function generateTableColumns(block: IStudyFileBlock, searchedKeyword: string | 
             }
         });
     }
+    columns.push({
+        title: '',
+        dataIndex: 'hash',
+        render: (__unused__value, record) => (
+            <Tooltip title={record.hash} placement='bottomRight' >
+                <Button type='link' icon={<NumberOutlined />}></Button>
+            </Tooltip>
+        ),
+        // width: '8rem',
+        key: 'delete'
+    });
     columns.push({
         title: '',
         dataIndex: 'download',

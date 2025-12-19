@@ -11,7 +11,7 @@ import { mailer } from './emailer/emailer';
 let interfaceRunner = new ITMATInterfaceRunner(config);
 let interfaceSockets: Socket[] = [];
 let interfaceServer: http.Server;
-let interfaceRouter: Express;
+let interfaceRouter: Express | undefined;
 
 function serverStart() {
     console.info(`Starting api server ${process.pid} ...`);
@@ -42,9 +42,9 @@ function serverStart() {
         // notice users of expiration
         await emailNotification();
 
-        const interfaceRouterProxy = itmatRouter.getProxy();
-        if (interfaceRouterProxy?.upgrade)
-            interfaceServer.on('upgrade', interfaceRouterProxy?.upgrade);
+        // const interfaceRouterProxy = itmatRouter.getProxy();
+        // if (interfaceRouterProxy?.upgrade)
+        //     interfaceServer.on('upgrade', interfaceRouterProxy?.upgrade);
 
     }).catch((error) => {
         console.error('An error occurred while starting the ITMAT core.', error);
@@ -67,9 +67,6 @@ function serverSpinning() {
         interfaceSockets = [];
         interfaceServer.close(() => {
             console.info(`Shuting down api server ${process.pid} ...`);
-            interfaceRouter?.on('close', () => {
-                serverStart();
-            });
             serverStart();
         });
     } else {
