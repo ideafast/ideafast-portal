@@ -276,10 +276,10 @@ export class DMPFileSystem extends webdav.FileSystem {
                     fileBuffer.push(chunk);
                     callback();
                 },
-                async final(callback) {
+                final: (callback) => {
                     if (!isFinalCalled) {
                         isFinalCalled = true;
-                        await _this.driveCore.createDriveFile(
+                        _this.driveCore.createDriveFile(
                             user,
                             parentNode.id,
                             undefined,

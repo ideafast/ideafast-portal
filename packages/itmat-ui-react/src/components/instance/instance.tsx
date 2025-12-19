@@ -45,7 +45,7 @@ export const InstanceSection: FunctionComponent = () => {
         refetchIntervalInBackground: true, // Continue refetching when tab is in background
         refetchOnWindowFocus: true, // Refetch when window regains focus
         refetchOnReconnect: true, // Refetch when reconnecting
-        retry: 3, // Number of retry attempts
+        retry: 3 // Number of retry attempts
     });
 
     // Recalculate `isAtOrOverQuota` whenever quota or instances data changes

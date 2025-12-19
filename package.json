@@ -58,7 +58,7 @@
         "@types/jest": "30.0.0",
         "@types/json2csv": "5.0.7",
         "@types/jsonwebtoken": "9.0.10",
-        "@types/node": "^24.0.0",
+        "@types/node": "^24.10.4",
         "@types/nodemailer": "7.0.4",
         "@types/passport": "1.0.17",
         "@types/qrcode": "1.5.6",

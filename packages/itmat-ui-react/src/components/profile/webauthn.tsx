@@ -41,7 +41,7 @@ export const MyWebauthn: FunctionComponent = () => {
             const updatedCredentials = credentials.filter((id) => id !== webauthnID);
             setCredentials(updatedCredentials); // Remove the ID from credentials
         }
-    }, [webauthnIDData])
+    }, [webauthnIDData]);
 
     useEffect(() => {
         if (webauthnIDError)
