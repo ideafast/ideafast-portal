@@ -19,6 +19,7 @@ export const MyWebauthn: FunctionComponent = () => {
 
     // getWebAuthnID query to remove the webauthn_id when no devices remain
     const { data: webauthnIDData, error: webauthnIDError, refetch: fetchWebAuthnID } = trpc.webauthn.getWebauthnID.useQuery(undefined, {
+        queryKey: ['webauthn.getWebauthnID', void 0],
         enabled: false
     });
     const { credentials, setCredentials } = useAuth(); // Access credentials from context

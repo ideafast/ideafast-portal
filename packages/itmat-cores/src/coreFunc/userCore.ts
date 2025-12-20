@@ -1292,7 +1292,7 @@ export class UserCore {
             );
         }
 
-        const { password: __unusedPassword, otpSecret: __unusedOtpSecret, ...filteredUser } = user;
+        const { password: __unusedPassword, otpSecret: __unusedOtpSecret, _id: __unusedId, ...filteredUser } = user;
         return new Promise((resolve) => {
             req.login(filteredUser, (err) => {
                 if (err) {

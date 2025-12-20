@@ -1,4 +1,3 @@
-/* eslint-disable */
 import { readFileSync } from 'fs';
 
 // Reading the SWC compilation config and remove the "exclude"
@@ -10,7 +9,7 @@ export default {
     displayName: 'itmat-types',
     preset: '../../jest.preset.cjs',
     transform: {
-        '^.+\\.[tj]s$': ['@swc/jest', swcJestConfig],
+        '^.+\\.[tj]s$': ['@swc/jest', swcJestConfig]
     },
     moduleFileExtensions: ['ts', 'js', 'html'],
     coverageDirectory: '../../coverage/packages/itmat-types'
