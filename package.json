@@ -112,7 +112,7 @@
         "@nivo/pie": "0.99.0",
         "@nivo/treemap": "0.99.0",
         "@simplewebauthn/browser": "^10.0.0",
-        "@simplewebauthn/server": "^10.0.1",
+        "@simplewebauthn/server": "^13.2.2",
         "@swc/helpers": "0.5.17",
         "@tanstack/react-query": "5.90.12",
         "@trpc/client": "11.8.0",
