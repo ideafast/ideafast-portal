@@ -4622,20 +4622,20 @@
   resolved "https://registry.yarnpkg.com/@tokenizer/token/-/token-0.3.0.tgz#fe98a93fe789247e998c75e74e9c7c63217aa276"
   integrity sha512-OvjF+z51L3ov0OyAU0duzsYuvO01PH7x4t6DJx+guahgTnBHkhJdG7soQeTSFLWN3efnHyibZ4Z8l2EuWwJN3A==
 
-"@trpc/client@10.45.3":
-  version "10.45.3"
-  resolved "https://registry.yarnpkg.com/@trpc/client/-/client-10.45.3.tgz#000f4c5aeb90c6b9dd19d97b7b47ee57d8549142"
-  integrity sha512-Fkr2pUckEyse4HeAj79FL9OIKGrITRzK4Z1KDB0qxlCwA7sgcAeafY23qzOOKHeJxAi+hTJmJx3k9p2iabY90g==
+"@trpc/client@11.8.0":
+  version "11.8.0"
+  resolved "https://registry.yarnpkg.com/@trpc/client/-/client-11.8.0.tgz#4fa29e321b0a6399cc0eb2c58d9052583865abfd"
+  integrity sha512-imJQeESX1hAapDaC4JB91yvXg41AZfBuTh/scnEiN/hAubZa5s/ikp0n+w29q2GCf+hREkr3WptUFKFJoDAIug==
 
-"@trpc/react-query@10.45.3":
-  version "10.45.3"
-  resolved "https://registry.yarnpkg.com/@trpc/react-query/-/react-query-10.45.3.tgz#2be8af45ce1f9a86c493dfd4ad4b5775ea87840d"
-  integrity sha512-L5zvNO9MBit//S8JwR97eDwrCHKRs+cq+jnOgGMvIXIz8kSxJqvBHUHU7LEvorjrxfjH3rM/EbQChHCxRZuDfA==
+"@trpc/react-query@11.8.0":
+  version "11.8.0"
+  resolved "https://registry.yarnpkg.com/@trpc/react-query/-/react-query-11.8.0.tgz#747f23f12757f1e9a52b61c18512141ef6198f24"
+  integrity sha512-zJG22PqhGUBq6ke58McGxRBGWGDTHlmsgpxp/rQx8iT2yi0Ja1H2/UcSsjZ/MG65DhCfpKvMVH0OVivTn9FWwA==
 
-"@trpc/server@10.45.3":
-  version "10.45.3"
-  resolved "https://registry.yarnpkg.com/@trpc/server/-/server-10.45.3.tgz#4f9fc58c5aafeca1f041ffd39113517f16eef2f6"
-  integrity sha512-CVZM42FdGwqYQxV7vSRwb//AF8REfV60S/fUnwx7xqCnnSDus0FW/UuAOW4eQJ30RQlOPy4MYU8B3dbTAx85Ew==
+"@trpc/server@11.8.0":
+  version "11.8.0"
+  resolved "https://registry.yarnpkg.com/@trpc/server/-/server-11.8.0.tgz#2f6b37e79a6774628be0a050c8ef8b4e55385222"
+  integrity sha512-DphyQnLuyX2nwJCQGWQ9zYz4hZGvRhSBqDhQ0SH3tDhQ3PU4u68xofA0pJ741Ir4InEAFD+TtJVLAQy+wVOkiQ==
 
 "@trysound/sax@0.2.0":
   version "0.2.0"

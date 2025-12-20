@@ -28,7 +28,6 @@ export const WebAuthnRegistrationComponent: FunctionComponent = () => {
     const getCurrentDomain = trpc.domain.getCurrentDomain.useQuery();
 
     const { refetch: fetchWebAuthnID, data: webauthnIDData, error: webauthnIDError } = trpc.webauthn.getWebauthnID.useQuery(undefined, {
-        queryKey: ['webauthn.getWebauthnID', void 0],
         enabled: false
     });
 
