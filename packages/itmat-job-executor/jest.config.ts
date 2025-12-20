@@ -1,4 +1,3 @@
-/* eslint-disable */
 export default {
     displayName: 'itmat-job-executor',
     preset: '../../jest.preset.cjs',

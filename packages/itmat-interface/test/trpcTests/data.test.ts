@@ -1316,6 +1316,7 @@ if (global.hasMinio) {
                     VisitId: '1'
                 }));
             const response = await request;
+            console.error(JSON.stringify(response));
             expect(response.status).toBe(200);
             const fileObj = await db.collections.files_collection.findOne({});
             const dataObj = await db.collections.data_collection.findOne({});

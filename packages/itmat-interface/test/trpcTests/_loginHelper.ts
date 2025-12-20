@@ -22,10 +22,11 @@ export async function connectAgent(agent: SuperTest<Test>, user: string, pw: str
                 totp: otp
             });
         if (res.status !== 200) {
-            throw new Error('Login failed');
+            const error = res.text ?? res.body;
+            throw new Error(`Login failed: ${error}`);
         }
-    } catch (__unused__exception) {
-        throw new Error('Login request failed');
+    } catch (exception) {
+        throw new Error(`Login request failed: ${exception}`);
     }
 }
 

@@ -49,7 +49,7 @@ export const tokenAuthentication = async (token: string) => {
 };
 
 export async function uploadFileData(req, res) {
-    const busboy = new Busboy({ headers: req.headers });
+    const busboy = Busboy({ headers: req.headers });
     const variables: Record<string, string> = {}; // To hold form fields
     let fileName: string;
     let fileSize = 0;
@@ -64,7 +64,7 @@ export async function uploadFileData(req, res) {
     let passThrough: PassThrough;
     // Capture file stream and upload it immediately
     busboy.on('file', (fieldname, file, filename) => {
-        fileName = filename; // Store the filename
+        fileName = filename.filename; // Store the filename
         const fileUri = uuid(); // Generate unique file identifier
 
         passThrough = new PassThrough(); // Create a passthrough stream
@@ -102,7 +102,7 @@ export async function uploadFileData(req, res) {
 
             // Hash the file and proceed with the file entry creation
             const hashString = hash_.digest('hex');
-            const fileType = (filename.split('.').pop() as string).toUpperCase();
+            const fileType = (fileName.split('.').pop() as string).toUpperCase();
             if (!Object.keys(enumFileTypes).includes(fileType)) {
                 return res.status(400).json({ error: { message: `File type ${fileType} not supported.` } });
             }

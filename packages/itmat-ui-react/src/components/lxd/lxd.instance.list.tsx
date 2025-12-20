@@ -1,14 +1,14 @@
-import React, { useEffect, useState} from 'react';
+import React, { useEffect, useState } from 'react';
 import { Table, Button, message, Spin, Modal, Space, Form, InputNumber, Input } from 'antd';
 import { DeleteOutlined } from '@ant-design/icons';
 // Additional imports
 import { PoweroffOutlined, PlayCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
-import { LXDInstanceType, enumOpeType} from '@itmat-broker/itmat-types';
+import { LXDInstanceType, enumOpeType } from '@itmat-broker/itmat-types';
 
 // import { instanceCreationTypes } from './instanceOptions';
 import InstanceStatusIcon from '././lxd.Instance.statusIcon';
 import { trpc } from '../../utils/trpc';
-import { formatCPUInfo, formatMemoryInfo, formatStorageInfo, formatGPUInfo} from './util/formatUtils';
+import { formatCPUInfo, formatMemoryInfo, formatStorageInfo, formatGPUInfo } from './util/formatUtils';
 
 const { confirm } = Modal;
 
@@ -41,6 +41,7 @@ const LXDInstanceList = () => {
     });
 
     const getInstances = trpc.lxd.getInstances.useQuery(undefined, {
+        queryKey: ['lxd.getInstances', void 0],
         refetchInterval: 60 * 1000 // Refetch every 60 seconds
     });
     const getResources = trpc.lxd.getResources.useQuery();
@@ -75,8 +76,8 @@ const LXDInstanceList = () => {
         }
     });
 
-    const handleStartStop = (instanceName: string , action: enumOpeType.START | enumOpeType.STOP, project: string) => {
-        startStopInstance.mutate({ instanceName, action, project});
+    const handleStartStop = (instanceName: string, action: enumOpeType.START | enumOpeType.STOP, project: string) => {
+        startStopInstance.mutate({ instanceName, action, project });
     };
 
     const handleDelete = (instanceName: string, project: string) => {
@@ -93,7 +94,7 @@ const LXDInstanceList = () => {
             okType: 'danger',
             cancelText: 'Cancel',
             onOk() {
-                deleteInstance.mutate({ instanceName, project});
+                deleteInstance.mutate({ instanceName, project });
             }
         });
     };

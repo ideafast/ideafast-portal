@@ -1,10 +1,9 @@
-/* eslint-disable */
 export default {
     displayName: 'itmat-setup',
     preset: '../../jest.preset.cjs',
     globals: {
         'ts-jest': {
-            tsconfig: '<rootDir>/tsconfig.spec.json',
+            tsconfig: '<rootDir>/tsconfig.spec.json'
         }
     },
     testEnvironment: 'node',
