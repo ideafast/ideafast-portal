@@ -103,7 +103,7 @@
     "dependencies": {
         "@ant-design/icons": "6.1.0",
         "@apollo/client": "3.14.0",
-        "@apollo/server": "4.12.2",
+        "@apollo/server": "5.2.0",
         "@ideafast/idgen": "0.2.1",
         "@nivo/bar": "0.99.0",
         "@nivo/calendar": "0.99.0",
