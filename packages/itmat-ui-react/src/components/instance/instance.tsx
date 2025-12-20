@@ -41,7 +41,6 @@ export const InstanceSection: FunctionComponent = () => {
     }>();
 
     const getInstances = trpc.instance.getInstances.useQuery(undefined, {
-        queryKey: ['instance.getInstances', void 0],
         refetchInterval: 2 * 60 * 1000,
         refetchIntervalInBackground: true, // Continue refetching when tab is in background
         refetchOnWindowFocus: true, // Refetch when window regains focus

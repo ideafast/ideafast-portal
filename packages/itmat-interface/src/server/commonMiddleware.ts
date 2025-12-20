@@ -89,66 +89,70 @@ export async function uploadFileData(req, res) {
         });
 
         // When the file stream ends
-        file.on('end', async () => {
-            try {
-                // Upload file to MinIO
-                const minioUploadPromise = objStore.uploadFile(passThrough, variables['studyId'], fileUri, fileSize);
-                passThrough.end(); // Signal the end of the PassThrough stream
-                await minioUploadPromise;
-            } catch (err: unknown) {
-                // Return a response with the error message
-                return res.status(500).json({ message: 'Error uploading file to MinIO', error: { message: (err as CoreError).message } });
-            }
+        file.on('end', () => {
+            (async () => {
+                try {
+                    // Upload file to MinIO
+                    const minioUploadPromise = objStore.uploadFile(passThrough, variables['studyId'], fileUri, fileSize);
+                    passThrough.end(); // Signal the end of the PassThrough stream
+                    await minioUploadPromise;
+                } catch (err: unknown) {
+                    // Return a response with the error message
+                    return res.status(500).json({ message: 'Error uploading file to MinIO', error: { message: (err as CoreError).message } });
+                }
 
-            // Hash the file and proceed with the file entry creation
-            const hashString = hash_.digest('hex');
-            const fileType = (fileName.split('.').pop() as string).toUpperCase();
-            if (!Object.keys(enumFileTypes).includes(fileType)) {
-                return res.status(400).json({ error: { message: `File type ${fileType} not supported.` } });
-            }
+                // Hash the file and proceed with the file entry creation
+                const hashString = hash_.digest('hex');
+                const fileType = (fileName.split('.').pop() as string).toUpperCase();
+                if (!Object.keys(enumFileTypes).includes(fileType)) {
+                    return res.status(400).json({ error: { message: `File type ${fileType} not supported.` } });
+                }
 
-            // Create the file entry object
-            const fileEntry: IFile = {
-                id: uuid(),
-                studyId: variables['studyId'],
-                userId: null,
-                fileName: fileName,
-                fileSize: fileSize,
-                description: variables['description'],
-                uri: fileUri,
-                hash: hashString,
-                fileType: fileType as enumFileTypes,
-                fileCategory: enumFileCategories.STUDY_DATA_FILE,
-                properties: variables['properties'] ? JSON.parse(variables['properties']) : {},
-                sharedUsers: [],
-                life: {
-                    createdTime: Date.now(),
-                    createdUser: req.user.id,
-                    deletedTime: null,
-                    deletedUser: null
-                },
-                metadata: {}
-            };
-            try {
+                // Create the file entry object
+                const fileEntry: IFile = {
+                    id: uuid(),
+                    studyId: variables['studyId'],
+                    userId: null,
+                    fileName: fileName,
+                    fileSize: fileSize,
+                    description: variables['description'],
+                    uri: fileUri,
+                    hash: hashString,
+                    fileType: fileType as enumFileTypes,
+                    fileCategory: enumFileCategories.STUDY_DATA_FILE,
+                    properties: variables['properties'] ? JSON.parse(variables['properties']) : {},
+                    sharedUsers: [],
+                    life: {
+                        createdTime: Date.now(),
+                        createdUser: req.user.id,
+                        deletedTime: null,
+                        deletedUser: null
+                    },
+                    metadata: {}
+                };
+                try {
 
-                // Perform any additional processing and insert file data into the database
-                const response = await dataCore.uploadFileDataWithFileEntry(req.user,
-                    variables['studyId'],
-                    variables['fieldId'],
-                    fileEntry,
-                    JSON.stringify({
-                        ...JSON.parse(variables['properties'] ?? '{}'),
-                        FileName: fileName
-                    })
-                );
+                    // Perform any additional processing and insert file data into the database
+                    const response = await dataCore.uploadFileDataWithFileEntry(req.user,
+                        variables['studyId'],
+                        variables['fieldId'],
+                        fileEntry,
+                        JSON.stringify({
+                            ...JSON.parse(variables['properties'] ?? '{}'),
+                            FileName: fileName
+                        })
+                    );
 
-                await db.collections.files_collection.insertOne(fileEntry);
-                // Send success response
-                res.status(200).json({ result: { data: response } });
-            } catch (err: unknown) {
-                // Handle any error during processing or insertion
-                return res.status(400).json({ message: 'Failed to upload file.', error: { message: (err as CoreError).message } });
-            }
+                    await db.collections.files_collection.insertOne(fileEntry);
+                    // Send success response
+                    res.status(200).json({ result: { data: response } });
+                } catch (err: unknown) {
+                    // Handle any error during processing or insertion
+                    return res.status(400).json({ message: 'Failed to upload file.', error: { message: (err as CoreError).message } });
+                }
+            })().catch((err) => {
+                return res.status(500).json({ message: 'Internal server error.', error: { message: (err as CoreError).message } });
+            });
         });
 
         file.on('error', (err) => {

@@ -41,7 +41,6 @@ const LXDInstanceList = () => {
     });
 
     const getInstances = trpc.lxd.getInstances.useQuery(undefined, {
-        queryKey: ['lxd.getInstances', void 0],
         refetchInterval: 60 * 1000 // Refetch every 60 seconds
     });
     const getResources = trpc.lxd.getResources.useQuery();
