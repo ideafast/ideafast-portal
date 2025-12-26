@@ -156,7 +156,7 @@
         "minio": "8.0.6",
         "mongodb": "^7.0.0",
         "multer": "2.0.2",
-        "nodemailer": "7.0.11",
+        "nodemailer": "7.0.12",
         "passport": "0.7.0",
         "path-browserify": "1.0.1",
         "qrcode": "1.5.4",
