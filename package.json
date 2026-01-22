@@ -152,7 +152,7 @@
         "jstat": "1.9.6",
         "lint-staged": "16.2.7",
         "localforage": "^1.10.0",
-        "lodash-es": "4.17.22",
+        "lodash-es": "4.17.23",
         "minio": "8.0.6",
         "mongodb": "^7.0.0",
         "multer": "2.0.2",
