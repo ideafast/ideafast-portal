@@ -122,7 +122,7 @@
         "antd": "5.29.3",
         "antd-img-crop": "4.27.0",
         "apollo-upload-client": "18.0.1",
-        "axios": "1.13.2",
+        "axios": "1.13.5",
         "axios-retry": "^4.5.0",
         "bcrypt": "6.0.0",
         "connect-mongo": "6.0.0",
