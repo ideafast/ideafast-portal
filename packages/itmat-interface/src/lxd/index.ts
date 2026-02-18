@@ -218,15 +218,22 @@ export const registerJupyterSocketServer = (server: WebSocketServer, instanceCor
             });
 
             clientSocket.on('close', (code, reason) => {
-                console.log('clientSocket closed. Code:', code, 'Reason:', reason.toString());
+                Logger.log(`clientSocket closed. Code: ${code} Reason: ${reason.toString()}`);
                 if (containerSocket && containerSocket.readyState === WebSocket.OPEN) {
                     containerSocket.close(4001, `Client WebSocket closed. Code: ${code}`);
-                }
-                // if is connecting, then set a interval to close the container socket
-                else if (containerSocket && containerSocket.readyState === WebSocket.CONNECTING) {
+                } else if (containerSocket && containerSocket.readyState === WebSocket.CONNECTING) {
+                    let attempts = 0;
+                    const maxAttempts = 10;
                     const interval = setInterval(() => {
-                        if (containerSocket?.readyState === WebSocket.OPEN) {
-                            containerSocket?.close(4001, `Client WebSocket closed. Code: ${code}`);
+                        attempts++;
+                        if (!containerSocket || containerSocket.readyState === WebSocket.CLOSED || containerSocket.readyState === WebSocket.CLOSING) {
+                            clearInterval(interval);
+                        } else if (containerSocket.readyState === WebSocket.OPEN) {
+                            containerSocket.close(4001, `Client WebSocket closed. Code: ${code}`);
+                            clearInterval(interval);
+                        } else if (attempts >= maxAttempts) {
+                            Logger.warn(`Terminating stuck container WebSocket for instance ${instance_id} after ${maxAttempts} attempts`);
+                            containerSocket.terminate();
                             clearInterval(interval);
                         }
                     }, 1000);
@@ -264,10 +271,19 @@ export const registerJupyterSocketServer = (server: WebSocketServer, instanceCor
 
                 containerSocket.pause();
 
-
-                // Set maximum listeners to prevent memory leaks
                 containerSocket.setMaxListeners(20);
                 clientSocket.setMaxListeners(20);
+
+                const CONNECTION_TIMEOUT_MS = 15_000;
+                const connectionTimer = setTimeout(() => {
+                    if (containerSocket && containerSocket.readyState === WebSocket.CONNECTING) {
+                        Logger.warn(`Container WebSocket timed out for instance ${instance_id}`);
+                        containerSocket.terminate();
+                        if (clientSocket.readyState === WebSocket.OPEN) {
+                            clientSocket.close(4003, 'Container connection timed out');
+                        }
+                    }
+                }, CONNECTION_TIMEOUT_MS);
 
                 containerSocket.on('message', (message, isBinary) => {
                     containerMessageBuffers.push([message, isBinary]);
@@ -275,17 +291,20 @@ export const registerJupyterSocketServer = (server: WebSocketServer, instanceCor
                 });
 
                 containerSocket.on('open', () => {
+                    clearTimeout(connectionTimer);
                     flushClientMessageBuffers();
                 });
 
                 containerSocket.on('error', (error) => {
-                    Logger.error(`Container WebSocket error: ${JSON.stringify(error, null, 2)}`);
+                    clearTimeout(connectionTimer);
+                    Logger.error(`Container WebSocket error for instance ${instance_id}: ${JSON.stringify(error, null, 2)}`);
                     if (clientSocket && clientSocket.readyState === WebSocket.OPEN) {
                         clientSocket.close(4002, 'Container WebSocket encountered an error.');
                     }
                 });
 
                 containerSocket.on('close', (code, reason) => {
+                    clearTimeout(connectionTimer);
                     flushContainerMessageBuffers();
                     if (clientSocket?.readyState === WebSocket.OPEN)
                         clientSocket?.close(4010, `The container socket was closed with code${code}: ${reason.toString()}`);
@@ -540,8 +559,16 @@ export const jupyterProxyMiddleware = async (req: Request & { user?: { id: strin
             proxy.on('error', (err: Error, req: http.IncomingMessage, res: http.ServerResponse | net.Socket, target?: string | url.UrlObject) => {
                 Logger.error(`Proxy error for target ${JSON.stringify(target)}: error ${err.message}`);
 
+                if (/ECONNREFUSED|ECONNRESET|ETIMEDOUT|EHOSTUNREACH|EPIPE/.test(err.message)) {
+                    Logger.log(`Removing stale proxy cache for instance ${instance_id} due to: ${err.message}`);
+                    if (proxyCache[instance_id]) {
+                        proxyCache[instance_id].proxy.close();
+                        delete proxyCache[instance_id];
+                    }
+                }
+
                 if (res instanceof http.ServerResponse && !res.headersSent) {
-                    res.writeHead(500, { 'Content-Type': 'text/plain' });
+                    res.writeHead(502, { 'Content-Type': 'text/plain' });
                     res.end('Proxy Error');
                 } else if (res instanceof net.Socket) {
                     res.end('Proxy Error');
@@ -652,6 +679,15 @@ export const vncProxyMiddleware = async (
 
             proxy.on('error', (err: Error) => {
                 Logger.error(`VNC Proxy error: ${err.message}`);
+
+                if (/ECONNREFUSED|ECONNRESET|ETIMEDOUT|EHOSTUNREACH|EPIPE/.test(err.message)) {
+                    Logger.log(`Removing stale VNC proxy cache for instance ${instance_id} due to: ${err.message}`);
+                    if (vncProxyCache[instance_id]) {
+                        vncProxyCache[instance_id].proxy.close();
+                        delete vncProxyCache[instance_id];
+                    }
+                }
+
                 if (!res.headersSent) {
                     res.status(502).send('VNC Proxy Error');
                 }

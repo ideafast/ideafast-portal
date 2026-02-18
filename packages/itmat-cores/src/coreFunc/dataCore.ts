@@ -872,7 +872,6 @@ export class DataCore {
                 enumCoreErrors.NO_PERMISSION_ERROR
             );
         }
-
         const study = await this.db.collections.studies_collection.findOne({ 'id': studyId, 'life.deletedTime': null });
         if (!study) {
             throw new CoreError(
@@ -929,7 +928,6 @@ export class DataCore {
         const availableFieldIds = Object.keys(availableFields);
         const refactoredFieldIds = fieldIds ?? Object.keys(availableFields);
         let res: IData[] = [];
-
         const queries = refactoredFieldIds.map(async (fieldId) => {
             if (availableFieldIds.includes(fieldId) || availableFieldIds.some(el => new RegExp(el).test(fieldId))) {
                 const propertyFilter: Record<string, string> = {};

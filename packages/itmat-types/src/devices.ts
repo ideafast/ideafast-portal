@@ -32,5 +32,7 @@ export const deviceTypes: Record<string, string> = {
     VIT: 'Derived VTP Basic Features',
     GVA: 'Derived AX6 Gait Features',
     MCR: 'Derived McRoberts Classification',
-    POE: 'Participant Experiences Opinions'
+    POE: 'Participant Experiences Opinions',
+    DMO: 'Derived AX6 Digital Mobility Outcome',
+    HRR: 'Derived VTP Heart Rate Recovery Features'
 };
