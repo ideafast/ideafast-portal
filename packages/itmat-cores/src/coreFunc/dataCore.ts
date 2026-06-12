@@ -1624,22 +1624,26 @@ export class DataCore {
         }
 
         const generatedSummary = async () => {
+            const dataByUploaders: { userId: string, count: number }[] = [];
+            const uploaders = await this.db.collections.data_collection.distinct('life.createdUser', { studyId });
+            for (const uploader of uploaders) {
+                const count = await this.db.collections.data_collection.countDocuments({ studyId, 'life.createdUser': uploader });
+                dataByUploaders.push({
+                    userId: uploader,
+                    count
+                });
+            }
+            const numberOfDataRecords = dataByUploaders.reduce((acc, el) => acc + el.count, 0);
+
             const [
-                numberOfDataRecords,
                 numberOfDataDeletes,
                 numberOfVersionedDeletes,
                 numberOfUnversionedRecords,
                 numberOfUnversionedDeletes,
                 numberOfFields,
                 numberOfUnversionedFields,
-                dataByUploaders,
                 dataByUsers
             ] = await Promise.all([
-                (async () => {
-                    const result = await this.db.collections.data_collection.countDocuments({ studyId }, { allowDiskUse: true });
-                    return result;
-                })(),
-
                 (async () => {
                     const result = await this.db.collections.data_collection.countDocuments({ studyId, value: null }, { allowDiskUse: true });
                     return result;
@@ -1662,25 +1666,6 @@ export class DataCore {
                 })(),
                 (async () => {
                     const result = (await this.db.collections.field_dictionary_collection.distinct('fieldId', { studyId, dataVersion: null })).length;
-                    return result;
-                })(),
-                (async () => {
-                    const result = await this.db.collections.data_collection.aggregate<{ userId: string, count: number }>([
-                        { $match: { studyId } },
-                        {
-                            $group: {
-                                _id: '$life.createdUser',
-                                count: { $sum: 1 }
-                            }
-                        },
-                        {
-                            $project: {
-                                _id: 0,
-                                userId: '$_id',
-                                count: 1
-                            }
-                        }
-                    ], { allowDiskUse: true }).toArray();
                     return result;
                 })(),
                 (async () => {
