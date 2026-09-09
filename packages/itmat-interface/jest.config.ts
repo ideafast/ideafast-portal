@@ -1,7 +1,5 @@
 import { createRequire } from 'node:module';
-import { resolve } from 'node:path';
-
-const nodeRequire = createRequire(resolve(process.cwd(), 'package.json'));
+const require = createRequire(import.meta.url);
 
 export default {
     displayName: 'itmat-interface',
@@ -21,8 +19,8 @@ export default {
     ],
     moduleNameMapper: {
         // Force module uuid to resolve with the CJS entry point, because Jest does not support package.json.exports. See https://github.com/uuidjs/uuid/issues/451
-        'uuid': nodeRequire.resolve('uuid'),
-        'graphql-ws/use/ws': nodeRequire.resolve('graphql-ws/use/ws')
+        'uuid': require.resolve('uuid'),
+        'graphql-ws/use/ws': require.resolve('graphql-ws/use/ws')
     },
     setupFilesAfterEnv: ['<rootDir>/test/setupTests.ts']
 };

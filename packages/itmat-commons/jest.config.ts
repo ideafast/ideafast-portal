@@ -1,10 +1,15 @@
 import { readFileSync } from 'fs';
-import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { dirname } from 'node:path';
+
+// Recreate __filename and __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // Reading the SWC compilation config and remove the "exclude"
 // for the test files to be compiled by SWC
 const { exclude: _, ...swcJestConfig } = JSON.parse(
-    readFileSync(resolve(process.cwd(), 'packages/itmat-commons/.lib.swcrc'), 'utf-8')
+    readFileSync(`${__dirname}/.lib.swcrc`, 'utf-8')
 );
 export default {
     displayName: 'itmat-commons',
