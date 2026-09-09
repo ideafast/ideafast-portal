@@ -48,7 +48,7 @@ jobs:
 
             - name: Installing dependencies
               run: |
-                  yarn install --network-timeout 1000000 --forzen-lockfile
+                  yarn install --network-timeout 1000000 --frozen-lockfile
 
             - name: Checking for lint
               run: |
