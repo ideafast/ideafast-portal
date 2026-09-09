@@ -1110,8 +1110,11 @@ export class UserCore {
                     }
                 }
             },
-            { $set: { 'password': hashedPw, 'otpSecret': otpSecret, 'resetPasswordRequests.$.used': true } });
-        if (!updateResult) {
+            { $set: { 'password': hashedPw, 'otpSecret': otpSecret, 'resetPasswordRequests.$.used': true } }, {
+                returnDocument: 'after'
+            }
+        );
+        if (!updateResult || !updateResult.password) {
             throw new CoreError(
                 enumCoreErrors.DATABASE_ERROR,
                 enumCoreErrors.DATABASE_ERROR

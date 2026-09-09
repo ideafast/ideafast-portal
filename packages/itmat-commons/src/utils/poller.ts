@@ -37,7 +37,7 @@ export class JobPoller {
         }, this.pollingInterval);
     }
 
-    private async checkForJobs(config: IJobSchedulerConfig){
+    private async checkForJobs(config: IJobSchedulerConfig) {
         let job: IJob | null;
         try {
             // implement the scheduler here
@@ -91,21 +91,23 @@ export class JobPoller {
                 const jobUpdate = await this.jobCollection.findOne({ id: job.id });
                 if (jobUpdate) {
                     const currentHistory = jobUpdate.history || [];
-                    setObj['history'] = [...currentHistory];
+                    const updatedHistory = [...currentHistory];
                     if (newHistoryEntry) {
-                        setObj['history'].push(newHistoryEntry);
+                        updatedHistory.push(newHistoryEntry);
                     }
+                    setObj['history'] = updatedHistory.slice(-10);
                     await this.jobCollection.findOneAndUpdate({ id: job.id }, {
                         $set: setObj
                     });
                 }
             } catch (error) {
                 const currentHistory = job.history || [];
-                setObj['history'] = [...currentHistory, {
+                const updatedHistory = [...currentHistory, {
                     time: Date.now(),
                     status: enumJobHistoryStatus.FAILED,
                     errors: [error]
                 }];
+                setObj['history'] = updatedHistory.slice(-10);
                 await this.jobCollection.findOneAndUpdate({ id: job.id }, {
                     $set: setObj
                 });
