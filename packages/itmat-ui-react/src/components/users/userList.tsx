@@ -116,13 +116,13 @@ export const UserListSection: FunctionComponent = () => {
         width: '10%',
         sorter: (a, b) => {
             const trans = (orgId) => {
-                const org = getOrganisations.data.filter(el => el.id === orgId)[0];
+                const org = getOrganisations.data?.filter(el => el.id === orgId)[0];
                 return org ? org.name : 'NA';
             };
             return stringCompareFunc(trans(a.organisation), trans(b.organisation));
         },
         render: (__unused__value, record) => {
-            const org = getOrganisations.data.filter(el => el.id === record.organisation)[0];
+            const org = getOrganisations.data?.filter(el => el.id === record.organisation)[0];
             return org ? org.name : 'NA';
         }
     }, {
@@ -203,8 +203,8 @@ export const UserListSection: FunctionComponent = () => {
                             </div>
                         </div>
                         <div>
-                            <span>{`Active Users: ${getUsers.data.filter(el =>
-                                (!el.expiredAt || (el.expiredAt && el.expiredAt > Date.now()))).length}/${getUsers.data.length}`}</span>
+                            <span>{`Active Users: ${getUsers.data?.filter(el =>
+                                (!el.expiredAt || (el.expiredAt && el.expiredAt > Date.now()))).length ?? '-'}/${getUsers.data?.length ?? '-'}`}</span>
                         </div>
                     </div>
                 }
@@ -266,7 +266,7 @@ export const UserListSection: FunctionComponent = () => {
                                 label='Organisation'
                             >
                                 <Select>
-                                    {getOrganisations.data.map(el => <Option value={el.id}>{el.name}</Option>)}
+                                    {getOrganisations.data?.map(el => <Option value={el.id}>{el.name}</Option>)}
                                 </Select>
                             </Form.Item>
                             <Form.Item
@@ -283,7 +283,7 @@ export const UserListSection: FunctionComponent = () => {
                         </Form>
                     </Modal>
                     <Table
-                        dataSource={getUsers.data.filter(el => {
+                        dataSource={getUsers.data?.filter(el => {
                             const keyword = searchedKeyword ? searchedKeyword.toLowerCase() : '';
                             return el.firstname.toLowerCase().includes(keyword)
                                 || el.lastname.toLowerCase().includes(keyword)

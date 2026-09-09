@@ -53,13 +53,13 @@ export class Key {
         const iv = Utils.getRandomBytes(12);
         const weakPwd = Utils.encode(pwd);
         const strongPwd = await Utils.hash(Utils.concatBytes(salt, weakPwd));
-        const key = await crypto.subtle.importKey('raw', strongPwd, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
+        const key = await crypto.subtle.importKey('raw',strongPwd.slice() , { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
         const keyPair = await this.exportKey();
         const data = Utils.encode(JSON.stringify({
             publicKey: keyPair.publicKey,
             privateKey: keyPair.privateKey
         }));
-        const encrypted = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv, tagLength: 128 }, key, data));
+        const encrypted = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv.slice(), tagLength: 128 }, key, data.slice()));
 
         this._exportableEncryptedKey = {
             version: CURRENT_KEY_VERSION,
@@ -136,7 +136,7 @@ export class Key {
                 saltLength: 32
             },
             privateKey,
-            finalEncoded
+            finalEncoded.slice()
         );
         console.log('inside signwtRSAKey', signature);
         return Utils.arrayBufferToBase64String(signature);
@@ -232,11 +232,11 @@ export class Key {
             const encrypted = Utils.fromBase64(inputKeyPair.data);
             const weakpwd = Utils.encode(pwd);
             const strongPwd = await Utils.hash(Utils.concatBytes(salt, weakpwd));
-            const aesKey = await crypto.subtle.importKey('raw', strongPwd, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
+            const aesKey = await crypto.subtle.importKey('raw', strongPwd.slice(), { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
 
             let decrypted: Uint8Array;
             try {
-                decrypted = new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: iv, tagLength: 128 }, aesKey, encrypted));
+                decrypted = new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: iv.slice(), tagLength: 128 }, aesKey, encrypted.slice()));
             }
             catch (__unused__exception) {
                 throw new Error(ErrorMessage[ErrorCodes.EINPASSWD]);
@@ -255,8 +255,8 @@ export class Key {
                     data: encryptedKey.encryptedKeys ?? encryptedKey.encryptedKeyPair ?? ''
                 });
 
-                const publicKey = await crypto.subtle.importKey('raw', decrypted.subarray(0, 65), { name: 'ECDSA', namedCurve: 'P-256' }, true, ['verify']);
-                const privateKey = await crypto.subtle.importKey('pkcs8', decrypted.subarray(65), { name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign']);
+                const publicKey = await crypto.subtle.importKey('raw', decrypted.subarray(0, 65).slice(), { name: 'ECDSA', namedCurve: 'P-256' }, true, ['verify']);
+                const privateKey = await crypto.subtle.importKey('pkcs8', decrypted.subarray(65).slice(), { name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign']);
                 const newKey = new Key({
                     publicKey,
                     privateKey

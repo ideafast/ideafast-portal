@@ -18,7 +18,7 @@ export const DatasetList: FunctionComponent = () => {
         </>;
     }
 
-    if (getStudies.data.length > 0) {
+    if (getStudies.data && getStudies.data.length > 0) {
         return <PickDatasetSection datasets={getStudies.data} />;
     } else {
         return <p>There is no dataset or you have not been granted access to any. Please contact your data custodian.</p>;

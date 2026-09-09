@@ -47,7 +47,8 @@ export const LogSection: FunctionComponent = () => {
         </>;
     }
 
-    if (getLogs.isError || getUsers.isError || getSystemConfig.isError || getLogsSummary.isError) {
+    if (getLogs.isError || getUsers.isError || getSystemConfig.isError || getLogsSummary.isError ||
+        !getUsers.data || !getSystemConfig.data || !getLogsSummary.data) {
         return <>An error occurred.</>;
     }
 
@@ -292,7 +293,7 @@ const generateLogColumns = (users: IUserWithoutToken[], barThreshold: number[]) 
         title: 'Execution Time',
         dataIndex: 'time',
         key: 'time',
-        sorter: (a, b) => a.life.createdTime ?? 0 - b.life.createdTime ?? 0,
+        sorter: (a, b) => a.life.createdTime ?? 0 - (b.life.createdTime ?? 0),
         render: (__unused__value, record) => {
             return new Date(record.life.createdTime).toUTCString();
         }

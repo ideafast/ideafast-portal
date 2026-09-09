@@ -58,7 +58,7 @@ export const AddNewDataSet: FunctionComponent = () => {
                                 Cancel
                             </Button>
                             &nbsp;&nbsp;&nbsp;
-                            <Button type='primary' disabled={createStudy.isLoading} loading={createStudy.isLoading} htmlType='submit'>
+                            <Button type='primary' disabled={createStudy.isPending} loading={createStudy.isPending} htmlType='submit'>
                                 Create
                             </Button>
                         </Form.Item>

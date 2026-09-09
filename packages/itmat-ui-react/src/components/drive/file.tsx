@@ -70,7 +70,7 @@ export const MyFile: FunctionComponent = () => {
                         [whoAmI.data.id]: newCache
                     };
                     queryClient.setQueryData(queryKey, newQueryCache);
-                    void queryClient.invalidateQueries(['drive', 'getDrives', { input: {} }]);
+                    void queryClient.invalidateQueries({ queryKey: ['drive', 'getDrives', { input: {} }] });
                     notification.success({
                         message: 'Directory has been uploaded.',
                         description: '',
@@ -122,7 +122,7 @@ export const MyFile: FunctionComponent = () => {
                 [whoAmI.data.id]: newCache
             };
             queryClient.setQueryData(queryKey, newQueryCache);
-            void queryClient.invalidateQueries(['drive', 'getDrives', { input: {} }]);
+            void queryClient.invalidateQueries({ queryKey: ['drive', 'getDrives', { input: {} }] });
 
             notification.success({
                 message: `Folder ${data.name} has been created.`,

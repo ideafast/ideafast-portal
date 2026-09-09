@@ -24,7 +24,6 @@ const javascriptRules = {
             ]
         }
     ],
-    'react/style-prop-object': 'off',
     'quotes': ['error', 'single'],
     'quote-props': ['error', 'consistent-as-needed'],
     'comma-dangle': ['error', 'never'],
@@ -38,7 +37,10 @@ const javascriptRules = {
         varsIgnorePattern: '^__unused',
         ignoreRestSiblings: true
     }],
-    'semi': ['error', 'always']
+    'semi': ['error', 'always'],
+    'react-hooks/purity': 'off',
+    'react-hooks/set-state-in-effect': 'off',
+    'react/style-prop-object': 'off'
 };
 
 const typescriptRules = {
@@ -70,14 +72,7 @@ module.exports = {
         tsconfigRootDir: __dirname,
         projectService: true,
         allowDefaultProject: true,
-        warnOnUnsupportedTypeScriptVersion: false,
-        project: [
-            './tsconfig.eslint.json',
-            './packages/*-e2e/tsconfig.json',
-            './packages/*/tsconfig.lib.json',
-            './packages/*/tsconfig.app.json',
-            './packages/*/tsconfig.spec.json'
-        ]
+        warnOnUnsupportedTypeScriptVersion: false
     },
     ignorePatterns: ['**/*', '!**/*.json', '!**/*.js', '!**/*.ts', '!scripts', '!tools', '!.vscode'],
     plugins: ['@nx'],
@@ -85,12 +80,7 @@ module.exports = {
         {
             files: ['*.ts', '*.tsx', '*.mts'],
             extends: ['plugin:@nx/typescript'],
-            rules: typescriptRules,
-            parserOptions: {
-                project: [
-                    './tsconfig.eslint.json'
-                ]
-            }
+            rules: typescriptRules
         },
         {
             files: ['*.test.ts', '*.test.tsx', '*.spec.ts', '*.spec.tsx'],
@@ -98,11 +88,6 @@ module.exports = {
             rules: {
                 ...typescriptRules,
                 '@typescript-eslint/no-explicit-any': 'warn'
-            },
-            parserOptions: {
-                project: [
-                    './tsconfig.eslint.json'
-                ]
             }
         },
         {

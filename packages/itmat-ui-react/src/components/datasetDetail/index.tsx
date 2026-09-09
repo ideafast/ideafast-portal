@@ -24,7 +24,7 @@ export const DatasetDetailPage: FunctionComponent = () => {
             An error occured.
         </>;
     }
-    if (getStudy.data.length === 0) {
+    if (!getStudy.data || getStudy.data.length === 0) {
         return <p>There is no dataset or you have not been granted access to any. Please contact your data custodian.</p>;
     }
     return <div className={css.page_container}>

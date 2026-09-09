@@ -25,6 +25,9 @@ class CustomEnvironment {
         // different than the global one used by users in tests. This makes sure the
         // same constructor is referenced by both.
         global.Uint8Array = Uint8Array;
+        global.Headers = Headers;
+        global.Request = Request;
+        global.Response = Response;
 
         // URL and URLSearchParams are global in Node >= 10
         if (typeof URL !== 'undefined' && typeof URLSearchParams !== 'undefined') {

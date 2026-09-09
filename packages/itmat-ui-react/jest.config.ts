@@ -1,4 +1,3 @@
-/* eslint-disable */
 export default {
     displayName: 'itmat-ui-react',
     preset: '../../jest.preset.cjs',

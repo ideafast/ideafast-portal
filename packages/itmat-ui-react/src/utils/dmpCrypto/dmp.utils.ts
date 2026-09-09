@@ -161,7 +161,7 @@ export function getRandomString(size = 32): string {
 }
 
 export async function hash(data: Uint8Array): Promise<Uint8Array> {
-    return new Uint8Array(await crypto.subtle.digest({ name: 'SHA-256' }, data));
+    return new Uint8Array(await crypto.subtle.digest({ name: 'SHA-256' }, data.slice()));
 }
 
 export async function hashBase64(s: string, urlSafeMode = false): Promise<string> {

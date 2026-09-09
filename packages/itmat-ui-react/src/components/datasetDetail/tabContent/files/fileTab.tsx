@@ -61,11 +61,11 @@ export const FileRepositoryTabContent: FunctionComponent<{ study: IStudy }> = ({
             </List.Item>
         </List>
         {
-            ((getStudyConfig.data.properties as IStudyConfig).defaultFileBlocks ?? []).map((block, index) => (
+            (getStudyConfig.data ? (getStudyConfig.data.properties as IStudyConfig).defaultFileBlocks : []).map((block, index) => (
                 <FileBlock
                     key={`Fileblock_${index}`}
                     user={whoAmI.data}
-                    fields={getStudyFields.data}
+                    fields={getStudyFields.data ?? []}
                     study={study}
                     block={block}
                 />
@@ -136,14 +136,16 @@ export const UploadFileComponent: FunctionComponent<{ study: IStudy, fields: IFi
                 const cache: IFile[] = queryClient.getQueryData(queryKey) ?? [];
                 const newCache = [...cache, response.data.result.data];
                 queryClient.setQueryData(queryKey, newCache);
-                void queryClient.invalidateQueries(['data', 'getFiles', {
-                    input: {
-                        studyId: study.id,
-                        fieldIds: fieldIds,
-                        useCache: false,
-                        readable: true
-                    }
-                }]);
+                void queryClient.invalidateQueries({
+                    queryKey: ['data', 'getFiles', {
+                        input: {
+                            studyId: study.id,
+                            fieldIds: fieldIds,
+                            useCache: false,
+                            readable: true
+                        }
+                    }]
+                });
                 setIsUploading(false);
                 setIsShowPanel(false);
                 void message.success('File has been uploaded.');
@@ -309,14 +311,16 @@ export const FileBlock: FunctionComponent<{ user: IUserWithoutToken, fields: IFi
             const cache: IFile[] = queryClient.getQueryData(queryKey) ?? [];
             const newCache = cache.filter(el => el.id !== data.id);
             queryClient.setQueryData(queryKey, newCache);
-            void queryClient.invalidateQueries(['data', 'getFiles', {
-                input: {
-                    studyId: study.id,
-                    fieldIds: fields.map(el => el.fieldId),
-                    useCache: false,
-                    readable: true
-                }
-            }]);
+            void queryClient.invalidateQueries({
+                queryKey: ['data', 'getFiles', {
+                    input: {
+                        studyId: study.id,
+                        fieldIds: fields.map(el => el.fieldId),
+                        useCache: false,
+                        readable: true
+                    }
+                }]
+            });
             void message.success('File has been deleted.');
         },
         onError: () => {
@@ -342,7 +346,7 @@ export const FileBlock: FunctionComponent<{ user: IUserWithoutToken, fields: IFi
         });
     }
 
-    const filteredFiles = getFiles.data.filter(el => {
+    const filteredFiles = getFiles.data?.filter(el => {
         if (!searchedKeyword) {
             return true;
         } else {
@@ -356,7 +360,7 @@ export const FileBlock: FunctionComponent<{ user: IUserWithoutToken, fields: IFi
             }
             return false;
         }
-    }).sort((a, b) => (b.life?.createdTime ?? 0) - (a.life?.createdTime ?? 0));
+    }).sort((a, b) => (b.life?.createdTime ?? 0) - (a.life?.createdTime ?? 0)) ?? [];
 
     const summaryByMonth = (filteredFiles) => {
         // Create a map to hold the counts per month

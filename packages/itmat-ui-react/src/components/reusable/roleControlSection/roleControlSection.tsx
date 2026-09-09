@@ -251,7 +251,7 @@ const CreateRoleComponent: React.FC<{ studyId: string }> = ({ studyId }) => {
                     >
                         <Select mode='multiple' showSearch optionFilterProp='label'>
                             {
-                                getUsers.data.map(el => <Select.Option key={el.id} value={el.id} label={`${el.firstname} ${el.lastname}`}>{`${el.firstname} ${el.lastname} ${el.username}`}</Select.Option>)
+                                getUsers.data?.map(el => <Select.Option key={el.id} value={el.id} label={`${el.firstname} ${el.lastname}`}>{`${el.firstname} ${el.lastname} ${el.username}`}</Select.Option>)
                             }
                         </Select>
                     </Form.Item>
@@ -518,7 +518,7 @@ const EditRoleComponent: React.FC<{ role: IRole }> = ({ role }) => {
                     >
                         <Select mode='multiple' showSearch optionFilterProp='label'>
                             {
-                                getUsers.data.map(el => <Select.Option key={el.id} value={el.id} label={`${el.firstname} ${el.lastname}`}>{`${el.firstname} ${el.lastname} ${el.username}`}</Select.Option>)
+                                getUsers.data?.map(el => <Select.Option key={el.id} value={el.id} label={`${el.firstname} ${el.lastname}`}>{`${el.firstname} ${el.lastname} ${el.username}`}</Select.Option>)
                             }
                         </Select>
                     </Form.Item>
