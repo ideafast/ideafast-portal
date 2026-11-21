@@ -6,69 +6,46 @@ const importDependencies = async () => {
     const chalk = (await import('chalk')).default;
     return { fetch, crossSpawn, getPort, uuid, chalk };
 }
-// const MINIO_DOCKER_VERSION = '@sha256:4a1bbd112c0c09fc3a07ae84f5e5a4501dbc7bf8d637a5ddd0df76a425630043';
-const MINIO_DOCKER_VERSION = ':latest';
+// Docker Hub no longer serves the upstream community image.
+const MINIO_TEST_IMAGE = 'ghcr.io/coollabsio/minio:RELEASE.2025-10-15T17-29-55Z@sha256:69b55a1c1c5dc285ce04db96689f5b2102317fc77a50680a1874ca6efd1c87f9';
 const minioHelpers = {
     minioContainerSetup: async (container, port) => {
-        return new Promise(async (resolve, reject) => {
-            const { chalk, crossSpawn, fetch, getPort, uuid } = await importDependencies();
-            try {
-                getPort({ port }).then((_port) => {
-                    const _container = container ?? uuid();
-                    crossSpawn.sync('docker', ['--version'], { stdio: 'inherit' });
-                    const result = crossSpawn.sync('docker', ['pull', `minio/minio${MINIO_DOCKER_VERSION}`], { stdio: 'inherit' });
-                    if (result.error) {
-                        console.warn(chalk.bgYellowBright(chalk.black(' WARNING ')), chalk.yellow('We coult not execute docker. Some tests will not be run.'));
-                        return reject();
-                    }
-                    console.log(`Bringing Container on port ${_port}...`);
-                    const minioProcess = crossSpawn('docker', [
-                        'run', '--rm',
-                        '--name', `${_container}`,
-                        '-p', `${_port}:9000`,
-                        'minio/minio:latest',
-                        'server', '/data'
-                    ], { stdio: 'inherit' });
-                    minioProcess.on('error', (error) => {
-                        throw new Error(error.message);
-                    });
-                    minioProcess.on('exit', (code, signal) => {
-                        if (code !== 0) {
-                            console.error(chalk.red(`Container failed with code ${code} and signal '${signal}'`));
-                            return reject();
-                        }
-                    });
-                    let fetchAttempt = 0;
-                    const fetchPoll = setInterval(() => {
-                        fetch(`http://localhost:${_port}`)
-                            .then(res => {
-                                if (res.status === 403) {
-                                    clearInterval(fetchPoll);
-                                    console.log(chalk.green('Docker Minio has started up.'));
-                                    resolve([_container, _port]);
-                                } else {
-                                    console.error(chalk.red(`Unexpected server status ${res.status}. Will try ${5 - fetchAttempt} more time(s).`));
-                                    if (fetchAttempt > 5) {
-                                        console.error(chalk.bgRedBright(chalk.black(' ERROR ')), chalk.yellow('We could not bring up the server.'));
-                                        crossSpawn.sync('docker', ['stop', `${_container}`], { stdio: 'inherit' });
-                                        return reject();
-                                    }
-                                }
-                                if (fetchAttempt++ > 5)
-                                    clearInterval(fetchPoll);
-                            })
-                            .catch(() => {
-                                if (fetchAttempt++ > 5)
-                                    return reject();
-                            });
-                    }, 1000);
-                });
-            } catch (e) {
-                console.error(chalk.bgYellowBright(chalk.black(' ERROR ')), chalk.yellow('An error occurred while trying to execute docker.'));
-                console.error(e.message);
-                return reject();
+        const { chalk, crossSpawn, fetch, getPort, uuid } = await importDependencies();
+        const _port = await getPort({ port });
+        const _container = container ?? uuid();
+        const image = MINIO_TEST_IMAGE;
+        const cached = crossSpawn.sync('docker', ['image', 'inspect', image], { stdio: 'ignore' });
+        if (cached.status !== 0) {
+            const pull = crossSpawn.sync('docker', ['pull', image], { stdio: 'inherit' });
+            if (pull.error || pull.status !== 0)
+                throw pull.error ?? new Error(`Could not pull test image ${image}`);
+        }
+
+        console.log(`Bringing Container on port ${_port}...`);
+        const start = crossSpawn.sync('docker', [
+            'run', '--detach', '--rm',
+            '--name', _container,
+            '-p', `127.0.0.1:${_port}:9000`,
+            image, 'server', '/data'
+        ], { stdio: 'inherit' });
+        if (start.error || start.status !== 0)
+            throw start.error ?? new Error(`Could not start test container ${_container}`);
+
+        try {
+            for (let attempt = 0; attempt < 60; attempt++) {
+                const ready = await fetch(`http://127.0.0.1:${_port}/minio/health/ready`, { timeout: 1000 })
+                    .then(res => res.status === 200, () => false);
+                if (ready) {
+                    console.log(chalk.green('Docker Minio has started up.'));
+                    return [_container, _port];
+                }
+                await new Promise(resolve => setTimeout(resolve, 1000));
             }
-        });
+            throw new Error(`MinIO test container ${_container} did not become ready`);
+        } catch (error) {
+            crossSpawn.sync('docker', ['stop', _container], { stdio: 'inherit' });
+            throw error;
+        }
     },
     minioContainerTeardown: (container) => {
         return new Promise(async (resolve, reject) => {

@@ -3,6 +3,9 @@
     "version": "3.1.0",
     "private": true,
     "license": "MIT",
+    "engines": {
+        "node": "^22.23.4"
+    },
     "scripts": {
         "prepare": "husky",
         "postinstall": "husky",
@@ -17,8 +20,8 @@
         "dockerise": "nx build itmat-docker --tag datascienceinstitute/itmat-broker:latest",
         "dockerise-staging": "nx build itmat-docker --tag datascienceinstitute/itmat-broker:staging",
         "setupDatabase": "nx run-many --projects=itmat-setup --target=setup",
-        "test": "nx affected --parallel=1 --target=test",
-        "test-all": "nx run-many --parallel=1 --target=test",
+        "test": "nx run-many --parallel=1 --target=test --maxWorkers=1",
+        "test-all": "yarn test",
         "lint": "eslint .",
         "lint-check": "nx affected --target=lint --parallel=1 && yarn lint",
         "lint-fix": "nx affected --target=lint --parallel=1 --fix && yarn lint --fix",
@@ -194,10 +197,10 @@
         "**/@types/express": "^4",
         "**/@types/express-serve-static-core": "^4",
         "**/dicer": "^0.3.1",
-        "**/jest-config": "^29",
-        "**/jest-resolve": "^29",
-        "**/jest-util": "^29",
-        "**/pretty-format": "^29",
+        "**/jest-config": "^30.0.0",
+        "**/jest-resolve": "^30.0.0",
+        "**/jest-util": "^30.0.0",
+        "**/pretty-format": "^30",
         "**/webpack": "^5"
     },
     "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"

@@ -97,7 +97,8 @@ if (global.hasMinio) { // eslint-disable-line no-undef
 
         test('Should verify WebAuthn registration and retrieve WebAuthn ID successfully', async () => {
             // Step 1: Get registration options
-            const registrationResponse = await user.post('/trpc/webauthn.webauthnRegister').send();
+            const registrationResponse = await user.post('/trpc/webauthn.webauthnRegister')
+                .set('Content-Type', 'application/json');
 
             expect(registrationResponse.status).toBe(200);
 

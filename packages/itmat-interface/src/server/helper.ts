@@ -74,6 +74,14 @@ export class APICalls {
             return await guestProtectionMiddleware(opts);
         });
         const baseProcedure = protectedProcedure.use(async (opts) => {
+            const { req } = opts.ctx;
+            if (req.method === 'POST' && req.headers['content-type']?.startsWith('multipart/form-data')) {
+                // Multer has consumed the request and attached the file stream adapters.
+                const input: unknown = req.body;
+                return opts.next({ getRawInput: async () => input });
+            }
+            return opts.next();
+        }).use(async (opts) => {
             return await tRPCBaseProcedureMilldeware(db, opts);
         });
         const router = t.router;

@@ -63,7 +63,7 @@ if (global.hasMinio) {
         user = request.agent(app);
         await connectAdmin(admin);
         await connectUser(user);
-    }, 10000);
+    });
 
     describe('FILE API', () => {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars

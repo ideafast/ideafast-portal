@@ -1,8 +1,7 @@
-FROM node:24-alpine
+FROM node:22.23.4-alpine
 
 LABEL author="Florian Guitton" email="f.guitton@imperial.ac.uk"
 
-RUN npm install -g npm
 RUN mkdir -p /itmat-base
 
 WORKDIR /itmat-base
