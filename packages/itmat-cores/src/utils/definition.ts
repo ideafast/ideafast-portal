@@ -1,1 +1,1 @@
-export const fileSizeLimit = 8589934592;
+export const fileSizeLimit = 25769803776;

@@ -38,7 +38,9 @@ export class ObjectStore {
             port: config.port,
             useSSL: config.useSSL,
             accessKey: config.accessKey,
-            secretKey: config.secretKey
+            secretKey: config.secretKey,
+            // Keep uploads with an unknown final size bounded to one multipart chunk.
+            partSize: 16 * 1024 * 1024
         });
         this.client = minioClient;
         return await minioClient.listBuckets();
@@ -83,13 +85,37 @@ export class ObjectStore {
         if (!bucketExists) {
             await this.client.makeBucket(lowerTargetBucket, this.config?.bucketRegion ?? '');
         }
-        // Copy the object
-        const conds = new Minio.CopyConditions();
-        const result = await this.client.copyObject(lowerTargetBucket, targetUri, `/${lowerSourceBucket}/${sourceUri}`, conds);
-        if (Object.hasOwn(result, 'Etag'))
-            return (result as Record<string, unknown>)?.['Etag'];
-        else
+        const sourceStat = await this.client.statObject(lowerSourceBucket, sourceUri);
+        const maxSingleCopySize = 5 * 1024 * 1024 * 1024;
+        // Avoid minio-js composeObject: it corrupts a single source when it
+        // internally splits that source into multiple copy parts.
+        const result = sourceStat.size <= maxSingleCopySize
+            ? await this.client.copyObject(
+                new Minio.CopySourceOptions({ Bucket: lowerSourceBucket, Object: sourceUri }),
+                new Minio.CopyDestinationOptions({ Bucket: lowerTargetBucket, Object: targetUri })
+            )
+            : await this.client.putObject(
+                lowerTargetBucket,
+                targetUri,
+                await this.client.getObject(lowerSourceBucket, sourceUri),
+                sourceStat.size
+            );
+        if (!result) {
+            throw new Error(`Failed to copy file "${sourceUri}" from bucket "${sourceBucket}" to bucket "${targetBucket}".`);
+        }
+        if (typeof result === 'object') {
+            if (Object.hasOwn(result, 'Etag'))
+                return (result as Record<string, unknown>)?.['Etag'];
             return (result as Record<string, unknown>)?.['etag'];
+        }
+        return undefined;
+    }
+
+    public async removeObject(bucketId: string, uri: string): Promise<void> {
+        if (!this.client) {
+            throw new Error('Connection failed.');
+        }
+        await this.client.removeObject(bucketId.toLowerCase(), uri);
     }
 
     public async downloadFile(buckerId: string, uri: string): Promise<Readable> {

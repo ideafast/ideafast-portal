@@ -6,13 +6,73 @@ import crypto from 'crypto';
 import { v4 as uuid } from 'uuid';
 import { enumConfigType, IStudyConfig, defaultSettings, enumFileTypes, IFile, enumFileCategories, CoreError } from '@itmat-broker/itmat-types';
 import { objStore } from '../objStore/objStore';
-import { PassThrough } from 'stream';
+import { Readable, Transform } from 'stream';
+import { pipeline } from 'stream/promises';
+import { Logger } from '@itmat-broker/itmat-commons';
 
 const fileCore = new FileCore(db, objStore);
 const permissionCore = new PermissionCore(db);
 const utilsCore = new UtilsCore();
 const dataTransformationCore = new DataTransformationCore(utilsCore);
 const dataCore = new DataCore(db, objStore, fileCore, permissionCore, utilsCore, dataTransformationCore);
+const studyFileStagingBucket = 'study-file-upload-staging';
+
+class UploadHttpError extends Error {
+    constructor(public readonly statusCode: number, public readonly responseBody: Record<string, unknown>) {
+        super(String((responseBody['error'] as Record<string, unknown> | undefined)?.['message'] ?? responseBody['message'] ?? 'Upload failed.'));
+    }
+}
+
+interface StagedFile {
+    fileName: string;
+    fileSize: number;
+    fileUri: string;
+    hash: string;
+}
+
+const removeUploadedObject = async (bucketId: string, uri: string) => {
+    try {
+        await objStore.removeObject(bucketId, uri);
+    } catch (error) {
+        Logger.error(`Failed to remove upload object ${bucketId}/${uri}: ${(error as Error).message}`);
+    }
+};
+
+export const streamFileToStaging = async (file: Readable, fileName: string): Promise<StagedFile> => {
+    const fileUri = uuid();
+    const hash = crypto.createHash('sha256');
+    let fileSize = 0;
+    const meteredStream = new Transform({
+        transform(chunk: Buffer, _encoding, callback) {
+            fileSize += chunk.length;
+            hash.update(chunk);
+            callback(null, chunk);
+        }
+    });
+    const streamPromise = pipeline(file, meteredStream).catch((error: Error) => {
+        throw new UploadHttpError(400, { message: 'Failed to upload file.', error: { message: error.message } });
+    });
+    const uploadPromise = objStore.uploadFile(meteredStream, studyFileStagingBucket, fileUri).catch((error: Error) => {
+        throw new UploadHttpError(500, { message: 'Error uploading file to MinIO', error: { message: error.message } });
+    });
+
+    try {
+        await Promise.all([streamPromise, uploadPromise]);
+    } catch (error) {
+        file.destroy();
+        meteredStream.destroy();
+        await Promise.allSettled([streamPromise, uploadPromise]);
+        await removeUploadedObject(studyFileStagingBucket, fileUri);
+        throw error;
+    }
+
+    return {
+        fileName,
+        fileSize,
+        fileUri,
+        hash: hash.digest('hex')
+    };
+};
 
 export const tokenAuthentication = async (token: string) => {
     if (token !== '') {
@@ -49,122 +109,145 @@ export const tokenAuthentication = async (token: string) => {
 };
 
 export async function uploadFileData(req, res) {
-    const busboy = Busboy({ headers: req.headers });
-    const variables: Record<string, string> = {}; // To hold form fields
-    let fileName: string;
-    let fileSize = 0;
-    const config = await db.collections.configs_collection.findOne({ type: enumConfigType.STUDYCONFIG, key: variables['studyId'] });
-    const fileConfig = config ? config.properties : defaultSettings.studyConfig;
-    const fileSizeLimit = (fileConfig as IStudyConfig).defaultMaximumFileSize;
-    const hash_ = crypto.createHash('sha256');
+    const variables: Record<string, string> = {};
+    let stagedFile: StagedFile | undefined;
+    let fileTask: Promise<StagedFile> | undefined;
+    let finalObjectCreated = false;
+    let uploadCommitted = false;
+    let fileEntry: IFile | undefined;
+    let activeFile: Readable | undefined;
 
-    busboy.on('field', (fieldname, val) => {
-        variables[fieldname] = val;  // Capture fields
-    });
-    let passThrough: PassThrough;
-    // Capture file stream and upload it immediately
-    busboy.on('file', (fieldname, file, filename) => {
-        fileName = filename.filename; // Store the filename
-        const fileUri = uuid(); // Generate unique file identifier
-
-        passThrough = new PassThrough(); // Create a passthrough stream
-
-        // Start the MinIO upload using the PassThrough stream
-        // const minioUploadPromise = objStore.uploadFile(passThrough, variables['studyId'], fileUri, fileSize);
-
-        // Listen for data chunks to calculate size and hash while piping to MinIO
-        file.on('data', (chunk) => {
-            fileSize += chunk.length; // Increment file size
-            hash_.update(chunk); // Update the hash with the chunk of data
-
-            if (fileSize > fileSizeLimit) {
-                file.destroy(); // Stop the stream if the file size exceeds the limit
-                passThrough.end(); // End the passThrough to stop MinIO upload
-                res.status(400).json({ message: 'File size exceeds the limit' });
-                return;
-            }
-
-            // Pass the chunk to MinIO via the PassThrough stream
-            passThrough.write(chunk);
-        });
-
-        // When the file stream ends
-        file.on('end', () => {
-            (async () => {
-                try {
-                    // Upload file to MinIO
-                    const minioUploadPromise = objStore.uploadFile(passThrough, variables['studyId'], fileUri, fileSize);
-                    passThrough.end(); // Signal the end of the PassThrough stream
-                    await minioUploadPromise;
-                } catch (err: unknown) {
-                    // Return a response with the error message
-                    return res.status(500).json({ message: 'Error uploading file to MinIO', error: { message: (err as CoreError).message } });
-                }
-
-                // Hash the file and proceed with the file entry creation
-                const hashString = hash_.digest('hex');
-                const fileType = (fileName.split('.').pop() as string).toUpperCase();
-                if (!Object.keys(enumFileTypes).includes(fileType)) {
-                    return res.status(400).json({ error: { message: `File type ${fileType} not supported.` } });
-                }
-
-                // Create the file entry object
-                const fileEntry: IFile = {
-                    id: uuid(),
-                    studyId: variables['studyId'],
-                    userId: null,
-                    fileName: fileName,
-                    fileSize: fileSize,
-                    description: variables['description'],
-                    uri: fileUri,
-                    hash: hashString,
-                    fileType: fileType as enumFileTypes,
-                    fileCategory: enumFileCategories.STUDY_DATA_FILE,
-                    properties: variables['properties'] ? JSON.parse(variables['properties']) : {},
-                    sharedUsers: [],
-                    life: {
-                        createdTime: Date.now(),
-                        createdUser: req.user.id,
-                        deletedTime: null,
-                        deletedUser: null
-                    },
-                    metadata: {}
-                };
-                try {
-
-                    // Perform any additional processing and insert file data into the database
-                    const response = await dataCore.uploadFileDataWithFileEntry(req.user,
-                        variables['studyId'],
-                        variables['fieldId'],
-                        fileEntry,
-                        JSON.stringify({
-                            ...JSON.parse(variables['properties'] ?? '{}'),
-                            FileName: fileName
-                        })
-                    );
-
-                    await db.collections.files_collection.insertOne(fileEntry);
-                    // Send success response
-                    res.status(200).json({ result: { data: response } });
-                } catch (err: unknown) {
-                    // Handle any error during processing or insertion
-                    return res.status(400).json({ message: 'Failed to upload file.', error: { message: (err as CoreError).message } });
-                }
-            })().catch((err) => {
-                return res.status(500).json({ message: 'Internal server error.', error: { message: (err as CoreError).message } });
+    try {
+        const busboy = Busboy({ headers: req.headers });
+        const parsingPromise = new Promise<void>((resolve, reject) => {
+            busboy.on('field', (fieldname, val) => {
+                variables[fieldname] = val;
             });
+            busboy.on('file', (_fieldname, file: Readable, { filename }) => {
+                if (fileTask) {
+                    file.resume();
+                    reject(new UploadHttpError(400, { message: 'Only one file can be uploaded at a time.' }));
+                    return;
+                }
+                activeFile = file;
+                fileTask = streamFileToStaging(file, filename);
+                void fileTask.catch(reject);
+            });
+            busboy.once('error', (error) => {
+                const parsingError = error instanceof Error ? error : new Error(String(error));
+                activeFile?.destroy(parsingError);
+                reject(parsingError);
+            });
+            busboy.once('finish', resolve);
+            req.once('aborted', () => {
+                const error = new UploadHttpError(400, { message: 'Upload request was aborted.' });
+                activeFile?.destroy(error);
+                reject(error);
+            });
+            req.pipe(busboy);
         });
 
-        file.on('error', (err) => {
-            return res.status(400).json({ message: 'Failed to upload file.', error: { message: (err as CoreError).message } });
-        });
-    });
+        await parsingPromise;
+        if (!fileTask) {
+            throw new UploadHttpError(400, { message: 'No file was uploaded.' });
+        }
+        stagedFile = await fileTask;
 
-    // When Busboy finishes processing
-    busboy.on('finish', () => {
-        // No need to respond here; we already send the response after upload completion
-    });
+        const config = await db.collections.configs_collection.findOne({ type: enumConfigType.STUDYCONFIG, key: variables['studyId'] });
+        const fileConfig = config ? config.properties : defaultSettings.studyConfig;
+        const fileSizeLimit = (fileConfig as IStudyConfig).defaultMaximumFileSize;
+        if (stagedFile.fileSize > fileSizeLimit) {
+            throw new UploadHttpError(400, { message: 'File size exceeds the limit' });
+        }
 
-    // Pipe the request into Busboy to handle the file stream
-    req.pipe(busboy);
+        const fileType = (stagedFile.fileName.split('.').pop() ?? '').toUpperCase();
+        if (!Object.keys(enumFileTypes).includes(fileType)) {
+            throw new UploadHttpError(400, { error: { message: `File type ${fileType} not supported.` } });
+        }
+        if (!req.user) {
+            throw new UploadHttpError(400, { message: 'Failed to upload file.', error: { message: 'User is not logged in.' } });
+        }
+
+        let properties: Record<string, unknown>;
+        try {
+            properties = JSON.parse(variables['properties'] ?? '{}') as Record<string, unknown>;
+        } catch (error) {
+            throw new UploadHttpError(400, { message: 'Failed to upload file.', error: { message: (error as Error).message } });
+        }
+
+        fileEntry = {
+            id: uuid(),
+            studyId: variables['studyId'],
+            userId: null,
+            fileName: stagedFile.fileName,
+            fileSize: stagedFile.fileSize,
+            description: variables['description'],
+            uri: stagedFile.fileUri,
+            hash: stagedFile.hash,
+            fileType: fileType as enumFileTypes,
+            fileCategory: enumFileCategories.STUDY_DATA_FILE,
+            properties,
+            sharedUsers: [],
+            life: {
+                createdTime: Date.now(),
+                createdUser: req.user.id,
+                deletedTime: null,
+                deletedUser: null
+            },
+            metadata: {}
+        };
+
+        try {
+            await objStore.copyObject(studyFileStagingBucket, stagedFile.fileUri, variables['studyId'], stagedFile.fileUri);
+            finalObjectCreated = true;
+        } catch (error) {
+            throw new UploadHttpError(500, { message: 'Error uploading file to MinIO', error: { message: (error as Error).message } });
+        }
+
+        const response = await dataCore.uploadFileDataWithFileEntry(
+            req.user,
+            variables['studyId'],
+            variables['fieldId'],
+            fileEntry,
+            JSON.stringify({ ...properties, FileName: stagedFile.fileName })
+        );
+        await db.collections.files_collection.insertOne(fileEntry);
+        await removeUploadedObject(studyFileStagingBucket, stagedFile.fileUri);
+        uploadCommitted = true;
+        res.status(200).json({ result: { data: response } });
+    } catch (error) {
+        if (!uploadCommitted && fileEntry) {
+            try {
+                await db.collections.data_collection.deleteMany({
+                    studyId: variables['studyId'],
+                    fieldId: variables['fieldId'],
+                    value: fileEntry.id
+                });
+                await db.collections.files_collection.deleteOne({ id: fileEntry.id });
+            } catch (cleanupError) {
+                Logger.error(`Failed to roll back upload database entries for ${fileEntry.id}: ${(cleanupError as Error).message}`);
+            }
+        }
+        if (!uploadCommitted && finalObjectCreated && stagedFile) {
+            await removeUploadedObject(variables['studyId'], stagedFile.fileUri);
+        }
+        if (res.headersSent) {
+            throw error;
+        }
+        if (error instanceof UploadHttpError) {
+            res.status(error.statusCode).json(error.responseBody);
+            return;
+        }
+        res.status(400).json({ message: 'Failed to upload file.', error: { message: (error as CoreError).message } });
+    } finally {
+        if (fileTask) {
+            const result = await Promise.allSettled([fileTask]);
+            if (!stagedFile && result[0].status === 'fulfilled') {
+                stagedFile = result[0].value;
+            }
+        }
+        if (stagedFile) {
+            await removeUploadedObject(studyFileStagingBucket, stagedFile.fileUri);
+        }
+    }
 }

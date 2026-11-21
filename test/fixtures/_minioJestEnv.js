@@ -104,12 +104,8 @@ class CustomEnvironment {
     async setup() {
         this.global.hasMinio = false;
         if (this.docblockPragmas.with === 'Minio') {
-            const containerSetup = await minioContainerSetup().then(res => {
-                this.global.hasMinio = true;
-                return res;
-            }).catch(() => {
-                this.global.hasMinio = false;
-            });
+            const containerSetup = await minioContainerSetup();
+            this.global.hasMinio = true;
 
             if (containerSetup) {
                 const [minioContainer, minioPort] = containerSetup;

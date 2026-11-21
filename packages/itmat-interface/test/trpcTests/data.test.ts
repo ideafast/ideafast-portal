@@ -1322,7 +1322,27 @@ if (global.hasMinio) {
             const dataObj = await db.collections.data_collection.findOne({});
             expect(response.body.result.data.id).toBe(fileObj.id);
             expect(dataObj?.value).toBe(fileObj.id);
+            await expect(objStore.downloadFile('study-file-upload-staging', fileObj.uri)).rejects.toThrow();
 
+        });
+        test('Upload a file data with metadata before the file', async () => {
+            await authorisedUser.post('/trpc/data.createStudyField')
+                .send({
+                    studyId: study.id,
+                    fieldName: 'Test Field 1',
+                    fieldId: '1',
+                    description: '',
+                    dataType: enumDataTypes.FILE
+                });
+            const filePath = path.join(__dirname, '../filesForTests/I7N3G6G-MMM7N3G6G-20200704-20200721.txt');
+            const response = await authorisedUser.post('/trpc/data.uploadStudyFileData')
+                .field('studyId', study.id)
+                .field('fieldId', '1')
+                .field('properties', JSON.stringify({ SubjectId: '1A', VisitId: '1' }))
+                .attach('file', filePath);
+
+            expect(response.status).toBe(200);
+            expect(response.body.result.data.id).toBeDefined();
         });
         test('Upload a file data (study does not exist)', async () => {
             await authorisedUser.post('/trpc/data.createStudyField')
