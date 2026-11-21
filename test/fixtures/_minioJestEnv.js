@@ -28,6 +28,9 @@ class CustomEnvironment {
         global.Headers = Headers;
         global.Request = Request;
         global.Response = Response;
+        global.ReadableStream = ReadableStream;
+        global.TransformStream = TransformStream;
+        global.WritableStream = WritableStream;
 
         // URL and URLSearchParams are global in Node >= 10
         if (typeof URL !== 'undefined' && typeof URLSearchParams !== 'undefined') {
