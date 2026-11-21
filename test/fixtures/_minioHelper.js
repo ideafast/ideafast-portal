@@ -6,14 +6,14 @@ const importDependencies = async () => {
     const chalk = (await import('chalk')).default;
     return { fetch, crossSpawn, getPort, uuid, chalk };
 }
-// const MINIO_DOCKER_VERSION = '@sha256:4a1bbd112c0c09fc3a07ae84f5e5a4501dbc7bf8d637a5ddd0df76a425630043';
-const MINIO_DOCKER_VERSION = ':latest';
+// Docker Hub no longer serves the upstream community image.
+const MINIO_TEST_IMAGE = 'ghcr.io/coollabsio/minio:RELEASE.2025-10-15T17-29-55Z@sha256:69b55a1c1c5dc285ce04db96689f5b2102317fc77a50680a1874ca6efd1c87f9';
 const minioHelpers = {
     minioContainerSetup: async (container, port) => {
         const { chalk, crossSpawn, fetch, getPort, uuid } = await importDependencies();
         const _port = await getPort({ port });
         const _container = container ?? uuid();
-        const image = `minio/minio${MINIO_DOCKER_VERSION}`;
+        const image = MINIO_TEST_IMAGE;
         const cached = crossSpawn.sync('docker', ['image', 'inspect', image], { stdio: 'ignore' });
         if (cached.status !== 0) {
             const pull = crossSpawn.sync('docker', ['pull', image], { stdio: 'inherit' });
