@@ -3910,12 +3910,10 @@
   resolved "https://registry.yarnpkg.com/@rtsao/scc/-/scc-1.1.0.tgz#927dd2fae9bc3361403ac2c7a00c32ddce9ad7e8"
   integrity sha512-zt6OdqaDoOnJ1ZYsCYGt9YmWzDXl4vQdKTyJev62gFhRGKdx7mcT54V9KIjg+d2wi9EXsPvAPKe7i7WjfVWB8g==
 
-"@simplewebauthn/browser@^10.0.0":
-  version "10.0.0"
-  resolved "https://registry.yarnpkg.com/@simplewebauthn/browser/-/browser-10.0.0.tgz#8305a57dacb35ab6a71a8b670c699ee7ef1c11c4"
-  integrity sha512-hG0JMZD+LiLUbpQcAjS4d+t4gbprE/dLYop/CkE01ugU/9sKXflxV5s0DRjdz3uNMFecatRfb4ZLG3XvF8m5zg==
-  dependencies:
-    "@simplewebauthn/types" "^10.0.0"
+"@simplewebauthn/browser@^13.2.2":
+  version "13.2.2"
+  resolved "https://registry.yarnpkg.com/@simplewebauthn/browser/-/browser-13.2.2.tgz#4cde38c4c6969a039c23c2a3d931ecb69f937910"
+  integrity sha512-FNW1oLQpTJyqG5kkDg5ZsotvWgmBaC6jCHR7Ej0qUNep36Wl9tj2eZu7J5rP+uhXgHaLk+QQ3lqcw2vS5MX1IA==
 
 "@simplewebauthn/server@^10.0.1":
   version "10.0.1"
